@@ -1,0 +1,23 @@
+[package]
+name = "semgrep-core"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0 OR MIT"
+description = "Core engine for semgrep: keyword, BM25, and semantic search over file trees"
+
+[dependencies]
+anny = { workspace = true }
+ese = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+postcard = { workspace = true }
+rayon = { workspace = true }
+ignore = { workspace = true }
+grep-regex = { workspace = true }
+grep-searcher = { workspace = true }
+grep-matcher = { workspace = true }
+memmap2 = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

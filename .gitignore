@@ -1,0 +1,5 @@
+/target
+.semgrep/
+bench/corpora/
+bench/results/
+eval/data/

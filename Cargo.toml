@@ -1,0 +1,31 @@
+[workspace]
+resolver = "2"
+members = ["crates/semgrep-core", "crates/semgrep"]
+
+[workspace.dependencies]
+anny = { path = "../anny" }
+ese = { path = "../ese", features = ["rayon"] }
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+postcard = { version = "1", features = ["alloc"] }
+rayon = "1"
+ignore = "0.4"
+grep-regex = "0.1"
+grep-searcher = "0.1"
+grep-matcher = "0.1"
+clap = { version = "4", features = ["derive"] }
+memmap2 = "0.9"
+libc = "0.2"
+
+[profile.release]
+lto = "thin"
+codegen-units = 4
+
+# keep hot crates fast in dev so tests on real corpora are usable
+[profile.dev.package.ese]
+opt-level = 2
+[profile.dev.package.anny]
+opt-level = 2
+[profile.dev.package.semgrep-core]
+opt-level = 2

@@ -1,0 +1,17 @@
+[package]
+name = "semgrep"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0 OR MIT"
+description = "semgrep: a semantic grep for agents"
+
+[[bin]]
+name = "semgrep"
+path = "src/main.rs"
+
+[dependencies]
+semgrep-core = { path = "../semgrep-core" }
+anyhow = { workspace = true }
+clap = { workspace = true }
+serde_json = { workspace = true }
+libc = { workspace = true }
