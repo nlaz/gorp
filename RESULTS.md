@@ -36,7 +36,10 @@ including process start and index load:
 VS Code / Wikipedia warm queries: ≤ 20 ms in every mode.
 
 Cold (no index, single streaming pass over the corpus), kernel: semantic
-20.7s / 154 MB, bm25 42.7s / 916 MB, hybrid 59.2s. (Cold costs rose ~10%
+20.7s / 154 MB, bm25 42.7s / 916 MB, hybrid 59.2s. **Superseded:** these
+predate the parallel corpus pass and index-as-cache (RESEARCH.md §8.2).
+Re-measured 2026-07-28, hybrid + write-through: whole kernel 32s / 1.3 GB RSS,
+kernel `drivers/net/` 3.9s, VS Code repo 2.5s — then 90ms / 20ms / 10ms warm. (Cold costs rose ~10%
 vs v1: path-augmented chunk text adds tokens to embed/tokenize — the price
 of the quality gains in §3.) The same NL intents
 keyword-ized for the grep family ("nl fallback"): rg 1.7s, ugrep 3.0s,
