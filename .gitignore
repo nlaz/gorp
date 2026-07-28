@@ -3,3 +3,4 @@
 bench/corpora/
 bench/results/
 eval/data/
+__pycache__/

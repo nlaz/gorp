@@ -17,12 +17,22 @@ design; README.md for usage.
 ## Conventions
 
 - Build: `cargo build --release` (first build downloads ese weights; needs
-  network once). Test: `cargo test` (26 tests incl. e2e fixture corpus).
+  network once). Test: `cargo test` (34 tests incl. e2e fixture corpus and
+  cache-transparency tests).
 - Chunk ids are assigned in walk order and must stay in lockstep between the
-  chunk table, BM25 `add_doc` order, and `emb.bin` row order.
+  chunk table, BM25 add order, and `emb.bin` row order. The pass is
+  parallel (`corpus::process_file` on rayon workers) with a serial in-order
+  fold that preserves this.
+- The index is a cache (RESEARCH.md §8): cold ranked searches write-through
+  to `~/.cache/semgrep` (override `SEMGREP_CACHE_DIR`; tests and the eval
+  harness isolate it). `index::discover` resolves local/.semgrep, ancestor
+  dirs (git-style walk-up), then cache entries by longest prefix.
+  Read-repair validation is throttled by `SEMGREP_CACHE_TTL_SECS`
+  (default 60; 0 = always validate). `--no-index` never reads or writes.
 - `bench/run.py` invokes competitors by absolute path (`/usr/bin/grep`,
   `/opt/homebrew/bin/*`) because dev shells wrap `grep`.
-- Never leave a `.semgrep/` dir in sibling repos after smoke tests.
+- Smoke tests in sibling repos: set `SEMGREP_CACHE_DIR` to a temp dir (a
+  plain ranked search now writes a cache entry for that scope).
 - The benchmark corpora live in `bench/corpora/` (~5 GB with the linux index;
   refetch with `bench/fetch-corpora.sh`, vscode needs GIT_LFS_SKIP_SMUDGE=1).
 

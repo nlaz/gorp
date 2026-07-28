@@ -23,6 +23,107 @@ pub fn embed_query(query: &str) -> [f32; EMBED_DIM] {
     ese::encode_single(query)
 }
 
+// ---------------------------------------------------------------------------
+// Token-level embeddings (RESEARCH.md §9): ese pools by uniform mean, which
+// lets boilerplate tokens drown identifiers. These helpers re-pool with
+// SIF-style rarity weights and score candidates by MaxSim late interaction.
+// ---------------------------------------------------------------------------
+
+/// SIF smoothing constant (Arora et al.: a/(a + p(w)), a ≈ 1e-3).
+pub const SIF_A: f64 = 1e-3;
+
+/// Corpus token statistics for SIF weighting, stored in the index.
+#[derive(Default, serde::Serialize, serde::Deserialize)]
+pub struct SifStats {
+    pub freqs: std::collections::HashMap<String, u64>,
+    pub total: u64,
+}
+
+impl SifStats {
+    /// a/(a + p(w)); unseen tokens get the maximum weight (rare = strong).
+    #[inline]
+    pub fn weight(&self, token: &str) -> f32 {
+        let p = self
+            .freqs
+            .get(token)
+            .map(|&c| c as f64 / self.total.max(1) as f64)
+            .unwrap_or(0.0);
+        (SIF_A / (SIF_A + p)) as f32
+    }
+
+    /// Count `text`'s tokens into the stats (build-time pass 1).
+    pub fn count(&mut self, text: &str) {
+        ese::for_each_token(text, |tok| {
+            *self.freqs.entry(tok.to_string()).or_insert(0) += 1;
+            self.total += 1;
+        });
+    }
+
+    pub fn merge(&mut self, other: SifStats) {
+        for (t, c) in other.freqs {
+            *self.freqs.entry(t).or_insert(0) += c;
+        }
+        self.total += other.total;
+    }
+}
+
+/// SIF-weighted pooling: Σ w(tok)·v(tok) / Σ w(tok). Rare tokens dominate;
+/// boilerplate nearly vanishes. Falls back to the zero vector for token-less
+/// text (same contract as `encode_single` on empty input).
+pub fn embed_sif(text: &str, sif: &SifStats) -> [f32; EMBED_DIM] {
+    let mut out = [0.0f32; EMBED_DIM];
+    let mut wsum = 0.0f32;
+    ese::for_each_token_vector(text, |tok, v| {
+        let w = sif.weight(tok);
+        wsum += w;
+        for (o, x) in out.iter_mut().zip(v.iter()) {
+            *o += w * x;
+        }
+    });
+    if wsum > 0.0 {
+        for o in out.iter_mut() {
+            *o /= wsum;
+        }
+    }
+    out
+}
+
+/// Per-word unit-normalized vectors, with each word's SIF weight when stats
+/// are given (uniform weight 1.0 otherwise). Zero-vector words are skipped.
+pub fn token_vectors(text: &str, sif: Option<&SifStats>) -> Vec<(f32, Vec<f32>)> {
+    let mut out = Vec::new();
+    ese::for_each_token_vector(text, |tok, v| {
+        let mut v = v.to_vec();
+        normalize(&mut v);
+        if v.iter().any(|&x| x != 0.0) {
+            out.push((sif.map_or(1.0, |s| s.weight(tok)), v));
+        }
+    });
+    out
+}
+
+/// MaxSim late-interaction score: each query token finds its best-matching
+/// chunk token; the (weighted) sum is the score. Higher is better. One strong
+/// identifier match can't be averaged away by boilerplate — the failure mode
+/// of pooled single-vector scoring.
+pub fn maxsim(query_toks: &[(f32, Vec<f32>)], doc_toks: &[(f32, Vec<f32>)]) -> f32 {
+    let mut score = 0.0f32;
+    for (w, q) in query_toks {
+        let mut best = f32::NEG_INFINITY;
+        for (_, d) in doc_toks {
+            // Unit vectors: dot = cosine similarity.
+            let sim: f32 = q.iter().zip(d.iter()).map(|(a, b)| a * b).sum();
+            if sim > best {
+                best = sim;
+            }
+        }
+        if best.is_finite() {
+            score += w * best;
+        }
+    }
+    score
+}
+
 /// Cosine distance (1 - cos). Lower is better; range [0, 2].
 #[inline]
 pub fn distance(a: &[f32], b: &[f32]) -> f32 {

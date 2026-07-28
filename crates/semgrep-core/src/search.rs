@@ -42,6 +42,12 @@ pub struct SearchOptions {
     pub diversify: bool,
     /// MMR lambda: 1.0 = pure relevance, 0.0 = pure diversity.
     pub mmr_lambda: f32,
+    /// PRF (pseudo-relevance feedback): expand the query with this many
+    /// discriminative terms from the first pass's top hits, then re-rank
+    /// lexically (RESEARCH.md §9.3). 0 = off.
+    pub prf_terms: usize,
+    /// Rerank the candidate pool by MaxSim late interaction (§9.2).
+    pub rerank_maxsim: bool,
     pub params: ChunkParams,
     pub keyword: KeywordOptions,
 }
@@ -57,6 +63,8 @@ impl Default for SearchOptions {
             sem_weight: 0.2,
             diversify: true,
             mmr_lambda: 0.75,
+            prf_terms: 0,
+            rerank_maxsim: false,
             params: ChunkParams::default(),
             keyword: KeywordOptions::default(),
         }
@@ -78,6 +86,10 @@ pub struct SearchHit {
 pub struct SearchReport {
     pub used_index: bool,
     pub used_hnsw: bool,
+    /// This query's cold pass was persisted as a cache entry (write-through).
+    pub wrote_cache: bool,
+    /// Files repaired-around this query (read-repair overlay), or the full
+    /// stale count when `check_stale` was requested.
     pub stale_files: usize,
     pub n_chunks_considered: usize,
     pub walk_ms: u128,
@@ -114,20 +126,170 @@ pub fn search(root: &Path, query: &str, opts: &SearchOptions) -> Result<SearchRe
         });
     }
 
-    let mut result = if !opts.no_index && index::exists(root) {
-        search_indexed(root, query, opts)?
+    // The index is a cache (RESEARCH.md §8): resolve one for this scope —
+    // local, ancestor, or central — and on a full miss, write-through: the
+    // cold pass is the same work as a build, so persist it and answer warm.
+    let mut wrote_cache = false;
+    let discovered = if opts.no_index {
+        None
     } else {
-        search_streaming(root, query, opts)?
+        index::discover(root).or_else(|| {
+            let canon = std::fs::canonicalize(root).ok()?;
+            let build = index::BuildOptions { params: opts.params, hnsw: false, sif: false };
+            index::write_cache_entry(&canon, &build, |_, _| {}).ok()?;
+            wrote_cache = true;
+            index::discover(root)
+        })
     };
+
+    let mut result = match discovered {
+        Some(d) => search_indexed(&d, query, opts)?,
+        None => search_streaming(root, query, opts)?,
+    };
+    result.report.wrote_cache = wrote_cache;
     result.report.total_ms = t0.elapsed().as_millis();
     Ok(result)
+}
+
+// ---------------------------------------------------------------------------
+// read-repair overlay: correctness against a possibly-stale/partial cache
+// ---------------------------------------------------------------------------
+
+/// In-memory index over the files the cache doesn't know correctly: changed,
+/// new, or never-covered. Fused with the warm base at rank time so answers
+/// are always true of the current tree (RESEARCH.md §8 "read-repair", §8.1
+/// "lazy fill" — same mechanism).
+struct Delta {
+    chunks: Vec<Chunk>,
+    /// Index-root-relative path per delta chunk.
+    paths: Vec<String>,
+    /// Normalized f32 embeddings per delta chunk.
+    vecs: Vec<Vec<f32>>,
+    bm25: Bm25Index,
+}
+
+struct Repair {
+    /// Base file_ids whose chunks must not be served (changed or deleted).
+    tombstones: HashSet<u32>,
+    delta: Delta,
+    n_dirty: usize,
+}
+
+fn repair_ttl_secs() -> u64 {
+    static TTL: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
+    *TTL.get_or_init(|| {
+        std::env::var("SEMGREP_CACHE_TTL_SECS").ok().and_then(|v| v.parse().ok()).unwrap_or(60)
+    })
+}
+
+/// Throttled scoped validation: diff the live tree under the query scope
+/// against the index's file table; build the overlay if anything drifted.
+fn repair_scope(
+    d: &index::Discovered,
+    idx: &index::LoadedIndex,
+    stages: &mut Vec<(String, f64)>,
+) -> Option<Repair> {
+    let marker = d.index_dir.join("last_check");
+    let ttl = repair_ttl_secs();
+    if ttl > 0 {
+        let fresh = std::fs::metadata(&marker)
+            .and_then(|m| m.modified())
+            .ok()
+            .and_then(|t| t.elapsed().ok())
+            .is_some_and(|age| age.as_secs() < ttl);
+        if fresh {
+            return None;
+        }
+    }
+    let _ = std::fs::write(&marker, b"");
+
+    let t0 = Instant::now();
+    let scope_abs =
+        if d.prefix.is_empty() { d.root.clone() } else { d.root.join(&d.prefix) };
+    let live = corpus::walk(&scope_abs, &idx.meta.params).ok()?;
+    let under_prefix = |path: &str| {
+        d.prefix.is_empty() || path.strip_prefix(&d.prefix).is_some_and(|r| r.starts_with('/'))
+    };
+    let mut known: HashMap<&str, (u32, u64, u64)> = idx
+        .meta
+        .files
+        .iter()
+        .enumerate()
+        .filter(|(_, f)| under_prefix(&f.path))
+        .map(|(id, f)| (f.path.as_str(), (id as u32, f.size, f.mtime)))
+        .collect();
+    let mut changed: Vec<String> = Vec::new();
+    let mut tombstones: HashSet<u32> = HashSet::new();
+    let mut n_modified = 0usize;
+    for f in &live {
+        let irel = if d.prefix.is_empty() {
+            f.path.clone()
+        } else {
+            format!("{}/{}", d.prefix, f.path)
+        };
+        match known.remove(irel.as_str()) {
+            Some((_, size, mtime)) if size == f.size && mtime == f.mtime => {}
+            Some((id, _, _)) => {
+                n_modified += 1;
+                tombstones.insert(id);
+                changed.push(irel);
+            }
+            None => changed.push(irel),
+        }
+    }
+    // Files the index knows under this scope that no longer exist.
+    for (_, (id, _, _)) in known {
+        tombstones.insert(id);
+    }
+    stages.push(("repair:walk".into(), t0.elapsed().as_secs_f64() * 1e3));
+    if changed.is_empty() && tombstones.is_empty() {
+        return None;
+    }
+
+    let t0 = Instant::now();
+    let mut delta = Delta {
+        chunks: Vec::new(),
+        paths: Vec::new(),
+        vecs: Vec::new(),
+        bm25: Bm25Index::new(),
+    };
+    let mut texts: Vec<String> = Vec::new();
+    for path in &changed {
+        let Some(text) = corpus::read_text(&d.root.join(path)) else { continue };
+        for (chunk, slice) in corpus::chunk_lines(0, &text, &idx.meta.params) {
+            let doc = corpus::doc_text(path, slice);
+            delta.bm25.add_doc(&doc);
+            delta.chunks.push(chunk);
+            delta.paths.push(path.clone());
+            texts.push(doc);
+        }
+    }
+    delta.bm25.finalize();
+    // Delta vectors must live in the same space as the base matrix.
+    let mut vecs: Vec<[f32; crate::EMBED_DIM]> = match &idx.sif {
+        Some(s) => texts.iter().map(|t| semantic::embed_sif(t, s)).collect(),
+        None => ese::encode(texts.iter()),
+    };
+    for v in &mut vecs {
+        semantic::normalize(v);
+    }
+    delta.vecs = vecs.into_iter().map(|v| v.to_vec()).collect();
+    stages.push(("repair:delta".into(), t0.elapsed().as_secs_f64() * 1e3));
+    // Each drifted file counted once: new + modified (in `changed`) plus
+    // deletions (tombstoned but never seen live).
+    let n_dirty = changed.len() + (tombstones.len() - n_modified);
+    Some(Repair { tombstones, delta, n_dirty })
 }
 
 // ---------------------------------------------------------------------------
 // indexed path
 // ---------------------------------------------------------------------------
 
-fn search_indexed(root: &Path, query: &str, opts: &SearchOptions) -> Result<SearchResult> {
+fn search_indexed(
+    d: &index::Discovered,
+    query: &str,
+    opts: &SearchOptions,
+) -> Result<SearchResult> {
     let pool = FUSION_POOL.max(opts.k);
     // A one-shot CLI process pays full graph deserialization per query:
     // ~20 s for a kernel-scale (3.1 GB) hnsw.bin, vs ~3.5 s to brute-force
@@ -135,7 +297,7 @@ fn search_indexed(root: &Path, query: &str, opts: &SearchOptions) -> Result<Sear
     // it when it's small enough to win. (A persistent server mode amortizes
     // this and should always use the graph.)
     const HNSW_LOAD_CAP_BYTES: u64 = 1 << 30;
-    let hnsw_small_enough = std::fs::metadata(index::index_dir(root).join("hnsw.bin"))
+    let hnsw_small_enough = std::fs::metadata(d.index_dir.join("hnsw.bin"))
         .map(|m| m.len() < HNSW_LOAD_CAP_BYTES)
         .unwrap_or(false);
     let needs = index::LoadNeeds {
@@ -146,7 +308,7 @@ fn search_indexed(root: &Path, query: &str, opts: &SearchOptions) -> Result<Sear
             && hnsw_small_enough,
     };
     let t_load = Instant::now();
-    let idx = LoadedIndex::load(root, needs)?;
+    let idx = LoadedIndex::load_dir(&d.index_dir, &d.root, needs)?;
     let walk_ms = t_load.elapsed().as_millis();
 
     let ms = |t: Instant| t.elapsed().as_secs_f64() * 1e3;
@@ -158,24 +320,106 @@ fn search_indexed(root: &Path, query: &str, opts: &SearchOptions) -> Result<Sear
         ("load:hnsw".into(), idx.timings.hnsw_ms),
     ];
 
+    // Read-repair overlay: tombstone drifted files out of the warm base and
+    // rank their current content (plus never-covered files) in memory.
+    let repair = repair_scope(d, &idx, &mut stages);
+    let n_base = idx.chunks.len() as u32;
+    let tombstoned = |id: u32| {
+        repair
+            .as_ref()
+            .is_some_and(|r| r.tombstones.contains(&idx.chunks[id as usize].file_id))
+    };
+
+    // Map a ranked id (base row or delta overlay) to its chunk + path.
+    let resolve = |id: u32| -> (Chunk, String) {
+        if id < n_base {
+            let c = idx.chunks[id as usize];
+            (c, idx.file(&c).path.clone())
+        } else {
+            let r = repair.as_ref().expect("delta ids only exist with a repair");
+            let j = (id - n_base) as usize;
+            (r.delta.chunks[j], r.delta.paths[j].clone())
+        }
+    };
+
+    let bm25_rank = |q: &str| -> Vec<(u32, f32)> {
+        match (&idx.bm25, opts.mode) {
+            (Some(b), Mode::Bm25 | Mode::Hybrid) => {
+                let mut base: Vec<(u32, f32)> =
+                    b.query(q, pool).into_iter().filter(|&(id, _)| !tombstoned(id)).collect();
+                if let Some(r) = &repair {
+                    // Delta BM25 idf differs slightly from the base corpus
+                    // stats; close enough to merge for a small overlay.
+                    base.extend(
+                        r.delta.bm25.query(q, pool).into_iter().map(|(i, s)| (n_base + i, s)),
+                    );
+                    base.sort_unstable_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+                    base.truncate(pool);
+                }
+                base
+            }
+            _ => Vec::new(),
+        }
+    };
+
     let t_rank = Instant::now();
     let t0 = Instant::now();
-    let bm25_ranked: Vec<(u32, f32)> = match (&idx.bm25, opts.mode) {
-        (Some(b), Mode::Bm25 | Mode::Hybrid) => b.query(query, pool),
-        _ => Vec::new(),
-    };
+    let mut bm25_ranked = bm25_rank(query);
     stages.push(("rank:bm25".into(), ms(t0)));
+
+    // PRF: mine the lexical pass's top hits for discriminative terms (high
+    // tf in hits, low df in corpus), expand the query, re-rank lexically.
+    // "LLM query expansion without the LLM" — the NL query only has to land
+    // near the target once; the neighborhood's vocabulary does the rest.
+    if opts.prf_terms > 0 {
+        if let Some(b) = &idx.bm25 {
+            let t0 = Instant::now();
+            let query_toks: HashSet<String> = tokenize::tokens(query).into_iter().collect();
+            let mut tf: HashMap<String, f32> = HashMap::new();
+            for &(id, _) in bm25_ranked.iter().take(10) {
+                let (chunk, path) = resolve(id);
+                let Some(text) = corpus::chunk_text_rel(&d.root, &path, &chunk) else { continue };
+                tokenize::for_each_token(&text, |tok| {
+                    if !query_toks.contains(tok) && tok.len() >= 3 {
+                        *tf.entry(tok.to_string()).or_insert(0.0) += 1.0;
+                    }
+                });
+            }
+            let n_docs = b.n_docs() as f32;
+            let mut scored: Vec<(String, f32)> = tf
+                .into_iter()
+                .map(|(t, f)| {
+                    let df = b.df(&t).max(1) as f32;
+                    let idf = ((n_docs - df + 0.5) / (df + 0.5) + 1.0).ln();
+                    (t, f * idf)
+                })
+                .collect();
+            scored.sort_unstable_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+            let expansion: Vec<String> =
+                scored.into_iter().take(opts.prf_terms).map(|(t, _)| t).collect();
+            if !expansion.is_empty() {
+                let expanded = format!("{query} {}", expansion.join(" "));
+                bm25_ranked = bm25_rank(&expanded);
+            }
+            stages.push(("rank:prf".into(), ms(t0)));
+        }
+    }
     let mut used_hnsw = false;
     let sem_ranked: Vec<(u32, f32)> = match opts.mode {
         Mode::Semantic | Mode::Hybrid => {
             let t0 = Instant::now();
-            let mut q = semantic::embed_query(query);
+            // A SIF index pools chunks by rarity weight; the query must be
+            // pooled in the same space or distances are meaningless.
+            let mut q = match &idx.sif {
+                Some(s) => semantic::embed_sif(query, s),
+                None => semantic::embed_query(query),
+            };
             if idx.meta.normalized {
                 semantic::normalize(&mut q);
             }
             stages.push(("rank:embed-query".into(), ms(t0)));
             let t0 = Instant::now();
-            let ranked = match (&idx.hnsw, opts.use_hnsw) {
+            let mut ranked: Vec<(u32, f32)> = match (&idx.hnsw, opts.use_hnsw) {
                 // HNSW returns up to compile-time K=128 candidates.
                 (Some(h), true) if pool <= 128 => {
                     used_hnsw = true;
@@ -187,6 +431,20 @@ fn search_indexed(root: &Path, query: &str, opts: &SearchOptions) -> Result<Sear
                 }
                 _ => semantic::brute_force_top_k(&q, idx.emb_matrix(), pool, idx.meta.normalized),
             };
+            ranked.retain(|&(id, _)| !tombstoned(id));
+            if let Some(r) = &repair {
+                // f32 distances vs the base's i8-quantized ones: quantization
+                // was verified quality-neutral, so the scales merge cleanly.
+                ranked.extend(
+                    r.delta
+                        .vecs
+                        .iter()
+                        .enumerate()
+                        .map(|(i, v)| (n_base + i as u32, semantic::distance(&q, v))),
+                );
+                ranked.sort_unstable_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));
+                ranked.truncate(pool);
+            }
             stages.push((
                 if used_hnsw { "rank:ann" } else { "rank:brute" }.to_string(),
                 ms(t0),
@@ -196,26 +454,64 @@ fn search_indexed(root: &Path, query: &str, opts: &SearchOptions) -> Result<Sear
         _ => Vec::new(),
     };
     let t0 = Instant::now();
-    let ranked = fuse(opts.mode, bm25_ranked, sem_ranked, opts.k * 3, opts.sem_weight);
+    // Fuse over the full pool, then filter to the query's subtree *before*
+    // truncating — otherwise out-of-scope hits can eat every result slot.
+    let ranked = fuse(opts.mode, bm25_ranked, sem_ranked, pool * 2, opts.sem_weight);
     stages.push(("rank:fuse".into(), ms(t0)));
     let rank_ms = t_rank.elapsed().as_millis();
 
-    let cands: Vec<Candidate> = ranked
+    let in_scope = |path: &str| {
+        d.prefix.is_empty()
+            || path.strip_prefix(&d.prefix).is_some_and(|r| r.starts_with('/'))
+    };
+    let mut cands: Vec<Candidate> = ranked
         .into_iter()
-        .map(|(chunk_id, score)| {
-            let chunk = idx.chunks[chunk_id as usize];
-            Candidate {
-                id: chunk_id,
-                chunk,
-                path: idx.file(&chunk).path.clone(),
-                score,
-            }
+        .filter_map(|(id, score)| {
+            let (chunk, path) = resolve(id);
+            in_scope(&path).then_some(Candidate { id, chunk, path, score })
         })
+        .take(opts.k * 3)
         .collect();
+
+    // MaxSim late-interaction rerank: score each candidate by letting every
+    // query token find its best-matching chunk token — one strong identifier
+    // match can't be averaged away (the pooled-vector failure mode). Static
+    // embeddings make this cheap: token vectors are table lookups.
+    if opts.rerank_maxsim && !cands.is_empty() {
+        let t0 = Instant::now();
+        let qtoks = semantic::token_vectors(query, idx.sif.as_ref());
+        if !qtoks.is_empty() {
+            use rayon::prelude::*;
+            let scores: Vec<f32> = cands
+                .par_iter()
+                .map(|c| {
+                    corpus::chunk_text_rel(&d.root, &c.path, &c.chunk)
+                        .map(|text| {
+                            let dtoks = semantic::token_vectors(
+                                &corpus::doc_text(&c.path, &text),
+                                None,
+                            );
+                            semantic::maxsim(&qtoks, &dtoks)
+                        })
+                        .unwrap_or(f32::NEG_INFINITY)
+                })
+                .collect();
+            for (c, s) in cands.iter_mut().zip(&scores) {
+                c.score = *s;
+            }
+            cands.sort_by(|a, b| b.score.total_cmp(&a.score).then(a.id.cmp(&b.id)));
+        }
+        stages.push(("rank:maxsim".into(), ms(t0)));
+    }
     // Chunk ids equal embedding-matrix row ids, so vectors are free here
     // (dequantized on the fly for v2 indexes — a handful of rows).
     let t0 = Instant::now();
-    let hits = finalize_hits(root, query, cands, opts, |c| {
+    let n_delta = repair.as_ref().map_or(0, |r| r.delta.chunks.len());
+    let hits = finalize_hits(&d.root, query, cands, opts, &d.prefix, |c| {
+        if c.id >= n_base {
+            let r = repair.as_ref()?;
+            return Some(r.delta.vecs[(c.id - n_base) as usize].clone());
+        }
         let row = c.id as usize;
         if idx.meta.quantized {
             let m = idx.emb_matrix_i8();
@@ -240,9 +536,9 @@ fn search_indexed(root: &Path, query: &str, opts: &SearchOptions) -> Result<Sear
             stale_files: if opts.check_stale {
                 idx.stale_files().unwrap_or(0)
             } else {
-                0
+                repair.as_ref().map_or(0, |r| r.n_dirty)
             },
-            n_chunks_considered: idx.chunks.len(),
+            n_chunks_considered: idx.chunks.len() + n_delta,
             walk_ms,
             rank_ms,
             stages,
@@ -288,22 +584,38 @@ fn search_streaming(root: &Path, query: &str, opts: &SearchOptions) -> Result<Se
         pending.clear();
     };
 
+    // Parallel batched pass (see index::build for the rationale): per-file
+    // read/chunk/tokenize on rayon workers, serial in-order fold so chunk
+    // ids stay deterministic.
+    use rayon::prelude::*;
     let t_pass = Instant::now();
-    for (file_id, fm) in files.iter().enumerate() {
-        let Some(text) = corpus::read_text(&corpus::abs_path(root, fm)) else {
-            continue;
-        };
-        for (chunk, slice) in corpus::chunk_lines(file_id as u32, &text, &opts.params) {
-            let chunk_id = chunks.len() as u32;
-            chunks.push(chunk);
-            let doc = corpus::doc_text(&fm.path, slice);
-            if let Some(b) = &mut bm25 {
-                b.add_doc(&doc);
-            }
-            if want_sem {
-                pending.push((chunk_id, doc));
-                if pending.len() >= 1024 {
-                    flush(&mut pending, &mut top);
+    for (base, batch) in corpus::pass_batches(&files, 256, 16 << 20) {
+        let works: Vec<corpus::FileWork> = batch
+            .par_iter()
+            .enumerate()
+            .map(|(i, fm)| {
+                corpus::process_file(
+                    root,
+                    (base + i) as u32,
+                    fm,
+                    &opts.params,
+                    want_sem,
+                    want_bm25,
+                )
+            })
+            .collect();
+        for work in works {
+            for (chunk, doc, tokens) in work.docs {
+                let chunk_id = chunks.len() as u32;
+                chunks.push(chunk);
+                if let (Some(b), Some(t)) = (&mut bm25, tokens) {
+                    b.add_tokenized(t);
+                }
+                if let Some(doc) = doc {
+                    pending.push((chunk_id, doc));
+                    if pending.len() >= 1024 {
+                        flush(&mut pending, &mut top);
+                    }
                 }
             }
         }
@@ -347,7 +659,7 @@ fn search_streaming(root: &Path, query: &str, opts: &SearchOptions) -> Result<Se
     // No embedding matrix in streaming mode: re-embed candidate chunks on
     // demand (≤ 3k texts, negligible next to the corpus pass just done).
     let t0 = Instant::now();
-    let hits = finalize_hits(root, query, cands, opts, |c| {
+    let hits = finalize_hits(root, query, cands, opts, "", |c| {
         let fm = &files[c.chunk.file_id as usize];
         let text = corpus::chunk_text(root, fm, &c.chunk).ok()?;
         Some(semantic::embed_query(&corpus::doc_text(&fm.path, &text)).to_vec())
@@ -418,12 +730,16 @@ struct Candidate {
 }
 
 /// Shared tail of both search paths. `vec_of` supplies the embedding for a
-/// candidate (by index into `cands`) when diversification needs it.
+/// candidate (by index into `cands`) when diversification needs it. `strip`
+/// is the query's subtree prefix: candidate paths are index-root-relative
+/// for file access, but hits display relative to the queried scope (the same
+/// contract the streaming path has always had).
 fn finalize_hits(
     root: &Path,
     query: &str,
     mut cands: Vec<Candidate>,
     opts: &SearchOptions,
+    strip: &str,
     vec_of: impl Fn(&Candidate) -> Option<Vec<f32>>,
 ) -> Vec<SearchHit> {
     // Drop candidates whose line span overlaps an already-kept, higher-ranked
@@ -453,7 +769,12 @@ fn finalize_hits(
     let mut hits = Vec::with_capacity(opts.k);
     for i in order {
         let c = &kept[i];
-        if let Some(hit) = materialize(root, &c.path, c.chunk, c.score, &query_tokens) {
+        if let Some(mut hit) = materialize(root, &c.path, c.chunk, c.score, &query_tokens) {
+            if !strip.is_empty() {
+                if let Some(rest) = hit.path.strip_prefix(&format!("{strip}/")) {
+                    hit.path = rest.to_string();
+                }
+            }
             hits.push(hit);
         }
         if hits.len() == opts.k {
@@ -620,7 +941,7 @@ mod tests {
             },
         ];
         let opts = SearchOptions { k: 2, ..Default::default() };
-        let hits = finalize_hits(dir.path(), "alpha", cands, &opts, |_| None);
+        let hits = finalize_hits(dir.path(), "alpha", cands, &opts, "", |_| None);
         assert_eq!(hits.len(), 1, "overlapping same-file spans should collapse");
         assert_eq!(hits[0].start_line, 1);
     }

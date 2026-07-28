@@ -19,6 +19,32 @@ pub struct Bm25Index {
     total_len: u64,
 }
 
+/// One document tokenized into (term, tf) pairs — the CPU-heavy half of
+/// `add_doc`, split out so it can run on worker threads while the cheap
+/// postings merge stays serial (chunk-id assignment must be deterministic).
+pub struct TokenizedDoc {
+    terms: Vec<(String, u16)>,
+    len: u32,
+}
+
+/// Tokenize a document off-thread. Feed the result to
+/// [`Bm25Index::add_tokenized`] in chunk order.
+pub fn tokenize_doc(text: &str) -> TokenizedDoc {
+    let mut tf: HashMap<String, u16> = HashMap::new();
+    let mut len = 0u32;
+    tokenize::for_each_token(text, |tok| {
+        len += 1;
+        // get_mut-then-insert avoids an owned-key allocation per occurrence.
+        match tf.get_mut(tok) {
+            Some(e) => *e = e.saturating_add(1),
+            None => {
+                tf.insert(tok.to_string(), 1);
+            }
+        }
+    });
+    TokenizedDoc { terms: tf.into_iter().collect(), len }
+}
+
 impl Bm25Index {
     pub fn new() -> Self {
         Self::default()
@@ -31,28 +57,27 @@ impl Bm25Index {
     /// Add the next chunk's text. Chunk ids are assigned sequentially in call
     /// order and must match the caller's chunk table.
     pub fn add_doc(&mut self, text: &str) -> u32 {
+        self.add_tokenized(tokenize_doc(text))
+    }
+
+    /// Merge a pre-tokenized document (see [`tokenize_doc`]). Serial and
+    /// cheap: postings appends and id bookkeeping only.
+    pub fn add_tokenized(&mut self, doc: TokenizedDoc) -> u32 {
         let chunk_id = self.doc_len.len() as u32;
-        let mut tf: HashMap<u32, u16> = HashMap::new();
-        let mut len = 0u32;
-        tokenize::for_each_token(text, |tok| {
-            len += 1;
-            let term_id = match self.terms.get(tok) {
+        for (term, freq) in doc.terms {
+            let term_id = match self.terms.get(&term) {
                 Some(&id) => id,
                 None => {
                     let id = self.terms.len() as u32;
-                    self.terms.insert(tok.to_string(), id);
+                    self.terms.insert(term, id);
                     self.postings.push(Vec::new());
                     id
                 }
             };
-            let e = tf.entry(term_id).or_insert(0);
-            *e = e.saturating_add(1);
-        });
-        for (term_id, freq) in tf {
             self.postings[term_id as usize].push((chunk_id, freq));
         }
-        self.doc_len.push(len);
-        self.total_len += len as u64;
+        self.doc_len.push(doc.len);
+        self.total_len += doc.len as u64;
         chunk_id
     }
 
@@ -257,6 +282,12 @@ impl FlatBm25 {
     #[inline]
     fn doc_len(&self, chunk_id: u32) -> u32 {
         self.u32_le(self.off[4] as usize + chunk_id as usize * 4)
+    }
+
+    /// Document frequency of a term (0 if absent) — for idf-style scoring
+    /// outside the BM25 query itself (e.g. PRF expansion-term selection).
+    pub fn df(&self, term: &str) -> usize {
+        self.find_term(term).map_or(0, |i| self.postings_at(i).count())
     }
 
     /// Top-k chunks by BM25 — same scoring as [`Bm25Index::query`].

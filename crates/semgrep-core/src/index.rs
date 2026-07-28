@@ -35,6 +35,10 @@ pub struct IndexMeta {
     /// IO for the brute scan, which provenance showed is fault/IO bound.
     #[serde(default)]
     pub quantized: bool,
+    /// Chunk embeddings are SIF-weighted (RESEARCH.md §9.1) — queries must
+    /// be embedded with the same corpus stats (`sif.bin`).
+    #[serde(default)]
+    pub sif: bool,
 }
 
 #[derive(Debug, Default)]
@@ -48,11 +52,14 @@ pub struct BuildStats {
 pub struct BuildOptions {
     pub params: ChunkParams,
     pub hnsw: bool,
+    /// SIF-weighted chunk embeddings (experimental, RESEARCH.md §9.1):
+    /// adds a frequency-counting pre-pass and stores `sif.bin`.
+    pub sif: bool,
 }
 
 impl Default for BuildOptions {
     fn default() -> Self {
-        Self { params: ChunkParams::default(), hnsw: false }
+        Self { params: ChunkParams::default(), hnsw: false, sif: false }
     }
 }
 
@@ -64,15 +71,48 @@ pub fn exists(root: &Path) -> bool {
     index_dir(root).join("meta.json").is_file()
 }
 
-/// Build (or fully rebuild) the index for `root`.
+/// Build (or fully rebuild) the repo-local `.semgrep/` index for `root`.
 pub fn build(
+    root: &Path,
+    opts: &BuildOptions,
+    progress: impl FnMut(usize, usize),
+) -> Result<BuildStats> {
+    build_at(&index_dir(root), root, opts, progress)
+}
+
+/// Build an index describing `root` into an arbitrary directory (repo-local
+/// `.semgrep/` or a central cache entry).
+pub fn build_at(
+    dir: &Path,
     root: &Path,
     opts: &BuildOptions,
     mut progress: impl FnMut(usize, usize),
 ) -> Result<BuildStats> {
+    use rayon::prelude::*;
     let files = corpus::walk(root, &opts.params)?;
-    let dir = index_dir(root);
-    std::fs::create_dir_all(&dir)?;
+    std::fs::create_dir_all(dir)?;
+
+    // SIF pre-pass: count corpus token frequencies before any embedding, so
+    // weighted pooling has its p(w). Cheap relative to the embed pass.
+    let sif: Option<semantic::SifStats> = opts.sif.then(|| {
+        let mut all = semantic::SifStats::default();
+        for (_, batch) in corpus::pass_batches(&files, 256, 16 << 20) {
+            let partials: Vec<semantic::SifStats> = batch
+                .par_iter()
+                .map(|fm| {
+                    let mut s = semantic::SifStats::default();
+                    if let Some(text) = corpus::read_text(&corpus::abs_path(root, fm)) {
+                        s.count(&text);
+                    }
+                    s
+                })
+                .collect();
+            for p in partials {
+                all.merge(p);
+            }
+        }
+        all
+    });
 
     let mut bm25 = Bm25Index::new();
     let mut chunks: Vec<Chunk> = Vec::new();
@@ -84,6 +124,7 @@ pub fn build(
 
     // Batched embedding across file boundaries: texts are owned copies but
     // only one batch is resident at a time.
+    let sif_ref = sif.as_ref();
     let mut pending: Vec<String> = Vec::with_capacity(EMBED_BATCH);
     let flush = |pending: &mut Vec<String>,
                      emb_out: &mut std::io::BufWriter<std::fs::File>,
@@ -92,7 +133,10 @@ pub fn build(
         if pending.is_empty() {
             return Ok(());
         }
-        let mut vecs = ese::encode(pending.iter());
+        let mut vecs = match sif_ref {
+            Some(s) => pending.par_iter().map(|doc| semantic::embed_sif(doc, s)).collect(),
+            None => ese::encode(pending.iter()),
+        };
         for v in &mut vecs {
             // Unit-normalize, then quantize to i8 for the on-disk matrix.
             crate::semantic::normalize(v);
@@ -108,19 +152,29 @@ pub fn build(
         Ok(())
     };
 
-    for (file_id, fm) in files.iter().enumerate() {
-        progress(file_id + 1, files.len());
-        let Some(text) = corpus::read_text(&corpus::abs_path(root, fm)) else {
-            continue;
-        };
-        stats.bytes_indexed += text.len() as u64;
-        for (chunk, slice) in corpus::chunk_lines(file_id as u32, &text, &opts.params) {
-            let doc = corpus::doc_text(&fm.path, slice);
-            bm25.add_doc(&doc);
-            chunks.push(chunk);
-            pending.push(doc);
-            if pending.len() >= EMBED_BATCH {
-                flush(&mut pending, &mut emb_out, &mut hnsw)?;
+    // The pass is batched: each batch of files is read/chunked/tokenized in
+    // parallel (the serial version left ~9 cores idle for 2/3 of the pass),
+    // then folded serially in file order so chunk ids stay in lockstep with
+    // the chunk table, BM25 add order, and emb.bin rows. Bounded batches keep
+    // resident text to a few MB regardless of corpus size.
+    for (base, batch) in corpus::pass_batches(&files, 256, 16 << 20) {
+        let works: Vec<corpus::FileWork> = batch
+            .par_iter()
+            .enumerate()
+            .map(|(i, fm)| {
+                corpus::process_file(root, (base + i) as u32, fm, &opts.params, true, true)
+            })
+            .collect();
+        for (i, work) in works.into_iter().enumerate() {
+            progress(base + i + 1, files.len());
+            stats.bytes_indexed += work.bytes;
+            for (chunk, doc, tokens) in work.docs {
+                bm25.add_tokenized(tokens.expect("build pass tokenizes"));
+                chunks.push(chunk);
+                pending.push(doc.expect("build pass keeps text"));
+                if pending.len() >= EMBED_BATCH {
+                    flush(&mut pending, &mut emb_out, &mut hnsw)?;
+                }
             }
         }
     }
@@ -138,10 +192,17 @@ pub fn build(
         has_hnsw: hnsw.is_some(),
         normalized: true,
         quantized: true,
+        sif: sif.is_some(),
     };
     std::fs::write(dir.join("meta.json"), serde_json::to_vec_pretty(&meta)?)?;
     std::fs::write(dir.join("chunks.bin"), postcard::to_allocvec(&chunks)?)?;
     std::fs::write(dir.join("bm25.flat"), bm25.to_flat_bytes())?;
+    match &sif {
+        Some(s) => std::fs::write(dir.join("sif.bin"), postcard::to_allocvec(s)?)?,
+        None => {
+            let _ = std::fs::remove_file(dir.join("sif.bin"));
+        }
+    }
     match hnsw {
         Some(h) => std::fs::write(dir.join("hnsw.bin"), h.to_bytes())?,
         None => {
@@ -149,12 +210,159 @@ pub fn build(
         }
     }
 
-    for name in ["meta.json", "chunks.bin", "bm25.flat", "emb.bin", "hnsw.bin"] {
+    for name in ["meta.json", "chunks.bin", "bm25.flat", "emb.bin", "hnsw.bin", "sif.bin"] {
         if let Ok(m) = std::fs::metadata(dir.join(name)) {
             stats.index_bytes += m.len();
         }
     }
     Ok(stats)
+}
+
+// ---------------------------------------------------------------------------
+// Discovery + central cache (the index is a cache — RESEARCH.md §8/8.1).
+//
+// A query path resolves to an index by: (1) `.semgrep/` at the path itself,
+// (2) `.semgrep/` at an ancestor, walking up like git finds `.git` (stopping
+// at the repo boundary, $HOME, or the filesystem root), (3) the deepest
+// central-cache entry whose root contains the path. Cache entries live under
+// `$SEMGREP_CACHE_DIR` (default `~/.cache/semgrep`), keyed by canonical
+// corpus root, and are written as a side effect of cold ranked searches.
+// ---------------------------------------------------------------------------
+
+/// An index resolved for a query path.
+#[derive(Debug, Clone)]
+pub struct Discovered {
+    /// Directory holding meta.json / chunks.bin / bm25.flat / emb.bin.
+    pub index_dir: PathBuf,
+    /// Canonical corpus root the index describes.
+    pub root: PathBuf,
+    /// Query scope relative to `root`, `/`-separated ("" = whole corpus).
+    pub prefix: String,
+}
+
+fn rel_prefix(root: &Path, scope: &Path) -> String {
+    scope
+        .strip_prefix(root)
+        .map(|p| p.to_string_lossy().replace('\\', "/"))
+        .unwrap_or_default()
+}
+
+/// Resolve the index that should serve a query over `query_root`, if any.
+pub fn discover(query_root: &Path) -> Option<Discovered> {
+    let canon = std::fs::canonicalize(query_root).ok()?;
+    if !canon.is_dir() {
+        return None;
+    }
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+
+    // (1)+(2): in-tree .semgrep at the scope or an ancestor.
+    let mut cur = canon.clone();
+    loop {
+        if exists(&cur) {
+            return Some(Discovered {
+                index_dir: index_dir(&cur),
+                prefix: rel_prefix(&cur, &canon),
+                root: cur,
+            });
+        }
+        // Stop *after* checking: the repo root itself may hold the index,
+        // but the walk must not escape into an enclosing repo or past $HOME.
+        if cur.join(".git").exists() || home.as_deref() == Some(cur.as_path()) {
+            break;
+        }
+        match cur.parent() {
+            Some(p) => cur = p.to_path_buf(),
+            None => break,
+        }
+    }
+
+    // (3): deepest central-cache entry covering the scope.
+    cache_entries()
+        .into_iter()
+        .filter(|(dir, root)| canon.starts_with(root) && dir.join("meta.json").is_file())
+        .max_by_key(|(_, root)| root.components().count())
+        .map(|(dir, root)| Discovered {
+            index_dir: dir,
+            prefix: rel_prefix(&root, &canon),
+            root,
+        })
+}
+
+/// Base directory for cache entries. `SEMGREP_CACHE_DIR` overrides (tests,
+/// hygiene); default is `$XDG_CACHE_HOME`/semgrep or `~/.cache/semgrep`.
+/// Resolved once per process so concurrent env reads never race.
+pub fn cache_base() -> PathBuf {
+    static BASE: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+    BASE.get_or_init(|| {
+        if let Some(d) = std::env::var_os("SEMGREP_CACHE_DIR") {
+            return PathBuf::from(d);
+        }
+        std::env::var_os("XDG_CACHE_HOME")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| {
+                PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".cache")
+            })
+            .join("semgrep")
+    })
+    .clone()
+}
+
+/// All cache entries as (entry_dir, canonical_root). Entries whose recorded
+/// root no longer exists are skipped (GC candidates, not errors).
+pub fn cache_entries() -> Vec<(PathBuf, PathBuf)> {
+    let mut out = Vec::new();
+    let Ok(rd) = std::fs::read_dir(cache_base()) else { return out };
+    for e in rd.flatten() {
+        let dir = e.path();
+        let Ok(root) = std::fs::read_to_string(dir.join("root.txt")) else { continue };
+        let root = PathBuf::from(root.trim());
+        if root.is_dir() {
+            out.push((dir, root));
+        }
+    }
+    out
+}
+
+/// The entry directory for a canonical root, allocating a collision-free
+/// name on first use (hash bucket + root.txt verification).
+fn cache_entry_dir(root: &Path) -> PathBuf {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    root.hash(&mut h);
+    let base = cache_base();
+    let stem = format!("{:016x}", h.finish());
+    for i in 0..64 {
+        let dir = if i == 0 {
+            base.join(&stem)
+        } else {
+            base.join(format!("{stem}-{i}"))
+        };
+        match std::fs::read_to_string(dir.join("root.txt")) {
+            Ok(r) if PathBuf::from(r.trim()) != root => continue, // collision
+            _ => return dir,
+        }
+    }
+    base.join(stem) // unreachable in practice
+}
+
+/// Write-through: build a cache entry covering `root` (must be canonical),
+/// then retire any entries for scopes strictly inside it (scope promotion —
+/// the wider entry serves every descendant via the prefix filter).
+pub fn write_cache_entry(
+    root: &Path,
+    opts: &BuildOptions,
+    progress: impl FnMut(usize, usize),
+) -> Result<PathBuf> {
+    let dir = cache_entry_dir(root);
+    std::fs::create_dir_all(&dir)?;
+    build_at(&dir, root, opts, progress)?;
+    std::fs::write(dir.join("root.txt"), root.to_string_lossy().as_bytes())?;
+    for (edir, eroot) in cache_entries() {
+        if eroot != root && eroot.starts_with(root) {
+            let _ = std::fs::remove_dir_all(edir);
+        }
+    }
+    Ok(dir)
 }
 
 /// Which index components a query actually needs. Loading everything
@@ -193,12 +401,21 @@ pub struct LoadedIndex {
     pub bm25: Option<FlatBm25>,
     emb: memmap2::Mmap,
     pub hnsw: Option<SemgrepHnsw>,
+    /// Corpus token stats when the index is SIF-weighted — queries must be
+    /// pooled with the same weights or the spaces don't match.
+    pub sif: Option<semantic::SifStats>,
     pub timings: LoadTimings,
 }
 
 impl LoadedIndex {
     pub fn load(root: &Path, needs: LoadNeeds) -> Result<Self> {
-        let dir = index_dir(root);
+        Self::load_dir(&index_dir(root), root, needs)
+    }
+
+    /// Load an index from `dir` describing corpus `root` (repo-local or a
+    /// central cache entry — the two differ only in where the files live).
+    pub fn load_dir(dir: &Path, root: &Path, needs: LoadNeeds) -> Result<Self> {
+        let dir = dir.to_path_buf();
         let mut t = LoadTimings::default();
         let ms = |start: std::time::Instant| start.elapsed().as_secs_f64() * 1e3;
 
@@ -242,7 +459,12 @@ impl LoadedIndex {
         } else {
             None
         };
-        Ok(Self { root: root.to_path_buf(), meta, chunks, bm25, emb, hnsw, timings: t })
+        let sif = if meta.sif {
+            Some(postcard::from_bytes(&std::fs::read(dir.join("sif.bin"))?)?)
+        } else {
+            None
+        };
+        Ok(Self { root: root.to_path_buf(), meta, chunks, bm25, emb, hnsw, sif, timings: t })
     }
 
     /// The embedding matrix as a flat f32 slice (mmap-backed, page-aligned).
