@@ -161,9 +161,42 @@ usefulness — the cross-tool delta is the signal.
 - Cold (no index): hybrid ~59 s on the kernel in one streaming pass — usable
   as a first resort, and the index removes the cost thereafter.
 
+**Agent evals vs ripgrep** — the end-to-end product claim, measured on
+Loc-Bench (real GitHub issues, ground truth = the functions the real fix
+modified). Headless Claude agents localize each issue with one search-tool
+condition; every invocation is intercepted and instrumented (wall time,
+tokens, cost, output bytes). 50 instances × condition, paired on the same
+issues and model:
+
+| paired agent runs | rg | semgrep | both available |
+|---|---|---|---|
+| file-level Acc@5 | 75% | 75% | 75% |
+| **function-level Acc@10** | 58% | **69%** | 62% |
+| first search surfaces a gold file | 67% | 41% | **84%** |
+| median cost / searches per task | $0.21 / 2 | $0.20 / 2 | $0.20 / 2 |
+
+Read honestly: **file-level accuracy and cost are a tie** — on small
+identifier-rich repos a strong agent localizes in ~2 searches with either
+tool, so there is no retry loop for ranked search to remove (replicating
+Augment's finding on SWE-bench-scale repos). semgrep's consistent edge is
+**function-level precision (+11pp; +17pp on bug reports)**: ranked chunk
+spans point inside the responsible function, grep hits land on call sites.
+rg's edge is first-guess exactness when the issue text hands the agent the
+identifier. The best configuration is **both tools together** (84%
+first-search hit) — per-query routing beats either alone, which is why `-e`
+exists. Caveats that bound the claim: the benchmark skews small (39/50 repos
+under 2k files — grep's home turf; on 2k–10k repos every condition tied),
+and the regimes where ranked search should structurally separate (10k+-file
+repos, weaker driver models) are the queued experiments. A follow-up A/B of
+offline-winning rerankers (MaxSim/SIF) *reduced* agent accuracy — engine
+changes here are gated on agent-level evals, not retrieval micro-benchmarks
+(RESEARCH.md §7, §9).
+
 **Honest limits.** Paraphrased queries over *code* remain the open problem:
-every engine scores ≤ 0.05 recall@5 on kernel paraphrase, and static
-embeddings only clearly pay off on prose. That likely needs better code
-embeddings or LLM query expansion, not more tuning of this stack. Next on the
-roadmap is the end-to-end product claim: agent-task evals measuring
-searches-to-success and tokens per task, rg-only vs semgrep.
+every engine scores ≤ 0.05 recall@5 on kernel paraphrase. Root cause is now
+diagnosed, not speculative: ese's embedding space is prose-trained — probe
+similarities like `str`~`string` = −0.002 and `mutex`~`lock` = 0.045 mean
+that on code it works as a fuzzy lexical matcher, not a semantic model
+(RESEARCH.md §9.9). The fix is a code-distilled static table (same
+dimensions, drop-in for the index format), queued behind the agent-eval
+gate above.

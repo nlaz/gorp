@@ -913,6 +913,229 @@ Four distinct shapes, from cheapest to most structural:
    (roadmap item); pairs with §8.1 — the first pass also decides what's
    *worth* caching (hot files first, segments later).
 
+### 9.4 Measured results (2026-07-28, full campaign: 3 corpora × 5 conditions)
+
+Implementation: ese gained `for_each_token_vector`/`for_each_token`;
+semgrep gained `index --sif` (freq pre-pass + weighted pooling, stats in
+`sif.bin`, query pooled in the same space), `--maxsim` (late-interaction
+rerank of the candidate pool, ~35 ms), `--prf N` (top-hit term expansion,
+~32 ms). All hidden flags, default off. Full tables:
+`eval/data/lever-*.json`, `eval/lever-report.py`. Verdicts:
+
+| lever | verdict | evidence (R@5 / MRR deltas vs base) |
+|---|---|---|
+| **PRF** | **kill** | Harmful everywhere: kernel direct bm25 −0.27 R@5 (MRR −0.39), wiki paraphrase −0.14, vscode −0.04..−0.08. Query drift amplifies whatever the seed pass found; no paraphrase gain anywhere. A quality-gated variant (expand only when pass-1 scores are weak) could be revisited; as-is, off. |
+| **MaxSim** | **adopt, but re-wire** | On the *semantic list*: consistent, large — direct +0.05/+0.10/+0.11 R@5, MRR +0.12/+0.18/+0.16 (kernel/wiki/vscode). On *hybrid* it currently reranks the fused pool, overriding BM25's exact-match signal: hurts on code (vscode −0.05), helps on prose (wiki MRR +0.07). Fix: rerank the semantic candidate list *before* fusion; let RRF fuse as usual. |
+| **SIF** | **keep as MaxSim's multiplier only** | Alone: mild paraphrase gains (+0.02..0.03) but hurts code semantic direct (kernel −0.15 — hyper-rare identifiers over-focus the chunk vector, and paraphrase queries avoid exactly those tokens). With MaxSim: best-in-class — wiki hybrid 0.99 direct / 0.43 paraphrase (MRR +0.08/+0.04), vscode semantic +0.12/+0.18, semantic paraphrase 7× on vscode (0.01→0.07). |
+| **kernel paraphrase** | **the wall stands** | ≤0.05 in every condition. Confirms §3 finding 3: this needs a better code embedder (or trace-trained, per Cursor) — not more query-time machinery on static embeddings. |
+
+### 9.5 Pre-fusion re-wire + weight sweep (2026-07-28, final)
+
+MaxSim moved pre-fusion: the semantic list's head (k×3, min 24) is
+reranked by late interaction *inside* the semantic branch (similarity →
+pseudo-distance keeps the list contract), then RRF fuses with untouched
+BM25. Results (`lever-*-maxsim2*.json`):
+
+- **The code-hybrid regression is gone** (vscode: was −0.05 post-fusion →
+  flat R@5, MRR +0.02) while every semantic-mode gain survives
+  (+0.05..0.11 R@5, +0.12..0.18 MRR across corpora). Hybrid is now
+  flat-to-positive everywhere (wiki MRR +0.04; one soft cell: wiki
+  paraphrase R@5 −0.03 with MRR still up). Cost ~39 ms/query.
+- **SIF fails its graduation gate:** sif+maxsim2 trades direct quality
+  (kernel semantic −0.07, wiki hybrid MRR −0.03 vs plain maxsim2) for
+  paraphrase gains (+0.02..0.07). Not a default; stays as `index --sif`,
+  documented as the paraphrase-leaning build option.
+- **sem_weight 0.2 survives the sweep:** with maxsim on, w0.4/w0.6 hurt
+  *everywhere* (kernel direct 0.91→0.86→0.84; wiki 0.98→0.95→0.92).
+  Even a MaxSim-improved semantic list is the junior partner on
+  identifier-rich queries — BM25's dominance is a property of the query
+  distribution, not a defect of the fusion weight.
+
+**Shipped defaults: unchanged** (`--maxsim` and `--sif` remain opt-in
+hidden flags). The empirical route to flipping `--maxsim` on is a
+Loc-Bench A/B measuring function-level Acc (the +11pp finding correlated
+with semantic-list quality, and MaxSim transforms exactly that list) —
+worth one condition in the upcoming re-run. sem_weight stays 0.2.
+
+### 9.6 Knob sweep (2026-07-28: pool, blend, sif-a, centering)
+
+Parameterized (`--maxsim-pool`, `--maxsim-blend`, `index --sif-a`,
+`--sif-center`; `a` and the sample-estimated common component persist in
+`sif.bin` so query pooling always matches build). 7 conditions × 3
+corpora vs the §9.5 references (`tune-report.py`):
+
+- **Pool 96 adopted as the `--maxsim` default head** (was k×3 min 24):
+  semantic direct +0.03/+0.04/+0.06 R@5 (kernel/wiki/vscode), hybrid MRR
+  neutral-to-positive, no real regressions. Cost 21 → 54 ms. Deeper
+  candidates get rescued; the feared plausible-but-wrong promotions
+  didn't materialize.
+- **Blend: dead.** α = 0.75/0.5 flat-to-negative everywhere; the
+  embedding order adds nothing inside the head. Pure MaxSim stays.
+- **SIF a: more aggressive is better on code, hypothesis inverted.**
+  a=1e-4 beats 1e-3 on both code corpora (vscode +0.02 direct/+0.01
+  paraphrase; kernel semantic direct +0.05, recovering most of the −0.07
+  SIF regression) but trades wiki paraphrase (−0.03) — with MaxSim
+  supplying precision, the single vector can afford maximal rarity
+  focus. Milder a=1e-2 is bad everywhere (vscode −0.12). Default `a`
+  stays 1e-3 (SIF's documented identity is the paraphrase-leaning
+  option); **use `--sif-a 1e-4` on code corpora** — doc'd, not defaulted.
+- **Centering: not worth it.** Neutral on all three (one good cell —
+  kernel hybrid direct 0.92, the campaign's best — but no pattern).
+  Stays implemented behind `--sif-center` for future embedder work.
+
+**Six-point pool curve** (24/32/48/64/96/128, `run-pool-sweep.sh`): no
+universal knee — cells peak at different depths. Semantic *direct* keeps
+creeping through 96 (kernel still rising at 128: 0.78); semantic
+*paraphrase* on code **peaks at 48 and degrades past it** (vscode
+0.04→0.02, MRR halves); hybrid R@5 is best at 24–48 (kernel sags to
+0.88–0.89 at 64/128) while hybrid MRR peaks 64–96. Warm latency: 4.6 /
+8.5 / 19 / 27 ms at pools 24/48/96/128 — not a deciding factor. The
+"diminishing returns past ~30" intuition holds for the agent-facing
+hybrid mode; pure semantic keeps gaining. **Narrowed Loc-Bench pool
+candidates: 48 (best all-rounder) and 96 (max semantic direct)** — 32
+is indistinguishable from 24, 128 costs kernel hybrid recall.
+
+Final tuned configuration for the Loc-Bench A/B: `--maxsim` at pool 48
+vs 96 (agent-level tiebreak), pure blend, normal index; SIF (`--sif-a
+1e-4`) as the small-codebase hypothesis condition.
+
+### 9.7 Loc-Bench A/B: the offline gains do not transfer (2026-07-28)
+
+50 instances × {sg-plain, sg-mx48, sg-mx96, sg-sif(a=1e-4)+maxsim},
+Sonnet, v4 description held fixed, engine flags injected by the shim
+(`results-ab.jsonl`). Verdicts:
+
+| finding | evidence |
+|---|---|
+| **MaxSim hurts agent-level accuracy, monotonically with pool depth** | fnAcc@10t: plain **62%** > mx48 59% > mx96 54%; fAcc@5: 77 > 71/70. Agents also searched *more* under maxsim (201 vs 142 sg calls) — worse first results beget retries. |
+| **All conditions tie on 2k–10k repos** | Every cell identical (83% fAcc@5 / 75% fnAcc). Engine variants only diverge on <2k-file repos — where plain wins. |
+| **SIF small-repo hypothesis: partially supported, not adoptable** | On <2k files, sif beats its maxsim base (+4pp fAcc@5, +7pp fnAcc vs mx96) — SIF's relative value does grow as repos shrink — but still trails plain (70 vs 75 fAcc@5). |
+| **v4 description moved behavior as designed** | ranked-first 56% (vs pilot-v1's 38%); exact-mode calls down 125→87. But fnAcc read 62% vs pilot's 69% — at n≈47 that's ~3 instances; more ranked usage demonstrably ≠ better outcomes, and cross-run noise can't be excluded. |
+| **Deltas are small** | 2–4 instances separate conditions; directions are consistent across metrics but individually within noise. |
+
+**Decisions: the plain engine stays the default; `--maxsim` does not
+graduate** (offline semantic-list gains are a misleading proxy — agents
+issue identifier-shaped queries through hybrid, where BM25 carries the
+ranking, and MaxSim's reorderings swap in token-similar-but-wrong chunks,
+e.g. test files that repeat the identifiers). SIF remains the documented
+prose/paraphrase option. The broader lesson repeats Augment's: retrieval
+micro-benchmarks and agent outcomes diverge — **gate engine changes on
+agent-level evals**, which this harness now makes a ~$40 question.
+
+### 9.8 MaxSim failure forensics (2026-07-28)
+
+Reproduced the §9.7 Deltares bait case offline with real vectors
+(`tests/tokprobe.rs`, kept as a regression test: if its assertions flip,
+revisit `--maxsim`). Query `scalar_None function shortcut`; gold = the
+actual definition `def scalar_None(obj): return obj is None`; bait =
+`regridder_function: Optional[str], if min is None and max is None:`.
+Per-token argmax table:
+
+```
+query tok   → best in GOLD        → best in BAIT
+scalar        scalar   1.000        str        0.210
+_             _        1.000        _          1.000
+none          none     1.000        none       1.000
+function      (        0.115        function   1.000
+shortcut      (        0.064        regridder  0.069
+TOTAL         gold 3.179            bait 3.279   ← bait wins
+```
+
+Root causes, in causal order:
+
+1. **The tokenizer shreds identifiers.** ese's prose pre-tokenizer splits
+   on punctuation: `scalar_None` → `[scalar, _, none]`. The identifier —
+   the highest-signal token in code — never exists as a matchable unit,
+   so MaxSim can only match its fragments, which are exactly the
+   fragments bait chunks share. Worse, punctuation tokens are
+   first-class: `_` contributes a perfect 1.000 to *any* chunk containing
+   an underscore. (camelCase, inconsistently, is *not* split:
+   `computeBackoffDelay` stays whole.)
+2. **Concept words don't appear in code.** The gold chunk IS a function
+   but never says "function" — code says `def`/`(`. The query's concept
+   word finds its literal match only where the *word* occurs (bait
+   identifiers, comments), scoring 1.000 there vs 0.115 against the
+   punctuation that actually expresses the concept.
+3. **No contextual awareness (hypothesis confirmed).** Static vectors:
+   "none" inside `scalar_None` and "none" in `min is None` are the SAME
+   vector. Real ColBERT works because a transformer contextualizes each
+   token before matching; per-token matching over context-free vectors
+   structurally can't distinguish an identifier fragment from a keyword.
+4. **No term importance (non-SIF conditions).** `token_vectors` weights
+   query tokens 1.0 without SIF stats, so `_` counts as much as
+   `scalar`. Consistent: the SIF condition (weighted query tokens)
+   recovered about half the gap (fnAcc 54 → 59 vs plain 62).
+5. **Chunk vocabulary saturation (hypothesis partially confirmed).**
+   Code chunks (~300 tokens from a tiny high-frequency vocabulary) give
+   nearly every chunk a perfect match for common query tokens, so
+   per-token maxes saturate and the score spread that should
+   discriminate collapses. It's not chunk *length* per se — it's the
+   frequency distribution of code vocabulary within any sizable chunk.
+
+Net: in the agent setting MaxSim ≈ **BM25 minus idf plus punctuation
+noise** — and hybrid already *has* BM25, with idf, without the noise.
+The offline gains appeared only in semantic-only mode against the
+muddy-pooled-vector baseline, where any token matching helped.
+
+**Fix path, if ever revisited** (documented, not implemented — §9.7's
+gate applies): use semgrep's own code-aware BM25 tokenizer
+(`tokenize.rs`: keeps whole identifiers + subtokens, drops <2-char
+tokens — killing both `_`-noise and the shredding in one move) instead
+of ese's prose tokenizer for the match units; always idf-weight query
+tokens; contextual embeddings are the full fix but are a different
+embedder, not a rerank tweak.
+
+### 9.9 The layer below: ese's embedding space is prose-shaped (2026-07-28)
+
+Question raised: does §9.8 extend to the static model itself — was it
+trained on prose? Architecture said yes (BERT wordpiece vocab with `##`
+pieces, CLS/SEP, BERT's exact normalization pipeline); a direct probe
+confirms it (`tests/modelprobe.rs`, kept as a regression test — if its
+assertion flips under a new embedder, the semantic stack's role on code
+changes):
+
+```
+prose synonym pairs          code concept pairs
+delete ~ remove   0.540      def    ~ function  0.037
+start  ~ begin    0.756      fn     ~ function  0.173
+big    ~ large    0.584      none   ~ null      0.079
+error  ~ mistake  0.428      str    ~ string   -0.002
+fast   ~ quick    0.355      mutex  ~ lock      0.045
+                             kmalloc~ allocate  0.091
+                             regex  ~ pattern   0.012
+```
+
+The space encodes prose synonymy and knows **essentially nothing about
+code-concept relations** — `str`~`string` at −0.002 is the headline: to
+a prose model, "str" is an arbitrary letter sequence, not an
+abbreviation. The one code pair that scores well (`bool`~`boolean`
+0.560) works through shared wordpiece *surface form*, not semantics —
+which is the general story: OOV is not the problem (no probed identifier
+fell to UNK; fragments cover them), the *relations* are missing.
+
+This makes the full failure stack three layers deep, each independent:
+1. §9.8: the prose tokenizer shreds identifiers (surface form)
+2. §9.8: static vectors carry no context (structure)
+3. §9.9: the space lacks code-concept knowledge (training distribution)
+
+Even perfect tokenization + contextualization can't bridge query
+"protect with a lock" → chunk `mutex_lock(&...)` when mutex⊥lock in the
+space. It also explains the measured asymmetry precisely: semantic
+*direct* on code works passably (kernel 0.68) because query identifiers
+overlap chunk identifiers — **on code, ese functions as a fuzzy lexical
+matcher, not a semantic model** — while paraphrase (≤0.05) is exactly
+the case that needs the missing bridges. The kernel-paraphrase wall
+(§3, §9.4) is hereby reframed: a training-data problem, not a
+query-machinery problem, and every §9 query-time lever was bounded by it.
+
+**The encouraging part:** a static model is just a lookup table, so the
+deep fix is the cheap kind — re-distill the table from a code-aware
+teacher (model2vec-style, from a code embedder), keeping ese's
+architecture, speed, cold-path feasibility, and the entire semgrep stack
+unchanged (same DIMENSIONS ⇒ emb.bin drop-in; the cache invalidates by
+format version as usual). That is the highest-leverage next experiment
+for retrieval quality — gated, per §9.7, on the agent-level eval.
+
 ### Recommended experiment order (leverage ÷ effort)
 
 1. **PRF** — pure orchestration in `search.rs`, hidden flag, score

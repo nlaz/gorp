@@ -55,11 +55,21 @@ pub struct BuildOptions {
     /// SIF-weighted chunk embeddings (experimental, RESEARCH.md §9.1):
     /// adds a frequency-counting pre-pass and stores `sif.bin`.
     pub sif: bool,
+    /// SIF smoothing constant a in a/(a+p(w)); larger = milder weighting.
+    pub sif_a: f64,
+    /// Subtract the sample-estimated common component (SIF's second half).
+    pub sif_center: bool,
 }
 
 impl Default for BuildOptions {
     fn default() -> Self {
-        Self { params: ChunkParams::default(), hnsw: false, sif: false }
+        Self {
+            params: ChunkParams::default(),
+            hnsw: false,
+            sif: false,
+            sif_a: semantic::SIF_A,
+            sif_center: false,
+        }
     }
 }
 
@@ -109,6 +119,37 @@ pub fn build_at(
                 .collect();
             for p in partials {
                 all.merge(p);
+            }
+        }
+        all.a = opts.sif_a;
+        // Common-component estimation from a file sample: pool one chunk per
+        // sampled file with the freshly-counted weights, take the mean. All
+        // later embeds (chunks and queries) subtract it via embed_sif.
+        if opts.sif_center && !files.is_empty() {
+            let stride = (files.len() / 512).max(1);
+            let samples: Vec<[f32; EMBED_DIM]> = files
+                .iter()
+                .step_by(stride)
+                .take(512)
+                .collect::<Vec<_>>()
+                .par_iter()
+                .filter_map(|fm| {
+                    let text = corpus::read_text(&corpus::abs_path(root, fm))?;
+                    let (_, slice) = corpus::chunk_lines(0, &text, &opts.params).into_iter().next()?;
+                    Some(semantic::embed_sif(&corpus::doc_text(&fm.path, slice), &all))
+                })
+                .collect();
+            if !samples.is_empty() {
+                let mut mean = vec![0.0f32; EMBED_DIM];
+                for s in &samples {
+                    for (m, x) in mean.iter_mut().zip(s.iter()) {
+                        *m += x;
+                    }
+                }
+                for m in mean.iter_mut() {
+                    *m /= samples.len() as f32;
+                }
+                all.mean = Some(mean);
             }
         }
         all

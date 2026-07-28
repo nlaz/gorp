@@ -139,7 +139,7 @@ fn indexed_matches_unindexed_results() {
     let cold = search(dir.path(), "exponential backoff retries", &stream_opts(Mode::Hybrid)).unwrap();
     assert!(!cold.report.used_index);
 
-    index::build(dir.path(), &BuildOptions { params, hnsw: false, sif: false }, |_, _| {}).unwrap();
+    index::build(dir.path(), &BuildOptions { params, hnsw: false, ..Default::default() }, |_, _| {}).unwrap();
     let warm = search(dir.path(), "exponential backoff retries", &opts(Mode::Hybrid)).unwrap();
     assert!(warm.report.used_index);
     assert!(!warm.report.used_hnsw);
@@ -163,7 +163,7 @@ fn hnsw_index_agrees_with_exact_on_top_hit() {
     let dir = tempfile::tempdir().unwrap();
     fixture(dir.path());
     let params = ChunkParams { window: 8, overlap: 2, ..Default::default() };
-    index::build(dir.path(), &BuildOptions { params, hnsw: true, sif: false }, |_, _| {}).unwrap();
+    index::build(dir.path(), &BuildOptions { params, hnsw: true, ..Default::default() }, |_, _| {}).unwrap();
 
     let mut o = opts(Mode::Semantic);
     let hnsw = search(dir.path(), "hashing a password with salt", &o).unwrap();
@@ -180,7 +180,7 @@ fn staleness_detected_after_edit() {
     let dir = tempfile::tempdir().unwrap();
     fixture(dir.path());
     let params = ChunkParams { window: 8, overlap: 2, ..Default::default() };
-    index::build(dir.path(), &BuildOptions { params, hnsw: false, sif: false }, |_, _| {}).unwrap();
+    index::build(dir.path(), &BuildOptions { params, hnsw: false, ..Default::default() }, |_, _| {}).unwrap();
 
     let idx = index::LoadedIndex::load(dir.path(), index::LoadNeeds::all()).unwrap();
     assert_eq!(idx.stale_files().unwrap(), 0);
@@ -195,7 +195,7 @@ fn no_index_flag_forces_streaming() {
     let dir = tempfile::tempdir().unwrap();
     fixture(dir.path());
     let params = ChunkParams { window: 8, overlap: 2, ..Default::default() };
-    index::build(dir.path(), &BuildOptions { params, hnsw: false, sif: false }, |_, _| {}).unwrap();
+    index::build(dir.path(), &BuildOptions { params, hnsw: false, ..Default::default() }, |_, _| {}).unwrap();
     let mut o = opts(Mode::Bm25);
     o.no_index = true;
     let r = search(dir.path(), "backoff", &o).unwrap();
@@ -213,7 +213,7 @@ fn ancestor_index_serves_subdir_scope() {
     let dir = tempfile::tempdir().unwrap();
     fixture(dir.path());
     let params = ChunkParams { window: 8, overlap: 2, ..Default::default() };
-    index::build(dir.path(), &BuildOptions { params, hnsw: false, sif: false }, |_, _| {}).unwrap();
+    index::build(dir.path(), &BuildOptions { params, hnsw: false, ..Default::default() }, |_, _| {}).unwrap();
 
     // Query scoped to src/ — the index lives one level up.
     let r = search(&dir.path().join("src"), "validate a session token", &opts(Mode::Hybrid))

@@ -29,14 +29,25 @@ pub fn embed_query(query: &str) -> [f32; EMBED_DIM] {
 // SIF-style rarity weights and score candidates by MaxSim late interaction.
 // ---------------------------------------------------------------------------
 
-/// SIF smoothing constant (Arora et al.: a/(a + p(w)), a ≈ 1e-3).
+/// Default SIF smoothing constant (Arora et al.: a/(a + p(w))).
 pub const SIF_A: f64 = 1e-3;
 
+fn default_sif_a() -> f64 {
+    SIF_A
+}
+
 /// Corpus token statistics for SIF weighting, stored in the index.
+/// `a` is persisted so query-time pooling always matches build-time.
+/// `mean` is the sample-estimated common component (--sif-center):
+/// subtracted from every pooled vector, chunk and query alike.
 #[derive(Default, serde::Serialize, serde::Deserialize)]
 pub struct SifStats {
     pub freqs: std::collections::HashMap<String, u64>,
     pub total: u64,
+    #[serde(default = "default_sif_a")]
+    pub a: f64,
+    #[serde(default)]
+    pub mean: Option<Vec<f32>>,
 }
 
 impl SifStats {
@@ -48,7 +59,7 @@ impl SifStats {
             .get(token)
             .map(|&c| c as f64 / self.total.max(1) as f64)
             .unwrap_or(0.0);
-        (SIF_A / (SIF_A + p)) as f32
+        (self.a / (self.a + p)) as f32
     }
 
     /// Count `text`'s tokens into the stats (build-time pass 1).
@@ -83,6 +94,14 @@ pub fn embed_sif(text: &str, sif: &SifStats) -> [f32; EMBED_DIM] {
     if wsum > 0.0 {
         for o in out.iter_mut() {
             *o /= wsum;
+        }
+        // Common-component removal: the direction every pooled vector
+        // shares carries no discriminative signal; subtracting it is the
+        // second half of the SIF recipe.
+        if let Some(mean) = &sif.mean {
+            for (o, m) in out.iter_mut().zip(mean.iter()) {
+                *o -= m;
+            }
         }
     }
     out

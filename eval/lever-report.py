@@ -13,7 +13,7 @@ from pathlib import Path
 
 HERE = Path(__file__).parent
 DATA = HERE / "data"
-CONDS = ["base", "prf", "maxsim", "sif", "sif-maxsim"]
+CONDS = ["base", "prf", "maxsim", "sif", "sif-maxsim", "maxsim2", "sif-maxsim2"]
 CORPORA = ["vscode", "wikipedia", "linux"]
 
 

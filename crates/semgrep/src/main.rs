@@ -125,6 +125,14 @@ struct Cli {
     /// Rerank candidates by MaxSim late interaction (experimental, §9.2)
     #[arg(long, hide = true)]
     maxsim: bool,
+
+    /// MaxSim rerank head size (0 = auto: k*3, min 24)
+    #[arg(long, hide = true, default_value_t = 0)]
+    maxsim_pool: usize,
+
+    /// MaxSim vs original-order blend within the head (1.0 = pure MaxSim)
+    #[arg(long, hide = true, default_value_t = 1.0)]
+    maxsim_blend: f32,
 }
 
 #[derive(Subcommand)]
@@ -139,6 +147,12 @@ enum Cmd {
         /// SIF-weighted chunk embeddings (experimental, RESEARCH.md §9.1)
         #[arg(long, hide = true)]
         sif: bool,
+        /// SIF smoothing constant a (larger = milder weighting)
+        #[arg(long, hide = true, default_value_t = 1e-3)]
+        sif_a: f64,
+        /// Subtract the sample-estimated common component (SIF second half)
+        #[arg(long, hide = true)]
+        sif_center: bool,
         /// Report index freshness instead of rebuilding
         #[arg(long)]
         status: bool,
@@ -163,7 +177,7 @@ fn main() {
 
 fn run(cli: Cli) -> Result<i32> {
     match cli.cmd {
-        Some(Cmd::Index { path, hnsw, sif, status, window, overlap }) => {
+        Some(Cmd::Index { path, hnsw, sif, sif_a, sif_center, status, window, overlap }) => {
             let root = path.unwrap_or_else(|| PathBuf::from("."));
             if status {
                 return index_status(&root);
@@ -172,6 +186,8 @@ fn run(cli: Cli) -> Result<i32> {
                 params: ChunkParams { window, overlap, ..Default::default() },
                 hnsw,
                 sif,
+                sif_a,
+                sif_center,
             };
             let t0 = std::time::Instant::now();
             let stats = index::build(&root, &opts, |done, total| {
@@ -249,6 +265,8 @@ fn run_search(cli: &Cli, query: &str) -> Result<i32> {
         mmr_lambda: cli.mmr_lambda,
         prf_terms: cli.prf,
         rerank_maxsim: cli.maxsim,
+        maxsim_pool: cli.maxsim_pool,
+        maxsim_blend: cli.maxsim_blend,
         params: ChunkParams { window: cli.window, overlap: cli.overlap, ..Default::default() },
         keyword: KeywordOptions {
             case_insensitive: cli.ignore_case,

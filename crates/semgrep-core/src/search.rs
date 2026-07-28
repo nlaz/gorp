@@ -48,6 +48,11 @@ pub struct SearchOptions {
     pub prf_terms: usize,
     /// Rerank the candidate pool by MaxSim late interaction (§9.2).
     pub rerank_maxsim: bool,
+    /// MaxSim rerank head size (0 = auto: k*3, min 24).
+    pub maxsim_pool: usize,
+    /// Blend of MaxSim vs original embedding order within the reranked
+    /// head: 1.0 = pure MaxSim (default), 0.0 = original order.
+    pub maxsim_blend: f32,
     pub params: ChunkParams,
     pub keyword: KeywordOptions,
 }
@@ -65,6 +70,8 @@ impl Default for SearchOptions {
             mmr_lambda: 0.75,
             prf_terms: 0,
             rerank_maxsim: false,
+            maxsim_pool: 0,
+            maxsim_blend: 1.0,
             params: ChunkParams::default(),
             keyword: KeywordOptions::default(),
         }
@@ -135,7 +142,7 @@ pub fn search(root: &Path, query: &str, opts: &SearchOptions) -> Result<SearchRe
     } else {
         index::discover(root).or_else(|| {
             let canon = std::fs::canonicalize(root).ok()?;
-            let build = index::BuildOptions { params: opts.params, hnsw: false, sif: false };
+            let build = index::BuildOptions { params: opts.params, ..Default::default() };
             index::write_cache_entry(&canon, &build, |_, _| {}).ok()?;
             wrote_cache = true;
             index::discover(root)
@@ -449,6 +456,65 @@ fn search_indexed(
                 if used_hnsw { "rank:ann" } else { "rank:brute" }.to_string(),
                 ms(t0),
             ));
+            // Pre-fusion MaxSim rerank (§9.4): reorder the semantic list's
+            // head by late-interaction score *before* RRF, so BM25's
+            // exact-match signal is fused with it rather than overridden by
+            // it (the post-fusion wiring hurt code hybrid). Head size
+            // matches what the eval validated (k*3, min 24).
+            if opts.rerank_maxsim && !ranked.is_empty() {
+                let t0 = Instant::now();
+                let qtoks = semantic::token_vectors(query, idx.sif.as_ref());
+                if !qtoks.is_empty() {
+                    use rayon::prelude::*;
+                    // Head 96 won the §9.6 sweep on all three corpora
+                    // (semantic +0.03..0.06 R@5 over head 24, ~54 ms).
+                    let auto = (opts.k * 3).max(96);
+                    let m = ranked
+                        .len()
+                        .min(if opts.maxsim_pool > 0 { opts.maxsim_pool } else { auto });
+                    let scored: Vec<(u32, f32, f32)> = ranked[..m]
+                        .par_iter()
+                        .map(|&(id, dist)| {
+                            let (chunk, path) = resolve(id);
+                            let sim = corpus::chunk_text_rel(&d.root, &path, &chunk)
+                                .map(|text| {
+                                    let dtoks = semantic::token_vectors(
+                                        &corpus::doc_text(&path, &text),
+                                        None,
+                                    );
+                                    semantic::maxsim(&qtoks, &dtoks)
+                                })
+                                .unwrap_or(f32::NEG_INFINITY);
+                            (id, sim, dist)
+                        })
+                        .collect();
+                    // Blend MaxSim with the original embedding order (both
+                    // min-max normalized within the head) when < 1.0.
+                    let alpha = opts.maxsim_blend.clamp(0.0, 1.0);
+                    let norm = |xs: Vec<f32>| -> Vec<f32> {
+                        let (lo, hi) = xs.iter().fold((f32::MAX, f32::MIN), |(l, h), &x| {
+                            (l.min(x), h.max(x))
+                        });
+                        let span = (hi - lo).max(f32::EPSILON);
+                        xs.into_iter().map(|x| (x - lo) / span).collect()
+                    };
+                    let sim_n = norm(scored.iter().map(|&(_, s, _)| s).collect());
+                    let emb_n = norm(scored.iter().map(|&(_, _, d)| -d).collect());
+                    let mut head: Vec<(u32, f32)> = scored
+                        .iter()
+                        .zip(sim_n.iter().zip(emb_n.iter()))
+                        .map(|(&(id, _, _), (&s, &e))| {
+                            // Combined similarity → pseudo-distance so the
+                            // list keeps its ascending-is-better contract.
+                            (id, -(alpha * s + (1.0 - alpha) * e))
+                        })
+                        .collect();
+                    head.sort_unstable_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));
+                    head.extend_from_slice(&ranked[m..]);
+                    ranked = head;
+                }
+                stages.push(("rank:maxsim".into(), ms(t0)));
+            }
             ranked
         }
         _ => Vec::new(),
@@ -464,7 +530,7 @@ fn search_indexed(
         d.prefix.is_empty()
             || path.strip_prefix(&d.prefix).is_some_and(|r| r.starts_with('/'))
     };
-    let mut cands: Vec<Candidate> = ranked
+    let cands: Vec<Candidate> = ranked
         .into_iter()
         .filter_map(|(id, score)| {
             let (chunk, path) = resolve(id);
@@ -472,37 +538,6 @@ fn search_indexed(
         })
         .take(opts.k * 3)
         .collect();
-
-    // MaxSim late-interaction rerank: score each candidate by letting every
-    // query token find its best-matching chunk token — one strong identifier
-    // match can't be averaged away (the pooled-vector failure mode). Static
-    // embeddings make this cheap: token vectors are table lookups.
-    if opts.rerank_maxsim && !cands.is_empty() {
-        let t0 = Instant::now();
-        let qtoks = semantic::token_vectors(query, idx.sif.as_ref());
-        if !qtoks.is_empty() {
-            use rayon::prelude::*;
-            let scores: Vec<f32> = cands
-                .par_iter()
-                .map(|c| {
-                    corpus::chunk_text_rel(&d.root, &c.path, &c.chunk)
-                        .map(|text| {
-                            let dtoks = semantic::token_vectors(
-                                &corpus::doc_text(&c.path, &text),
-                                None,
-                            );
-                            semantic::maxsim(&qtoks, &dtoks)
-                        })
-                        .unwrap_or(f32::NEG_INFINITY)
-                })
-                .collect();
-            for (c, s) in cands.iter_mut().zip(&scores) {
-                c.score = *s;
-            }
-            cands.sort_by(|a, b| b.score.total_cmp(&a.score).then(a.id.cmp(&b.id)));
-        }
-        stages.push(("rank:maxsim".into(), ms(t0)));
-    }
     // Chunk ids equal embedding-matrix row ids, so vectors are free here
     // (dequantized on the fly for v2 indexes — a handful of rows).
     let t0 = Instant::now();
