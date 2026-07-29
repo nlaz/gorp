@@ -17,8 +17,8 @@ design; README.md for usage.
 ## Conventions
 
 - Build: `cargo build --release` (first build downloads ese weights; needs
-  network once). Test: `cargo test` (34 tests incl. e2e fixture corpus and
-  cache-transparency tests).
+  network once). Test: `cargo test` (38 tests incl. e2e fixture corpus,
+  cache-transparency, and stale-cache-eviction tests).
 - Chunk ids are assigned in walk order and must stay in lockstep between the
   chunk table, BM25 add order, and `emb.bin` row order. The pass is
   parallel (`corpus::process_file` on rayon workers) with a serial in-order
@@ -36,14 +36,20 @@ design; README.md for usage.
 - The benchmark corpora live in `bench/corpora/` (~5 GB with the linux index;
   refetch with `bench/fetch-corpora.sh`, vscode needs GIT_LFS_SKIP_SMUDGE=1).
 
-## Known costs (measured, M-series mac, linux kernel corpus, index v2)
+## Known costs (measured, M-series mac, linux kernel corpus, index v2, 256 dims)
 
+Re-measured 2026-07-29 after the dim-256 switch (RESEARCH.md §10.7); numbers
+that involve embeddings all moved, BM25 and keyword did not.
+
+- binary 39.0 MB (was 72.8 MB at 512 dims — `weights.bin` is
+  `TABLE_SIZE × (8 + dims × 4)`, so halving dims halves the compiled table)
 - keyword ≈ rg (same engine crates), ~12 MB RSS
 - cold (unindexed): semantic ~20 s / 154 MB; bm25 ~39 s / 916 MB (postings —
   candidate for two-pass streaming rewrite); hybrid ~53 s
-- index build ~59 s → 1.3 GB (737 MB i8 emb.bin + 515 MB bm25.flat)
-- warm queries: bm25 80 ms, semantic 80 ms, hybrid 135 ms (quantized brute
-  scan; the old f32 scan was fault/IO-bound at ~3-4 s)
+- index build 45.9 s → 946 MB (386 MB i8 emb.bin + 541 MB bm25.flat),
+  0.78 GiB peak RSS. vscode 63 MB, wikipedia 205 MB.
+- warm queries: bm25 88 ms, semantic 53 ms, hybrid 115 ms (halving dims
+  halved the embedding scan; the old f32 scan was fault/IO-bound at ~3-4 s)
 - `--stats` prints per-stage provenance; `--check-stale` is separate (walks
   the corpus, ~1 s on 84k files)
 - hnsw.bin > 1 GiB is skipped at query time (from_bytes ~20 s at kernel

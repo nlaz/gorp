@@ -61,13 +61,13 @@ Ranked mode, end-to-end including process start (measured 2026-07-28):
 
 | ranked query | first time in a scope | cached | cache size |
 |---|---|---|---|
-| VS Code repo (49 MB, 4k files) | 2.5 s | **10 ms** | 74 MB |
-| kernel `drivers/net/` (145 MB) | 3.9 s | **20 ms** | 182 MB |
-| whole kernel (1.15 GB, 84k files) | 32 s | **90 ms** | 1.2 GB |
+| VS Code repo (49 MB, 4k files) | 2.5 s | **10 ms** | 63 MB |
+| kernel `drivers/net/` (145 MB) | 3.9 s | **20 ms** | 150 MB |
+| whole kernel (1.15 GB, 84k files) | 32 s | **115 ms** | 946 MB |
 
 The first number is a full streaming pass over that scope — chunk, tokenize,
 embed — and it is paid once. Peak RSS tracks it: 12 MB in exact mode, ~840 MB
-for a warm hybrid query on the kernel, 1.3 GB during the kernel's first pass.
+for a warm hybrid query on the kernel, 0.78 GB during the kernel's first pass.
 Full tables and methodology in [RESULTS.md](RESULTS.md).
 
 ## No index to manage: the index is a cache
@@ -122,9 +122,13 @@ agent:
 to work in a huge tree), and a hidden `--no-index` forces the pure streaming
 path for harnesses. Neither is something an agent needs to know about.
 
-Not yet done: the cache has no size cap or LRU eviction, so it grows until you
-delete it — and an entry written by an older binary reports a format-mismatch
-error rather than degrading to a miss (RESEARCH.md §8.2).
+The cache is bounded and inspectable. `semgrep cache` shows what it holds
+and what it costs; `--prune` reclaims, `--clear` empties it. Entries are
+evicted when the repo they index no longer exists, and least-recently-used
+past a 2 GB budget (`SEMGREP_CACHE_MAX_BYTES`). Entries are namespaced by a
+key covering the index format, the embedding dimensions, and a fingerprint of
+the embedding table, so a binary that cannot read an entry never finds it —
+incompatibility is a miss that refills, not an error you have to act on.
 
 ## What the agent sees
 

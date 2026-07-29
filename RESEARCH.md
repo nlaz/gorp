@@ -1163,3 +1163,483 @@ Open items:
       tokens (target < ~200; Grep spends ~500–600)
 - [ ] Decide the auto-index story (§4.4) — the zero-config claim depends on
       cold-path acceptability vs background index build
+
+## 10. Swapping the embedding table for a code-trained one (2026-07-28)
+
+§9.9 ended with "re-distill the table from a code-aware teacher" as the
+highest-leverage next experiment. The first finding is that **we should not
+distill it ourselves** — it already exists, built with a stronger pipeline
+than we would have run.
+
+`minishlab/potion-code-16M-v2` is distilled from `nomic-ai/CodeRankEmbed`
+(the same teacher this repo independently selected: a 12-layer/768-dim
+nomic-bert trained for NL-query → code retrieval, which is exactly
+semgrep's asymmetry), then *tokenlearn*-fine-tuned on 1.2M CornStack
+(query, doc) pairs, then contrastive-fine-tuned with
+`MultipleNegativesRankingLoss` on 1.2M more. It also does a step we had not
+planned: **43k code tokens mined from CornStack are added to the tokenizer**
+(63.5k vocab vs 30.5k), so whole camelCase identifiers like `getuserbyid`
+are single vocab entries.
+
+Teacher-side survey (the binding constraint is that ese implements
+**WordPiece only**): `CodeRankEmbed` is WordPiece/30522/BertNormalizer with
+`[UNK]/[CLS]/[SEP]` at 100/101/102 — drop-in. `jina-embeddings-v2-base-code`,
+`codet5p-110m-embedding`, and `gte-modernbert-base` are all BPE, so they
+would each require a new tokenizer in ese.
+
+### 10.1 What the swap actually required
+
+`ese/build.rs` was already model-agnostic in the important way — it consumes
+any `[V × D]` safetensors matrix plus a WordPiece `tokenizer.json`. Three
+changes were still needed:
+
+1. **Build-time model selection.** `ESE_MODEL_URL` / `ESE_TOKENIZER_URL`
+   env overrides (default unchanged), with `rerun-if-env-changed`, and the
+   download cache keyed by model identity — otherwise two models collide on
+   the same `model.safetensors` filename and the stale one silently wins.
+2. **Marker vectors resolved by name, not by id.** `build.rs` hardcoded
+   `100 => UNK, 101 => CLS, 102 => SEP`. BERT vocabs happen to match;
+   distilled tables prune and reorder. Verified on `potion-base-8M`: ids
+   100/101/102 are `¿`, `×`, `ß`. potion-code has `[UNK]` at id 1 and
+   **no CLS/SEP at all** — and `encode_single` folds CLS and SEP into every
+   vector, so the positional lookup would have added two arbitrary
+   accented-character vectors to every embedding, scaled by `1/token_count`
+   (i.e. worst on short queries). Absent markers now become zero vectors,
+   which `accumulate` adds as a no-op, and the build warns.
+3. **A latent trap in the Loc-Bench harness.** `ensure_index` reused an
+   existing `.semgrep` if only the `sif` flag matched — never checking dims.
+   A leftover 512-dim index would make every agent query bail on the dims
+   check, which presents as catastrophic accuracy rather than the mechanical
+   mismatch it is. Now rebuilds when the index predates the binary.
+
+Everything downstream absorbed the change without edits: `dims` falls out of
+`min(256, trunc_dims())`, `EMBED_DIM` follows, and `load_dir`'s existing
+`meta.dims != EMBED_DIM` guard (`index.rs:471`) makes every stale cache entry
+fail loudly. **Correction to an earlier assumption in this doc**: a table
+swap is *not* silently cache-unsafe when dims change — that guard catches it.
+It would only be silent for a future same-dims swap, which is the case a
+model-identity field in `IndexMeta` still needs to cover.
+
+Sizes: vocab 63,457 → 65,536 PHF slots × (8 + 256×4) = 65 MB `weights.bin`
+(was 64 MB), binary 70 MB (was 69 MB). 256 dims halves `emb.bin`: kernel
+index 1.3 GB → 918 MB, VS Code 74 MB → 60 MB. All 34 functional tests pass
+at 256 dims, including cache transparency and `indexed_matches_unindexed`.
+
+### 10.2 The probes: layer 3 is fixed
+
+`tests/modelprobe.rs` and `tests/tokprobe.rs` were written as inverted
+assertions — they *fail* when the space changes. Both now fail, as designed:
+
+| probe pair | prose table (§9.9) | code table |
+|---|---|---|
+| `str` ~ `string` | −0.002 | **0.778** |
+| `none` ~ `null` | ~0 | **0.675** |
+| `fn` ~ `function` | ~0 | **0.498** |
+| `regex` ~ `pattern` | ~0 | **0.454** |
+| `mutex` ~ `lock` | 0.045 | **0.367** |
+| `kmalloc` ~ `allocate` | ~0 | 0.214 |
+| `def` ~ `function` | 0.037 | 0.082 |
+| prose synonym mean | ~0.5 | 0.589 (held) |
+
+Code-concept mean 0.438 vs prose 0.589 — the space now encodes code
+relations without having lost prose synonymy. The §9.8 bait/gold MaxSim
+inversion also flips (gold 3.310 > bait 3.307), though by a hair.
+
+`identifiers_are_shredded_by_the_tokenizer` still **passes**: `scalar_None`
+→ `[scalar, _, none]`, and `_` still self-matches at 1.000. Layer 1 (the
+pretokenizer splitting on punctuation before any vocab lookup,
+`pretokenizer.rs:115`) is untouched by a table swap, and `scalar_none` is
+not among the mined tokens. Layer 2 (no context) remains unfixable by any
+static model.
+
+### 10.3 Offline results (same query sets and conditions as §9.4 base)
+
+recall@5, `eval/data/codemodel-*.json` vs `lever-*-base.json`:
+
+| corpus | mode / kind | base | code table | Δ |
+|---|---|---|---|---|
+| VS Code | semantic direct | 0.570 | **0.740** | +0.170 |
+| VS Code | semantic paraphrase | 0.010 | **0.125** | +0.115 (12.5×) |
+| VS Code | hybrid direct (R@1) | 0.655 | **0.725** | +0.070 |
+| VS Code | hybrid paraphrase | 0.145 | 0.145 | +0.000 |
+| kernel | semantic direct | 0.678 | 0.719 | +0.041 |
+| kernel | semantic paraphrase | 0.005 | 0.015 | +0.010 |
+| kernel | hybrid direct (R@1) | 0.633 | **0.683** | +0.050 |
+| kernel | hybrid paraphrase | 0.045 | 0.040 | −0.005 |
+| wikipedia | semantic direct | 0.785 | 0.605 | **−0.180** |
+| wikipedia | semantic paraphrase | 0.250 | 0.120 | **−0.130** |
+| wikipedia | hybrid direct | 0.975 | 0.965 | −0.010 |
+
+BM25 is unchanged everywhere, as it must be.
+
+Three readings:
+
+1. **The shipped default improves on both code corpora, on the metric that
+   matters most.** Hybrid R@1 +0.070 (VS Code) / +0.050 (kernel), MRR@10
+   +0.038 / +0.033. First-result quality is what drove the §7.1
+   function-precision win and what MaxSim degraded in §9.7.
+2. **Prose regresses, as a specialized model should.** Wikipedia semantic
+   loses ~0.18 R@5. It is a control corpus, not a target; the hybrid path
+   holds up (−0.010 direct R@5) because BM25 carries prose.
+3. **The kernel paraphrase wall stands** (0.005 → 0.015 R@5, still ≤0.05).
+
+### 10.4 Why the kernel gains so much less than VS Code
+
+The obvious candidate is **training-language coverage**: CornStack is
+Python, Java, JavaScript, Go, PHP, and Ruby. VS Code is TypeScript/
+JavaScript — in distribution, and it gets +0.170 semantic direct. The Linux
+kernel is C — out of distribution, and it gets +0.041. The cross-corpus
+difference is *consistent with* the language hypothesis but does not isolate
+it (corpus size and query sets differ too); a within-corpus split by file
+extension would test it properly.
+
+This reframes the kernel-paraphrase wall a second time. §9.9 moved it from
+"query-time machinery" to "training data"; the plausible reading now is
+narrower still — not "no code in the training data" but "no C". That is a
+much cheaper problem than the one we thought we had.
+
+Also note the ceiling this model sets on the hybrid path. On CoIR, its own
+hybrid-with-BM25 row scores 43.36 avg vs 42.31 for BM25 alone — +1.05. Much
+of what a better code embedder knows, our BM25 half already knew. The large
+gains live in the pure-semantic path, and the fusion dilutes them.
+
+### 10.5 Status
+
+Offline is promising enough to spend the agent-level gate (§9.7: offline
+gains are not evidence until they survive Loc-Bench). Running `sg-code` on
+the same 50 instances as `sg-plain` in `results-ab.jsonl` — identical
+prompt, harness, and driver model; the compiled-in table is the only
+variable. Decision to adopt (and to hardcode the URLs, re-point the two
+probe tests at the new properties, and add `model_id` to `IndexMeta`) is
+gated on that result.
+
+**Read that result as a best case.** All 50 instances are Python — 109 gold
+files, every one `.py` — and Python is the first language in CornStack. Per
+§10.4 this is the most favorable language setting the model has, so a win
+here is an upper bound on what a C or Rust codebase would see, and it is the
+same in-distribution advantage that makes VS Code (+0.170) look unlike the
+kernel (+0.041). A *failure* to win in this setting would correspondingly be
+strong evidence against the table. The size-stratified and language-varied
+samples already queued in §7.1's follow-ups are what would bound the
+general case.
+
+### 10.6 Loc-Bench A/B result: the offline gains did not transfer (again)
+
+50 instances, Sonnet, `sg-code` vs the stored `sg-plain` rows — identical
+prompt, harness, driver, and flags; the compiled-in table is the only
+variable. 47 pairs after dropping 2 baseline `parse_error` rows and 1
+`agent_error`.
+
+| paired | n | zero-search | med searches | file Acc@5 | fn Acc@10t | med cost |
+|---|---|---|---|---|---|---|
+| sg-plain (prose table) | 47 | 8 (17%) | 1 | **79%** | **64%** | $0.20 |
+| sg-code (code table) | 47 | 14 (30%) | 2 | 70% | 57% | $0.19 |
+| — both actually searched — | | | | | | |
+| sg-plain | 33 | 0 | 3 | **76%** | **58%** | $0.21 |
+| sg-code | 33 | 0 | 3 | 67% | 48% | $0.24 |
+
+**The code table did not win, and by the §9.7 gate it does not graduate.**
+
+Read it honestly, in both directions:
+
+- **It is not a proven regression.** The entire gap is 3–4 instances.
+  Discordant pairs run 4–0 (file Acc@5, all pairs) and 3–0 (both-searched),
+  giving exact two-sided p = 0.125 and 0.250. This is *no evidence of
+  improvement* plus weak directional evidence of harm — not a demonstrated
+  loss. What is striking is the asymmetry: across both metrics and both
+  subsets there is exactly **one** instance where the code table won and the
+  prose table lost.
+- **The headline number is partly driver noise.** Zero-search runs went 17%
+  → 30%. Whether the agent searches at all is decided *before* any result
+  returns, so the table cannot cause it; those runs are pure Sonnet
+  stochasticity, and they are why the both-searched subset is the honest
+  comparison. That subset still favors the prose table (−9pp file, −10pp
+  function), so conditioning does not rescue the result.
+- **n=50 cannot resolve this.** With ~30% of runs never invoking the tool,
+  33 usable pairs, and a 3-instance effect, the eval is underpowered for
+  anything short of a large effect. "Underpowered" cuts both ways here.
+
+Why the large offline gains vanished — the most likely reading is that they
+live in a path the default barely uses. §10.3's wins are concentrated in
+**pure semantic** (+0.170 R@5 on VS Code), while **hybrid** moved only
++0.010 R@5 / +0.070 R@1. The shipped default is hybrid with `sem_weight
+0.2`, and the model card's own CoIR hybrid row makes the same point
+independently: dense+BM25 beats BM25 alone by +1.05 NDCG. We fused away most
+of what we bought.
+
+**Decisions:**
+
+1. **Do not adopt as default.** No revert is needed — `build.rs` defaults to
+   the prose table and the code table is opt-in via `ESE_MODEL_URL`, so the
+   shipped binary is unchanged. Keep the swap mechanism: it is now tested,
+   and it made this experiment cost an afternoon.
+2. **Keep the §9.8/§9.9 probe tests asserting the prose-model properties**,
+   since that is what ships. They remain accurate tripwires.
+3. **The next question is not a better table, it is the fusion.** If the
+   gains are real and pure-semantic, the test is a code table *with*
+   `sem_weight` raised (or a semantic-first condition), not another table at
+   0.2. That is one offline sweep plus one agent A/B.
+4. **§9.7's rule holds for a second lever.** Offline retrieval gains —
+   MaxSim's, and now a genuinely better embedding space — have twice failed
+   to reach agent-level accuracy. The gate stays.
+
+### 10.7 Dimensionality vs model, separated (2026-07-29)
+
+`sg-code` confounded two changes: a code-trained table *and* 256 dims. A
+third run, `sg-p256` (the shipped prose table truncated to 256 via
+`ESE_DIMS`, same flags, same 50 instances), separates them into a factorial.
+
+| condition | binary | file Acc@5 | fn Acc@10t | fn-acc GIVEN file |
+|---|---|---|---|---|
+| prose@512 | 72.8 MB | 79% | 64% | — |
+| prose@256 | **39.0 MB** | 74% | 62% | — |
+| code@256 | 73.2 MB | 70% | 57% | — |
+| *both-searched subset (n=32)* | | | | |
+| prose@512 | | 75% | 56% | |
+| prose@256 | | 72% | **56%** | |
+| code@256 | | 69% | 50% | |
+
+On the both-searched subset prose@256 matches prose@512 on function accuracy
+exactly — **zero discordant instances** — and trails 3pp on files, which is
+one instance. So **§10.6's attribution was half wrong**: roughly half the
+code table's 79→70 deficit is dimensionality, not the model.
+
+Against ripgrep on the same 47 instances: prose@512 79%/64%, prose@256
+74%/62%, rg 74%/57%, code@256 70%/57%. prose@256 ties rg on files while
+keeping the function-level edge; code@256 is the one variant that surrenders
+it. Every contrast is non-significant (p = 0.375–1.000).
+
+**Shipped**: `Cargo.toml` pins `dim-256` (MRL prefix truncation — the
+default build already truncates 1024→512). Binary 72.8 → 39.0 MB (−46%),
+kernel index 1.3 GB → 918 MB. `ESE_DIMS` / `ESE_MODEL_URL` remain as
+build-time overrides for future A/Bs.
+
+## 11. Function chunking (2026-07-29)
+
+§10.7's stratification produced the session's most interesting result and
+motivated this experiment. Splitting the 47 instances by whether the issue
+text *names* a gold identifier:
+
+| stratum | | file Acc@5 | fn Acc@10t |
+|---|---|---|---|
+| issue NAMES the identifier (n=21) | rg | 81% | 62% |
+| | prose@256 | 81% | **71%** |
+| issue does NOT (n=26) | rg | 69% | 54% |
+| | prose@256 | 69% | 54% |
+
+The function-level edge comes entirely from grep's *best* case, and the two
+are identical where ranked retrieval was supposed to separate. Conditional
+on finding the right file (both: 35/47), semgrep names the right function
+83% vs rg's 77%. **The advantage is "where in the file", not "which file"** —
+which would explain why MaxSim and the code table produced nothing: both
+improve *which chunks rank highest*, and file-level was already tied.
+
+### 11.1 Measurement: dilution, not truncation
+
+Across 7 languages / ~52k functions (regex heuristics, ±few points):
+
+| corpus | n | median | ≤10 lines | ≤32 lines |
+|---|---|---|---|---|
+| python (Loc-Bench repos) | 4,038 | 10 | 52% | 88% |
+| c (kernel) | 16,936 | 12 | 45% | 89% |
+| typescript | 8,671 | 7 | 64% | 86% |
+| rust | 9,074 | 6 | 69% | 86% |
+| ruby | 4,009 | 4 | 78% | 96% |
+| java | 1,819 | 3 | 86% | 98% |
+| **weighted** | **51,678** | | **59%** | **89%** |
+
+A 32-line window rarely cuts a function in half (11%); it **swallows ~3
+whole functions**. The defect is dilution — the chunk vector is a mean over
+several unrelated functions, which no better embedder can undo. This is
+§9's uniform-mean-pooling pathology one level up, and it is *above* the
+embedding in the pipeline.
+
+### 11.2 Rule B: attaching leading doc without a parser
+
+Two candidate rules for pulling a function's leading comment into its chunk:
+
+| corpus | rule A (walk to blank line) | rule B (comment-aware, cap 20, 1 gap) |
+|---|---|---|
+| | doc / **code wrongly pulled** | doc / **code wrongly pulled** |
+| python | 20% / 3% | 20% / **0%** |
+| c | 9% / **36%** | 11% / **0%** |
+| typescript | 5% / **55%** | 6% / **0%** |
+| rust | 25% / 24% | **44%** / **0%** |
+| ruby | 35% / 7% | 37% / **0%** |
+| java | 54% / 0% | **58%** / **0%** |
+
+The zero-language-knowledge rule A collapses on brace languages — in TS it
+drags in the previous method's body 55% of the time, because methods pack
+with no blank line and `}` is not a comment. **Rule B pulls 0% code
+everywhere and captures more doc.** Its entire language cost is a ~10-entry
+shared prefix table (`//`, `#`, `/*`, `@`, `#[`, `///`, …) — not a grammar.
+Python docstrings need nothing at all: they are inside the body.
+
+Note also that today's *overlapping* windows already capture a 3–5 line
+comment block above a function most of the time, so naive function-node
+chunking would have been a **regression**; Rule B exists to prevent that.
+
+### 11.3 Implementation and measured tradeoffs
+
+`funcchunk.rs`: tree-sitter for the one thing needing a grammar (where does
+a function start?), Rule B for doc, size clamps both ways, line-window
+fallback for unsupported languages, unparseable files, and every region
+between functions. `Chunk` was already an arbitrary span, so nothing
+downstream changed. `chunking` is recorded in `meta.json`, so a mismatched
+index rebuilds rather than serving wrong spans.
+
+**Binary** (8 grammars: py, js, ts, rust, go, c, java, ruby): +6.62 MiB,
+39.0 → 45.9 MB — still 25.6 MiB below the original shipped binary, because
+the dim-256 win pays for it. Note the cost is invisible until the code is
+*used*; declaring the dependency alone measured 0 bytes.
+
+**Cold path and index** (warm cache, repeats within 0.05s):
+
+| corpus | mode | wall | chunks | index |
+|---|---|---|---|---|
+| django (2.9k py) | window | 0.49s | 22,341 | 14.6 MB |
+| | function | 0.82s (1.7×) | 39,431 (+76%) | 19.1 MB (+31%) |
+| litellm (5.1k py) | window | 1.68s | 76,740 | 53.2 MB |
+| | function | 2.66s (1.6×) | 80,070 (+4%) | 48.1 MB (−10%) |
+| vscode (4k ts) | window | 2.48s | 59,921 | 62.6 MB |
+| | function | 2.97s (1.2×) | 68,559 (+14%) | 62.6 MB (0%) |
+| linux (84k c) | window | 45.9s | 1,509,039 | 946 MB |
+| | function | **64.0s (1.39×)** | 1,465,080 (−3%) | **839 MB (−11%)** |
+
+Cold indexing costs 1.2–1.7×. Index size mostly *improves*: function chunks
+carry no overlap, so BM25 postings shrink (kernel 541 → 445 MB) more than
+the extra embedding rows cost; kernel RSS fell 0.78 → 0.68 GiB.
+
+### 11.4 Result: no benefit, and the offline eval cannot referee it
+
+**The offline eval is structurally biased here and must not be used.**
+`eval/generate.py:63` samples fixed `WINDOW`-line chunks and defines ground
+truth as that window's span, with queries written to be answerable by that
+window — which often spans 2–3 functions that no single function chunk
+contains. The eval's ground truth *is* one of the strategies under test. It
+duly reported window ahead (vscode hybrid R@1 −0.050; kernel semantic R@5
+−0.085, with BM25 unchanged to three decimals).
+
+Loc-Bench, whose ground truth is the real fix's functions, is neutral:
+
+| n=47 paired | file Acc@5 | fn Acc@10t | fn-acc GIVEN file |
+|---|---|---|---|
+| prose@256 window (shipped) | **74%** | **62%** | **83%** (35/47) |
+| prose@256 function chunks | 70% | 57% | 82% (33/47) |
+| ripgrep | 74% | 57% | 77% (35/47) |
+
+The conditional metric — 83% → 82% — was *the* prediction, and it is flat.
+Sign tests: files 0–2 (p=0.500), functions 2–4 (p=0.688). On the
+both-searched subset function chunks are +3pp on functions, but that is one
+instance and the full pairing contradicts it.
+
+**Decision: not adopted, and removed from the tree** (2026-07-29). Unlike
+`--maxsim`/`--sif`, which are cheap dormant flags, this one carried 8
+tree-sitter grammars (+6.62 MiB) and a second code path through chunking —
+too much standing cost for an unproven idea. `funcchunk.rs`, the `Chunking`
+enum, the `--chunking` flags, and the grammars are gone; this section is the
+record. Revisit only with an instrument that can resolve 3pp (§11.5).
+
+### 11.5 The instrument is the bottleneck (the important finding)
+
+Four consecutive engine changes have landed inside the noise: MaxSim
+(p≈0.25), the code table (p=0.125), dims (p=0.500), chunking (p=0.500–0.688).
+The reason is now measured. Across the 47 instances scored under all five
+conditions:
+
+| | file Acc@5 | fn Acc@10t |
+|---|---|---|
+| every condition solves it | 68% | 49% |
+| every condition misses it | 19% | 30% |
+| **discriminative** | **13%** | **21%** |
+
+**80–87% of Loc-Bench instances carry no signal about the search engine.**
+Measured pairwise discordance is ψ = 0.067 (file) / 0.088 (function) —
+conditions agree on ~91% of instances. Required n at α=.05, 80% power:
+7pp → 142 instances, 5pp → 277, 3pp → 769, 2pp → 1,729. Loc-Bench V1 holds
+560, so **3pp is unreachable on this benchmark at any price**.
+
+Screening to discriminative instances does *not* add power — McNemar depends
+only on discordant pairs, and screening removes concordant ones — but it cuts
+~4.5× off the cost of obtaining them.
+
+Planned instead of more agent spend:
+
+1. **Offline set, rebuilt and enlarged**: ~2,000 queries per corpus, ground
+   truth anchored to a **symbol span** (tree-sitter, now available) rather
+   than a sampled window. Fixes the §11.4 bias, resolves ~3pp instead of
+   ~7pp, one-time generation cost, free to re-run.
+2. **Agent launch set**: screen all 560 with neutral references (rg + plain
+   semgrep), keep the ~120 discriminative; future A/Bs cost ~$25 not $116.
+   Quote headline accuracy from the full sample, never the screened one.
+3. **Query replay**: every agent search is logged with argv; replaying real
+   queries offline removes agent stochasticity entirely at ~5× the sample
+   size, for free. Do this before any further spend.
+
+### 11.6 Cleanup, and a bug the dim-256 rollout exposed
+
+Retired with the candidates: the `sg-code`/`sg-fnchunk` Loc-Bench conditions
+(their result rows are kept), and ese's `ESE_MODEL_URL`/`ESE_TOKENIZER_URL`/
+`ESE_DIMS` build overrides — `Cargo.toml` now pins `dim-256` directly, so
+the env plumbing was dead weight in a sibling repo. Kept, because they are
+correct independent of the experiments: `build.rs` resolving
+`[UNK]`/`[CLS]`/`[SEP]` **by name** rather than by hardcoded id 100/101/102
+(no behavior change for BERT vocabs, prevents silent corruption for any
+other), and `ensure_index`'s binary-mtime staleness check.
+
+**The bug**: shipping 256 dims made every pre-existing `~/.cache/semgrep`
+entry unreadable, and `load_dir`'s dims check surfaced that as an error on
+*every* search in a previously-cached scope — advising `re-run semgrep
+index`, which isn't even the right remedy for a cache entry. That directly
+contradicts §8's contract ("a cache that changes only latency is
+memoization, and memoization doesn't need to be disclosed to the caller").
+
+**The fix is structural, not a check.** Detecting incompatibility invites
+drift between the detector and the loader, and `dims` is a weak proxy anyway:
+a *different* table of the same width (a code-distilled 256-dim model, say)
+passes a dims check and then silently scores yesterday's vectors against
+today's queries. Instead, entries are namespaced by a generation key —
+`~/.cache/semgrep/v2-d256-0d2d/<label>-<hash>/` — covering the format
+version, the dims, and a 16-bit fingerprint of the embedding stack (obtained
+by encoding a fixed probe and hashing the quantized vector, so it moves if
+the table, the tokenizer, *or* the pooling changes). An entry written by an
+incompatible binary sorts into a sibling directory and is never discovered.
+The failure mode is "not found", so there is nothing to surface.
+
+Three supporting changes:
+
+- **Any** load failure on a cache entry — corruption, truncation, a missing
+  `emb.bin` — falls through to the cold path, which repopulates. A repo-local
+  `.semgrep` still reports, because that is an explicit artifact the user
+  manages. Verified both directions.
+- **Reclamation moved off the read path.** GC of stale generations and
+  pre-generation flat entries runs after a write. `semgrep cache --prune`
+  also runs it, since a user who only queries warm scopes never triggers a
+  cold write.
+- **The cache is bounded.** Entries whose root no longer exists are dropped
+  (a deleted checkout previously held its index forever), then LRU eviction
+  down to a 2 GB budget (`SEMGREP_CACHE_MAX_BYTES`). `semgrep cache` reports
+  what is held, what it costs, and what is prunable — the README's "no size
+  cap or LRU eviction, so it grows until you delete it" caveat is retired.
+
+Regression tests: `unreadable_cache_entry_degrades_to_a_miss`,
+`corrupt_cache_entry_degrades_to_a_miss`,
+`cache_entries_are_namespaced_by_compat_generation`,
+`cache_prunes_dead_entries_and_enforces_a_budget` (41 tests).
+
+**Did this contaminate earlier results? No, and it was checked rather than
+assumed.** No dims-mismatch error appears in any saved agent output; all 204
+unexpected semgrep exits are exit 2 (agents passing grep's `-A`/`-B`, which
+semgrep does not accept — present in the original 512-dim pilot too); every
+harness isolates `SEMGREP_CACHE_DIR`; and Loc-Bench scores against
+repo-local `.semgrep` per worktree, not cache entries. The bug could only
+fire where an entry from a different-dims binary was discovered, which is the
+interactive cache where it was found.
+
+The general lesson is worth keeping: *any* future change to the embedding
+table, dims, or index format invalidates every cached entry, and the cache
+must absorb that silently. This was latent from the moment the cache
+shipped; it took a real format change to expose it.
+
+Agent-eval spend this session: $39.07 (sg-code $13.14, sg-p256 $13.50,
+sg-fnchunk $12.43).
