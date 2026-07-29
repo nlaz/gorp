@@ -14,6 +14,7 @@ before trusting scores; drop rows where Claude's query is off-target.
 """
 
 import argparse
+import hashlib
 import json
 import random
 import subprocess
@@ -39,6 +40,53 @@ The queries must be answerable by this chunk specifically, not by the whole file
 def eligible(p: Path) -> bool:
     # extension in the allowlist, or extensionless wikiextractor output (wiki_00)
     return p.suffix in CODE_EXT or (p.suffix == "" and p.name.startswith("wiki_"))
+
+
+def sample_symbols(root: Path, n: int, seed: int, min_lines: int = 4):
+    """Sample whole SYMBOLS (functions/classes) instead of line windows.
+
+    Ground truth is then the symbol's span, which is neutral to how the
+    engine chunks — the flaw that made the window-sampled sets unable to
+    referee a chunking change (RESEARCH.md §11.4). Carries strata along
+    (has_doc, size, language) so results can be cut without re-running.
+    """
+    import symbols as symmod
+    files = [
+        p for p in root.rglob("*")
+        if p.is_file() and p.suffix in symmod.EXT_LANG
+        and 0 < p.stat().st_size < 2_000_000 and ".semgrep" not in p.parts
+    ]
+    rng = random.Random(seed)
+    rng.shuffle(files)
+    out = []
+    for p in files:
+        if len(out) >= n:
+            break
+        try:
+            text = p.read_text(errors="replace")
+        except OSError:
+            continue
+        lines = text.split("\n")
+        syms = [s for s in symmod.extract(p, text) if s["n_lines"] >= min_lines]
+        if not syms:
+            continue
+        s = rng.choice(syms)
+        body = "\n".join(lines[s["start_line"] - 1:s["end_line"]])
+        if sum(len(l.strip()) for l in body.split("\n")) < 120:
+            continue
+        out.append({
+            "file": str(p.relative_to(root)),
+            "start_line": s["start_line"],
+            "end_line": s["end_line"],
+            "chunk": body,
+            # strata — recorded up front so analysis never needs a re-run
+            "symbol": s["name"],
+            "symbol_kind": s["kind"],
+            "lang": symmod.EXT_LANG.get(p.suffix),
+            "has_doc": s["has_doc"],
+            "n_lines": s["n_lines"],
+        })
+    return out
 
 
 def sample_chunks(root: Path, n: int, seed: int):
@@ -95,10 +143,19 @@ def main():
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--anchor", choices=("symbol", "window"), default="symbol",
+                    help="symbol: truth is a function/class span (chunking-neutral, "
+                         "default). window: legacy fixed-line sampling — biased "
+                         "toward window chunking, kept only to reproduce old sets.")
+    ap.add_argument("--locked-frac", type=float, default=0.3,
+                    help="fraction held out as a locked split; report dev while "
+                         "iterating, open locked only at decision time")
     args = ap.parse_args()
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    chunks = sample_chunks(args.corpus, args.n, args.seed)
+    chunks = (sample_symbols(args.corpus, args.n, args.seed)
+              if args.anchor == "symbol"
+              else sample_chunks(args.corpus, args.n, args.seed))
     print(f"sampled {len(chunks)} chunks; querying claude ({args.workers} workers)…")
     from concurrent.futures import ThreadPoolExecutor
     import threading
@@ -115,11 +172,24 @@ def main():
             if not q:
                 continue
             with lock:
+                # Deterministic dev/locked assignment by content hash, so the
+                # split survives regeneration and cannot be gamed by reordering.
+                split = ("locked"
+                         if (int(hashlib.sha256(
+                             (c["file"] + str(c["start_line"])).encode()
+                         ).hexdigest()[:8], 16) % 1000) / 1000.0 < args.locked_frac
+                         else "dev")
                 for kind in ("direct", "paraphrase"):
-                    f.write(json.dumps({
+                    row = {
                         "query": q[kind], "kind": kind, "file": c["file"],
                         "start_line": c["start_line"], "end_line": c["end_line"],
-                    }) + "\n")
+                        "split": split,
+                    }
+                    # strata, when the symbol sampler produced them
+                    for k in ("symbol", "symbol_kind", "lang", "has_doc", "n_lines"):
+                        if k in c:
+                            row[k] = c[k]
+                    f.write(json.dumps(row) + "\n")
                 f.flush()
                 written += 1
             if (i + 1) % 20 == 0:

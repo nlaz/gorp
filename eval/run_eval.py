@@ -17,7 +17,10 @@ Usage:
 """
 
 import argparse
+import hashlib
 import json
+import math
+import random
 import re
 import subprocess
 from collections import defaultdict
@@ -92,10 +95,17 @@ def main():
     ap.add_argument("--extra", default="",
                     help="extra semgrep CLI args, e.g. '--sem-weight 0.3 --no-diversify'")
     ap.add_argument("--out", type=Path, default=None)
+    ap.add_argument("--baseline", type=Path, default=None,
+                    help="a previous --out file; report PAIRED deltas with "
+                         "bootstrap CIs and a sign test instead of bare numbers")
+    ap.add_argument("--bootstrap", type=int, default=2000,
+                    help="bootstrap resamples for the delta CI")
     args = ap.parse_args()
     extra = tuple(args.extra.split()) if args.extra else ()
 
-    rows = [json.loads(l) for l in args.queries.read_text().splitlines() if l.strip()]
+    raw = args.queries.read_text()
+    queries_fp = hashlib.sha256(raw.encode()).hexdigest()[:16]
+    rows = [json.loads(l) for l in raw.splitlines() if l.strip()]
     modes = args.modes.split(",")
     # metric accumulators: (mode, kind) -> list of first-correct ranks (None = miss)
     ranks = defaultdict(list)
@@ -122,11 +132,108 @@ def main():
         print(f"{mode + ':' + kind:<24} {n:>4} {r1:>6.2f} {r5:>6.2f} {r10:>6.2f} {mrr:>7.3f}")
         results.append({"mode": mode, "kind": kind, "n": n,
                         "recall@1": round(r1, 3), "recall@5": round(r5, 3),
-                        "recall@10": round(r10, 3), "mrr@10": round(mrr, 3)})
+                        "recall@10": round(r10, 3), "mrr@10": round(mrr, 3),
+                        # Per-query first-correct rank (null = miss). Required
+                        # for paired statistics; aggregates alone cannot say
+                        # whether a 0.01 delta is signal.
+                        "ranks": rs,
+                        "queries_fp": queries_fp})
+    if args.baseline:
+        compare(results, args.baseline, args.bootstrap)
+
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(json.dumps(results, indent=2))
         print(f"wrote {args.out}")
+
+
+# ---------------------------------------------------------------------------
+# paired statistics
+#
+# Every retrieval delta this project has argued about has been 1-5 points on
+# ~200 queries per cell, which is inside the noise. Point estimates alone
+# invited reading +0.010 as an improvement; these functions make a comparison
+# state its uncertainty, and refuse to call a win when the CI spans zero.
+# ---------------------------------------------------------------------------
+
+METRICS = ("recall@1", "recall@5", "recall@10", "mrr@10")
+
+
+def _score(rank, metric):
+    """Per-query contribution, so a metric is just a mean over queries."""
+    if metric == "mrr@10":
+        return 1.0 / rank if rank else 0.0
+    k = int(metric.split("@")[1])
+    return 1.0 if (rank and rank <= k) else 0.0
+
+
+def _bootstrap_ci(a, b, metric, n_resamples, seed=1):
+    """Percentile CI for mean(cand) - mean(base), resampling QUERIES (the
+    unit of independence) rather than scores."""
+    rng = random.Random(seed)
+    n = len(a)
+    sa = [_score(r, metric) for r in a]
+    sb = [_score(r, metric) for r in b]
+    point = sum(sa) / n - sum(sb) / n
+    deltas = []
+    for _ in range(n_resamples):
+        idx = [rng.randrange(n) for _ in range(n)]
+        deltas.append(sum(sa[i] for i in idx) / n - sum(sb[i] for i in idx) / n)
+    deltas.sort()
+    lo = deltas[int(0.025 * n_resamples)]
+    hi = deltas[min(int(0.975 * n_resamples), n_resamples - 1)]
+    return point, lo, hi
+
+
+def _sign_test(a, b, metric):
+    """Exact two-sided sign test over queries where the two disagree."""
+    if metric == "mrr@10":
+        return None
+    k = int(metric.split("@")[1])
+    hit = lambda r: bool(r and r <= k)
+    wins = sum(1 for x, y in zip(a, b) if hit(x) and not hit(y))
+    loss = sum(1 for x, y in zip(a, b) if hit(y) and not hit(x))
+    n = wins + loss
+    if n == 0:
+        return wins, loss, 1.0
+    tail = sum(math.comb(n, i) for i in range(0, min(wins, loss) + 1))
+    return wins, loss, min(1.0, 2 * tail / 2 ** n)
+
+
+def compare(results, baseline_path, n_resamples):
+    base_rows = json.loads(Path(baseline_path).read_text())
+    base = {(r["mode"], r["kind"]): r for r in base_rows}
+    print(f"\n=== PAIRED vs {baseline_path.name} "
+          f"(bootstrap {n_resamples}x, 95% CI; sign test over disagreements) ===")
+    print(f"{'condition':<22} {'metric':<10} {'base':>6} {'cand':>6} {'delta':>7} "
+          f"{'95% CI':>17} {'w-l':>7} {'p':>6}  verdict")
+    for r in results:
+        key = (r["mode"], r["kind"])
+        b = base.get(key)
+        if not b:
+            continue
+        if "ranks" not in b:
+            print(f"{r['mode'] + ':' + r['kind']:<22} (baseline predates per-query "
+                  f"ranks — regenerate it for paired stats)")
+            continue
+        if b.get("queries_fp") and b["queries_fp"] != r.get("queries_fp"):
+            print(f"{r['mode'] + ':' + r['kind']:<22} SKIP: baseline used a different "
+                  f"query set ({b['queries_fp']} != {r.get('queries_fp')})")
+            continue
+        for m in METRICS:
+            point, lo, hi = _bootstrap_ci(r["ranks"], b["ranks"], m, n_resamples)
+            st = _sign_test(r["ranks"], b["ranks"], m)
+            wl = f"{st[0]}-{st[1]}" if st else ""
+            p = f"{st[2]:.3f}" if st else ""
+            if lo > 0:
+                verdict = "WIN"
+            elif hi < 0:
+                verdict = "LOSS"
+            else:
+                verdict = "inconclusive"
+            print(f"{r['mode'] + ':' + r['kind']:<22} {m:<10} "
+                  f"{b[m]:>6.3f} {r[m]:>6.3f} {point:>+7.3f} "
+                  f"[{lo:>+6.3f},{hi:>+6.3f}] {wl:>7} {p:>6}  {verdict}")
 
 
 if __name__ == "__main__":
