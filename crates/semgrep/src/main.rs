@@ -161,6 +161,15 @@ enum Cmd {
         #[arg(long, default_value_t = 8)]
         overlap: u32,
     },
+    /// Inspect or reclaim the search cache
+    Cache {
+        /// Remove dead entries (repo gone) and evict LRU down to the budget
+        #[arg(long)]
+        prune: bool,
+        /// Remove every cached entry
+        #[arg(long)]
+        clear: bool,
+    },
 }
 
 fn main() {
@@ -175,8 +184,58 @@ fn main() {
     std::process::exit(code);
 }
 
+fn human(bytes: u64) -> String {
+    const U: [&str; 5] = ["B", "KB", "MB", "GB", "TB"];
+    let (mut v, mut i) = (bytes as f64, 0);
+    while v >= 1000.0 && i < U.len() - 1 {
+        v /= 1000.0;
+        i += 1;
+    }
+    if i == 0 { format!("{bytes} B") } else { format!("{v:.1} {}", U[i]) }
+}
+
+fn cache_cmd(prune: bool, clear: bool) -> Result<i32> {
+    if clear {
+        let (n, freed) = index::cache_clear();
+        println!("cleared {n} entries, reclaimed {}", human(freed));
+        return Ok(0);
+    }
+    if prune {
+        // An explicit prune reclaims everything reclaimable, not just the
+        // current generation: automatic GC only runs on a cold write, so a
+        // user who only queries warm scopes would never reclaim anything.
+        index::gc_old_generations();
+        let (n, freed) = index::enforce_budget();
+        println!("pruned {n} entries, reclaimed {}", human(freed));
+    }
+    let entries = index::cache_status();
+    let total: u64 = entries.iter().map(|e| e.bytes).sum();
+    let cap = index::cache_max_bytes();
+    println!("{}  ({} entries, {} of {} budget)",
+             index::cache_base().display(), entries.len(), human(total), human(cap));
+    println!("generation {}", index::compat_key());
+    for e in &entries {
+        let age = if e.age_secs > 86_400 {
+            format!("{}d", e.age_secs / 86_400)
+        } else if e.age_secs > 3_600 {
+            format!("{}h", e.age_secs / 3_600)
+        } else {
+            format!("{}m", e.age_secs / 60)
+        };
+        println!("  {:>9}  {:>5} ago  {}{}",
+                 human(e.bytes), age, e.root.display(),
+                 if e.root_exists { "" } else { "   (gone — prunable)" });
+    }
+    if !entries.is_empty() {
+        println!("\nsemgrep cache --prune to reclaim, --clear to remove all; \
+                  SEMGREP_CACHE_MAX_BYTES sets the budget");
+    }
+    Ok(0)
+}
+
 fn run(cli: Cli) -> Result<i32> {
     match cli.cmd {
+        Some(Cmd::Cache { prune, clear }) => cache_cmd(prune, clear),
         Some(Cmd::Index { path, hnsw, sif, sif_a, sif_center, status, window, overlap }) => {
             let root = path.unwrap_or_else(|| PathBuf::from("."));
             if status {

@@ -279,6 +279,10 @@ pub struct Discovered {
     pub root: PathBuf,
     /// Query scope relative to `root`, `/`-separated ("" = whole corpus).
     pub prefix: String,
+    /// True for a central-cache entry (disposable: any failure to load it is
+    /// a miss). False for a repo-local `.semgrep`, an explicit artifact whose
+    /// failures the user should see.
+    pub from_cache: bool,
 }
 
 fn rel_prefix(root: &Path, scope: &Path) -> String {
@@ -304,6 +308,7 @@ pub fn discover(query_root: &Path) -> Option<Discovered> {
                 index_dir: index_dir(&cur),
                 prefix: rel_prefix(&cur, &canon),
                 root: cur,
+                from_cache: false,
             });
         }
         // Stop *after* checking: the repo root itself may hold the index,
@@ -317,7 +322,10 @@ pub fn discover(query_root: &Path) -> Option<Discovered> {
         }
     }
 
-    // (3): deepest central-cache entry covering the scope.
+    // (3): deepest central-cache entry covering the scope. Entries live under
+    // a *generation* directory keyed to this binary's format+table (see
+    // `compat_key`), so an entry written by an incompatible binary is simply
+    // not found here — no error to surface, nothing to evict on a read path.
     cache_entries()
         .into_iter()
         .filter(|(dir, root)| canon.starts_with(root) && dir.join("meta.json").is_file())
@@ -326,7 +334,45 @@ pub fn discover(query_root: &Path) -> Option<Discovered> {
             index_dir: dir,
             prefix: rel_prefix(&root, &canon),
             root,
+            from_cache: true,
         })
+}
+
+/// Fingerprint of the compiled-in embedding stack — table, tokenizer, and
+/// pooling all at once, since it is just "what does this binary encode this
+/// probe to". Two binaries agree iff their vectors are interchangeable.
+///
+/// `dims` alone is not enough: swapping to a *different* table of the same
+/// width (e.g. a code-distilled 256-dim model) would pass a dims check and
+/// then silently score yesterday's vectors against today's queries.
+fn table_fingerprint() -> u64 {
+    static FP: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
+    *FP.get_or_init(|| {
+        use std::hash::{Hash, Hasher};
+        // Deliberately mixed: prose, code punctuation, and an OOV-ish token,
+        // so tokenizer changes move the fingerprint too.
+        let v = ese::encode_single("semgrep::probe scalar_None retry_backoff 42");
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        for x in v.iter() {
+            // Quantize before hashing: identical tables must fingerprint
+            // identically across build flags that only perturb the last bits.
+            ((x * 4096.0).round() as i64).hash(&mut h);
+        }
+        h.finish()
+    })
+}
+
+/// Directory name for this binary's cache generation. Entries from an
+/// incompatible binary sort into a sibling directory and are ignored, then
+/// reclaimed by [`gc_old_generations`].
+pub fn compat_key() -> String {
+    // 16 bits. This never has to resist collisions globally — only to tell
+    // apart the tables one machine has actually used. It is, though, the only
+    // guard against the *silent* failure: an entry with matching dims but a
+    // different table loads cleanly and scores yesterday's vectors against
+    // today's queries. 8 bits would collide once per ~256 table swaps for two
+    // characters of path; 16 makes it once per ~65k.
+    format!("v{FORMAT_VERSION}-d{EMBED_DIM}-{:04x}", table_fingerprint() as u16)
 }
 
 /// Base directory for cache entries. `SEMGREP_CACHE_DIR` overrides (tests,
@@ -352,7 +398,7 @@ pub fn cache_base() -> PathBuf {
 /// root no longer exists are skipped (GC candidates, not errors).
 pub fn cache_entries() -> Vec<(PathBuf, PathBuf)> {
     let mut out = Vec::new();
-    let Ok(rd) = std::fs::read_dir(cache_base()) else { return out };
+    let Ok(rd) = std::fs::read_dir(cache_generation()) else { return out };
     for e in rd.flatten() {
         let dir = e.path();
         let Ok(root) = std::fs::read_to_string(dir.join("root.txt")) else { continue };
@@ -364,14 +410,186 @@ pub fn cache_entries() -> Vec<(PathBuf, PathBuf)> {
     out
 }
 
+/// This binary's generation directory: `<cache base>/<compat key>/`.
+pub fn cache_generation() -> PathBuf {
+    cache_base().join(compat_key())
+}
+
+/// Remove cache generations this binary cannot use, plus pre-generation
+/// (flat) entries left by older builds. Called after a successful write,
+/// never on a read path — reclaiming space must not be a side effect of
+/// answering a query.
+///
+/// Only two shapes are ever removed, so an unrelated directory someone
+/// pointed `SEMGREP_CACHE_DIR` at is left alone: a sibling generation
+/// (`v<fmt>-d<dims>-<fp>`), and a legacy entry (holds `meta.json` directly —
+/// generations hold entry *directories*).
+pub fn gc_old_generations() {
+    let (base, keep) = (cache_base(), compat_key());
+    let Ok(rd) = std::fs::read_dir(&base) else { return };
+    for e in rd.flatten() {
+        let p = e.path();
+        if !p.is_dir() || p.file_name().is_some_and(|n| n == keep.as_str()) {
+            continue;
+        }
+        let is_generation = p
+            .file_name()
+            .is_some_and(|n| n.to_string_lossy().starts_with('v'))
+            && p.join(&keep).exists() == false
+            && !p.join("meta.json").exists();
+        let is_legacy_entry = p.join("meta.json").is_file() && p.join("root.txt").is_file();
+        if is_generation || is_legacy_entry {
+            let _ = std::fs::remove_dir_all(&p);
+        }
+    }
+}
+
+/// Total cache budget in bytes. `SEMGREP_CACHE_MAX_BYTES` overrides.
+///
+/// Default 2 GiB: the median real repo indexes to ~5 MB, so this holds
+/// hundreds of ordinary projects, while one kernel-scale corpus (946 MB) can
+/// still fit alongside a few others. Without a cap the cache only grows —
+/// which was the honest caveat in the README, and is the thing that turns a
+/// cache into a slow disk leak.
+pub fn cache_max_bytes() -> u64 {
+    std::env::var("SEMGREP_CACHE_MAX_BYTES")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(2 * 1024 * 1024 * 1024)
+}
+
+#[derive(Debug, Clone)]
+pub struct CacheEntryInfo {
+    pub dir: PathBuf,
+    pub root: PathBuf,
+    pub bytes: u64,
+    /// Seconds since this entry was last read or written.
+    pub age_secs: u64,
+    /// False once the indexed directory no longer exists — a dead entry that
+    /// can never be useful again.
+    pub root_exists: bool,
+}
+
+fn dir_bytes(dir: &Path) -> u64 {
+    let Ok(rd) = std::fs::read_dir(dir) else { return 0 };
+    rd.flatten()
+        .filter_map(|e| e.metadata().ok())
+        .map(|m| if m.is_dir() { 0 } else { m.len() })
+        .sum()
+}
+
+/// Every entry in this generation, with size and recency. Powers both the
+/// budget enforcer and `semgrep cache --status`.
+pub fn cache_status() -> Vec<CacheEntryInfo> {
+    let now = std::time::SystemTime::now();
+    let mut out = Vec::new();
+    let Ok(rd) = std::fs::read_dir(cache_generation()) else { return out };
+    for e in rd.flatten() {
+        let dir = e.path();
+        let Ok(root) = std::fs::read_to_string(dir.join("root.txt")) else { continue };
+        let root = PathBuf::from(root.trim());
+        // `last_check` is touched by read-repair, `meta.json` by a build, so
+        // the newer of the two is when this entry was last actually used.
+        let age = ["last_check", "meta.json"]
+            .iter()
+            .filter_map(|f| std::fs::metadata(dir.join(f)).ok()?.modified().ok())
+            .filter_map(|t| now.duration_since(t).ok())
+            .map(|d| d.as_secs())
+            .min()
+            .unwrap_or(u64::MAX);
+        out.push(CacheEntryInfo {
+            bytes: dir_bytes(&dir),
+            root_exists: root.is_dir(),
+            dir,
+            root,
+            age_secs: age,
+        });
+    }
+    out.sort_by_key(|e| e.age_secs);
+    out
+}
+
+/// Drop dead entries, then evict least-recently-used until under budget.
+/// Returns (entries removed, bytes reclaimed). Called after a write, so the
+/// cost lands on the path that already pays for a full corpus pass.
+pub fn enforce_budget() -> (usize, u64) {
+    let mut entries = cache_status();
+    let (mut n, mut freed) = (0usize, 0u64);
+
+    // 1. Entries whose repo is gone can never be useful — a deleted or moved
+    //    checkout would otherwise hold its index forever.
+    entries.retain(|e| {
+        if e.root_exists {
+            return true;
+        }
+        if std::fs::remove_dir_all(&e.dir).is_ok() {
+            n += 1;
+            freed += e.bytes;
+        }
+        false
+    });
+
+    // 2. LRU until under the cap. Oldest first; `cache_status` sorts by
+    //    recency ascending, so walk from the back.
+    let cap = cache_max_bytes();
+    let mut total: u64 = entries.iter().map(|e| e.bytes).sum();
+    while total > cap {
+        let Some(victim) = entries.pop() else { break };
+        if std::fs::remove_dir_all(&victim.dir).is_ok() {
+            total = total.saturating_sub(victim.bytes);
+            n += 1;
+            freed += victim.bytes;
+        }
+    }
+    (n, freed)
+}
+
+/// Delete every entry in every generation. `semgrep cache --clear`.
+pub fn cache_clear() -> (usize, u64) {
+    let mut n = 0;
+    let mut freed = 0;
+    for e in cache_status() {
+        if std::fs::remove_dir_all(&e.dir).is_ok() {
+            n += 1;
+            freed += e.bytes;
+        }
+    }
+    gc_old_generations();
+    (n, freed)
+}
+
 /// The entry directory for a canonical root, allocating a collision-free
 /// name on first use (hash bucket + root.txt verification).
 fn cache_entry_dir(root: &Path) -> PathBuf {
     use std::hash::{Hash, Hasher};
     let mut h = std::collections::hash_map::DefaultHasher::new();
     root.hash(&mut h);
-    let base = cache_base();
-    let stem = format!("{:016x}", h.finish());
+    let base = cache_generation();
+    // Name entries after the directory they cache, not just a hash, so that
+    // `ls ~/.cache/semgrep/*` and `du -sh *` are readable — you can see which
+    // repos are costing you space without opening root.txt.
+    // Last two components, so `.../semgrep-core/src` reads as
+    // "semgrep-core-src" rather than an uninformative "src".
+    let mut comps: Vec<String> = root
+        .components()
+        .rev()
+        .take(2)
+        .map(|c| c.as_os_str().to_string_lossy().to_string())
+        .collect();
+    comps.reverse();
+    let label: String = comps
+        .join("-")
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
+        .collect::<String>()
+        .chars()
+        .rev()
+        .take(28)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect();
+    let stem = format!("{label}-{:08x}", h.finish() as u32);
     for i in 0..64 {
         let dir = if i == 0 {
             base.join(&stem)
@@ -397,6 +615,8 @@ pub fn write_cache_entry(
     let dir = cache_entry_dir(root);
     std::fs::create_dir_all(&dir)?;
     build_at(&dir, root, opts, progress)?;
+    gc_old_generations();
+    enforce_budget();
     std::fs::write(dir.join("root.txt"), root.to_string_lossy().as_bytes())?;
     for (edir, eroot) in cache_entries() {
         if eroot != root && eroot.starts_with(root) {

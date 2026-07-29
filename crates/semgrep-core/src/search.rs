@@ -149,8 +149,20 @@ pub fn search(root: &Path, query: &str, opts: &SearchOptions) -> Result<SearchRe
         })
     };
 
+    // A cache entry is disposable: if it cannot be read for *any* reason —
+    // truncated write, half-deleted directory, a format this binary predates
+    // — that is a miss, not the caller's problem. Discard it and answer from
+    // the streaming path, which repopulates on the way through. A repo-local
+    // `.semgrep` is an explicit artifact, so its failures still propagate.
     let mut result = match discovered {
-        Some(d) => search_indexed(&d, query, opts)?,
+        Some(d) => match search_indexed(&d, query, opts) {
+            Ok(r) => r,
+            Err(_) if d.from_cache => {
+                let _ = std::fs::remove_dir_all(&d.index_dir);
+                search_streaming(root, query, opts)?
+            }
+            Err(e) => return Err(e),
+        },
         None => search_streaming(root, query, opts)?,
     };
     result.report.wrote_cache = wrote_cache;

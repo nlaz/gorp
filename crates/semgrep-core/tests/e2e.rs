@@ -316,3 +316,145 @@ fn read_repair_serves_current_tree() {
         "stale chunk text must not be served"
     );
 }
+
+/// A cache entry this binary cannot read (older format version, or a
+/// different embedding table's dims) must degrade to a miss and re-fill —
+/// never surface an error. The cache is memoization; it is not the caller's
+/// problem. Regression test for the dim-256 rollout, which made every
+/// pre-existing 512-dim cache entry error on every search.
+#[test]
+fn unreadable_cache_entry_degrades_to_a_miss() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("a.py"), "def hello_world():\n    return 1\n").unwrap();
+
+    // Warm the cache, then corrupt the entry's dims the way an upgrade would.
+    let opts = semgrep_core::search::SearchOptions::default();
+    semgrep_core::search::search(dir.path(), "greeting", &opts).unwrap();
+    // Only this test's own entry — the cache dir is shared with other tests
+    // running in parallel, so corrupting all of them clobbers their state.
+    let mine = std::fs::canonicalize(dir.path()).unwrap();
+    let entries: Vec<_> = semgrep_core::index::cache_entries()
+        .into_iter()
+        .filter(|(_, root)| *root == mine)
+        .collect();
+    assert_eq!(entries.len(), 1, "expected exactly one entry for this scope");
+    for (d, _) in &entries {
+        let p = d.join("meta.json");
+        let mut m: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&p).unwrap()).unwrap();
+        m["dims"] = serde_json::json!(semgrep_core::EMBED_DIM + 1);
+        std::fs::write(&p, serde_json::to_vec(&m).unwrap()).unwrap();
+    }
+
+    // Must still answer, not error.
+    let res = semgrep_core::search::search(dir.path(), "greeting", &opts)
+        .expect("stale cache entry must not surface as an error");
+    assert!(
+        res.hits.iter().any(|h| h.path.ends_with("a.py")),
+        "expected the query to be answered after evicting the stale entry"
+    );
+}
+
+/// Cache entries live under a generation directory keyed to this binary's
+/// index format, dims, and embedding-table fingerprint. An entry written by
+/// an incompatible binary sorts into a sibling directory and is therefore
+/// never discovered — the failure mode is "not found", not "error".
+#[test]
+fn cache_entries_are_namespaced_by_compat_generation() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("a.py"), "def parse_config():\n    return {}\n").unwrap();
+    let opts = semgrep_core::search::SearchOptions::default();
+    semgrep_core::search::search(dir.path(), "configuration parsing", &opts).unwrap();
+
+    let gen_dir = semgrep_core::index::cache_generation();
+    let key = semgrep_core::index::compat_key();
+    assert!(gen_dir.ends_with(&key), "generation dir should be the compat key");
+    assert!(
+        semgrep_core::index::cache_entries().iter().all(|(d, _)| d.starts_with(&gen_dir)),
+        "every entry must live under the current generation"
+    );
+
+    // An entry from another generation is invisible, not an error.
+    let alien = semgrep_core::index::cache_base().join("v2-d999-deadbeefdeadbeef");
+    std::fs::create_dir_all(alien.join("abc")).unwrap();
+    std::fs::write(alien.join("abc/meta.json"), b"{}").unwrap();
+    std::fs::write(alien.join("abc/root.txt"), dir.path().to_string_lossy().as_bytes()).unwrap();
+    assert!(
+        semgrep_core::index::cache_entries().iter().all(|(d, _)| !d.starts_with(&alien)),
+        "entries from another generation must not be discovered"
+    );
+
+    // ...and a write reclaims it, along with pre-generation flat entries
+    // left by older builds (identified by holding meta.json directly).
+    let legacy = semgrep_core::index::cache_base().join("deadbeef00000000");
+    std::fs::create_dir_all(&legacy).unwrap();
+    std::fs::write(legacy.join("meta.json"), b"{}").unwrap();
+    std::fs::write(legacy.join("root.txt"), b"/tmp").unwrap();
+    let unrelated = semgrep_core::index::cache_base().join("someones-other-data");
+    std::fs::create_dir_all(&unrelated).unwrap();
+
+    semgrep_core::index::gc_old_generations();
+    assert!(!alien.exists(), "stale generation should be garbage-collected");
+    assert!(!legacy.exists(), "pre-generation flat entry should be reclaimed");
+    assert!(unrelated.exists(), "unrelated directories must be left alone");
+}
+
+/// Corruption, not just a metadata mismatch: a half-written entry must also
+/// degrade to a miss. `emb.bin` is removed after the entry is warm.
+#[test]
+fn corrupt_cache_entry_degrades_to_a_miss() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("a.py"), "def retry_backoff():\n    return 2\n").unwrap();
+    let opts = semgrep_core::search::SearchOptions::default();
+    semgrep_core::search::search(dir.path(), "backoff", &opts).unwrap();
+
+    let mine = std::fs::canonicalize(dir.path()).unwrap();
+    let (entry, _) = semgrep_core::index::cache_entries()
+        .into_iter()
+        .find(|(_, root)| *root == mine)
+        .expect("entry for this scope");
+    std::fs::remove_file(entry.join("emb.bin")).unwrap();
+
+    let res = semgrep_core::search::search(dir.path(), "backoff", &opts)
+        .expect("a corrupt cache entry must not surface as an error");
+    assert!(res.hits.iter().any(|h| h.path.ends_with("a.py")), "expected an answer");
+}
+
+/// A cache with no ceiling is a slow disk leak: the kernel corpus alone
+/// indexes to ~946 MB. Entries whose repo is gone are dead weight forever,
+/// and past the budget the least-recently-used must go.
+#[test]
+fn cache_prunes_dead_entries_and_enforces_a_budget() {
+    let _cache = isolate_cache();
+    let opts = semgrep_core::search::SearchOptions::default();
+
+    // Two scopes; one of them we then delete off disk.
+    let keep = tempfile::tempdir().unwrap();
+    std::fs::write(keep.path().join("a.py"), "def keeper():\n    return 1\n").unwrap();
+    let doomed = tempfile::tempdir().unwrap();
+    std::fs::write(doomed.path().join("b.py"), "def doomed():\n    return 2\n").unwrap();
+    semgrep_core::search::search(keep.path(), "keeper", &opts).unwrap();
+    semgrep_core::search::search(doomed.path(), "doomed", &opts).unwrap();
+
+    let doomed_root = std::fs::canonicalize(doomed.path()).unwrap();
+    let keep_root = std::fs::canonicalize(keep.path()).unwrap();
+    assert!(semgrep_core::index::cache_status().iter().any(|e| e.root == doomed_root));
+
+    // The repo goes away; its entry can never be useful again.
+    drop(doomed);
+    let (n, _freed) = semgrep_core::index::enforce_budget();
+    assert!(n >= 1, "expected the dead entry to be reclaimed");
+    let after = semgrep_core::index::cache_status();
+    assert!(!after.iter().any(|e| e.root == doomed_root), "dead entry survived");
+    assert!(after.iter().any(|e| e.root == keep_root), "live entry was evicted");
+
+    // With a budget of zero, even a live entry must be evicted.
+    unsafe { std::env::set_var("SEMGREP_CACHE_MAX_BYTES", "0") };
+    semgrep_core::index::enforce_budget();
+    assert!(semgrep_core::index::cache_status().is_empty(),
+            "a zero budget should evict everything");
+    unsafe { std::env::remove_var("SEMGREP_CACHE_MAX_BYTES") };
+}

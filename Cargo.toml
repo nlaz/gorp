@@ -4,7 +4,12 @@ members = ["crates/semgrep-core", "crates/semgrep"]
 
 [workspace.dependencies]
 anny = { path = "../anny" }
-ese = { path = "../ese", features = ["rayon"] }
+# dim-256, not ese's default dim-512: the model is MRL-trained, so a prefix of
+# the vector is itself a valid embedding. Halves the binary (72.8 -> 39.0 MB)
+# and emb.bin (kernel index 1.3 GB -> 918 MB). Measured cost is below what the
+# agent eval can resolve — files tied with rg, function-level edge intact
+# (RESEARCH.md §10.7).
+ese = { path = "../ese", default-features = false, features = ["rayon", "dim-256"] }
 anyhow = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
