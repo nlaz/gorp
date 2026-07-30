@@ -1,125 +1,192 @@
 //! The cold path: one streaming pass over the corpus, no index involved.
 //!
-//! Bounded memory for the semantic side (a top-k heap, not a matrix); BM25
-//! postings are held for the duration of the query.
+//! Mirrors `indexed` — rank lexically, rank semantically, fuse, materialize —
+//! but computes the representations instead of loading them, and keeps only what
+//! a single query needs. The semantic side holds a top-k heap rather than a
+//! matrix, so its memory is bounded by k; BM25 postings are held for the
+//! duration of the query, which is the larger cost and is why a big corpus wants
+//! an index.
 
-use super::hit;
-use super::{SearchOptions, SearchReport, SearchResult};
+use super::trace::Trace;
+use super::{SearchOptions, SearchReport, SearchResult, hit};
 use crate::rank::bm25::Bm25Index;
 use crate::rank::{self, Mode, TopK};
-use crate::{Chunk, corpus, text};
+use crate::{Chunk, FileMeta, corpus, text};
 use anyhow::Result;
 use std::path::Path;
 use std::time::Instant;
 
-/// Chunk texts are embedded in batches this large on the streaming path.
-const EMBED_BATCH: usize = 1024;
-
 pub fn run(root: &Path, query: &str, opts: &SearchOptions) -> Result<SearchResult> {
-    let want_bm25 = matches!(opts.mode, Mode::Bm25 | Mode::Hybrid);
-    let want_sem = matches!(opts.mode, Mode::Semantic | Mode::Hybrid);
     let pool = super::FUSION_POOL.max(opts.k);
+    let mut trace = Trace::new();
 
     let t_walk = Instant::now();
     let files = corpus::walk(root, &opts.params)?;
     let walk_ms = t_walk.elapsed().as_millis();
+    trace.record("walk", walk_ms as f64);
 
     let t_rank = Instant::now();
-    let qvec = want_sem.then(|| text::embed_query(query));
-    let mut bm25 = want_bm25.then(Bm25Index::new);
-    let mut top = TopK::new(pool);
-    let mut chunks: Vec<Chunk> = Vec::new();
-    let mut pending: Vec<(u32, String)> = Vec::new();
-
-    let ms = |t: Instant| t.elapsed().as_secs_f64() * 1e3;
-    let embed_ms = std::cell::Cell::new(0.0f64);
-    let flush = |pending: &mut Vec<(u32, String)>, top: &mut TopK| {
-        if let Some(q) = &qvec
-            && !pending.is_empty()
-        {
-            let t0 = Instant::now();
-            let vecs = ese::encode(pending.iter().map(|(_, s)| s));
-            for ((id, _), v) in pending.iter().zip(&vecs) {
-                top.push(*id, rank::distance(q, v));
-            }
-            embed_ms.set(embed_ms.get() + ms(t0));
+    let pass = corpus_pass(root, &files, query, opts, pool, &mut trace);
+    let lexical = trace.time("rank:bm25", || match pass.bm25 {
+        Some(mut b) => {
+            b.finalize();
+            b.query(query, pool)
         }
-        pending.clear();
-    };
+        None => Vec::new(),
+    });
+    let semantic = pass.nearest.map(TopK::into_sorted).unwrap_or_default();
+    let ranked = trace.time("rank:fuse", || {
+        rank::fuse(opts.mode, lexical, semantic, opts.k * 3, opts.sem_weight)
+    });
+    let rank_ms = t_rank.elapsed().as_millis();
+
+    let cands = candidates(ranked, &pass.chunks, &files);
+    // No embedding matrix here, so candidate vectors are recomputed on demand.
+    // At most a few thousand texts, which is nothing beside the pass just done.
+    let hits = trace.time("finalize", || {
+        hit::finalize(root, query, cands, opts, "", |c| {
+            let fm = &files[c.chunk.file_id as usize];
+            let text = corpus::lines(root, &fm.path, &c.chunk)?;
+            Some(text::embed_query(&corpus::doc_text(&fm.path, &text)).to_vec())
+        })
+    });
+
+    Ok(SearchResult {
+        report: SearchReport {
+            used_index: false,
+            n_chunks_considered: pass.chunks.len(),
+            walk_ms,
+            rank_ms,
+            stages: trace.into_stages(),
+            ..Default::default()
+        },
+        hits,
+    })
+}
+
+/// What one streaming pass retained: the chunk table, and whichever engines this
+/// mode asked for.
+struct Pass {
+    chunks: Vec<Chunk>,
+    bm25: Option<Bm25Index>,
+    /// The k nearest chunks seen so far. A heap, not a matrix — this is what
+    /// keeps a cold semantic search's memory independent of corpus size.
+    nearest: Option<TopK>,
+}
+
+/// Read, chunk, tokenize, and embed the corpus, keeping only the query's answer.
+fn corpus_pass(
+    root: &Path,
+    files: &[FileMeta],
+    query: &str,
+    opts: &SearchOptions,
+    pool: usize,
+    trace: &mut Trace,
+) -> Pass {
+    let want_bm25 = matches!(opts.mode, Mode::Bm25 | Mode::Hybrid);
+    let want_sem = matches!(opts.mode, Mode::Semantic | Mode::Hybrid);
+
+    let mut chunks: Vec<Chunk> = Vec::new();
+    let mut bm25 = want_bm25.then(Bm25Index::new);
+    let mut embedder = want_sem.then(|| Embedder::new(text::embed_query(query), pool));
 
     let t_pass = Instant::now();
-    corpus::pass(root, &files, &opts.params, want_sem, want_bm25, |_, work| {
+    corpus::pass(root, files, &opts.params, want_sem, want_bm25, |_, work| {
         for (chunk, doc, tokens) in work.docs {
+            // Lockstep: the chunk id is this chunk's position in the table, and
+            // the BM25 document and the embedding are queued under the same id.
             let chunk_id = chunks.len() as u32;
             chunks.push(chunk);
             if let (Some(b), Some(t)) = (&mut bm25, tokens) {
                 b.add_tokenized(t);
             }
-            if let Some(doc) = doc {
-                pending.push((chunk_id, doc));
-                if pending.len() >= EMBED_BATCH {
-                    flush(&mut pending, &mut top);
-                }
+            if let (Some(e), Some(doc)) = (&mut embedder, doc) {
+                e.push(chunk_id, doc);
             }
         }
     });
-    flush(&mut pending, &mut top);
-    let pass_total = ms(t_pass);
-    let mut stages: Vec<(String, f64)> = vec![
-        ("walk".into(), walk_ms as f64),
-        ("pass:embed".into(), embed_ms.get()),
-        ("pass:read+tokenize".into(), pass_total - embed_ms.get()),
-    ];
-
-    let t0 = Instant::now();
-    let bm25_ranked = match &mut bm25 {
-        Some(b) => {
-            b.finalize();
-            b.query(query, pool)
+    let (nearest, embed_ms) = match embedder {
+        Some(e) => {
+            let (top, ms) = e.finish();
+            (Some(top), ms)
         }
-        None => Vec::new(),
+        None => (None, 0.0),
     };
-    stages.push(("rank:bm25".into(), ms(t0)));
-    let sem_ranked = if want_sem { top.into_sorted() } else { Vec::new() };
-    let n_chunks = chunks.len();
-    let t0 = Instant::now();
-    let ranked = rank::fuse(opts.mode, bm25_ranked, sem_ranked, opts.k * 3, opts.sem_weight);
-    stages.push(("rank:fuse".into(), ms(t0)));
-    let rank_ms = t_rank.elapsed().as_millis();
+    // Embedding is separated from reading and tokenizing because they scale
+    // differently: one is CPU-bound in ese, the other IO-bound in the walk.
+    let total = t_pass.elapsed().as_secs_f64() * 1e3;
+    trace.record("pass:embed", embed_ms);
+    trace.record("pass:read+tokenize", total - embed_ms);
 
-    let cands: Vec<hit::Candidate> = ranked
+    Pass { chunks, bm25, nearest }
+}
+
+/// Batches chunk texts, embeds them, and keeps the k nearest to the query.
+struct Embedder {
+    query: [f32; crate::EMBED_DIM],
+    pending: Vec<(u32, String)>,
+    nearest: TopK,
+    embed_ms: f64,
+}
+
+impl Embedder {
+    /// Texts per batch. `ese` parallelizes internally above 16, and batching is
+    /// what bounds resident text regardless of corpus size.
+    const BATCH: usize = 1024;
+
+    fn new(query: [f32; crate::EMBED_DIM], k: usize) -> Self {
+        Self {
+            query,
+            pending: Vec::with_capacity(Self::BATCH),
+            nearest: TopK::new(k),
+            embed_ms: 0.0,
+        }
+    }
+
+    fn push(&mut self, chunk_id: u32, doc: String) {
+        self.pending.push((chunk_id, doc));
+        if self.pending.len() >= Self::BATCH {
+            self.flush();
+        }
+    }
+
+    /// The heap, and the milliseconds spent embedding.
+    fn finish(mut self) -> (TopK, f64) {
+        self.flush();
+        (self.nearest, self.embed_ms)
+    }
+
+    fn flush(&mut self) {
+        if self.pending.is_empty() {
+            return;
+        }
+        let start = Instant::now();
+        let vecs = ese::encode(self.pending.iter().map(|(_, text)| text));
+        for ((id, _), v) in self.pending.iter().zip(&vecs) {
+            self.nearest.push(*id, rank::distance(&self.query, v));
+        }
+        self.embed_ms += start.elapsed().as_secs_f64() * 1e3;
+        self.pending.clear();
+    }
+}
+
+/// Fused ids into candidates. No scope filter: the cold path walks exactly the
+/// queried subtree, so everything it ranked is in scope by construction.
+fn candidates(
+    ranked: Vec<(u32, f32)>,
+    chunks: &[Chunk],
+    files: &[FileMeta],
+) -> Vec<hit::Candidate> {
+    ranked
         .into_iter()
-        .map(|(chunk_id, score)| {
-            let chunk = chunks[chunk_id as usize];
+        .map(|(id, score)| {
+            let chunk = chunks[id as usize];
             hit::Candidate {
-                id: chunk_id,
+                id,
                 chunk,
                 path: files[chunk.file_id as usize].path.clone(),
                 score,
             }
         })
-        .collect();
-    // No embedding matrix in streaming mode: re-embed candidate chunks on
-    // demand (≤ 3k texts, negligible next to the corpus pass just done).
-    let t0 = Instant::now();
-    let hits = hit::finalize(root, query, cands, opts, "", |c| {
-        let fm = &files[c.chunk.file_id as usize];
-        let text = corpus::lines(root, &fm.path, &c.chunk)?;
-        Some(text::embed_query(&corpus::doc_text(&fm.path, &text)).to_vec())
-    });
-    stages.push(("finalize".into(), ms(t0)));
-
-    Ok(SearchResult {
-        hits,
-        report: SearchReport {
-            used_index: false,
-            used_hnsw: false,
-            stale_files: 0,
-            n_chunks_considered: n_chunks,
-            walk_ms,
-            rank_ms,
-            stages,
-            ..Default::default()
-        },
-    })
+        .collect()
 }
