@@ -178,3 +178,67 @@ def test_every_span_is_well_formed():
             assert s["start_line"] >= 1, s
             assert s["start_line"] <= s["sig_line"] <= s["end_line"], s
             assert s["n_lines"] >= 1, s
+
+
+# ---------------------------------------------------------------------------
+# Real-world constructs, found by running extract() over the four language
+# corpora (22,992 symbols, 0 invariant violations). Before those corpora
+# landed, the go/java/ruby/rust regexes were exercised only by hand-written
+# fixtures, so these are the shapes that were never actually checked against
+# code somebody else wrote.
+# ---------------------------------------------------------------------------
+
+def test_a_go_method_with_a_pointer_receiver_is_found():
+    # 62/62 receiver methods in etcd. The go DECL regex has to skip the
+    # receiver parens and take the name after them.
+    src = ("func (s *EtcdServer) applyEntryNormal(ent *raftpb.Entry) {\n"
+           "\ts.mu.Lock()\n"
+           "}\n")
+    syms = symbols.extract(Path("srv.go"), src)
+    assert [s["name"] for s in syms] == ["applyEntryNormal"]
+    assert syms[0]["end_line"] == 3
+
+
+def test_a_java_generic_static_method_is_found():
+    # 60/61 in commons-lang. The `<T>` between modifiers and return type is
+    # where a naive "last word before (" rule goes wrong.
+    src = ("public static <T> T defaultIfNull(final T object, final T default_) {\n"
+           "    return object != null ? object : default_;\n"
+           "}\n")
+    syms = symbols.extract(Path("ObjectUtils.java"), src)
+    assert [s["name"] for s in syms] == ["defaultIfNull"]
+
+
+def test_a_rust_method_inside_an_impl_block_is_found():
+    # 86/86 in tokio. The body brace depth has to start counting at the fn,
+    # not at the enclosing impl.
+    src = ("impl Runtime {\n"
+           "    pub fn block_on<F: Future>(&self, future: F) -> F::Output {\n"
+           "        self.inner.block_on(future)\n"
+           "    }\n"
+           "}\n")
+    syms = symbols.extract(Path("runtime.rs"), src)
+    names = [s["name"] for s in syms]
+    assert "block_on" in names
+    blk = next(s for s in syms if s["name"] == "block_on")
+    assert blk["end_line"] == 4        # closes on its own brace, not the impl's
+
+
+def test_a_ruby_singleton_method_is_found():
+    # 29/29 in jekyll. `def self.foo` must not be read as a method named
+    # `self`.
+    src = ("module Utils\n"
+           "  def self.deep_merge_hashes(master, other)\n"
+           "    master.merge(other)\n"
+           "  end\n"
+           "end\n")
+    syms = symbols.extract(Path("utils.rb"), src)
+    assert any(s["name"] in ("deep_merge_hashes", "self.deep_merge_hashes")
+               for s in syms), [s["name"] for s in syms]
+
+
+def test_extraction_is_deterministic_for_the_same_input():
+    # Ground truth for a whole query set is derived from this; two runs
+    # disagreeing would mean two different evals.
+    src = "def a():\n    pass\n\ndef b():\n    pass\n"
+    assert symbols.extract(Path("m.py"), src) == symbols.extract(Path("m.py"), src)

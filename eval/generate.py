@@ -15,16 +15,37 @@ before trusting scores; drop rows where Claude's query is off-target.
 
 import argparse
 import hashlib
+import sys
 import json
 import random
 import subprocess
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent))
+import validate_queries  # noqa: E402
+
 CODE_EXT = {".c", ".h", ".rs", ".ts", ".js", ".py", ".go", ".java", ".cpp", ".md", ".txt"}
 WINDOW = 30
 
-PROMPT = """You are generating search-quality eval data. Below is a chunk of a file
-from a corpus ({path}, lines {start}-{end}).
+# The prompt deliberately does NOT contain the file path.
+#
+# It used to open "Below is a chunk of a file from a corpus ({path}, lines
+# {start}-{end})", and semgrep's tokenizer does path augmentation — so the
+# generator was shown the document identifier and the scorer indexes the
+# document identifier. Measured on the sets that prompt produced (RESEARCH.md
+# §13.1): 32.7% of linux `direct` queries contain the gold file's stem and
+# 48.2% a directory segment.
+#
+# The part that matters is that `paraphrase` leaked path segments at 17.1%,
+# slightly MORE than `direct`'s 16.1%, despite being the pole whose whole
+# purpose is to withhold the answer's vocabulary. The instruction to avoid the
+# chunk's identifiers left the path as the one piece of the answer the model
+# could still see, and it reached for it.
+#
+# Line numbers are gone for the same reason: they are metadata about where the
+# answer lives, not about what it says.
+PROMPT = """You are generating search-quality eval data. Below is a chunk of text
+from a corpus.
 
 ---
 {chunk}
@@ -33,6 +54,11 @@ from a corpus ({path}, lines {start}-{end}).
 Return STRICT JSON (no markdown fence) with exactly these keys:
 {{"direct": "<a natural-language query (5-15 words) a person would type into a code/document search engine to find exactly this chunk>",
   "paraphrase": "<a query for the same content that deliberately avoids the distinctive identifiers, function names, or rare words appearing in the chunk>"}}
+
+Write both queries using ONLY what the chunk itself says. Do not guess at or
+refer to the file name, the directory it might live in, or its position in a
+project — you have not been shown them, and a query that names them would be
+scoring the eval's bookkeeping rather than the search.
 
 The queries must be answerable by this chunk specifically, not by the whole file."""
 
@@ -163,8 +189,9 @@ def main():
     written = 0
 
     def one(c):
-        q = ask_claude(PROMPT.format(
-            path=c["file"], start=c["start_line"], end=c["end_line"], chunk=c["chunk"]))
+        # chunk only — see the note on PROMPT for why path/start/end are not
+        # passed, and what happened when they were.
+        q = ask_claude(PROMPT.format(chunk=c["chunk"]))
         return (c, q)
 
     with open(args.out, "w") as f, ThreadPoolExecutor(max_workers=args.workers) as pool:
@@ -184,6 +211,12 @@ def main():
                         "query": q[kind], "kind": kind, "file": c["file"],
                         "start_line": c["start_line"], "end_line": c["end_line"],
                         "split": split,
+                        # Content fingerprint of the gold span. This is the only
+                        # check that catches an EDITED gold file — the path and
+                        # the line count survive an edit, so every other
+                        # validation passes while the span silently describes
+                        # something else. See eval/validate_queries.py.
+                        "gold_sha": validate_queries.span_sha(c["chunk"]),
                     }
                     # strata, when the symbol sampler produced them
                     for k in ("symbol", "symbol_kind", "lang", "has_doc", "n_lines"):

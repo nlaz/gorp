@@ -54,7 +54,11 @@ DECL = {
     "python": r"^(\s*)(?:async\s+)?(?:def|class)\s+(\w+)",
     "rust": r"^(\s*)(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?(?:unsafe\s+)?fn\s+(\w+)",
     "go": r"^(\s*)func\s+(?:\([^)]*\)\s*)?(\w+)",
-    "ruby": r"^(\s*)def\s+(\w+)",
+    # `def self.foo` and `def Klass.foo` are singleton methods; the receiver
+    # prefix is skipped so the name is `foo`. Without it, 29 of jekyll's 1,060
+    # symbols (3%) were named `self` — the span was right, so ground truth was
+    # unaffected, but the `symbol` stratum was reporting a keyword as a method.
+    "ruby": r"^(\s*)def\s+(?:self\.|[A-Z]\w*\.)?(\w+)",
     "javascript": r"^(\s*)(?:export\s+)?(?:async\s+)?(?:function\s+(\w+)"
                   r"|(?:const|let)\s+(\w+)\s*=\s*(?:async\s*)?\()",
     "typescript": r"^(\s*)(?:export\s+)?(?:async\s+)?(?:function\s+(\w+)"
