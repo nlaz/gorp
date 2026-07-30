@@ -161,6 +161,23 @@ scale from the base list they get merged with.
 **Found by** the same property test. **Fixed by** `rank::bm25::Rest`, which lets a
 store holding part of a corpus borrow the rest of it.
 
+### 14. The eval harness scored a broken binary as 0.00 — P9 follow-up
+`semgrep_search` ignored the subprocess exit code and parsed whatever was on
+stdout. Handed a binary that could not answer a single query — an embedding width
+that did not match the index — it produced a clean table of `0.00` across 400
+queries and three modes, which reads exactly like a real and catastrophic result
+rather than a broken setup.
+
+**Found by** running the eval, seeing all zeros, and not believing them.
+**Fixed by** raising on any exit code other than 0 (found) or 1 (no match), with
+the failing command and stderr attached. The first query now stops the run and
+says why.
+
+The same shape as the engine defects above: a fallback that swallows an error and
+returns something plausible. It is worth noting that this one would have
+mattered most in exactly the situation it arose in — comparing two binaries,
+where one silently scoring zero looks like the other one winning.
+
 ---
 
 ## Dead code removed — P1

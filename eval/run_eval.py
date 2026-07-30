@@ -41,6 +41,16 @@ def semgrep_search(query, corpus, mode, k, no_index, extra=()):
         cmd.append("--no-index")
     cmd += list(extra) + [query, str(corpus)]
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+    # Exit 2 is "something went wrong", as distinct from 1 = "no match". A binary
+    # that cannot answer must stop the run, not score zero: this silently
+    # reported 0.00 across 400 queries when handed a binary whose embedding
+    # width did not match the index, and the result looked like a measurement.
+    if proc.returncode not in (0, 1):
+        raise RuntimeError(
+            f"semgrep failed (exit {proc.returncode}) on {mode!r} query {query!r}\n"
+            f"  cmd: {' '.join(cmd)}\n"
+            f"  stderr: {proc.stderr.strip()[:400]}"
+        )
     hits = []
     for line in proc.stdout.splitlines():
         try:
