@@ -91,8 +91,17 @@ spreading results across files.
 
 1. **Ranked lexical search is the headline win.** BM25/hybrid find the target
    in top-5 88–99% of the time on identifier queries, vs 3–27% for the same
-   intents keyword-ized into ripgrep — on the kernel it is a 30× gap. Every
-   miss is an agent retry loop that never happens.
+   intents keyword-ized into ripgrep. Every miss is an agent retry loop that
+   never happens.
+
+   > **Retracted, 2026-07-30:** this finding used to end "on the kernel it is
+   > a 30× gap." That number came from a ripgrep baseline whose tokenizer
+   > excluded `_`, so `blkg_rwstat_add` was shredded before ripgrep saw it.
+   > Against a fair baseline (`rg-strong`) the kernel gap is **~2.9×**, and
+   > fixing the tokenizer alone improves ripgrep 6.4× on the kernel. See
+   > RESEARCH.md §12.1–§12.2. The 3–27% figures above are the legacy
+   > baseline's and are kept only for comparability; read §12.2's table
+   > instead.
 2. **Speed of a miss isn't worth much.** rg answers in 1.7s but on paraphrase
    intents finds the target 0–3% of the time; semgrep's warm hybrid answers
    in 135 ms and does strictly better in every cell.

@@ -15,7 +15,7 @@ cd "$(dirname "$0")/.."
 export SEMGREP_CACHE_DIR="${TMPDIR:-/tmp}/semgrep-adversarial-cache"
 
 for corpus in vscode linux wikipedia; do
-  d=bench/corpora/$corpus; q=eval/data/$corpus.jsonl
+  d=bench/corpora/$corpus; q=eval/queries/$corpus.jsonl
   [ -d "$d" ] && [ -f "$q" ] || { echo "skip $corpus"; continue; }
   echo "===== $corpus ====="
   python3 eval/run_eval.py "$q" "$d" \

@@ -64,6 +64,51 @@ second. Staleness *detection* is much cheaper than rebuild (~1 s to re-walk
 84k files; `--check-stale`), so "is my index stale?" can be asked freely —
 it's only the refresh that pays the pass.
 
+## Guards
+
+Three things run before or beside every scored number, because each of them
+guards a failure that produces a *plausible* wrong answer rather than an error.
+
+**The query sets are in git** — `eval/queries/`, with a `MANIFEST.json`
+recording each set's fingerprint, corpus, anchoring and leakage profile. They
+used to live in gitignored `eval/data/`, and they are `claude`-generated, so
+nothing published was reproducible from the repo alone. See
+`eval/queries/README.md` for what each set is and which biases it carries.
+
+**The corpora are pinned and digested** — `bench/fetch-corpora.sh` pins every
+clone to a SHA, and `bench/manifest.py` records a content digest of each tree:
+
+    python3 bench/manifest.py           # record
+    python3 bench/manifest.py --check   # detect a tree that has changed
+
+vscode and wikipedia were unpinned until 2026-07-30, so the trees on disk have
+`revision: unknown` — that cannot be recovered and is not invented. The digest
+still makes them checkable.
+
+**Leakage is printed above every results table.** `run_eval.py` prints, and
+stores in `--out`, how much of the answer each query already contained:
+identifier share, median length, gold-token overlap, and path leakage. §12.5
+said no quality claim should be read without knowing which pole produced it;
+this makes that structural rather than advisory. Standalone:
+
+    python3 eval/leakage.py eval/queries/linux.jsonl bench/corpora/linux
+
+`run_eval.py` also validates gold spans against the corpus first and **refuses
+to score a drifted set** (`--allow-stale` overrides). A stale set does not
+raise — every row scores 0 and the output looks like a measurement, the same
+symptom the embedding-width mismatch produced.
+
+`--stratify` / `--where` cut the table by any row field (`split`, `lang`,
+`has_doc`) or computed leakage field (`has_identifier`, `path_seg_not_in_gold`).
+
+## Disk
+
+`eval/reclaim.sh --dry-run` prints everything the harness holds, its size, and
+the command that rebuilds it. The rule: anything a checked-in script can
+rebuild is reclaimable; anything that cost money or nondeterministic model
+calls is not. `eval/data/locbench/runs/` ($39.07 of agent spend) and
+`eval/queries/` are never offered.
+
 ## Tests
 
 The scorers are pure functions that decide every number published in

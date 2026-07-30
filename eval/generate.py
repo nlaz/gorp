@@ -7,7 +7,7 @@ avoids the chunk's own identifiers/keywords. Ground truth = the source
 chunk's file + line span.
 
 Usage:
-  python3 eval/generate.py bench/corpora/linux --n 200 --out eval/data/linux.jsonl
+  python3 eval/generate.py bench/corpora/linux --n 200 --out eval/queries/linux.jsonl
 
 Requires `claude` on PATH (headless: claude -p). Spot-check the output file
 before trusting scores; drop rows where Claude's query is off-target.

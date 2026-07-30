@@ -59,7 +59,7 @@ wanted() {
 
 for corpus in $CORPORA; do
   dir=bench/corpora/$corpus
-  queries=eval/data/$corpus.jsonl
+  queries=eval/queries/$corpus.jsonl
   [ -d "$dir" ] && [ -f "$queries" ] || { echo "skip $corpus (no corpus or queries)"; continue; }
 
   # Group by index flags so a corpus is reindexed once per distinct build, not

@@ -1,0 +1,195 @@
+{
+  "cosqa-1200.jsonl": {
+    "sha256": "b0fe982c083a825e",
+    "queries_fp": "b0fe982c083a825e",
+    "n": 1200,
+    "kinds": {
+      "real": 1200
+    },
+    "corpus": "cosqa",
+    "anchor": "whole-file",
+    "provenance": "fetch-cosqa.sh, 1200 sampled from 9,020 human-written Bing queries",
+    "leakage": {
+      "real": {
+        "n": 1200,
+        "identifier_pct": 0.0,
+        "median_words": 6,
+        "basename_pct": 0.0,
+        "stem_pct": 0.0,
+        "path_seg_pct": 0.0,
+        "path_seg_not_in_gold_pct": 0.0,
+        "gold_token_overlap": null
+      }
+    }
+  },
+  "linux-150.jsonl": {
+    "sha256": "d93eb8a8589cc313",
+    "queries_fp": "d93eb8a8589cc313",
+    "n": 150,
+    "kinds": {
+      "direct": 75,
+      "paraphrase": 75
+    },
+    "corpus": "linux",
+    "anchor": "window",
+    "provenance": "generate.py --anchor window, 150-chunk subset",
+    "leakage": {
+      "direct": {
+        "n": 75,
+        "identifier_pct": 0.64,
+        "median_words": 10,
+        "basename_pct": 0.0,
+        "stem_pct": 0.32,
+        "path_seg_pct": 0.4933,
+        "path_seg_not_in_gold_pct": 0.0,
+        "gold_token_overlap": null
+      },
+      "paraphrase": {
+        "n": 75,
+        "identifier_pct": 0.0,
+        "median_words": 17,
+        "basename_pct": 0.0,
+        "stem_pct": 0.0,
+        "path_seg_pct": 0.24,
+        "path_seg_not_in_gold_pct": 0.0,
+        "gold_token_overlap": null
+      }
+    }
+  },
+  "linux.jsonl": {
+    "sha256": "a4ce3818c9610b9b",
+    "queries_fp": "a4ce3818c9610b9b",
+    "n": 398,
+    "kinds": {
+      "direct": 199,
+      "paraphrase": 199
+    },
+    "corpus": "linux",
+    "anchor": "window",
+    "provenance": "generate.py --anchor window, claude-generated direct+paraphrase pairs",
+    "leakage": {
+      "direct": {
+        "n": 199,
+        "identifier_pct": 0.6633,
+        "median_words": 10,
+        "basename_pct": 0.0151,
+        "stem_pct": 0.3266,
+        "path_seg_pct": 0.4824,
+        "path_seg_not_in_gold_pct": 0.0,
+        "gold_token_overlap": null
+      },
+      "paraphrase": {
+        "n": 199,
+        "identifier_pct": 0.0201,
+        "median_words": 17,
+        "basename_pct": 0.0,
+        "stem_pct": 0.0,
+        "path_seg_pct": 0.2513,
+        "path_seg_not_in_gold_pct": 0.0,
+        "gold_token_overlap": null
+      }
+    }
+  },
+  "vscode-pilot.jsonl": {
+    "sha256": "306ea3517c6ef132",
+    "queries_fp": "306ea3517c6ef132",
+    "n": 20,
+    "kinds": {
+      "direct": 10,
+      "paraphrase": 10
+    },
+    "corpus": "vscode",
+    "anchor": "window",
+    "provenance": "generate.py --anchor window, pilot subset",
+    "leakage": {
+      "direct": {
+        "n": 10,
+        "identifier_pct": 0.7,
+        "median_words": 10,
+        "basename_pct": 0.1,
+        "stem_pct": 0.5,
+        "path_seg_pct": 0.4,
+        "path_seg_not_in_gold_pct": 0.0,
+        "gold_token_overlap": null
+      },
+      "paraphrase": {
+        "n": 10,
+        "identifier_pct": 0.1,
+        "median_words": 20,
+        "basename_pct": 0.0,
+        "stem_pct": 0.0,
+        "path_seg_pct": 0.4,
+        "path_seg_not_in_gold_pct": 0.0,
+        "gold_token_overlap": null
+      }
+    }
+  },
+  "vscode.jsonl": {
+    "sha256": "2e8d6905434c8b01",
+    "queries_fp": "2e8d6905434c8b01",
+    "n": 400,
+    "kinds": {
+      "direct": 200,
+      "paraphrase": 200
+    },
+    "corpus": "vscode",
+    "anchor": "window",
+    "provenance": "generate.py --anchor window, claude-generated direct+paraphrase pairs",
+    "leakage": {
+      "direct": {
+        "n": 200,
+        "identifier_pct": 0.705,
+        "median_words": 10,
+        "basename_pct": 0.0,
+        "stem_pct": 0.225,
+        "path_seg_pct": 0.46,
+        "path_seg_not_in_gold_pct": 0.0,
+        "gold_token_overlap": null
+      },
+      "paraphrase": {
+        "n": 200,
+        "identifier_pct": 0.015,
+        "median_words": 18,
+        "basename_pct": 0.0,
+        "stem_pct": 0.0,
+        "path_seg_pct": 0.265,
+        "path_seg_not_in_gold_pct": 0.0,
+        "gold_token_overlap": null
+      }
+    }
+  },
+  "wikipedia.jsonl": {
+    "sha256": "eb65b3afa159577a",
+    "queries_fp": "eb65b3afa159577a",
+    "n": 400,
+    "kinds": {
+      "direct": 200,
+      "paraphrase": 200
+    },
+    "corpus": "wikipedia",
+    "anchor": "window",
+    "provenance": "generate.py --anchor window, claude-generated direct+paraphrase pairs",
+    "leakage": {
+      "direct": {
+        "n": 200,
+        "identifier_pct": 0.01,
+        "median_words": 11,
+        "basename_pct": 0.0,
+        "stem_pct": 0.0,
+        "path_seg_pct": 0.0,
+        "path_seg_not_in_gold_pct": 0.0,
+        "gold_token_overlap": null
+      },
+      "paraphrase": {
+        "n": 200,
+        "identifier_pct": 0.0,
+        "median_words": 15,
+        "basename_pct": 0.0,
+        "stem_pct": 0.0,
+        "path_seg_pct": 0.0,
+        "path_seg_not_in_gold_pct": 0.0,
+        "gold_token_overlap": null
+      }
+    }
+  }
+}

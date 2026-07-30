@@ -12,7 +12,7 @@ Conditions:
       honest baseline, not a strawman: it mirrors common agent behavior.
 
 Usage:
-  python3 eval/run_eval.py eval/data/linux.jsonl bench/corpora/linux \
+  python3 eval/run_eval.py eval/queries/linux.jsonl bench/corpora/linux \
       [--modes bm25,semantic,hybrid,rg] [--k 10] [--slack 10] [--no-index]
 """
 
@@ -190,6 +190,25 @@ def correct(hit, truth, slack):
 # which is what the path-leakage question needs.
 # ---------------------------------------------------------------------------
 
+QUERY_DIRS = (HERE / "queries", HERE / "data")
+
+
+def resolve_queries(spec):
+    """Accept a path, or a bare set name resolved against eval/queries then
+    eval/data. The sets moved into eval/queries when they were checked into
+    git; a bare name keeps callers from having to care which."""
+    p = Path(spec)
+    if p.exists():
+        return p
+    if p.parent == Path("."):
+        for d in QUERY_DIRS:
+            for cand in (d / p.name, d / f"{p.name}.jsonl"):
+                if cand.exists():
+                    return cand
+    raise SystemExit(
+        f"no such query set: {spec} (looked in {', '.join(str(d) for d in QUERY_DIRS)})")
+
+
 def apply_where(rows, where):
     """Keep rows matching every `k=v` clause. Values compare as strings so
     `has_doc=True` and `n_lines=12` work without type declarations."""
@@ -263,6 +282,7 @@ def main():
     args = ap.parse_args()
     extra = tuple(args.extra.split()) if args.extra else ()
 
+    args.queries = resolve_queries(args.queries)
     raw = args.queries.read_text()
     rows = [json.loads(l) for l in raw.splitlines() if l.strip()]
     if not rows:

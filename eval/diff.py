@@ -21,8 +21,37 @@ import re
 from pathlib import Path
 
 DATA = Path(__file__).parent / "data"
-CORPORA = ["vscode", "wikipedia", "linux"]
 METRICS = ["recall@1", "recall@5", "recall@10", "mrr@10"]
+
+# The corpus list used to be hardcoded to the original three, so a result file
+# for any corpus added later was silently skipped — the failure mode this
+# project is least tolerant of, since a missing row reads as a corpus that was
+# never run rather than one that was dropped.
+#
+# Derive it from what is actually a corpus (a tree under bench/corpora, or a
+# query set named for one) rather than by pattern-matching result filenames:
+# `results-tuned.json` and `ab-warm-base.json` both parse as <tag>-<corpus>,
+# and a loose regex duly invented "tuned" and "base" as corpora.
+# A corpus is a TREE, not a query set: linux-150 and vscode-pilot are
+# alternative query sets over corpora already listed, and counting them here
+# would print empty rows for corpora that do not exist.
+_KNOWN_FIRST = ["vscode", "wikipedia", "linux"]
+CORPORA_DIR = Path(__file__).resolve().parents[1] / "bench" / "corpora"
+
+
+def discover_corpora():
+    found = set()
+    if CORPORA_DIR.is_dir():
+        found |= {p.name for p in CORPORA_DIR.iterdir() if p.is_dir()}
+    # Corpora that live beside their query set rather than in bench/ — cosqa
+    # ships as eval/data/cosqa/{corpus,queries.jsonl}.
+    if DATA.is_dir():
+        found |= {p.name for p in DATA.iterdir() if (p / "corpus").is_dir()}
+    ordered = [c for c in _KNOWN_FIRST if c in found]
+    return ordered + sorted(found - set(ordered))
+
+
+CORPORA = discover_corpora() or list(_KNOWN_FIRST)
 
 
 def path_for(tag, corpus):
