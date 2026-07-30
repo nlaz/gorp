@@ -3,14 +3,20 @@
 
 use super::{BuildOptions, BuildStats, FORMAT_VERSION, IndexMeta, index_dir};
 use crate::rank::bm25::Bm25Index;
-use crate::text::{self, SemgrepHnsw};
+use crate::text::SifStats;
 use crate::{Chunk, EMBED_DIM, corpus};
 use anyhow::{Context, Result};
-use std::io::Write;
 use std::path::Path;
 
-/// Chunk texts are embedded in batches this large (ese goes parallel >=16).
-const EMBED_BATCH: usize = 1024;
+mod embed;
+mod sif;
+
+use embed::EmbedWriter;
+
+/// Every file the index format is made of. `meta.json` is last on purpose — see
+/// `publish`.
+const ARTIFACTS: [&str; 6] =
+    ["meta.json", "chunks.bin", "bm25.flat", "emb.bin", "hnsw.bin", "sif.bin"];
 
 /// Build (or fully rebuild) the repo-local `.semgrep/` index for `root`.
 pub fn build(
@@ -27,174 +33,132 @@ pub fn build_at(
     dir: &Path,
     root: &Path,
     opts: &BuildOptions,
-    mut progress: impl FnMut(usize, usize),
+    progress: impl FnMut(usize, usize),
 ) -> Result<BuildStats> {
-    use rayon::prelude::*;
     let files = corpus::walk(root, &opts.params)?;
     std::fs::create_dir_all(dir)?;
-    // Unpublish before touching anything. A rebuild overwrites emb.bin in
-    // place, so leaving the old meta.json readable would let a concurrent
-    // query pair a stale file table with a half-rewritten matrix. Absent is a
-    // miss and costs a streaming pass; mixed is a wrong answer.
-    let _ = std::fs::remove_file(dir.join("meta.json"));
+    unpublish(dir);
 
-    // SIF pre-pass: count corpus token frequencies before any embedding, so
-    // weighted pooling has its p(w). Cheap relative to the embed pass.
-    let sif: Option<text::SifStats> = opts.sif.then(|| {
-        let mut all = text::SifStats::default();
-        for (_, batch) in corpus::pass_batches(&files, 256, 16 << 20) {
-            let partials: Vec<text::SifStats> = batch
-                .par_iter()
-                .map(|fm| {
-                    let mut s = text::SifStats::default();
-                    if let Some(text) = corpus::read_text(&corpus::abs_path(root, fm)) {
-                        s.count(&text);
-                    }
-                    s
-                })
-                .collect();
-            for p in partials {
-                all.merge_counts(p);
-            }
-        }
-        all.a = opts.sif_a;
-        // Common-component estimation from a file sample: pool one chunk per
-        // sampled file with the freshly-counted weights, take the mean. All
-        // later embeds (chunks and queries) subtract it via embed_sif.
-        if opts.sif_center && !files.is_empty() {
-            let stride = (files.len() / 512).max(1);
-            let samples: Vec<[f32; EMBED_DIM]> = files
-                .iter()
-                .step_by(stride)
-                .take(512)
-                .collect::<Vec<_>>()
-                .par_iter()
-                .filter_map(|fm| {
-                    let text = corpus::read_text(&corpus::abs_path(root, fm))?;
-                    let (_, slice) =
-                        corpus::chunk_lines(0, &text, &opts.params).into_iter().next()?;
-                    Some(text::embed_sif(&corpus::doc_text(&fm.path, slice), &all))
-                })
-                .collect();
-            if !samples.is_empty() {
-                let mut mean = vec![0.0f32; EMBED_DIM];
-                for s in &samples {
-                    for (m, x) in mean.iter_mut().zip(s.iter()) {
-                        *m += x;
-                    }
-                }
-                for m in mean.iter_mut() {
-                    *m /= samples.len() as f32;
-                }
-                all.mean = Some(mean);
-            }
-        }
-        all
-    });
-
-    let mut bm25 = Bm25Index::new();
-    let mut chunks: Vec<Chunk> = Vec::new();
-    let mut hnsw = opts.hnsw.then(text::new_hnsw);
-    let mut emb_out = std::io::BufWriter::new(
-        std::fs::File::create(dir.join("emb.bin")).context("create emb.bin")?,
-    );
-    let mut stats = BuildStats { n_files: files.len(), ..Default::default() };
-
-    // Batched embedding across file boundaries: texts are owned copies but
-    // only one batch is resident at a time.
-    let sif_ref = sif.as_ref();
-    let mut pending: Vec<String> = Vec::with_capacity(EMBED_BATCH);
-    let flush = |pending: &mut Vec<String>,
-                 emb_out: &mut std::io::BufWriter<std::fs::File>,
-                 hnsw: &mut Option<SemgrepHnsw>|
-     -> Result<()> {
-        if pending.is_empty() {
-            return Ok(());
-        }
-        let mut vecs = match sif_ref {
-            Some(s) => pending.par_iter().map(|doc| text::embed_sif(doc, s)).collect(),
-            None => ese::encode(pending.iter()),
-        };
-        for v in &mut vecs {
-            // Unit-normalize, then quantize to i8 for the on-disk matrix.
-            crate::rank::normalize(v);
-            let q = crate::rank::quantize_i8(v);
-            // SAFETY: i8 and u8 share size and alignment (1), so a fully
-            // initialized i8 slice is a valid u8 slice of the same length.
-            let bytes = unsafe { std::slice::from_raw_parts(q.as_ptr() as *const u8, q.len()) };
-            emb_out.write_all(bytes)?;
-            if let Some(h) = hnsw {
-                h.insert(*v);
-            }
-        }
-        pending.clear();
-        Ok(())
-    };
-
-    // Errors from the embed flush have to escape the fold closure, which cannot
-    // return them: hold the first one and stop feeding it work.
-    let mut flush_err: Option<anyhow::Error> = None;
-    let n_files = files.len();
-    corpus::pass(root, &files, &opts.params, true, true, |i, work| {
-        if flush_err.is_some() {
-            return;
-        }
-        progress(i + 1, n_files);
-        stats.bytes_indexed += work.bytes;
-        for (chunk, doc, tokens) in work.docs {
-            bm25.add_tokenized(tokens.expect("build pass tokenizes"));
-            chunks.push(chunk);
-            pending.push(doc.expect("build pass keeps text"));
-            if pending.len() >= EMBED_BATCH
-                && let Err(e) = flush(&mut pending, &mut emb_out, &mut hnsw)
-            {
-                flush_err = Some(e);
-                return;
-            }
-        }
-    });
-    if let Some(e) = flush_err {
-        return Err(e);
-    }
-    flush(&mut pending, &mut emb_out, &mut hnsw)?;
-    emb_out.flush()?;
-    bm25.finalize();
-    stats.n_chunks = chunks.len();
+    let sif = opts.sif.then(|| sif::count(root, &files, opts));
+    let IndexPass { chunks, bm25, emb_rows, mut stats } =
+        index_pass(dir, root, &files, opts, sif.as_ref(), progress)?;
+    // The three tables must describe the same chunks in the same order. This is
+    // the invariant the whole format rests on, and it is cheap to assert.
+    debug_assert_eq!(chunks.len(), emb_rows, "chunk table and emb.bin disagree");
+    debug_assert_eq!(chunks.len(), bm25.n_docs(), "chunk table and BM25 disagree");
 
     let meta = IndexMeta {
         version: FORMAT_VERSION,
         dims: EMBED_DIM,
         params: opts.params,
-        files,
         n_chunks: chunks.len() as u64,
-        has_hnsw: hnsw.is_some(),
+        has_hnsw: opts.hnsw,
         sif: sif.is_some(),
+        files,
     };
-    std::fs::write(dir.join("chunks.bin"), postcard::to_allocvec(&chunks)?)?;
-    std::fs::write(dir.join("bm25.flat"), crate::store::bm25::to_flat_bytes(&bm25))?;
-    match &sif {
-        Some(s) => std::fs::write(dir.join("sif.bin"), postcard::to_allocvec(s)?)?,
-        None => {
-            let _ = std::fs::remove_file(dir.join("sif.bin"));
-        }
-    }
-    match hnsw {
-        Some(h) => std::fs::write(dir.join("hnsw.bin"), h.to_bytes())?,
-        None => {
-            let _ = std::fs::remove_file(dir.join("hnsw.bin"));
-        }
-    }
-    // meta.json last: it is what `discover` keys on, so writing it is what
-    // publishes the index. Written first (as it used to be), a concurrent
-    // reader could find the entry, fail to load the chunks.bin that did not
-    // exist yet, and — for a cache entry, where a load failure is a miss —
-    // delete the directory this build was still writing into.
-    std::fs::write(dir.join("meta.json"), serde_json::to_vec_pretty(&meta)?)?;
+    publish(dir, &meta, &chunks, &bm25, sif.as_ref())?;
 
-    for name in ["meta.json", "chunks.bin", "bm25.flat", "emb.bin", "hnsw.bin", "sif.bin"] {
-        if let Ok(m) = std::fs::metadata(dir.join(name)) {
-            stats.index_bytes += m.len();
+    stats.n_chunks = chunks.len();
+    stats.index_bytes = ARTIFACTS
+        .iter()
+        .filter_map(|name| std::fs::metadata(dir.join(name)).ok())
+        .map(|m| m.len())
+        .sum();
+    Ok(stats)
+}
+
+/// Make the index unfindable before modifying it.
+///
+/// A rebuild overwrites `emb.bin` in place, so leaving the old `meta.json`
+/// readable would let a concurrent query pair a stale file table with a
+/// half-rewritten matrix. Absent costs that query a streaming pass; mixed gives
+/// it a wrong answer.
+fn unpublish(dir: &Path) {
+    let _ = std::fs::remove_file(dir.join("meta.json"));
+}
+
+/// What one corpus pass produced. `emb.bin` and `hnsw.bin` are already on disk;
+/// `emb_rows` is how many rows went into the matrix, for the lockstep check.
+struct IndexPass {
+    chunks: Vec<Chunk>,
+    bm25: Bm25Index,
+    emb_rows: usize,
+    stats: BuildStats,
+}
+
+/// The corpus pass: read, chunk, tokenize, embed.
+fn index_pass(
+    dir: &Path,
+    root: &Path,
+    files: &[crate::FileMeta],
+    opts: &BuildOptions,
+    sif: Option<&SifStats>,
+    mut progress: impl FnMut(usize, usize),
+) -> Result<IndexPass> {
+    let mut writer = EmbedWriter::create(dir, opts.hnsw, sif)?;
+    let mut bm25 = Bm25Index::new();
+    let mut chunks: Vec<Chunk> = Vec::new();
+    let mut stats = BuildStats { n_files: files.len(), ..Default::default() };
+
+    // The fold closure cannot return, so the first write error is parked here
+    // and stops the pass from being fed more work.
+    let mut failed: Option<anyhow::Error> = None;
+    corpus::pass(root, files, &opts.params, true, true, |i, work| {
+        if failed.is_some() {
+            return;
+        }
+        progress(i + 1, files.len());
+        stats.bytes_indexed += work.bytes;
+        for (chunk, doc, tokens) in work.docs {
+            // Lockstep: one chunk id, one BM25 document, one embedding row, all
+            // appended in the same order. corpus::pass guarantees file order.
+            bm25.add_tokenized(tokens.expect("the build pass tokenizes"));
+            chunks.push(chunk);
+            if let Err(e) = writer.push(doc.expect("the build pass keeps text")) {
+                failed = Some(e);
+                return;
+            }
+        }
+    });
+    if let Some(e) = failed {
+        return Err(e);
+    }
+
+    let emb_rows = writer.finish(dir)?;
+    bm25.finalize();
+    Ok(IndexPass { chunks, bm25, emb_rows, stats })
+}
+
+/// Write every artifact, `meta.json` last.
+///
+/// Writing `meta.json` is what publishes an index: `cache::discover` keys on it
+/// and nothing else. When it went first, a concurrent reader could find the
+/// entry, fail on the `chunks.bin` that did not exist yet, and — a cache load
+/// failure being a miss — delete the directory this build was still writing.
+fn publish(
+    dir: &Path,
+    meta: &IndexMeta,
+    chunks: &[Chunk],
+    bm25: &Bm25Index,
+    sif: Option<&SifStats>,
+) -> Result<()> {
+    std::fs::write(dir.join("chunks.bin"), postcard::to_allocvec(chunks)?)?;
+    std::fs::write(dir.join("bm25.flat"), super::bm25::to_flat_bytes(bm25))?;
+    write_or_remove(&dir.join("sif.bin"), sif.map(postcard::to_allocvec).transpose()?)?;
+    std::fs::write(dir.join("meta.json"), serde_json::to_vec_pretty(meta)?)?;
+    Ok(())
+}
+
+/// Write `bytes`, or clear a stale artifact from a previous build with different
+/// options — an index must not carry a `sif.bin` its `meta.json` disclaims.
+fn write_or_remove(path: &Path, bytes: Option<Vec<u8>>) -> Result<()> {
+    match bytes {
+        Some(b) => {
+            std::fs::write(path, b).with_context(|| format!("write {}", path.display()))?
+        }
+        None => {
+            let _ = std::fs::remove_file(path);
         }
     }
-    Ok(stats)
+    Ok(())
 }
