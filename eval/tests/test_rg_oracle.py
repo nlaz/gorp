@@ -233,3 +233,50 @@ def test_token_order_is_deterministic():
     b = run_eval.content_tokens(q)
     assert a == b
     assert run_eval.identifiers(a) == run_eval.identifiers(b)
+
+
+# ---------------------------------------------------------------------------
+# rg_run's ordering. ripgrep's parallel walk is nondeterministic, and rg's own
+# --sort path fixes it by going single-threaded at 3.6x the cost. rg_run sorts
+# the parallel output itself instead, which requires matching rg's sort key
+# exactly rather than approximately.
+# ---------------------------------------------------------------------------
+
+def test_paths_sort_by_component_not_by_raw_string(tmp_path):
+    """The case that made the two disagree on real corpora.
+
+    rg orders `tokio/` before `tokio-macros/` because it compares path
+    COMPONENTS. A raw string sort puts `tokio-macros/...` first, since '-'
+    (0x2d) sorts below '/' (0x2f). Sorting the wrong way changed the answer on
+    3 of 27 spot-checked (corpus, pattern) pairs — silently, since both
+    orderings are internally consistent.
+    """
+    c = corpus(tmp_path, {
+        "tokio/a.rs": "needle\n",
+        "tokio-macros/a.rs": "needle\n",
+    })
+    got = [h[0] for h in run_eval.rg_run("needle", c, 10)]
+    assert got == ["tokio/a.rs", "tokio-macros/a.rs"], got
+
+
+def test_rg_run_is_deterministic(tmp_path):
+    files = {f"d{i}/f{j}.py": "needle\n" for i in range(6) for j in range(6)}
+    c = corpus(tmp_path, files)
+    orders = {tuple(run_eval.rg_run("needle", c, 10)) for _ in range(5)}
+    assert len(orders) == 1
+
+
+def test_rg_run_returns_at_most_k(tmp_path):
+    c = corpus(tmp_path, {f"f{i}.py": "needle\n" for i in range(30)})
+    assert len(run_eval.rg_run("needle", c, 7)) == 7
+
+
+def test_matches_within_a_file_stay_in_line_order(tmp_path):
+    c = corpus(tmp_path, {"a.py": "needle\nx\nneedle\ny\nneedle\n"})
+    lines = [h[1] for h in run_eval.rg_run("needle", c, 10)]
+    assert lines == sorted(lines)
+
+
+def test_a_pattern_with_no_matches_returns_nothing(tmp_path):
+    c = corpus(tmp_path, {"a.py": "hay\n"})
+    assert run_eval.rg_run("needle", c, 10) == []

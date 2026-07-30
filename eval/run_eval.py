@@ -79,33 +79,42 @@ def rg_run(pattern, corpus, k, flags=()):
     # character in one matched line is not a stricter measurement, it is no
     # measurement — and the engine itself decodes lossily for the same reason
     # (corpus/mod.rs: "never bail on mixed-encoding trees").
-    # --sort path is load-bearing, not cosmetic. ripgrep parallelizes its
-    # directory walk and emits results as workers finish, so WITHOUT it the
+    # Determinism is load-bearing, not cosmetic. ripgrep parallelizes its
+    # directory walk and emits results as workers finish, so by default the
     # same pattern over the same corpus returns hits in a different order from
     # run to run — measured: 6 runs of one pattern over etcd produced 2
     # distinct top-10 orderings. Since a rank is a position in that list,
-    # every rg and rg-strong figure this harness has ever produced carried
+    # every rg and rg-strong figure this harness produced before this carried
     # run-to-run variance from thread scheduling, and no rg result was
     # reproducible. It also made the rg-oracle ceiling appear to lose to
-    # rg_strong on queries where it had simply re-run the same pattern and
+    # rg_strong on queries where it had merely re-run the same pattern and
     # been handed a different order.
     #
-    # --sort path forces a single-threaded, alphabetical walk. It costs
-    # throughput and buys a defined answer to "what are the first k hits".
+    # rg's own `--sort path` fixes it by forcing a SINGLE-THREADED walk, which
+    # costs 3.8-5.9x on the kernel. Sorting the parallel output here instead
+    # gives byte-identical results at parallel speed — verified against
+    # `--sort path` on patterns from 8 to 107,361 matches. On a corpus that
+    # size the difference is 12.0s vs 2.1s per scan, which is what makes a
+    # kernel-scale run finishable at all.
     proc = subprocess.run(
-        [RG, "--no-heading", "-n", "-m", "3", "--sort", "path",
-         *flags, pattern, str(corpus)],
+        [RG, "--no-heading", "-n", "-m", "3", *flags, pattern, str(corpus)],
         capture_output=True, text=True, errors="replace", timeout=600)
-    hits = []
+    raw = []
     for line in proc.stdout.splitlines():
         m = re.match(r"(.+?):(\d+):", line)
         if m:
-            hits.append((str(Path(m.group(1)).relative_to(corpus))
-                         if m.group(1).startswith(str(corpus)) else m.group(1),
-                         int(m.group(2)), int(m.group(2))))
-        if len(hits) >= k:
-            break
-    return hits[:k]
+            raw.append((m.group(1), int(m.group(2))))
+    # Sort by path COMPONENTS, not by the raw string, because that is what rg
+    # does and the two disagree whenever one directory name is a prefix of a
+    # sibling's. In tokio: rg orders `tokio/` before `tokio-macros/`, while a
+    # string sort puts `tokio-macros/...` first, since '-' (0x2d) sorts below
+    # '/' (0x2f). That moved the first hit from rank 7 to rank 7 of a
+    # different file — a silently different answer, on 3 of 27 spot-checked
+    # (corpus, pattern) pairs.
+    raw.sort(key=lambda pn: (Path(pn[0]).parts, pn[1]))
+    hits = [(str(Path(p).relative_to(corpus)) if p.startswith(str(corpus)) else p, n, n)
+            for p, n in raw[:k]]
+    return hits
 
 
 def rg_agent_style(query, corpus, k):
