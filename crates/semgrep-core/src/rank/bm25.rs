@@ -35,31 +35,60 @@ pub trait Postings {
     }
 }
 
+/// The corpus a store is part of but does not contain.
+///
+/// BM25's idf and length normalization are corpus-wide quantities. A store that
+/// holds only some of the corpus — a read-repair overlay, which holds just the
+/// files that drifted — would otherwise compute them over its own handful of
+/// documents and produce scores on a different scale from the base index they get
+/// merged with. Passing the rest of the corpus in makes the two comparable.
+pub struct Rest<'a> {
+    pub n_docs: usize,
+    pub total_len: u64,
+    /// Document frequency of a term in the rest of the corpus.
+    pub df: &'a dyn Fn(&str) -> usize,
+}
+
 /// Okapi BM25 over any [`Postings`] store. Returns (chunk_id, score), best
 /// first, ties broken by chunk id so the order is total.
 pub fn top_k<P: Postings>(store: &P, query: &str, k: usize) -> Vec<(u32, f32)> {
-    let n = store.n_docs() as f32;
+    top_k_within(store, query, k, None)
+}
+
+/// [`top_k`] where `store` holds only part of a corpus. See [`Rest`].
+pub fn top_k_within<P: Postings>(
+    store: &P,
+    query: &str,
+    k: usize,
+    rest: Option<&Rest>,
+) -> Vec<(u32, f32)> {
+    let (rest_docs, rest_len) = rest.map_or((0, 0), |r| (r.n_docs, r.total_len));
+    let n = (store.n_docs() + rest_docs) as f32;
     if n == 0.0 || k == 0 {
         return Vec::new();
     }
-    let avgdl = (store.total_len() as f32 / n).max(1.0);
+    let avgdl = ((store.total_len() + rest_len) as f32 / n).max(1.0);
 
-    // Dedup query terms, keeping multiplicity as a weight.
-    let mut weights: HashMap<u32, f32> = HashMap::new();
+    // Dedup query terms, keeping multiplicity as a weight. Keyed by token rather
+    // than by term id because the corpus-wide df lookup needs the string — and
+    // term ids are canonically ordered by token anyway, so the accumulation order
+    // this fixes is the same one.
+    let mut weights: HashMap<String, f32> = HashMap::new();
     tokenize::for_each_token(query, |tok| {
-        if let Some(id) = store.term_id(tok) {
-            *weights.entry(id).or_insert(0.0) += 1.0;
+        if store.term_id(tok).is_some() {
+            *weights.entry(tok.to_string()).or_insert(0.0) += 1.0;
         }
     });
-    // Accumulate in term-id order, not hash order: f32 addition is not
-    // associative, so iterating the map would score the same document
-    // differently from run to run and let near-tied chunks swap rank.
-    let mut terms: Vec<(u32, f32)> = weights.into_iter().collect();
-    terms.sort_unstable_by_key(|&(id, _)| id);
+    // Token order, not hash order: f32 addition is not associative, so iterating
+    // the map would score the same document differently from run to run and let
+    // near-tied chunks swap rank.
+    let mut terms: Vec<(String, f32)> = weights.into_iter().collect();
+    terms.sort_unstable_by(|a, b| a.0.cmp(&b.0));
 
     let mut scores: HashMap<u32, f32> = HashMap::new();
-    for (term, weight) in terms {
-        let df = store.postings(term).count() as f32;
+    for (token, weight) in terms {
+        let Some(term) = store.term_id(&token) else { continue };
+        let df = (store.postings(term).count() + rest.map_or(0, |r| (r.df)(&token))) as f32;
         let idf = ((n - df + 0.5) / (df + 0.5) + 1.0).ln();
         for (chunk_id, tf) in store.postings(term) {
             let tf = tf as f32;

@@ -25,8 +25,12 @@ pub struct Delta {
     pub chunks: Vec<Chunk>,
     /// Index-root-relative path per delta chunk.
     pub paths: Vec<String>,
-    /// Normalized f32 embeddings per delta chunk.
-    pub vecs: Vec<Vec<f32>>,
+    /// One quantized embedding per delta chunk, in exactly the representation
+    /// `emb.bin` holds. Storing f32 here instead made the overlay score by
+    /// full-precision cosine while the base scored quantized dot products, so a
+    /// repaired answer differed from a rebuilt one for no reason to do with the
+    /// query.
+    pub vecs: Vec<Vec<i8>>,
     pub bm25: Bm25Index,
 }
 
@@ -124,10 +128,13 @@ pub fn scope(
         Some(s) => texts.iter().map(|t| text::embed_sif(t, s)).collect(),
         None => ese::encode(texts.iter()),
     };
-    for v in &mut vecs {
-        rank::normalize(v);
-    }
-    delta.vecs = vecs.into_iter().map(|v| v.to_vec()).collect();
+    delta.vecs = vecs
+        .iter_mut()
+        .map(|v| {
+            rank::normalize(v);
+            rank::quantize_i8(v)
+        })
+        .collect();
     trace.record("repair:delta", elapsed_ms(t0));
     Some(Repair { tombstones, delta, n_dirty })
 }

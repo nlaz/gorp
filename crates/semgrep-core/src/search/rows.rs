@@ -71,7 +71,7 @@ impl<'a> Rows<'a> {
     /// the fly, which is free at candidate scale; delta rows are already f32.
     pub fn vector(&self, id: u32) -> Option<Vec<f32>> {
         match self.delta_index(id) {
-            Some(j) => Some(self.repair.as_ref()?.delta.vecs[j].clone()),
+            Some(j) => Some(crate::rank::dequantize_i8(&self.repair.as_ref()?.delta.vecs[j])),
             None => {
                 let row = id as usize;
                 let m = self.idx.emb_matrix_i8();
@@ -85,8 +85,8 @@ impl<'a> Rows<'a> {
         self.repair.as_ref().map(|r| &r.delta.bm25)
     }
 
-    /// The overlay's embeddings, in delta-row order.
-    pub fn delta_vectors(&self) -> &[Vec<f32>] {
+    /// The overlay's quantized embeddings, in delta-row order.
+    pub fn delta_vectors(&self) -> &[Vec<i8>] {
         self.repair.as_ref().map_or(&[], |r| &r.delta.vecs)
     }
 
@@ -156,7 +156,8 @@ mod tests {
                     })
                     .collect(),
                 paths: (0..n_chunks).map(|i| format!("delta{i}.rs")).collect(),
-                vecs: (0..n_chunks).map(|_| vec![0.5; crate::EMBED_DIM]).collect(),
+                // Quantized, as the overlay now stores them: 64 is 0.5 in i8 scale.
+                vecs: (0..n_chunks).map(|_| vec![64i8; crate::EMBED_DIM]).collect(),
                 bm25: crate::rank::bm25::Bm25Index::new(),
             },
             n_dirty: n_chunks,
@@ -226,8 +227,13 @@ mod tests {
         // Dequantized from i8, so within one quantization step of unit range.
         assert!(base.iter().all(|v| (-1.01..=1.01).contains(v)), "base vector out of range");
 
+        // Dequantized the same way base rows are, so MMR compares like with like.
         let delta = rows.vector(n_base).expect("delta row has a vector");
-        assert_eq!(delta, vec![0.5; crate::EMBED_DIM], "delta vectors pass through as f32");
+        assert_eq!(delta.len(), crate::EMBED_DIM);
+        assert!(
+            delta.iter().all(|v| (*v - 64.0 / 127.0).abs() < 1e-6),
+            "delta vectors must dequantize through the same path as base rows"
+        );
     }
 
     /// `merge` is what folds the overlay into a ranked base list, and it has to

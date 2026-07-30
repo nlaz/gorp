@@ -8,6 +8,7 @@
 use super::rows::Rows;
 use super::trace::{Trace, elapsed_ms};
 use super::{SearchOptions, SearchReport, SearchResult, hit};
+use crate::rank::bm25::Postings;
 use crate::rank::{self, Mode, maxsim, prf};
 use crate::store::{LoadNeeds, LoadedIndex};
 use crate::{cache, corpus, text};
@@ -100,7 +101,18 @@ fn rank_lexical(
     let Some(base) = idx.bm25.as_ref().filter(|_| lexical_mode(opts.mode)) else {
         return Vec::new();
     };
-    let delta = rows.delta_bm25().map(|b| b.query(query, pool)).unwrap_or_default();
+    // The overlay holds only the files that drifted, so it scores against the
+    // base's corpus statistics rather than its own handful of documents —
+    // otherwise the two lists being merged are on different scales.
+    let rest = rank::Rest {
+        n_docs: base.n_docs(),
+        total_len: base.total_len(),
+        df: &|token| base.df(token),
+    };
+    let delta = rows
+        .delta_bm25()
+        .map(|b| rank::top_k_within(b, query, pool, Some(&rest)))
+        .unwrap_or_default();
     rows.merge(base.query(query, pool), delta, pool, true)
 }
 
@@ -174,19 +186,20 @@ fn rank_semantic(
 
     let use_graph = idx.hnsw.is_some() && opts.use_hnsw && pool <= 128;
     let start = Instant::now();
+    let quantized = rank::quantize_i8(&q);
     let base = match (&idx.hnsw, use_graph) {
         (Some(graph), true) => {
             graph.search(&q).into_iter().map(|(dist, id)| (id, dist)).take(pool).collect()
         }
-        _ => rank::brute_force_top_k_i8(&rank::quantize_i8(&q), idx.emb_matrix_i8(), pool),
+        _ => rank::brute_force_top_k_i8(&quantized, idx.emb_matrix_i8(), pool),
     };
-    // Delta distances are f32 against the base's dequantized i8 ones.
-    // Quantization was verified quality-neutral, so the two scales merge.
+    // The same kernel and the same quantized query the base was scored with, so
+    // the two lists being merged are on one scale.
     let delta: Vec<(u32, f32)> = rows
         .delta_vectors()
         .iter()
         .enumerate()
-        .map(|(j, v)| (j as u32, rank::distance(&q, v)))
+        .map(|(j, v)| (j as u32, rank::dot_distance_i8(&quantized, v)))
         .collect();
     let ranked = rows.merge(base, delta, pool, false);
     trace.record(if use_graph { "rank:ann" } else { "rank:brute" }, elapsed_ms(start));

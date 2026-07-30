@@ -11,7 +11,7 @@ pub mod prf;
 mod topk;
 mod vec;
 
-pub use bm25::top_k;
+pub use bm25::{Rest, top_k, top_k_within};
 pub use fuse::{Mode, fuse};
 pub use maxsim::maxsim;
 pub use mmr::mmr_order;
