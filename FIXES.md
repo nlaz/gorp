@@ -253,8 +253,23 @@ rather than after a batch — is what caught it.
    and `flowercomputers/anny` checkouts — a `BOG_TOKEN` secret, or those repos made
    public.
 
-5. **P6 changed retrieval behavior and is not eval-validated.** 237 cold-path hit
-   lines moved. It should be strictly better, since cold now matches warm, but
-   `eval/run_eval.py` has not been run across the change. Given that #10 means the
-   existing lever numbers were measured through a contaminated cache, the eval
-   deserves a fresh run regardless.
+5. ~~P6 is not eval-validated.~~ **Done.** Paired A/B of the pre-refactor commit
+   (`8f0bdfb`) against the merged tip, vscode corpus, isolated caches, index
+   rebuilt per binary:
+
+   - **Warm path, 400 queries x 3 modes: identical.** All 21 metrics `+0.000`,
+     every sign test 0-0. The path the product actually uses is bit-for-bit
+     unchanged by the reorganization.
+   - **Cold path, 60 queries x 3 modes:** BM25 and hybrid identical; semantic
+     moved 3 cells, all inconclusive.
+   - **Cold semantic, full 400 queries** (the only mode P6 changed): recall@1
+     +0.005 (2-1), recall@5 +0.005 (2-1), recall@10 +0.000 (0-0), MRR +0.004.
+     Three of 400 queries changed rank. Every CI crosses zero.
+
+   So the quantization change is quality-neutral to within what 400 queries can
+   resolve, and it buys exact cold/warm agreement. Raw output in
+   `eval/data/refactor-ab-*.json`.
+
+   Still outstanding, and separate: #10 means the published §9 lever numbers were
+   measured through a cache a `--window` sweep could contaminate. Those want a
+   re-run on their own terms; this A/B does not substitute for it.
