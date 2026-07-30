@@ -7,7 +7,9 @@
 
 mod hit;
 mod indexed;
+mod rows;
 mod stream;
+pub(crate) mod trace;
 
 use crate::keyword::KeywordOptions;
 pub use crate::rank::Mode;

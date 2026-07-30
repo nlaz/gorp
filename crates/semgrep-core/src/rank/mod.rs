@@ -6,7 +6,8 @@
 //! selection machinery, `maxsim` late-interaction reranking.
 
 pub mod bm25;
-mod maxsim;
+pub mod maxsim;
+pub mod prf;
 mod topk;
 mod vec;
 

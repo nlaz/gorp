@@ -11,6 +11,7 @@
 //! mechanism seen from two directions.
 
 use crate::rank::bm25::Bm25Index;
+use crate::search::trace::{Trace, elapsed_ms};
 use crate::text::{self};
 use crate::{Chunk, cache, corpus, rank, store};
 use std::collections::HashSet;
@@ -72,7 +73,7 @@ fn check_marker(d: &cache::Discovered) -> std::path::PathBuf {
 pub fn scope(
     d: &cache::Discovered,
     idx: &store::LoadedIndex,
-    stages: &mut Vec<(String, f64)>,
+    trace: &mut Trace,
 ) -> Option<Repair> {
     let marker = check_marker(d);
     let ttl = repair_ttl_secs();
@@ -92,7 +93,7 @@ pub fn scope(
     let scope_abs = if d.prefix.is_empty() { d.root.clone() } else { d.root.join(&d.prefix) };
     let live = corpus::walk(&scope_abs, &idx.meta.params).ok()?;
     let drift = corpus::diff(&idx.meta.files, &live, &d.prefix);
-    stages.push(("repair:walk".into(), t0.elapsed().as_secs_f64() * 1e3));
+    trace.record("repair:walk", elapsed_ms(t0));
     if drift.is_empty() {
         return None;
     }
@@ -127,6 +128,6 @@ pub fn scope(
         rank::normalize(v);
     }
     delta.vecs = vecs.into_iter().map(|v| v.to_vec()).collect();
-    stages.push(("repair:delta".into(), t0.elapsed().as_secs_f64() * 1e3));
+    trace.record("repair:delta", elapsed_ms(t0));
     Some(Repair { tombstones, delta, n_dirty })
 }

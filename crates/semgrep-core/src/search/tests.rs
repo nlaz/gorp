@@ -31,8 +31,7 @@ fn weighted_rrf_favors_bm25() {
 fn mmr_prefers_diverse_over_redundant() {
     // a and b are near-identical vectors with top scores; c is distinct
     // with a slightly lower score. With diversity on, c should beat b.
-    let cands =
-        vec![cand(0, "a.rs", 1, 1.0), cand(1, "b.rs", 1, 0.95), cand(2, "c.rs", 1, 0.80)];
+    let cands = [cand(0, "a.rs", 1, 1.0), cand(1, "b.rs", 1, 0.95), cand(2, "c.rs", 1, 0.80)];
     let mut va = vec![0.0f32; 8];
     va[0] = 1.0;
     let mut vb = va.clone();
@@ -49,7 +48,7 @@ fn mmr_prefers_diverse_over_redundant() {
 fn overlapping_spans_dedupe_keeps_higher_rank() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("x.rs"), "fn alpha() {}\n".repeat(60)).unwrap();
-    let cands = [
+    let cands = vec![
         Candidate {
             id: 0,
             chunk: Chunk { file_id: 0, start_line: 1, end_line: 32 },
