@@ -53,3 +53,22 @@ pub fn dot_distance_i8(a: &[i8], b: &[i8]) -> f32 {
     }
     1.0 - d as f32 / (127.0 * 127.0)
 }
+
+/// A vector as the index would hand it back: normalized, quantized to i8, then
+/// dequantized.
+///
+/// The cold path computes embeddings in f32 and never stores them, so its
+/// diversity reranking used to compare vectors the warm path could not produce —
+/// which made cold and warm results differ for reasons that had nothing to do
+/// with the query. Putting cold vectors through the same lossy step makes the two
+/// paths comparable, which is what "the index is a cache" has to mean.
+pub fn as_stored(v: &[f32]) -> Vec<f32> {
+    let mut owned = v.to_vec();
+    normalize(&mut owned);
+    dequantize_i8(&quantize_i8(&owned))
+}
+
+/// i8 back to the unit range it was quantized from.
+pub fn dequantize_i8(v: &[i8]) -> Vec<f32> {
+    v.iter().map(|&x| x as f32 / 127.0).collect()
+}

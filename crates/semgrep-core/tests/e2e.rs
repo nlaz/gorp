@@ -642,3 +642,142 @@ fn searching_does_not_write_into_a_repo_local_index() {
     }
     assert_eq!(before, fingerprint(), "a search must not modify a repo-local .semgrep/");
 }
+
+/// A cache entry is identified by its chunk parameters as well as its root.
+///
+/// It was not, and the consequence was user-visible: one search with a
+/// non-default `--window` wrote an entry keyed only by path, and every later
+/// search of that scope — including plain default ones — was served from it,
+/// silently returning spans of the wrong size. The eval harness sweeps window to
+/// measure chunking, against the same cache ordinary use has, so a tuning run
+/// contaminated whatever was measured next.
+#[test]
+fn chunk_params_are_part_of_a_cache_entry_identity() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    let query = "compute the backoff delay";
+
+    let narrow = SearchOptions {
+        mode: Mode::Hybrid,
+        k: 3,
+        params: ChunkParams { window: 8, overlap: 2, ..Default::default() },
+        ..Default::default()
+    };
+    let wide = SearchOptions {
+        mode: Mode::Hybrid,
+        k: 3,
+        params: ChunkParams { window: 32, overlap: 8, ..Default::default() },
+        ..Default::default()
+    };
+
+    let a = search(dir.path(), query, &narrow).unwrap();
+    assert!(a.report.wrote_cache, "first search of this scope should cache it");
+    let a_span = a.hits[0].end_line - a.hits[0].start_line;
+
+    // The wide search must not be served the narrow entry.
+    let b = search(dir.path(), query, &wide).unwrap();
+    assert!(b.report.wrote_cache, "different params must miss, not reuse");
+    let b_span = b.hits[0].end_line - b.hits[0].start_line;
+    assert!(
+        b_span > a_span,
+        "window 32 should give wider spans than window 8 ({b_span} vs {a_span})"
+    );
+
+    // Both entries now coexist, and each keeps answering its own question.
+    let a2 = search(dir.path(), query, &narrow).unwrap();
+    assert!(!a2.report.wrote_cache, "the narrow entry should still be warm");
+    assert_eq!(a2.hits[0].end_line - a2.hits[0].start_line, a_span, "narrow entry drifted");
+
+    let b2 = search(dir.path(), query, &wide).unwrap();
+    assert!(!b2.report.wrote_cache, "the wide entry should still be warm");
+    assert_eq!(b2.hits[0].end_line - b2.hits[0].start_line, b_span, "wide entry drifted");
+}
+
+/// Scope promotion retires narrower entries, but only ones built the same way —
+/// otherwise widening the scope at one window would silently delete the entry
+/// another window's queries depend on.
+#[test]
+fn scope_promotion_spares_entries_built_with_other_params() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    let canon = fs::canonicalize(dir.path()).unwrap();
+    let opts_for = |window: u32| SearchOptions {
+        mode: Mode::Hybrid,
+        k: 3,
+        params: ChunkParams { window, overlap: 2, ..Default::default() },
+        ..Default::default()
+    };
+
+    // A narrow-window entry rooted at src/.
+    search(&dir.path().join("src"), "hash a password", &opts_for(8)).unwrap();
+    // Then a *different* window over the whole root, which promotes.
+    search(dir.path(), "hash a password", &opts_for(16)).unwrap();
+
+    let roots: Vec<std::path::PathBuf> = cache::cache_entries()
+        .into_iter()
+        .map(|(_, root)| root)
+        .filter(|r| r.starts_with(&canon))
+        .collect();
+    assert!(
+        roots.contains(&canon.join("src")),
+        "the window-8 src/ entry must survive a window-16 promotion, got {roots:?}"
+    );
+    assert!(roots.contains(&canon), "the window-16 root entry should exist too");
+}
+
+/// Cache transparency, as an equality rather than a hope.
+///
+/// "The index is a cache" (RESEARCH.md §8) has to mean that whether a scope
+/// happens to be cached is invisible in the answer. It was not: the cold path
+/// scored full-precision cosine over f32 embeddings while the warm path scored
+/// i8 dot products over the quantized matrix, so the two ranked near-ties
+/// differently. Measured over the fixture corpus, 37 of 54 query/mode pairs
+/// disagreed between cold and warm; the difference was usually a swap in the
+/// tail, occasionally a different hit at the k boundary.
+///
+/// The cold path now quantizes exactly as `store::build` does, so both score the
+/// same numbers. This test compares the *whole* top-k, not just the first hit —
+/// the old parity test checked `hits[0]` and so could not see any of this.
+#[test]
+fn cold_and_warm_return_identical_results() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+
+    let queries = [
+        "compute the backoff delay",
+        "check whether a session token is valid",
+        "baking bread with a fermented starter",
+        "mirrors gathering light from stars",
+        "exponential backoff retries",
+        "hashing a password with salt",
+        // A miss, so the empty case is covered too.
+        "quantum chromodynamics lattice gauge",
+    ];
+
+    for mode in [Mode::Bm25, Mode::Semantic, Mode::Hybrid] {
+        for query in queries {
+            let cold = search(dir.path(), query, &stream_opts(mode)).unwrap();
+            assert!(!cold.report.used_index, "stream_opts must not use an index");
+
+            // Warm the same scope and ask again.
+            let warm = search(dir.path(), query, &opts(mode)).unwrap();
+            assert!(warm.report.used_index, "the second search should be warm");
+
+            let shape =
+                |r: &semgrep_core::search::SearchResult| -> Vec<(String, u32, u32, u32)> {
+                    r.hits
+                        .iter()
+                        .map(|h| (h.path.clone(), h.start_line, h.end_line, h.line))
+                        .collect()
+                };
+            assert_eq!(
+                shape(&cold),
+                shape(&warm),
+                "cold and warm disagree for {mode:?} / {query:?}"
+            );
+        }
+    }
+}

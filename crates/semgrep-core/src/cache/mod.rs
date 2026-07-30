@@ -23,6 +23,7 @@ pub use budget::{
 };
 pub use compat::{cache_base, cache_entries, cache_generation, compat_key, gc_old_generations};
 
+use crate::ChunkParams;
 use crate::store::{self, BuildOptions};
 use anyhow::Result;
 use std::path::{Path, PathBuf};
@@ -46,7 +47,14 @@ fn rel_prefix(root: &Path, scope: &Path) -> String {
 }
 
 /// Resolve the index that should serve a query over `query_root`, if any.
-pub fn discover(query_root: &Path) -> Option<Discovered> {
+/// Resolve the index that should serve a query over `query_root`, if any.
+///
+/// `params` is the chunking the caller would use if it had to build. A cache
+/// entry only answers when it was built with the same parameters: chunk spans are
+/// what a ranked result *is*, so an entry built with a different window answers a
+/// different question. A repo-local `.semgrep/` is exempt — the user built it
+/// deliberately, and its parameters are the ones they chose.
+pub fn discover(query_root: &Path, params: &ChunkParams) -> Option<Discovered> {
     let canon = std::fs::canonicalize(query_root).ok()?;
     if !canon.is_dir() {
         return None;
@@ -81,7 +89,11 @@ pub fn discover(query_root: &Path) -> Option<Discovered> {
     // not found here — no error to surface, nothing to evict on a read path.
     cache_entries()
         .into_iter()
-        .filter(|(dir, root)| canon.starts_with(root) && dir.join("meta.json").is_file())
+        .filter(|(dir, root)| {
+            canon.starts_with(root)
+                && dir.join("meta.json").is_file()
+                && entry_params(dir).as_ref() == Some(params)
+        })
         .max_by_key(|(_, root)| root.components().count())
         .map(|(dir, root)| Discovered {
             index_dir: dir,
@@ -93,7 +105,7 @@ pub fn discover(query_root: &Path) -> Option<Discovered> {
 
 /// The entry directory for a canonical root, allocating a collision-free
 /// name on first use (hash bucket + root.txt verification).
-fn cache_entry_dir(root: &Path) -> PathBuf {
+fn cache_entry_dir(root: &Path, params: &ChunkParams) -> PathBuf {
     use std::hash::{Hash, Hasher};
     let mut h = std::collections::hash_map::DefaultHasher::new();
     root.hash(&mut h);
@@ -122,7 +134,9 @@ fn cache_entry_dir(root: &Path) -> PathBuf {
         .into_iter()
         .rev()
         .collect();
-    let stem = format!("{label}-{:08x}", h.finish() as u32);
+    // The params tag is in the name as well as in params.txt, so `ls` shows why
+    // one repo has two entries.
+    let stem = format!("{label}-{:08x}-{}", h.finish() as u32, params_tag(params));
     for i in 0..64 {
         let dir = if i == 0 { base.join(&stem) } else { base.join(format!("{stem}-{i}")) };
         match std::fs::read_to_string(dir.join("root.txt")) {
@@ -141,7 +155,7 @@ pub fn write_cache_entry(
     opts: &BuildOptions,
     progress: impl FnMut(usize, usize),
 ) -> Result<PathBuf> {
-    let dir = cache_entry_dir(root);
+    let dir = cache_entry_dir(root, &opts.params);
     std::fs::create_dir_all(&dir)?;
     // root.txt first, before a single byte of index. It is what makes an entry
     // *enumerable*, and only enumerable entries can be counted or reclaimed —
@@ -151,6 +165,10 @@ pub fn write_cache_entry(
     // not free. It does not make the entry discoverable: that needs meta.json,
     // which `build_at` writes last.
     std::fs::write(dir.join("root.txt"), root.to_string_lossy().as_bytes())?;
+    // Alongside root.txt, and for the same reason: discovery has to know what
+    // this entry is *for* without parsing meta.json, whose file table can run to
+    // megabytes on a large corpus.
+    std::fs::write(dir.join("params.txt"), params_tag(&opts.params))?;
     store::build_at(&dir, root, opts, progress)?;
 
     // Reclaim only after the entry is complete and registered, so the budget
@@ -163,9 +181,36 @@ pub fn write_cache_entry(
     // Scope promotion: a wider entry serves every descendant through the
     // prefix filter, so narrower ones are now dead weight.
     for (edir, eroot) in cache_entries() {
-        if eroot != root && eroot.starts_with(root) {
+        // Same parameters only: a narrower entry built with a different window
+        // is not superseded by this one, because it answers a different question.
+        let same_params = entry_params(&edir).as_ref() == Some(&opts.params);
+        if same_params && eroot != root && eroot.starts_with(root) {
             let _ = std::fs::remove_dir_all(edir);
         }
     }
     Ok(dir)
+}
+
+/// The chunking an entry was built with, as it appears in its name and in
+/// `params.txt`. Short and legible on purpose: `ls` on the cache should show why
+/// one repo has two entries.
+///
+/// `max_file_bytes` is not in the tag because it is not reachable from the CLI.
+/// If it ever becomes tunable it has to join this, or entries built with
+/// different size caps will collide.
+fn params_tag(params: &ChunkParams) -> String {
+    format!("w{}o{}", params.window, params.overlap)
+}
+
+/// Read back an entry's chunk parameters. `None` for an entry from a build that
+/// predates `params.txt`, which then matches nothing and is reclaimed as
+/// unreadable — the same degradation any other unusable entry gets.
+fn entry_params(dir: &Path) -> Option<ChunkParams> {
+    let tag = std::fs::read_to_string(dir.join("params.txt")).ok()?;
+    let (window, overlap) = tag.trim().trim_start_matches('w').split_once('o')?;
+    Some(ChunkParams {
+        window: window.parse().ok()?,
+        overlap: overlap.parse().ok()?,
+        ..Default::default()
+    })
 }

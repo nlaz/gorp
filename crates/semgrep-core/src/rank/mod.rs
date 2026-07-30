@@ -16,7 +16,7 @@ pub use fuse::{Mode, fuse};
 pub use maxsim::maxsim;
 pub use mmr::mmr_order;
 pub use topk::{TopK, brute_force_top_k_i8};
-pub use vec::{distance, dot_distance_i8, normalize, quantize_i8};
+pub use vec::{as_stored, dequantize_i8, distance, dot_distance_i8, normalize, quantize_i8};
 
 pub mod fuse;
 pub mod mmr;

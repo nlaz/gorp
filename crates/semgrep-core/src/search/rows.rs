@@ -75,7 +75,7 @@ impl<'a> Rows<'a> {
             None => {
                 let row = id as usize;
                 let m = self.idx.emb_matrix_i8();
-                Some(m[row * EMBED_DIM..(row + 1) * EMBED_DIM].iter().map(dequantize).collect())
+                Some(crate::rank::dequantize_i8(&m[row * EMBED_DIM..(row + 1) * EMBED_DIM]))
             }
         }
     }
@@ -123,11 +123,6 @@ impl<'a> Rows<'a> {
     fn delta_index(&self, id: u32) -> Option<usize> {
         (id >= self.n_base).then(|| (id - self.n_base) as usize)
     }
-}
-
-/// i8 → f32 in the unit range the vectors were quantized from.
-fn dequantize(x: &i8) -> f32 {
-    *x as f32 / 127.0
 }
 
 #[cfg(test)]

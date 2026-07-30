@@ -36,18 +36,23 @@ pub fn run(root: &Path, query: &str, opts: &SearchOptions) -> Result<SearchResul
     });
     let semantic = pass.nearest.map(TopK::into_sorted).unwrap_or_default();
     let ranked = trace.time("rank:fuse", || {
-        rank::fuse(opts.mode, lexical, semantic, opts.k * 3, opts.sem_weight)
+        rank::fuse(opts.mode, lexical, semantic, super::fused_width(pool), opts.sem_weight)
     });
     let rank_ms = t_rank.elapsed().as_millis();
 
-    let cands = candidates(ranked, &pass.chunks, &files);
+    let cands = candidates(ranked, &pass.chunks, &files, super::candidate_width(opts.k));
     // No embedding matrix here, so candidate vectors are recomputed on demand.
     // At most a few thousand texts, which is nothing beside the pass just done.
     let hits = trace.time("finalize", || {
         hit::finalize(root, query, cands, opts, "", |c| {
             let fm = &files[c.chunk.file_id as usize];
             let text = corpus::lines(root, &fm.path, &c.chunk)?;
-            Some(text::embed_query(&corpus::doc_text(&fm.path, &text)).to_vec())
+            let embedded = text::embed_query(&corpus::doc_text(&fm.path, &text));
+            // Through the index's quantization, so diversity reranking sees the
+            // same vectors it would warm. Without this the two paths diversify
+            // differently and a cached scope answers a query differently from an
+            // uncached one.
+            Some(rank::as_stored(&embedded))
         })
     });
 
@@ -122,8 +127,15 @@ fn corpus_pass(
 }
 
 /// Batches chunk texts, embeds them, and keeps the k nearest to the query.
+///
+/// Scoring goes through the same quantization the index uses, rather than
+/// comparing f32 vectors directly. That is what makes a cold answer equal a warm
+/// one: the warm path scores `dot_distance_i8` over the i8 rows in `emb.bin`, so
+/// a cold path scoring full-precision cosine would rank near-ties differently and
+/// "the index is a cache" would be false for semantic search. Quantizing costs a
+/// multiply and a round per dimension, against an embedding per chunk.
 struct Embedder {
-    query: [f32; crate::EMBED_DIM],
+    query: Vec<i8>,
     pending: Vec<(u32, String)>,
     nearest: TopK,
     embed_ms: f64,
@@ -135,8 +147,10 @@ impl Embedder {
     const BATCH: usize = 1024;
 
     fn new(query: [f32; crate::EMBED_DIM], k: usize) -> Self {
+        let mut q = query;
+        rank::normalize(&mut q);
         Self {
-            query,
+            query: rank::quantize_i8(&q),
             pending: Vec::with_capacity(Self::BATCH),
             nearest: TopK::new(k),
             embed_ms: 0.0,
@@ -161,9 +175,12 @@ impl Embedder {
             return;
         }
         let start = Instant::now();
-        let vecs = ese::encode(self.pending.iter().map(|(_, text)| text));
-        for ((id, _), v) in self.pending.iter().zip(&vecs) {
-            self.nearest.push(*id, rank::distance(&self.query, v));
+        let mut vecs = ese::encode(self.pending.iter().map(|(_, text)| text));
+        for ((id, _), v) in self.pending.iter().zip(vecs.iter_mut()) {
+            // Exactly what store::build writes into emb.bin, so the two paths
+            // score the same numbers.
+            rank::normalize(v);
+            self.nearest.push(*id, rank::dot_distance_i8(&self.query, &rank::quantize_i8(v)));
         }
         self.embed_ms += start.elapsed().as_secs_f64() * 1e3;
         self.pending.clear();
@@ -176,6 +193,7 @@ fn candidates(
     ranked: Vec<(u32, f32)>,
     chunks: &[Chunk],
     files: &[FileMeta],
+    limit: usize,
 ) -> Vec<hit::Candidate> {
     ranked
         .into_iter()
@@ -188,5 +206,6 @@ fn candidates(
                 score,
             }
         })
+        .take(limit)
         .collect()
 }

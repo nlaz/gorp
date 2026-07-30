@@ -39,11 +39,11 @@ pub fn run(d: &cache::Discovered, query: &str, opts: &SearchOptions) -> Result<S
     let lexical = expand_query(&idx, &rows, query, lexical, opts, d, pool, &mut trace);
     let (semantic, used_hnsw) = rank_semantic(&idx, &rows, query, opts, d, pool, &mut trace);
     let ranked = trace.time("rank:fuse", || {
-        rank::fuse(opts.mode, lexical, semantic, pool * 2, opts.sem_weight)
+        rank::fuse(opts.mode, lexical, semantic, super::fused_width(pool), opts.sem_weight)
     });
     let rank_ms = t_rank.elapsed().as_millis();
 
-    let cands = candidates(&rows, ranked, &d.prefix, opts.k * 3);
+    let cands = candidates(&rows, ranked, &d.prefix, super::candidate_width(opts.k));
     let hits = trace.time("finalize", || {
         hit::finalize(&d.root, query, cands, opts, &d.prefix, |c| rows.vector(c.id))
     });

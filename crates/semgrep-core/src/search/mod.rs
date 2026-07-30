@@ -21,6 +21,24 @@ use std::time::Instant;
 /// How many candidates each ranked engine contributes to fusion.
 pub(crate) const FUSION_POOL: usize = 128;
 
+/// How wide the fused list is before candidates are selected from it.
+///
+/// Deliberately wider than the `k * 3` that survives: the indexed path filters
+/// to the query's subtree *after* fusing, so a subdirectory query needs slack or
+/// out-of-scope rows eat every slot. Both paths use it so they stay the same
+/// function of their inputs — the streaming path fused straight to `k * 3`, which
+/// happened to give the same top-k for a whole-root query and would not have
+/// once anything filtered.
+pub(crate) fn fused_width(pool: usize) -> usize {
+    pool * 2
+}
+
+/// How many fused rows become candidates. Three per requested hit, so span
+/// dedupe and MMR have something to choose between.
+pub(crate) fn candidate_width(k: usize) -> usize {
+    k * 3
+}
+
 #[derive(Debug, Clone)]
 pub struct SearchOptions {
     pub mode: Mode,
@@ -138,12 +156,12 @@ pub fn search(root: &Path, query: &str, opts: &SearchOptions) -> Result<SearchRe
     let discovered = if opts.no_index {
         None
     } else {
-        cache::discover(root).or_else(|| {
+        cache::discover(root, &opts.params).or_else(|| {
             let canon = std::fs::canonicalize(root).ok()?;
             let build = store::BuildOptions { params: opts.params, ..Default::default() };
             cache::write_cache_entry(&canon, &build, |_, _| {}).ok()?;
             wrote_cache = true;
-            cache::discover(root)
+            cache::discover(root, &opts.params)
         })
     };
 

@@ -17,8 +17,8 @@
 {"path":"web/client.ts","start_line":1,"end_line":32,"line":1,"text":"// HTTP client for the jobs API: timeouts, retries, and typed responses.","score":4.0266037}
 {"path":"src/pool.rs","start_line":49,"end_line":70,"line":58,"text":"    /// Close connections idle past the timeout so the database is not holding","score":2.2192726}
 {"path":"web/client.ts","start_line":49,"end_line":80,"line":54,"text":"  /** Single request with bounded retries on transient failures. */","score":3.2780025}
-{"path":"docs/sourdough.md","start_line":1,"end_line":32,"line":18,"text":"handle later. Add salt with the levain, not before — salt tightens the gluten and","score":1.3028264}
 {"path":"native/ring.c","start_line":49,"end_line":80,"line":63,"text":" * so a record is either wholly visible to the consumer or not at all. */","score":1.7942595}
+{"path":"docs/sourdough.md","start_line":1,"end_line":32,"line":18,"text":"handle later. Add salt with the levain, not before — salt tightens the gluten and","score":1.3028264}
 {"path":"worker/dispatch.py","start_line":49,"end_line":71,"line":64,"text":"        \"\"\"SIGTERM starts a drain instead of killing in-flight work, so a","score":2.211336}
 ### mode=bm25 path=cold query=validate a session token
 {"path":"src/auth.rs","start_line":1,"end_line":32,"line":6,"text":"pub fn validate_session_token(token: &str) -> bool {","score":13.764503}
@@ -123,13 +123,13 @@
 {"path":"native/ring.c","start_line":25,"end_line":56,"line":48,"text":"/* Power-of-two capacity turns the wrap into a mask instead of a division,","score":18.21812}
 {"path":"docs/architecture.md","start_line":1,"end_line":32,"line":16,"text":"if the worker dies without acking, the deadline passes and the job returns to","score":5.20956}
 {"path":"docs/telescopes.md","start_line":25,"end_line":38,"line":28,"text":"motion on both axes and the field of view rotates as the object moves, which has","score":3.4289608}
-{"path":"src/retry.rs","start_line":1,"end_line":32,"line":28,"text":"/// Trips after repeated failures so callers fail fast instead of queueing.","score":3.7820807}
 {"path":"docs/sourdough.md","start_line":1,"end_line":32,"line":18,"text":"handle later. Add salt with the levain, not before — salt tightens the gluten and","score":3.376727}
+{"path":"src/retry.rs","start_line":1,"end_line":32,"line":28,"text":"/// Trips after repeated failures so callers fail fast instead of queueing.","score":3.7820807}
 {"path":"README.md","start_line":1,"end_line":11,"line":3,"text":"A frozen tree used by the Rust test suite and by `tools/snapshot.sh`. It stands","score":2.7497792}
 {"path":"worker/dispatch.py","start_line":49,"end_line":71,"line":64,"text":"        \"\"\"SIGTERM starts a drain instead of killing in-flight work, so a","score":3.0619516}
 {"path":"worker/schedule.py","start_line":49,"end_line":72,"line":49,"text":"    \"\"\"True when `moment` (a datetime) satisfies every field of the schedule.\"\"\"","score":2.0871527}
 {"path":"src/config.rs","start_line":25,"end_line":56,"line":31,"text":"        if line.is_empty() || line.starts_with('#') {","score":1.2746958}
-{"path":"src/pool.rs","start_line":49,"end_line":70,"line":58,"text":"    /// Close connections idle past the timeout so the database is not holding","score":0.7256087}
+{"path":"web/client.ts","start_line":1,"end_line":32,"line":1,"text":"// HTTP client for the jobs API: timeouts, retries, and typed responses.","score":1.6694617}
 ### mode=bm25 path=cold query=what happens during a rolling deploy
 {"path":"worker/dispatch.py","start_line":49,"end_line":71,"line":65,"text":"        rolling deploy does not lose jobs that were mid-handler.\"\"\"","score":4.6330166}
 {"path":"docs/architecture.md","start_line":25,"end_line":45,"line":31,"text":"SIGTERM begins a drain rather than terminating in-flight handlers, so a rolling","score":4.4013295}
@@ -313,203 +313,203 @@
 ### mode=bm25 path=warm query=quantum chromodynamics lattice gauge theory
 (no results)
 ### mode=semantic path=cold query=how is the retry delay computed
-{"path":"src/retry.rs","start_line":1,"end_line":32,"line":1,"text":"//! Retry policy: exponential backoff with jitter and a circuit breaker.","score":0.4081239}
-{"path":"docs/operations.md","start_line":1,"end_line":32,"line":22,"text":"histogram uses fixed exponential buckets, so the reported p99 is the upper bound","score":0.28669584}
-{"path":"docs/telescopes.md","start_line":1,"end_line":32,"line":9,"text":"the failure of a single lens to bring every wavelength to the same focus — is why","score":0.24730575}
-{"path":"native/ring.c","start_line":49,"end_line":80,"line":62,"text":"/* Returns bytes written: 0 when the buffer is full. Never partially writes,","score":0.23384368}
-{"path":"worker/schedule.py","start_line":1,"end_line":32,"line":29,"text":"        if match is None:","score":0.22801405}
-{"path":"web/client.ts","start_line":25,"end_line":56,"line":32,"text":"function isRetryable(status: number): boolean {","score":0.24193448}
-{"path":"docs/architecture.md","start_line":25,"end_line":45,"line":32,"text":"deploy finishes its current work before exiting. The grace period is 30 seconds,","score":0.2550162}
-{"path":"README.md","start_line":1,"end_line":11,"line":3,"text":"A frozen tree used by the Rust test suite and by `tools/snapshot.sh`. It stands","score":0.21492761}
-{"path":"src/auth.rs","start_line":25,"end_line":36,"line":25,"text":"/// length to anyone who can time the response.","score":0.20945674}
-{"path":"worker/schedule.py","start_line":49,"end_line":72,"line":63,"text":"    asks about the next occurrence, which is nearly always minutes away.","score":0.18254268}
+{"path":"src/retry.rs","start_line":1,"end_line":32,"line":1,"text":"//! Retry policy: exponential backoff with jitter and a circuit breaker.","score":0.40820885}
+{"path":"docs/operations.md","start_line":1,"end_line":32,"line":22,"text":"histogram uses fixed exponential buckets, so the reported p99 is the upper bound","score":0.2858206}
+{"path":"docs/telescopes.md","start_line":1,"end_line":32,"line":9,"text":"the failure of a single lens to bring every wavelength to the same focus — is why","score":0.24973649}
+{"path":"native/ring.c","start_line":49,"end_line":80,"line":62,"text":"/* Returns bytes written: 0 when the buffer is full. Never partially writes,","score":0.23436046}
+{"path":"web/client.ts","start_line":25,"end_line":56,"line":32,"text":"function isRetryable(status: number): boolean {","score":0.24465251}
+{"path":"worker/schedule.py","start_line":1,"end_line":32,"line":29,"text":"        if match is None:","score":0.22487444}
+{"path":"docs/architecture.md","start_line":25,"end_line":45,"line":32,"text":"deploy finishes its current work before exiting. The grace period is 30 seconds,","score":0.25568855}
+{"path":"README.md","start_line":1,"end_line":11,"line":3,"text":"A frozen tree used by the Rust test suite and by `tools/snapshot.sh`. It stands","score":0.22022444}
+{"path":"src/auth.rs","start_line":25,"end_line":36,"line":25,"text":"/// length to anyone who can time the response.","score":0.21036643}
+{"path":"worker/schedule.py","start_line":49,"end_line":72,"line":63,"text":"    asks about the next occurrence, which is nearly always minutes away.","score":0.17608035}
 ### mode=semantic path=cold query=spread retries so workers do not stampede
-{"path":"docs/architecture.md","start_line":25,"end_line":45,"line":31,"text":"SIGTERM begins a drain rather than terminating in-flight handlers, so a rolling","score":0.23164898}
-{"path":"worker/dispatch.py","start_line":1,"end_line":32,"line":27,"text":"        while not self.draining or self.in_flight:","score":0.19132465}
-{"path":"worker/schedule.py","start_line":1,"end_line":32,"line":1,"text":"\"\"\"Recurring job scheduling from cron-style expressions.\"\"\"","score":0.15880811}
-{"path":"native/ring.c","start_line":25,"end_line":56,"line":25,"text":"{","score":0.13136393}
-{"path":"docs/operations.md","start_line":1,"end_line":32,"line":30,"text":"3. SIGTERM and wait the full grace period. Do not SIGKILL: the visibility","score":0.15534294}
-{"path":"src/config.rs","start_line":49,"end_line":63,"line":54,"text":"/// Environment wins over the file so a deploy can override without a rebuild.","score":0.11027604}
-{"path":"worker/dispatch.py","start_line":49,"end_line":71,"line":64,"text":"        \"\"\"SIGTERM starts a drain instead of killing in-flight work, so a","score":0.13711739}
-{"path":"worker/schedule.py","start_line":49,"end_line":72,"line":49,"text":"    \"\"\"True when `moment` (a datetime) satisfies every field of the schedule.\"\"\"","score":0.086939275}
-{"path":"web/client.ts","start_line":49,"end_line":80,"line":54,"text":"  /** Single request with bounded retries on transient failures. */","score":0.088358104}
-{"path":"src/queue.rs","start_line":25,"end_line":56,"line":25,"text":"    normal: VecDeque<Job>,","score":0.10146123}
+{"path":"docs/architecture.md","start_line":25,"end_line":45,"line":31,"text":"SIGTERM begins a drain rather than terminating in-flight handlers, so a rolling","score":0.23119843}
+{"path":"worker/dispatch.py","start_line":1,"end_line":32,"line":27,"text":"        while not self.draining or self.in_flight:","score":0.19176638}
+{"path":"worker/schedule.py","start_line":1,"end_line":32,"line":1,"text":"\"\"\"Recurring job scheduling from cron-style expressions.\"\"\"","score":0.15834832}
+{"path":"native/ring.c","start_line":25,"end_line":56,"line":25,"text":"{","score":0.12672824}
+{"path":"docs/operations.md","start_line":1,"end_line":32,"line":30,"text":"3. SIGTERM and wait the full grace period. Do not SIGKILL: the visibility","score":0.15555835}
+{"path":"src/config.rs","start_line":49,"end_line":63,"line":54,"text":"/// Environment wins over the file so a deploy can override without a rebuild.","score":0.10763222}
+{"path":"worker/dispatch.py","start_line":49,"end_line":71,"line":64,"text":"        \"\"\"SIGTERM starts a drain instead of killing in-flight work, so a","score":0.1363383}
+{"path":"worker/schedule.py","start_line":49,"end_line":72,"line":49,"text":"    \"\"\"True when `moment` (a datetime) satisfies every field of the schedule.\"\"\"","score":0.08320415}
+{"path":"web/client.ts","start_line":49,"end_line":80,"line":54,"text":"  /** Single request with bounded retries on transient failures. */","score":0.092876196}
+{"path":"src/queue.rs","start_line":25,"end_line":56,"line":25,"text":"    normal: VecDeque<Job>,","score":0.10261023}
 ### mode=semantic path=cold query=validate a session token
-{"path":"src/auth.rs","start_line":1,"end_line":32,"line":6,"text":"pub fn validate_session_token(token: &str) -> bool {","score":0.4545952}
-{"path":"README.md","start_line":1,"end_line":11,"line":1,"text":"# Fixture corpus","score":0.2439686}
-{"path":"docs/architecture.md","start_line":1,"end_line":32,"line":1,"text":"# Architecture","score":0.21088147}
-{"path":"src/metrics.rs","start_line":1,"end_line":32,"line":1,"text":"//! Counters and latency histograms, exported in Prometheus text format.","score":0.21659553}
-{"path":"src/config.rs","start_line":1,"end_line":32,"line":1,"text":"//! Configuration loading: file, then environment overrides.","score":0.1811477}
-{"path":"docs/sourdough.md","start_line":1,"end_line":32,"line":1,"text":"# Sourdough","score":0.14337766}
-{"path":"web/client.ts","start_line":1,"end_line":32,"line":1,"text":"// HTTP client for the jobs API: timeouts, retries, and typed responses.","score":0.1610989}
-{"path":"src/metrics.rs","start_line":49,"end_line":70,"line":49,"text":"}","score":0.17124784}
-{"path":"src/pool.rs","start_line":1,"end_line":32,"line":1,"text":"//! Database connection pool with a bounded wait queue.","score":0.1418997}
-{"path":"web/client.ts","start_line":49,"end_line":80,"line":49,"text":"    const response = await this.request(\"GET\", `/jobs/${encodeURIComponent(id)}`);","score":0.13279021}
+{"path":"src/auth.rs","start_line":1,"end_line":32,"line":6,"text":"pub fn validate_session_token(token: &str) -> bool {","score":0.45675492}
+{"path":"README.md","start_line":1,"end_line":11,"line":1,"text":"# Fixture corpus","score":0.2434125}
+{"path":"docs/architecture.md","start_line":1,"end_line":32,"line":1,"text":"# Architecture","score":0.21538842}
+{"path":"src/metrics.rs","start_line":1,"end_line":32,"line":1,"text":"//! Counters and latency histograms, exported in Prometheus text format.","score":0.21557444}
+{"path":"src/config.rs","start_line":1,"end_line":32,"line":1,"text":"//! Configuration loading: file, then environment overrides.","score":0.18296236}
+{"path":"docs/sourdough.md","start_line":1,"end_line":32,"line":1,"text":"# Sourdough","score":0.14340627}
+{"path":"web/client.ts","start_line":1,"end_line":32,"line":1,"text":"// HTTP client for the jobs API: timeouts, retries, and typed responses.","score":0.16547835}
+{"path":"src/metrics.rs","start_line":49,"end_line":70,"line":49,"text":"}","score":0.16957033}
+{"path":"src/pool.rs","start_line":1,"end_line":32,"line":1,"text":"//! Database connection pool with a bounded wait queue.","score":0.14377832}
+{"path":"web/client.ts","start_line":49,"end_line":80,"line":49,"text":"    const response = await this.request(\"GET\", `/jobs/${encodeURIComponent(id)}`);","score":0.13615227}
 ### mode=semantic path=cold query=compare digests without leaking timing
-{"path":"docs/architecture.md","start_line":1,"end_line":32,"line":16,"text":"if the worker dies without acking, the deadline passes and the job returns to","score":0.17419654}
-{"path":"src/retry.rs","start_line":1,"end_line":32,"line":1,"text":"//! Retry policy: exponential backoff with jitter and a circuit breaker.","score":0.14360154}
-{"path":"docs/sourdough.md","start_line":1,"end_line":32,"line":1,"text":"# Sourdough","score":0.13919377}
-{"path":"docs/operations.md","start_line":1,"end_line":32,"line":28,"text":"2. Check for a handler blocked on a network call without a timeout. This is","score":0.14582634}
-{"path":"worker/schedule.py","start_line":49,"end_line":72,"line":49,"text":"    \"\"\"True when `moment` (a datetime) satisfies every field of the schedule.\"\"\"","score":0.12553245}
-{"path":"src/config.rs","start_line":25,"end_line":56,"line":54,"text":"/// Environment wins over the file so a deploy can override without a rebuild.","score":0.11295825}
-{"path":"src/queue.rs","start_line":25,"end_line":56,"line":25,"text":"    normal: VecDeque<Job>,","score":0.098430574}
-{"path":"src/auth.rs","start_line":25,"end_line":36,"line":25,"text":"/// length to anyone who can time the response.","score":0.09155792}
-{"path":"native/ring.c","start_line":73,"end_line":96,"line":73,"text":"\tmemcpy(rb->storage + offset, data, first);","score":0.07906014}
-{"path":"worker/dispatch.py","start_line":49,"end_line":71,"line":49,"text":"        still_running = []","score":0.08841479}
+{"path":"docs/architecture.md","start_line":1,"end_line":32,"line":16,"text":"if the worker dies without acking, the deadline passes and the job returns to","score":0.17397237}
+{"path":"src/retry.rs","start_line":1,"end_line":32,"line":1,"text":"//! Retry policy: exponential backoff with jitter and a circuit breaker.","score":0.14353031}
+{"path":"docs/sourdough.md","start_line":1,"end_line":32,"line":1,"text":"# Sourdough","score":0.13410628}
+{"path":"docs/operations.md","start_line":1,"end_line":32,"line":28,"text":"2. Check for a handler blocked on a network call without a timeout. This is","score":0.1502263}
+{"path":"worker/schedule.py","start_line":49,"end_line":72,"line":49,"text":"    \"\"\"True when `moment` (a datetime) satisfies every field of the schedule.\"\"\"","score":0.12579823}
+{"path":"src/config.rs","start_line":25,"end_line":56,"line":54,"text":"/// Environment wins over the file so a deploy can override without a rebuild.","score":0.11501026}
+{"path":"native/ring.c","start_line":73,"end_line":96,"line":73,"text":"\tmemcpy(rb->storage + offset, data, first);","score":0.082956195}
+{"path":"src/queue.rs","start_line":1,"end_line":32,"line":1,"text":"//! In-process job queue with priority lanes and visibility timeouts.","score":0.0968442}
+{"path":"src/auth.rs","start_line":25,"end_line":36,"line":25,"text":"/// length to anyone who can time the response.","score":0.09200817}
+{"path":"worker/dispatch.py","start_line":49,"end_line":71,"line":49,"text":"        still_running = []","score":0.0895282}
 ### mode=semantic path=cold query=drain urgent jobs before low priority ones
-{"path":"src/queue.rs","start_line":25,"end_line":56,"line":33,"text":"            Priority::Urgent => self.urgent.push_back(job),","score":0.42941105}
-{"path":"docs/architecture.md","start_line":1,"end_line":32,"line":14,"text":"Three lanes are drained urgent-first so a backlog of low-priority work cannot","score":0.3843391}
-{"path":"docs/operations.md","start_line":1,"end_line":32,"line":6,"text":"jobs, finishes what it holds, and exits. Wait for the drain to complete before","score":0.30469978}
-{"path":"worker/dispatch.py","start_line":49,"end_line":71,"line":54,"text":"                self.registry.increment(\"jobs_failed\")","score":0.27506524}
-{"path":"worker/dispatch.py","start_line":1,"end_line":32,"line":1,"text":"\"\"\"Worker dispatch loop: claim jobs, run handlers, report outcomes.\"\"\"","score":0.21500915}
-{"path":"src/retry.rs","start_line":1,"end_line":32,"line":8,"text":"/// Delay before attempt `n`, doubling from `base_ms` and capped.","score":0.15393627}
-{"path":"web/client.ts","start_line":1,"end_line":32,"line":1,"text":"// HTTP client for the jobs API: timeouts, retries, and typed responses.","score":0.1598469}
-{"path":"docs/telescopes.md","start_line":25,"end_line":38,"line":33,"text":"Let the instrument cool to ambient temperature before observing; a warm mirror","score":0.10981935}
-{"path":"src/config.rs","start_line":49,"end_line":63,"line":56,"text":"    if let Some(v) = env.get(\"JOBS_PORT\").and_then(|v| v.parse().ok()) {","score":0.11944318}
-{"path":"web/client.ts","start_line":49,"end_line":80,"line":49,"text":"    const response = await this.request(\"GET\", `/jobs/${encodeURIComponent(id)}`);","score":0.151088}
+{"path":"src/queue.rs","start_line":1,"end_line":32,"line":20,"text":"/// Three lanes drained urgent-first, so a flood of low-priority work cannot","score":0.42482483}
+{"path":"docs/architecture.md","start_line":1,"end_line":32,"line":14,"text":"Three lanes are drained urgent-first so a backlog of low-priority work cannot","score":0.3866328}
+{"path":"docs/operations.md","start_line":1,"end_line":32,"line":6,"text":"jobs, finishes what it holds, and exits. Wait for the drain to complete before","score":0.3063426}
+{"path":"worker/dispatch.py","start_line":49,"end_line":71,"line":54,"text":"                self.registry.increment(\"jobs_failed\")","score":0.27497053}
+{"path":"src/queue.rs","start_line":49,"end_line":68,"line":66,"text":"        self.urgent.len() + self.normal.len() + self.low.len()","score":0.19517636}
+{"path":"worker/dispatch.py","start_line":1,"end_line":32,"line":1,"text":"\"\"\"Worker dispatch loop: claim jobs, run handlers, report outcomes.\"\"\"","score":0.2155124}
+{"path":"src/retry.rs","start_line":1,"end_line":32,"line":8,"text":"/// Delay before attempt `n`, doubling from `base_ms` and capped.","score":0.14929628}
+{"path":"web/client.ts","start_line":49,"end_line":80,"line":49,"text":"    const response = await this.request(\"GET\", `/jobs/${encodeURIComponent(id)}`);","score":0.1528303}
+{"path":"docs/telescopes.md","start_line":25,"end_line":38,"line":33,"text":"Let the instrument cool to ambient temperature before observing; a warm mirror","score":0.10620624}
+{"path":"web/client.ts","start_line":1,"end_line":32,"line":1,"text":"// HTTP client for the jobs API: timeouts, retries, and typed responses.","score":0.15599233}
 ### mode=semantic path=cold query=return an unacked job to its lane
-{"path":"src/queue.rs","start_line":25,"end_line":56,"line":56,"text":"    /// Return an unacked job to its lane with its attempt count incremented.","score":0.38638496}
-{"path":"docs/architecture.md","start_line":1,"end_line":32,"line":15,"text":"starve an urgent job queued behind it. A claimed job gets a visibility deadline;","score":0.29802948}
-{"path":"worker/dispatch.py","start_line":25,"end_line":56,"line":32,"text":"            job = self.queue.dequeue()","score":0.24089837}
-{"path":"web/client.ts","start_line":25,"end_line":56,"line":29,"text":"  return controller.signal;","score":0.2084418}
-{"path":"docs/operations.md","start_line":1,"end_line":32,"line":6,"text":"jobs, finishes what it holds, and exits. Wait for the drain to complete before","score":0.22906119}
-{"path":"src/retry.rs","start_line":1,"end_line":32,"line":18,"text":"        return delay;","score":0.14976192}
-{"path":"src/pool.rs","start_line":25,"end_line":56,"line":37,"text":"    /// Hand out an idle connection, or open a new one while under the cap.","score":0.14536971}
-{"path":"src/auth.rs","start_line":25,"end_line":36,"line":25,"text":"/// length to anyone who can time the response.","score":0.14064765}
-{"path":"web/client.ts","start_line":73,"end_line":85,"line":84,"text":"  return new Promise((resolve) => setTimeout(resolve, ms));","score":0.11447561}
-{"path":"src/metrics.rs","start_line":49,"end_line":70,"line":53,"text":"        *self.counters.entry(name.to_string()).or_insert(0) += 1;","score":0.110079825}
+{"path":"src/queue.rs","start_line":25,"end_line":56,"line":56,"text":"    /// Return an unacked job to its lane with its attempt count incremented.","score":0.38843077}
+{"path":"docs/architecture.md","start_line":1,"end_line":32,"line":15,"text":"starve an urgent job queued behind it. A claimed job gets a visibility deadline;","score":0.3003906}
+{"path":"web/client.ts","start_line":25,"end_line":56,"line":29,"text":"  return controller.signal;","score":0.21359044}
+{"path":"worker/dispatch.py","start_line":25,"end_line":56,"line":32,"text":"            job = self.queue.dequeue()","score":0.24087048}
+{"path":"docs/operations.md","start_line":1,"end_line":32,"line":6,"text":"jobs, finishes what it holds, and exits. Wait for the drain to complete before","score":0.23380244}
+{"path":"src/retry.rs","start_line":1,"end_line":32,"line":18,"text":"        return delay;","score":0.1521483}
+{"path":"src/pool.rs","start_line":25,"end_line":56,"line":37,"text":"    /// Hand out an idle connection, or open a new one while under the cap.","score":0.14712632}
+{"path":"src/auth.rs","start_line":25,"end_line":36,"line":25,"text":"/// length to anyone who can time the response.","score":0.14111227}
+{"path":"web/client.ts","start_line":73,"end_line":85,"line":84,"text":"  return new Promise((resolve) => setTimeout(resolve, ms));","score":0.11966026}
+{"path":"src/metrics.rs","start_line":49,"end_line":70,"line":53,"text":"        *self.counters.entry(name.to_string()).or_insert(0) += 1;","score":0.113398194}
 ### mode=semantic path=cold query=parse a configuration file with comments
-{"path":"src/config.rs","start_line":1,"end_line":32,"line":24,"text":"/// Parse a flat `key = value` file. Blank lines and `#` comments are skipped;","score":0.38866258}
-{"path":"README.md","start_line":1,"end_line":11,"line":11,"text":"here reads as a behavior change. Add a new file instead.","score":0.2759785}
-{"path":"web/client.ts","start_line":25,"end_line":56,"line":26,"text":"function withDeadline(timeoutMs: number): AbortSignal {","score":0.24667197}
-{"path":"src/auth.rs","start_line":1,"end_line":32,"line":1,"text":"//! Session tokens and password storage.","score":0.2095207}
-{"path":"docs/architecture.md","start_line":1,"end_line":32,"line":13,"text":"Jobs live in a single table with a priority column and a visibility deadline.","score":0.17927516}
-{"path":"src/config.rs","start_line":49,"end_line":63,"line":54,"text":"/// Environment wins over the file so a deploy can override without a rebuild.","score":0.16030234}
-{"path":"web/client.ts","start_line":73,"end_line":85,"line":73,"text":"      } catch (err) {","score":0.1384989}
-{"path":"src/queue.rs","start_line":1,"end_line":32,"line":1,"text":"//! In-process job queue with priority lanes and visibility timeouts.","score":0.14429396}
-{"path":"worker/schedule.py","start_line":1,"end_line":32,"line":10,"text":"def parse_cron_expression(expr):","score":0.10706115}
-{"path":"src/metrics.rs","start_line":1,"end_line":32,"line":1,"text":"//! Counters and latency histograms, exported in Prometheus text format.","score":0.12568676}
+{"path":"src/config.rs","start_line":1,"end_line":32,"line":24,"text":"/// Parse a flat `key = value` file. Blank lines and `#` comments are skipped;","score":0.38415277}
+{"path":"README.md","start_line":1,"end_line":11,"line":11,"text":"here reads as a behavior change. Add a new file instead.","score":0.28141856}
+{"path":"web/client.ts","start_line":25,"end_line":56,"line":26,"text":"function withDeadline(timeoutMs: number): AbortSignal {","score":0.24620247}
+{"path":"src/auth.rs","start_line":1,"end_line":32,"line":1,"text":"//! Session tokens and password storage.","score":0.20367038}
+{"path":"docs/architecture.md","start_line":1,"end_line":32,"line":13,"text":"Jobs live in a single table with a priority column and a visibility deadline.","score":0.18085438}
+{"path":"src/config.rs","start_line":49,"end_line":63,"line":54,"text":"/// Environment wins over the file so a deploy can override without a rebuild.","score":0.1610763}
+{"path":"web/client.ts","start_line":73,"end_line":85,"line":73,"text":"      } catch (err) {","score":0.13875628}
+{"path":"src/queue.rs","start_line":1,"end_line":32,"line":1,"text":"//! In-process job queue with priority lanes and visibility timeouts.","score":0.1432823}
+{"path":"src/metrics.rs","start_line":1,"end_line":32,"line":1,"text":"//! Counters and latency histograms, exported in Prometheus text format.","score":0.12976623}
+{"path":"worker/schedule.py","start_line":1,"end_line":32,"line":10,"text":"def parse_cron_expression(expr):","score":0.10316819}
 ### mode=semantic path=cold query=environment overrides beat the config file
-{"path":"src/config.rs","start_line":49,"end_line":63,"line":54,"text":"/// Environment wins over the file so a deploy can override without a rebuild.","score":0.44794464}
-{"path":"src/config.rs","start_line":1,"end_line":32,"line":1,"text":"//! Configuration loading: file, then environment overrides.","score":0.35952842}
-{"path":"native/ring.c","start_line":49,"end_line":80,"line":49,"text":" * which showed up as 8% of the ingest profile when it was a modulo. */","score":0.2323541}
-{"path":"docs/operations.md","start_line":25,"end_line":40,"line":33,"text":"   is the problem, not the worker. Move it to the dead letter table by hand.","score":0.2065311}
-{"path":"web/client.ts","start_line":1,"end_line":32,"line":1,"text":"// HTTP client for the jobs API: timeouts, retries, and typed responses.","score":0.19826806}
-{"path":"README.md","start_line":1,"end_line":11,"line":3,"text":"A frozen tree used by the Rust test suite and by `tools/snapshot.sh`. It stands","score":0.1570692}
-{"path":"docs/architecture.md","start_line":25,"end_line":45,"line":41,"text":"  work, so the pool cap and the in-flight cap have to be set together. When","score":0.18055564}
-{"path":"native/ring.c","start_line":1,"end_line":32,"line":1,"text":"/* Single-producer single-consumer ring buffer for the ingest hot path. */","score":0.19648463}
-{"path":"worker/schedule.py","start_line":1,"end_line":32,"line":1,"text":"\"\"\"Recurring job scheduling from cron-style expressions.\"\"\"","score":0.10122442}
-{"path":"docs/telescopes.md","start_line":1,"end_line":32,"line":3,"text":"A second control document, unrelated to the service and to the other control.","score":0.07324284}
+{"path":"src/config.rs","start_line":49,"end_line":63,"line":54,"text":"/// Environment wins over the file so a deploy can override without a rebuild.","score":0.44652486}
+{"path":"src/config.rs","start_line":1,"end_line":32,"line":1,"text":"//! Configuration loading: file, then environment overrides.","score":0.35798872}
+{"path":"native/ring.c","start_line":49,"end_line":80,"line":49,"text":" * which showed up as 8% of the ingest profile when it was a modulo. */","score":0.23343045}
+{"path":"docs/operations.md","start_line":25,"end_line":40,"line":33,"text":"   is the problem, not the worker. Move it to the dead letter table by hand.","score":0.2032364}
+{"path":"web/client.ts","start_line":1,"end_line":32,"line":1,"text":"// HTTP client for the jobs API: timeouts, retries, and typed responses.","score":0.19722241}
+{"path":"README.md","start_line":1,"end_line":11,"line":3,"text":"A frozen tree used by the Rust test suite and by `tools/snapshot.sh`. It stands","score":0.16051829}
+{"path":"docs/architecture.md","start_line":25,"end_line":45,"line":41,"text":"  work, so the pool cap and the in-flight cap have to be set together. When","score":0.18011034}
+{"path":"native/ring.c","start_line":1,"end_line":32,"line":1,"text":"/* Single-producer single-consumer ring buffer for the ingest hot path. */","score":0.20001239}
+{"path":"worker/schedule.py","start_line":1,"end_line":32,"line":1,"text":"\"\"\"Recurring job scheduling from cron-style expressions.\"\"\"","score":0.09926218}
+{"path":"docs/telescopes.md","start_line":1,"end_line":32,"line":3,"text":"A second control document, unrelated to the service and to the other control.","score":0.07471013}
 ### mode=semantic path=cold query=close connections that have gone idle
-{"path":"src/pool.rs","start_line":49,"end_line":70,"line":58,"text":"    /// Close connections idle past the timeout so the database is not holding","score":0.5552174}
-{"path":"src/pool.rs","start_line":1,"end_line":32,"line":6,"text":"    pub max_connections: usize,","score":0.34791982}
-{"path":"docs/operations.md","start_line":1,"end_line":32,"line":1,"text":"# Operations","score":0.18389457}
-{"path":"README.md","start_line":1,"end_line":11,"line":5,"text":"and two deliberately off-topic documents that act as controls (a lexical engine","score":0.091795206}
-{"path":"src/retry.rs","start_line":1,"end_line":32,"line":1,"text":"//! Retry policy: exponential backoff with jitter and a circuit breaker.","score":0.116197705}
-{"path":"src/config.rs","start_line":1,"end_line":32,"line":1,"text":"//! Configuration loading: file, then environment overrides.","score":0.117065966}
-{"path":"docs/telescopes.md","start_line":25,"end_line":38,"line":34,"text":"sets up convection currents in the tube that smear the image as badly as poor","score":0.04766971}
-{"path":"docs/architecture.md","start_line":25,"end_line":45,"line":35,"text":"## Failure modes we have actually hit","score":0.12636477}
-{"path":"src/metrics.rs","start_line":1,"end_line":32,"line":1,"text":"//! Counters and latency histograms, exported in Prometheus text format.","score":0.103392065}
-{"path":"worker/dispatch.py","start_line":1,"end_line":32,"line":1,"text":"\"\"\"Worker dispatch loop: claim jobs, run handlers, report outcomes.\"\"\"","score":0.096318424}
+{"path":"src/pool.rs","start_line":49,"end_line":70,"line":58,"text":"    /// Close connections idle past the timeout so the database is not holding","score":0.5531651}
+{"path":"src/pool.rs","start_line":1,"end_line":32,"line":6,"text":"    pub max_connections: usize,","score":0.35352468}
+{"path":"docs/operations.md","start_line":1,"end_line":32,"line":1,"text":"# Operations","score":0.18662035}
+{"path":"src/retry.rs","start_line":1,"end_line":32,"line":1,"text":"//! Retry policy: exponential backoff with jitter and a circuit breaker.","score":0.11792421}
+{"path":"README.md","start_line":1,"end_line":11,"line":5,"text":"and two deliberately off-topic documents that act as controls (a lexical engine","score":0.09368217}
+{"path":"src/config.rs","start_line":1,"end_line":32,"line":1,"text":"//! Configuration loading: file, then environment overrides.","score":0.118296266}
+{"path":"docs/telescopes.md","start_line":25,"end_line":38,"line":34,"text":"sets up convection currents in the tube that smear the image as badly as poor","score":0.048174083}
+{"path":"docs/architecture.md","start_line":25,"end_line":45,"line":35,"text":"## Failure modes we have actually hit","score":0.12815428}
+{"path":"src/metrics.rs","start_line":1,"end_line":32,"line":1,"text":"//! Counters and latency histograms, exported in Prometheus text format.","score":0.10397422}
+{"path":"worker/dispatch.py","start_line":1,"end_line":32,"line":1,"text":"\"\"\"Worker dispatch loop: claim jobs, run handlers, report outcomes.\"\"\"","score":0.099386215}
 ### mode=semantic path=cold query=upper bound of the crossing bucket
-{"path":"docs/operations.md","start_line":1,"end_line":32,"line":22,"text":"histogram uses fixed exponential buckets, so the reported p99 is the upper bound","score":0.38962454}
-{"path":"web/client.ts","start_line":49,"end_line":80,"line":49,"text":"    const response = await this.request(\"GET\", `/jobs/${encodeURIComponent(id)}`);","score":0.23876613}
-{"path":"src/retry.rs","start_line":1,"end_line":32,"line":14,"text":"/// Spread retries so a fleet of workers does not stampede a recovering service.","score":0.19098264}
-{"path":"worker/dispatch.py","start_line":1,"end_line":32,"line":10,"text":"    \"\"\"Pulls jobs off the queue and routes them to registered handlers.\"\"\"","score":0.19596529}
-{"path":"src/metrics.rs","start_line":25,"end_line":56,"line":33,"text":"    /// Linear interpolation within the bucket that crosses the quantile.","score":0.18899119}
-{"path":"web/client.ts","start_line":1,"end_line":32,"line":1,"text":"// HTTP client for the jobs API: timeouts, retries, and typed responses.","score":0.1749267}
-{"path":"native/ring.c","start_line":1,"end_line":32,"line":1,"text":"/* Single-producer single-consumer ring buffer for the ingest hot path. */","score":0.1468789}
-{"path":"src/auth.rs","start_line":1,"end_line":32,"line":24,"text":"/// Constant-time comparison: a short-circuiting `==` leaks the shared prefix","score":0.15035129}
-{"path":"src/pool.rs","start_line":49,"end_line":70,"line":58,"text":"    /// Close connections idle past the timeout so the database is not holding","score":0.13717419}
-{"path":"docs/architecture.md","start_line":25,"end_line":45,"line":39,"text":"  spreads them across a quarter of the delay window.","score":0.14401448}
+{"path":"docs/operations.md","start_line":1,"end_line":32,"line":22,"text":"histogram uses fixed exponential buckets, so the reported p99 is the upper bound","score":0.39047682}
+{"path":"web/client.ts","start_line":49,"end_line":80,"line":49,"text":"    const response = await this.request(\"GET\", `/jobs/${encodeURIComponent(id)}`);","score":0.24186248}
+{"path":"src/retry.rs","start_line":1,"end_line":32,"line":14,"text":"/// Spread retries so a fleet of workers does not stampede a recovering service.","score":0.19344038}
+{"path":"worker/dispatch.py","start_line":1,"end_line":32,"line":10,"text":"    \"\"\"Pulls jobs off the queue and routes them to registered handlers.\"\"\"","score":0.19982642}
+{"path":"src/metrics.rs","start_line":25,"end_line":56,"line":33,"text":"    /// Linear interpolation within the bucket that crosses the quantile.","score":0.18389237}
+{"path":"web/client.ts","start_line":1,"end_line":32,"line":1,"text":"// HTTP client for the jobs API: timeouts, retries, and typed responses.","score":0.17794037}
+{"path":"native/ring.c","start_line":1,"end_line":32,"line":1,"text":"/* Single-producer single-consumer ring buffer for the ingest hot path. */","score":0.1508463}
+{"path":"src/auth.rs","start_line":1,"end_line":32,"line":24,"text":"/// Constant-time comparison: a short-circuiting `==` leaks the shared prefix","score":0.1465683}
+{"path":"docs/architecture.md","start_line":25,"end_line":45,"line":39,"text":"  spreads them across a quarter of the delay window.","score":0.15326428}
+{"path":"src/pool.rs","start_line":49,"end_line":70,"line":58,"text":"    /// Close connections idle past the timeout so the database is not holding","score":0.13361025}
 ### mode=semantic path=cold query=route a job to its registered handler
-{"path":"worker/dispatch.py","start_line":49,"end_line":71,"line":50,"text":"        for job, started, handler in self.in_flight:","score":0.4654845}
-{"path":"worker/dispatch.py","start_line":1,"end_line":32,"line":22,"text":"            raise ValueError(f\"handler already registered for {job_kind}\")","score":0.46338832}
-{"path":"docs/architecture.md","start_line":25,"end_line":45,"line":26,"text":"Each worker claims up to eight jobs concurrently, routes each to a handler","score":0.41975582}
-{"path":"docs/operations.md","start_line":25,"end_line":40,"line":28,"text":"2. Check for a handler blocked on a network call without a timeout. This is","score":0.32642734}
-{"path":"README.md","start_line":1,"end_line":11,"line":9,"text":"**Do not edit these files to make a test pass.** Ranked output over this tree is","score":0.19340026}
-{"path":"web/client.ts","start_line":1,"end_line":32,"line":1,"text":"// HTTP client for the jobs API: timeouts, retries, and typed responses.","score":0.1367907}
-{"path":"src/queue.rs","start_line":25,"end_line":56,"line":56,"text":"    /// Return an unacked job to its lane with its attempt count incremented.","score":0.15190327}
-{"path":"src/config.rs","start_line":1,"end_line":32,"line":1,"text":"//! Configuration loading: file, then environment overrides.","score":0.12250507}
-{"path":"worker/schedule.py","start_line":25,"end_line":56,"line":25,"text":"def _expand_field(field, lo, hi):","score":0.08606881}
-{"path":"docs/sourdough.md","start_line":25,"end_line":39,"line":32,"text":"loaf its flavor and makes the dough firm enough to score cleanly.","score":0.033209026}
+{"path":"worker/dispatch.py","start_line":25,"end_line":56,"line":39,"text":"        handler = self.handlers.get(job.kind)","score":0.46332693}
+{"path":"docs/architecture.md","start_line":25,"end_line":45,"line":26,"text":"Each worker claims up to eight jobs concurrently, routes each to a handler","score":0.41961682}
+{"path":"docs/operations.md","start_line":25,"end_line":40,"line":28,"text":"2. Check for a handler blocked on a network call without a timeout. This is","score":0.32717466}
+{"path":"README.md","start_line":1,"end_line":11,"line":9,"text":"**Do not edit these files to make a test pass.** Ranked output over this tree is","score":0.20069438}
+{"path":"web/client.ts","start_line":1,"end_line":32,"line":1,"text":"// HTTP client for the jobs API: timeouts, retries, and typed responses.","score":0.13646227}
+{"path":"src/config.rs","start_line":1,"end_line":32,"line":1,"text":"//! Configuration loading: file, then environment overrides.","score":0.12207824}
+{"path":"worker/schedule.py","start_line":49,"end_line":72,"line":60,"text":"    \"\"\"Walk forward minute by minute to the next matching moment.","score":0.087916195}
+{"path":"src/queue.rs","start_line":25,"end_line":56,"line":56,"text":"    /// Return an unacked job to its lane with its attempt count incremented.","score":0.14979231}
+{"path":"docs/sourdough.md","start_line":25,"end_line":39,"line":32,"text":"loaf its flavor and makes the dough firm enough to score cleanly.","score":0.03236407}
+{"path":"src/retry.rs","start_line":1,"end_line":32,"line":1,"text":"//! Retry policy: exponential backoff with jitter and a circuit breaker.","score":0.027776062}
 ### mode=semantic path=cold query=expand a cron expression into allowed values
-{"path":"worker/schedule.py","start_line":1,"end_line":32,"line":11,"text":"    \"\"\"Expand a five-field cron expression into per-field allowed value sets.","score":0.3728686}
-{"path":"src/metrics.rs","start_line":25,"end_line":56,"line":26,"text":"impl Histogram {","score":0.1913712}
-{"path":"web/client.ts","start_line":1,"end_line":32,"line":1,"text":"// HTTP client for the jobs API: timeouts, retries, and typed responses.","score":0.17922819}
-{"path":"src/config.rs","start_line":25,"end_line":56,"line":25,"text":"/// unknown keys are ignored rather than fatal, so a newer config file can be","score":0.16432619}
-{"path":"web/client.ts","start_line":49,"end_line":80,"line":49,"text":"    const response = await this.request(\"GET\", `/jobs/${encodeURIComponent(id)}`);","score":0.1824187}
-{"path":"src/pool.rs","start_line":1,"end_line":32,"line":1,"text":"//! Database connection pool with a bounded wait queue.","score":0.14258754}
-{"path":"docs/sourdough.md","start_line":25,"end_line":39,"line":25,"text":"shape of a fold rather than slumping back immediately. Watch the dough, not the","score":0.10015601}
-{"path":"docs/operations.md","start_line":1,"end_line":32,"line":8,"text":"in-flight set into the retry path and produces a visible latency spike.","score":0.1254589}
-{"path":"native/ring.c","start_line":1,"end_line":32,"line":1,"text":"/* Single-producer single-consumer ring buffer for the ingest hot path. */","score":0.10487205}
-{"path":"src/retry.rs","start_line":1,"end_line":32,"line":1,"text":"//! Retry policy: exponential backoff with jitter and a circuit breaker.","score":0.11411619}
+{"path":"worker/schedule.py","start_line":1,"end_line":32,"line":11,"text":"    \"\"\"Expand a five-field cron expression into per-field allowed value sets.","score":0.37348878}
+{"path":"src/metrics.rs","start_line":25,"end_line":56,"line":26,"text":"impl Histogram {","score":0.1893484}
+{"path":"web/client.ts","start_line":1,"end_line":32,"line":1,"text":"// HTTP client for the jobs API: timeouts, retries, and typed responses.","score":0.17074835}
+{"path":"src/config.rs","start_line":25,"end_line":56,"line":25,"text":"/// unknown keys are ignored rather than fatal, so a newer config file can be","score":0.16554034}
+{"path":"web/client.ts","start_line":49,"end_line":80,"line":49,"text":"    const response = await this.request(\"GET\", `/jobs/${encodeURIComponent(id)}`);","score":0.17831236}
+{"path":"src/pool.rs","start_line":1,"end_line":32,"line":1,"text":"//! Database connection pool with a bounded wait queue.","score":0.13509828}
+{"path":"docs/sourdough.md","start_line":25,"end_line":39,"line":25,"text":"shape of a fold rather than slumping back immediately. Watch the dough, not the","score":0.101432204}
+{"path":"docs/operations.md","start_line":1,"end_line":32,"line":8,"text":"in-flight set into the retry path and produces a visible latency spike.","score":0.12579823}
+{"path":"native/ring.c","start_line":1,"end_line":32,"line":1,"text":"/* Single-producer single-consumer ring buffer for the ingest hot path. */","score":0.102920175}
+{"path":"src/retry.rs","start_line":1,"end_line":32,"line":1,"text":"//! Retry policy: exponential backoff with jitter and a circuit breaker.","score":0.11246824}
 ### mode=semantic path=cold query=abort a request once the deadline passes
-{"path":"web/client.ts","start_line":1,"end_line":32,"line":24,"text":"/** Abort a request once the deadline passes so a hung socket cannot pin a","score":0.34830368}
-{"path":"docs/architecture.md","start_line":1,"end_line":32,"line":16,"text":"if the worker dies without acking, the deadline passes and the job returns to","score":0.32560688}
-{"path":"src/retry.rs","start_line":1,"end_line":32,"line":1,"text":"//! Retry policy: exponential backoff with jitter and a circuit breaker.","score":0.22252375}
-{"path":"worker/schedule.py","start_line":49,"end_line":72,"line":49,"text":"    \"\"\"True when `moment` (a datetime) satisfies every field of the schedule.\"\"\"","score":0.19161469}
-{"path":"src/config.rs","start_line":49,"end_line":63,"line":54,"text":"/// Environment wins over the file so a deploy can override without a rebuild.","score":0.14790219}
-{"path":"web/client.ts","start_line":49,"end_line":80,"line":49,"text":"    const response = await this.request(\"GET\", `/jobs/${encodeURIComponent(id)}`);","score":0.17593509}
-{"path":"docs/operations.md","start_line":1,"end_line":32,"line":31,"text":"   deadline will return the jobs anyway, but SIGKILL loses the metrics flush.","score":0.16667867}
-{"path":"worker/dispatch.py","start_line":1,"end_line":32,"line":10,"text":"    \"\"\"Pulls jobs off the queue and routes them to registered handlers.\"\"\"","score":0.14817238}
-{"path":"README.md","start_line":1,"end_line":11,"line":3,"text":"A frozen tree used by the Rust test suite and by `tools/snapshot.sh`. It stands","score":0.12919337}
-{"path":"src/auth.rs","start_line":25,"end_line":36,"line":25,"text":"/// length to anyone who can time the response.","score":0.1386044}
+{"path":"web/client.ts","start_line":1,"end_line":32,"line":24,"text":"/** Abort a request once the deadline passes so a hung socket cannot pin a","score":0.35123074}
+{"path":"docs/architecture.md","start_line":1,"end_line":32,"line":16,"text":"if the worker dies without acking, the deadline passes and the job returns to","score":0.32370263}
+{"path":"src/retry.rs","start_line":1,"end_line":32,"line":1,"text":"//! Retry policy: exponential backoff with jitter and a circuit breaker.","score":0.22400641}
+{"path":"worker/schedule.py","start_line":49,"end_line":72,"line":49,"text":"    \"\"\"True when `moment` (a datetime) satisfies every field of the schedule.\"\"\"","score":0.19077438}
+{"path":"src/config.rs","start_line":49,"end_line":63,"line":54,"text":"/// Environment wins over the file so a deploy can override without a rebuild.","score":0.14607227}
+{"path":"web/client.ts","start_line":49,"end_line":80,"line":49,"text":"    const response = await this.request(\"GET\", `/jobs/${encodeURIComponent(id)}`);","score":0.17614233}
+{"path":"docs/operations.md","start_line":1,"end_line":32,"line":31,"text":"   deadline will return the jobs anyway, but SIGKILL loses the metrics flush.","score":0.17025232}
+{"path":"worker/dispatch.py","start_line":1,"end_line":32,"line":10,"text":"    \"\"\"Pulls jobs off the queue and routes them to registered handlers.\"\"\"","score":0.15264428}
+{"path":"README.md","start_line":1,"end_line":11,"line":3,"text":"A frozen tree used by the Rust test suite and by `tools/snapshot.sh`. It stands","score":0.13131624}
+{"path":"src/auth.rs","start_line":25,"end_line":36,"line":25,"text":"/// length to anyone who can time the response.","score":0.1352843}
 ### mode=semantic path=cold query=wrap the index with a mask instead of a division
-{"path":"native/ring.c","start_line":25,"end_line":56,"line":48,"text":"/* Power-of-two capacity turns the wrap into a mask instead of a division,","score":0.23190588}
-{"path":"src/auth.rs","start_line":1,"end_line":32,"line":24,"text":"/// Constant-time comparison: a short-circuiting `==` leaks the shared prefix","score":0.16894144}
-{"path":"worker/schedule.py","start_line":1,"end_line":32,"line":5,"text":"FIELD_NAMES = (\"minute\", \"hour\", \"day_of_month\", \"month\", \"day_of_week\")","score":0.14498127}
-{"path":"docs/sourdough.md","start_line":25,"end_line":39,"line":25,"text":"shape of a fold rather than slumping back immediately. Watch the dough, not the","score":0.13188875}
-{"path":"README.md","start_line":1,"end_line":11,"line":3,"text":"A frozen tree used by the Rust test suite and by `tools/snapshot.sh`. It stands","score":0.1357317}
-{"path":"native/ring.c","start_line":73,"end_line":96,"line":88,"text":"\tsize_t offset = mask(rb, tail);","score":0.12702304}
-{"path":"docs/architecture.md","start_line":1,"end_line":32,"line":16,"text":"if the worker dies without acking, the deadline passes and the job returns to","score":0.100328565}
-{"path":"src/config.rs","start_line":25,"end_line":56,"line":31,"text":"        if line.is_empty() || line.starts_with('#') {","score":0.089832544}
-{"path":"worker/schedule.py","start_line":49,"end_line":72,"line":49,"text":"    \"\"\"True when `moment` (a datetime) satisfies every field of the schedule.\"\"\"","score":0.07008642}
-{"path":"src/metrics.rs","start_line":1,"end_line":32,"line":1,"text":"//! Counters and latency histograms, exported in Prometheus text format.","score":0.04321444}
+{"path":"native/ring.c","start_line":25,"end_line":56,"line":48,"text":"/* Power-of-two capacity turns the wrap into a mask instead of a division,","score":0.22735447}
+{"path":"src/auth.rs","start_line":1,"end_line":32,"line":24,"text":"/// Constant-time comparison: a short-circuiting `==` leaks the shared prefix","score":0.16498232}
+{"path":"worker/schedule.py","start_line":1,"end_line":32,"line":5,"text":"FIELD_NAMES = (\"minute\", \"hour\", \"day_of_month\", \"month\", \"day_of_week\")","score":0.1429103}
+{"path":"README.md","start_line":1,"end_line":11,"line":3,"text":"A frozen tree used by the Rust test suite and by `tools/snapshot.sh`. It stands","score":0.13671029}
+{"path":"docs/sourdough.md","start_line":25,"end_line":39,"line":25,"text":"shape of a fold rather than slumping back immediately. Watch the dough, not the","score":0.12951827}
+{"path":"docs/architecture.md","start_line":1,"end_line":32,"line":16,"text":"if the worker dies without acking, the deadline passes and the job returns to","score":0.1031062}
+{"path":"native/ring.c","start_line":73,"end_line":96,"line":88,"text":"\tsize_t offset = mask(rb, tail);","score":0.123814225}
+{"path":"src/config.rs","start_line":25,"end_line":56,"line":31,"text":"        if line.is_empty() || line.starts_with('#') {","score":0.089404166}
+{"path":"worker/schedule.py","start_line":49,"end_line":72,"line":49,"text":"    \"\"\"True when `moment` (a datetime) satisfies every field of the schedule.\"\"\"","score":0.07074213}
+{"path":"src/metrics.rs","start_line":1,"end_line":32,"line":1,"text":"//! Counters and latency histograms, exported in Prometheus text format.","score":0.044454098}
 ### mode=semantic path=cold query=what happens during a rolling deploy
-{"path":"docs/architecture.md","start_line":25,"end_line":45,"line":31,"text":"SIGTERM begins a drain rather than terminating in-flight handlers, so a rolling","score":0.30402124}
-{"path":"docs/operations.md","start_line":1,"end_line":32,"line":5,"text":"Rolling restart, one worker at a time. Each receives SIGTERM, stops claiming new","score":0.27257967}
-{"path":"docs/telescopes.md","start_line":1,"end_line":32,"line":1,"text":"# Telescopes","score":0.1867758}
-{"path":"src/config.rs","start_line":49,"end_line":63,"line":54,"text":"/// Environment wins over the file so a deploy can override without a rebuild.","score":0.18068522}
-{"path":"web/client.ts","start_line":49,"end_line":80,"line":49,"text":"    const response = await this.request(\"GET\", `/jobs/${encodeURIComponent(id)}`);","score":0.17366219}
-{"path":"worker/dispatch.py","start_line":49,"end_line":71,"line":65,"text":"        rolling deploy does not lose jobs that were mid-handler.\"\"\"","score":0.17964303}
-{"path":"src/auth.rs","start_line":25,"end_line":36,"line":25,"text":"/// length to anyone who can time the response.","score":0.1499716}
-{"path":"docs/sourdough.md","start_line":25,"end_line":39,"line":25,"text":"shape of a fold rather than slumping back immediately. Watch the dough, not the","score":0.113824844}
-{"path":"src/retry.rs","start_line":1,"end_line":32,"line":1,"text":"//! Retry policy: exponential backoff with jitter and a circuit breaker.","score":0.12505978}
-{"path":"worker/schedule.py","start_line":25,"end_line":56,"line":25,"text":"def _expand_field(field, lo, hi):","score":0.100905}
+{"path":"docs/architecture.md","start_line":25,"end_line":45,"line":31,"text":"SIGTERM begins a drain rather than terminating in-flight handlers, so a rolling","score":0.30392462}
+{"path":"docs/operations.md","start_line":1,"end_line":32,"line":5,"text":"Rolling restart, one worker at a time. Each receives SIGTERM, stops claiming new","score":0.26864654}
+{"path":"docs/telescopes.md","start_line":1,"end_line":32,"line":1,"text":"# Telescopes","score":0.18482238}
+{"path":"src/config.rs","start_line":49,"end_line":63,"line":54,"text":"/// Environment wins over the file so a deploy can override without a rebuild.","score":0.18017232}
+{"path":"web/client.ts","start_line":49,"end_line":80,"line":49,"text":"    const response = await this.request(\"GET\", `/jobs/${encodeURIComponent(id)}`);","score":0.17484033}
+{"path":"worker/dispatch.py","start_line":49,"end_line":71,"line":65,"text":"        rolling deploy does not lose jobs that were mid-handler.\"\"\"","score":0.18029636}
+{"path":"src/auth.rs","start_line":25,"end_line":36,"line":25,"text":"/// length to anyone who can time the response.","score":0.1521483}
+{"path":"docs/sourdough.md","start_line":25,"end_line":39,"line":25,"text":"shape of a fold rather than slumping back immediately. Watch the dough, not the","score":0.11612624}
+{"path":"src/retry.rs","start_line":1,"end_line":32,"line":1,"text":"//! Retry policy: exponential backoff with jitter and a circuit breaker.","score":0.12493026}
+{"path":"worker/schedule.py","start_line":25,"end_line":56,"line":25,"text":"def _expand_field(field, lo, hi):","score":0.097898185}
 ### mode=semantic path=cold query=baking bread with a fermented starter
-{"path":"docs/sourdough.md","start_line":1,"end_line":32,"line":10,"text":"feeding, smells sharply sour, and is ready to leaven bread. A starter kept in the","score":0.4878958}
-{"path":"docs/architecture.md","start_line":1,"end_line":32,"line":13,"text":"Jobs live in a single table with a priority column and a visibility deadline.","score":0.15583932}
-{"path":"native/ring.c","start_line":25,"end_line":56,"line":25,"text":"{","score":0.026295781}
-{"path":"worker/schedule.py","start_line":1,"end_line":32,"line":1,"text":"\"\"\"Recurring job scheduling from cron-style expressions.\"\"\"","score":0.011050165}
-{"path":"src/queue.rs","start_line":49,"end_line":68,"line":56,"text":"    /// Return an unacked job to its lane with its attempt count incremented.","score":0.0175457}
-{"path":"src/queue.rs","start_line":1,"end_line":32,"line":1,"text":"//! In-process job queue with priority lanes and visibility timeouts.","score":0.05884081}
-{"path":"docs/operations.md","start_line":25,"end_line":40,"line":25,"text":"## Runbook: draining a stuck worker","score":0.07188231}
-{"path":"web/client.ts","start_line":1,"end_line":32,"line":26,"text":"function withDeadline(timeoutMs: number): AbortSignal {","score":0.030432701}
-{"path":"src/auth.rs","start_line":1,"end_line":32,"line":1,"text":"//! Session tokens and password storage.","score":-0.020882487}
-{"path":"worker/dispatch.py","start_line":25,"end_line":56,"line":25,"text":"    def run_forever(self, poll_interval=0.25):","score":0.032718718}
+{"path":"docs/sourdough.md","start_line":1,"end_line":32,"line":10,"text":"feeding, smells sharply sour, and is ready to leaven bread. A starter kept in the","score":0.48372495}
+{"path":"docs/architecture.md","start_line":1,"end_line":32,"line":13,"text":"Jobs live in a single table with a priority column and a visibility deadline.","score":0.1531403}
+{"path":"native/ring.c","start_line":25,"end_line":56,"line":25,"text":"{","score":0.02889204}
+{"path":"worker/schedule.py","start_line":1,"end_line":32,"line":1,"text":"\"\"\"Recurring job scheduling from cron-style expressions.\"\"\"","score":0.005766034}
+{"path":"src/queue.rs","start_line":1,"end_line":32,"line":1,"text":"//! In-process job queue with priority lanes and visibility timeouts.","score":0.057102084}
+{"path":"worker/dispatch.py","start_line":25,"end_line":56,"line":25,"text":"    def run_forever(self, poll_interval=0.25):","score":0.033790052}
+{"path":"docs/operations.md","start_line":25,"end_line":40,"line":25,"text":"## Runbook: draining a stuck worker","score":0.070494115}
+{"path":"web/client.ts","start_line":1,"end_line":32,"line":26,"text":"function withDeadline(timeoutMs: number): AbortSignal {","score":0.025110066}
+{"path":"src/auth.rs","start_line":25,"end_line":36,"line":25,"text":"/// length to anyone who can time the response.","score":-0.02294004}
+{"path":"src/config.rs","start_line":1,"end_line":32,"line":31,"text":"        if line.is_empty() || line.starts_with('#') {","score":-0.007006049}
 ### mode=semantic path=cold query=mirrors gathering light from distant stars
-{"path":"docs/telescopes.md","start_line":1,"end_line":32,"line":16,"text":"Aperture governs both light-gathering and resolving power. Doubling the diameter","score":0.38639307}
-{"path":"web/client.ts","start_line":73,"end_line":85,"line":73,"text":"      } catch (err) {","score":0.15556574}
-{"path":"src/metrics.rs","start_line":49,"end_line":70,"line":49,"text":"}","score":0.117825806}
-{"path":"src/auth.rs","start_line":25,"end_line":36,"line":25,"text":"/// length to anyone who can time the response.","score":0.10793251}
-{"path":"src/queue.rs","start_line":1,"end_line":32,"line":1,"text":"//! In-process job queue with priority lanes and visibility timeouts.","score":0.098395646}
-{"path":"web/client.ts","start_line":25,"end_line":56,"line":25,"text":" * worker slot forever. */","score":0.110970736}
-{"path":"src/pool.rs","start_line":25,"end_line":56,"line":26,"text":"pub struct ConnectionPool {","score":0.08857584}
-{"path":"worker/schedule.py","start_line":25,"end_line":56,"line":25,"text":"def _expand_field(field, lo, hi):","score":0.060437977}
-{"path":"src/retry.rs","start_line":25,"end_line":50,"line":25,"text":"    attempt < MAX_ATTEMPTS && (status == 429 || status >= 500)","score":0.088561654}
-{"path":"docs/sourdough.md","start_line":1,"end_line":32,"line":1,"text":"# Sourdough","score":0.011379957}
+{"path":"docs/telescopes.md","start_line":1,"end_line":32,"line":16,"text":"Aperture governs both light-gathering and resolving power. Doubling the diameter","score":0.38700473}
+{"path":"web/client.ts","start_line":73,"end_line":85,"line":73,"text":"      } catch (err) {","score":0.15190029}
+{"path":"src/metrics.rs","start_line":49,"end_line":70,"line":49,"text":"}","score":0.12040424}
+{"path":"src/auth.rs","start_line":25,"end_line":36,"line":25,"text":"/// length to anyone who can time the response.","score":0.110794246}
+{"path":"web/client.ts","start_line":25,"end_line":56,"line":25,"text":" * worker slot forever. */","score":0.107880235}
+{"path":"src/queue.rs","start_line":1,"end_line":32,"line":1,"text":"//! In-process job queue with priority lanes and visibility timeouts.","score":0.09070617}
+{"path":"src/pool.rs","start_line":25,"end_line":56,"line":26,"text":"pub struct ConnectionPool {","score":0.088474154}
+{"path":"worker/schedule.py","start_line":25,"end_line":56,"line":25,"text":"def _expand_field(field, lo, hi):","score":0.056420088}
+{"path":"src/retry.rs","start_line":25,"end_line":50,"line":25,"text":"    attempt < MAX_ATTEMPTS && (status == 429 || status >= 500)","score":0.087482154}
+{"path":"src/metrics.rs","start_line":1,"end_line":32,"line":1,"text":"//! Counters and latency histograms, exported in Prometheus text format.","score":0.065968156}
 ### mode=semantic path=cold query=quantum chromodynamics lattice gauge theory
-{"path":"native/ring.c","start_line":49,"end_line":80,"line":49,"text":" * which showed up as 8% of the ingest profile when it was a modulo. */","score":0.23294646}
-{"path":"native/ring.c","start_line":1,"end_line":32,"line":1,"text":"/* Single-producer single-consumer ring buffer for the ingest hot path. */","score":0.22155917}
-{"path":"docs/telescopes.md","start_line":1,"end_line":32,"line":1,"text":"# Telescopes","score":0.15709049}
-{"path":"src/config.rs","start_line":49,"end_line":63,"line":49,"text":"        cfg.log_level = v.to_string();","score":0.13222736}
-{"path":"worker/schedule.py","start_line":25,"end_line":56,"line":25,"text":"def _expand_field(field, lo, hi):","score":0.12303823}
-{"path":"web/client.ts","start_line":49,"end_line":80,"line":49,"text":"    const response = await this.request(\"GET\", `/jobs/${encodeURIComponent(id)}`);","score":0.10727066}
-{"path":"src/auth.rs","start_line":1,"end_line":32,"line":1,"text":"//! Session tokens and password storage.","score":0.0811038}
-{"path":"web/client.ts","start_line":1,"end_line":32,"line":1,"text":"// HTTP client for the jobs API: timeouts, retries, and typed responses.","score":0.095449746}
-{"path":"src/metrics.rs","start_line":25,"end_line":56,"line":26,"text":"impl Histogram {","score":0.072974384}
-{"path":"README.md","start_line":1,"end_line":11,"line":1,"text":"# Fixture corpus","score":0.04877776}
+{"path":"native/ring.c","start_line":49,"end_line":80,"line":49,"text":" * which showed up as 8% of the ingest profile when it was a modulo. */","score":0.23529047}
+{"path":"native/ring.c","start_line":1,"end_line":32,"line":1,"text":"/* Single-producer single-consumer ring buffer for the ingest hot path. */","score":0.22716844}
+{"path":"docs/telescopes.md","start_line":1,"end_line":32,"line":1,"text":"# Telescopes","score":0.15338832}
+{"path":"src/config.rs","start_line":49,"end_line":63,"line":49,"text":"        cfg.log_level = v.to_string();","score":0.13057226}
+{"path":"worker/schedule.py","start_line":25,"end_line":56,"line":25,"text":"def _expand_field(field, lo, hi):","score":0.12524027}
+{"path":"web/client.ts","start_line":49,"end_line":80,"line":49,"text":"    const response = await this.request(\"GET\", `/jobs/${encodeURIComponent(id)}`);","score":0.10447019}
+{"path":"web/client.ts","start_line":1,"end_line":32,"line":1,"text":"// HTTP client for the jobs API: timeouts, retries, and typed responses.","score":0.09634817}
+{"path":"src/auth.rs","start_line":1,"end_line":32,"line":1,"text":"//! Session tokens and password storage.","score":0.08004218}
+{"path":"src/metrics.rs","start_line":25,"end_line":56,"line":26,"text":"impl Histogram {","score":0.07607412}
+{"path":"README.md","start_line":1,"end_line":11,"line":1,"text":"# Fixture corpus","score":0.049724102}
 ### mode=semantic path=warm query=how is the retry delay computed
 {"path":"src/retry.rs","start_line":1,"end_line":32,"line":1,"text":"//! Retry policy: exponential backoff with jitter and a circuit breaker.","score":0.40820885}
 {"path":"docs/operations.md","start_line":1,"end_line":32,"line":22,"text":"histogram uses fixed exponential buckets, so the reported p99 is the upper bound","score":0.2858206}
@@ -722,38 +722,38 @@
 ### mode=hybrid path=cold query=spread retries so workers do not stampede
 {"path":"docs/operations.md","start_line":25,"end_line":40,"line":30,"text":"3. SIGTERM and wait the full grace period. Do not SIGKILL: the visibility","score":0.019159336}
 {"path":"src/retry.rs","start_line":1,"end_line":32,"line":14,"text":"/// Spread retries so a fleet of workers does not stampede a recovering service.","score":0.018957544}
-{"path":"README.md","start_line":1,"end_line":11,"line":9,"text":"**Do not edit these files to make a test pass.** Ranked output over this tree is","score":0.017752659}
+{"path":"README.md","start_line":1,"end_line":11,"line":9,"text":"**Do not edit these files to make a test pass.** Ranked output over this tree is","score":0.017798914}
 {"path":"docs/architecture.md","start_line":25,"end_line":45,"line":31,"text":"SIGTERM begins a drain rather than terminating in-flight handlers, so a rolling","score":0.019151706}
 {"path":"web/client.ts","start_line":1,"end_line":32,"line":1,"text":"// HTTP client for the jobs API: timeouts, retries, and typed responses.","score":0.017620651}
 {"path":"src/pool.rs","start_line":49,"end_line":70,"line":58,"text":"    /// Close connections idle past the timeout so the database is not holding","score":0.01681736}
-{"path":"docs/sourdough.md","start_line":1,"end_line":32,"line":18,"text":"handle later. Add salt with the levain, not before — salt tightens the gluten and","score":0.015786242}
+{"path":"docs/sourdough.md","start_line":1,"end_line":32,"line":18,"text":"handle later. Add salt with the levain, not before — salt tightens the gluten and","score":0.015812363}
 {"path":"native/ring.c","start_line":49,"end_line":80,"line":63,"text":" * so a record is either wholly visible to the consumer or not at all. */","score":0.01619863}
 {"path":"src/config.rs","start_line":49,"end_line":63,"line":54,"text":"/// Environment wins over the file so a deploy can override without a rebuild.","score":0.015637415}
-{"path":"web/client.ts","start_line":49,"end_line":80,"line":54,"text":"  /** Single request with bounded retries on transient failures. */","score":0.017372549}
+{"path":"web/client.ts","start_line":49,"end_line":80,"line":54,"text":"  /** Single request with bounded retries on transient failures. */","score":0.017408585}
 ### mode=hybrid path=cold query=validate a session token
 {"path":"src/auth.rs","start_line":1,"end_line":32,"line":6,"text":"pub fn validate_session_token(token: &str) -> bool {","score":0.01967213}
 {"path":"README.md","start_line":1,"end_line":11,"line":1,"text":"# Fixture corpus","score":0.0032258064}
-{"path":"docs/sourdough.md","start_line":1,"end_line":32,"line":1,"text":"# Sourdough","score":0.0027777778}
+{"path":"docs/sourdough.md","start_line":1,"end_line":32,"line":1,"text":"# Sourdough","score":0.002739726}
 {"path":"worker/dispatch.py","start_line":49,"end_line":71,"line":49,"text":"        still_running = []","score":0.0022727272}
 {"path":"worker/schedule.py","start_line":25,"end_line":56,"line":25,"text":"def _expand_field(field, lo, hi):","score":0.0024390244}
-{"path":"src/pool.rs","start_line":49,"end_line":70,"line":49,"text":"        None","score":0.0027027028}
-{"path":"web/client.ts","start_line":1,"end_line":32,"line":1,"text":"// HTTP client for the jobs API: timeouts, retries, and typed responses.","score":0.0029411765}
+{"path":"web/client.ts","start_line":1,"end_line":32,"line":1,"text":"// HTTP client for the jobs API: timeouts, retries, and typed responses.","score":0.0029850747}
+{"path":"src/pool.rs","start_line":49,"end_line":70,"line":49,"text":"        None","score":0.002631579}
 {"path":"src/metrics.rs","start_line":1,"end_line":32,"line":1,"text":"//! Counters and latency histograms, exported in Prometheus text format.","score":0.0031746032}
-{"path":"src/queue.rs","start_line":1,"end_line":32,"line":1,"text":"//! In-process job queue with priority lanes and visibility timeouts.","score":0.0023529413}
-{"path":"native/ring.c","start_line":49,"end_line":80,"line":49,"text":" * which showed up as 8% of the ingest profile when it was a modulo. */","score":0.0022988506}
+{"path":"native/ring.c","start_line":49,"end_line":80,"line":49,"text":" * which showed up as 8% of the ingest profile when it was a modulo. */","score":0.0023809525}
+{"path":"src/queue.rs","start_line":1,"end_line":32,"line":1,"text":"//! In-process job queue with priority lanes and visibility timeouts.","score":0.0022988506}
 ### mode=hybrid path=cold query=compare digests without leaking timing
-{"path":"src/config.rs","start_line":49,"end_line":63,"line":54,"text":"/// Environment wins over the file so a deploy can override without a rebuild.","score":0.018990844}
+{"path":"src/config.rs","start_line":49,"end_line":63,"line":54,"text":"/// Environment wins over the file so a deploy can override without a rebuild.","score":0.018957544}
 {"path":"docs/operations.md","start_line":25,"end_line":40,"line":28,"text":"2. Check for a handler blocked on a network call without a timeout. This is","score":0.018402778}
-{"path":"src/metrics.rs","start_line":1,"end_line":32,"line":12,"text":"/// alerting on tail latency without a full t-digest.","score":0.018169848}
 {"path":"src/pool.rs","start_line":25,"end_line":56,"line":39,"text":"    /// than growing the pool without bound.","score":0.01804693}
+{"path":"src/metrics.rs","start_line":1,"end_line":32,"line":12,"text":"/// alerting on tail latency without a full t-digest.","score":0.018169848}
 {"path":"docs/architecture.md","start_line":25,"end_line":45,"line":37,"text":"- **Retry stampede.** Without jitter, a fleet recovering from a database blip","score":0.01813659}
-{"path":"docs/sourdough.md","start_line":1,"end_line":32,"line":1,"text":"# Sourdough","score":0.003125}
-{"path":"docs/telescopes.md","start_line":1,"end_line":32,"line":1,"text":"# Telescopes","score":0.002469136}
+{"path":"docs/sourdough.md","start_line":1,"end_line":32,"line":1,"text":"# Sourdough","score":0.003076923}
+{"path":"docs/telescopes.md","start_line":1,"end_line":32,"line":1,"text":"# Telescopes","score":0.0024390244}
 {"path":"worker/schedule.py","start_line":49,"end_line":72,"line":49,"text":"    \"\"\"True when `moment` (a datetime) satisfies every field of the schedule.\"\"\"","score":0.0030303032}
-{"path":"README.md","start_line":1,"end_line":11,"line":1,"text":"# Fixture corpus","score":0.0024390244}
-{"path":"native/ring.c","start_line":73,"end_line":96,"line":73,"text":"\tmemcpy(rb->storage + offset, data, first);","score":0.002631579}
+{"path":"src/queue.rs","start_line":1,"end_line":32,"line":1,"text":"//! In-process job queue with priority lanes and visibility timeouts.","score":0.0028985508}
+{"path":"README.md","start_line":1,"end_line":11,"line":1,"text":"# Fixture corpus","score":0.002469136}
 ### mode=hybrid path=cold query=drain urgent jobs before low priority ones
-{"path":"src/queue.rs","start_line":25,"end_line":56,"line":33,"text":"            Priority::Urgent => self.urgent.push_back(job),","score":0.01967213}
+{"path":"src/queue.rs","start_line":25,"end_line":56,"line":33,"text":"            Priority::Urgent => self.urgent.push_back(job),","score":0.019619249}
 {"path":"docs/telescopes.md","start_line":25,"end_line":38,"line":33,"text":"Let the instrument cool to ambient temperature before observing; a warm mirror","score":0.017090157}
 {"path":"docs/operations.md","start_line":1,"end_line":32,"line":6,"text":"jobs, finishes what it holds, and exits. Wait for the drain to complete before","score":0.018461538}
 {"path":"docs/architecture.md","start_line":1,"end_line":32,"line":14,"text":"Three lanes are drained urgent-first so a backlog of low-priority work cannot","score":0.01904762}
@@ -762,13 +762,13 @@
 {"path":"worker/dispatch.py","start_line":49,"end_line":71,"line":54,"text":"                self.registry.increment(\"jobs_failed\")","score":0.017910447}
 {"path":"web/client.ts","start_line":25,"end_line":56,"line":36,"text":"export class JobsClient {","score":0.016401332}
 {"path":"src/pool.rs","start_line":49,"end_line":70,"line":62,"text":"        let before = self.idle.len();","score":0.016483517}
-{"path":"src/retry.rs","start_line":1,"end_line":32,"line":8,"text":"/// Delay before attempt `n`, doubling from `base_ms` and capped.","score":0.015598291}
+{"path":"src/retry.rs","start_line":1,"end_line":32,"line":8,"text":"/// Delay before attempt `n`, doubling from `base_ms` and capped.","score":0.01556024}
 ### mode=hybrid path=cold query=return an unacked job to its lane
 {"path":"src/queue.rs","start_line":49,"end_line":68,"line":56,"text":"    /// Return an unacked job to its lane with its attempt count incremented.","score":0.019568045}
 {"path":"docs/architecture.md","start_line":1,"end_line":32,"line":15,"text":"starve an urgent job queued behind it. A claimed job gets a visibility deadline;","score":0.019098824}
 {"path":"docs/telescopes.md","start_line":1,"end_line":32,"line":3,"text":"A second control document, unrelated to the service and to the other control.","score":0.017665816}
 {"path":"src/queue.rs","start_line":1,"end_line":32,"line":21,"text":"/// starve an urgent job behind it.","score":0.01786655}
-{"path":"docs/sourdough.md","start_line":25,"end_line":39,"line":32,"text":"loaf its flavor and makes the dough firm enough to score cleanly.","score":0.017058823}
+{"path":"docs/sourdough.md","start_line":25,"end_line":39,"line":32,"text":"loaf its flavor and makes the dough firm enough to score cleanly.","score":0.017031465}
 {"path":"worker/dispatch.py","start_line":25,"end_line":56,"line":32,"text":"            job = self.queue.dequeue()","score":0.017362637}
 {"path":"web/client.ts","start_line":25,"end_line":56,"line":29,"text":"  return controller.signal;","score":0.01678744}
 {"path":"docs/operations.md","start_line":25,"end_line":40,"line":31,"text":"   deadline will return the jobs anyway, but SIGKILL loses the metrics flush.","score":0.016555773}
@@ -778,118 +778,118 @@
 {"path":"src/config.rs","start_line":1,"end_line":32,"line":24,"text":"/// Parse a flat `key = value` file. Blank lines and `#` comments are skipped;","score":0.01967213}
 {"path":"README.md","start_line":1,"end_line":11,"line":11,"text":"here reads as a behavior change. Add a new file instead.","score":0.018850807}
 {"path":"docs/telescopes.md","start_line":25,"end_line":38,"line":25,"text":"An equatorial mount has one axis aligned with the Earth's rotation, so tracking a","score":0.016945574}
-{"path":"worker/schedule.py","start_line":1,"end_line":32,"line":10,"text":"def parse_cron_expression(expr):","score":0.017982017}
+{"path":"worker/schedule.py","start_line":1,"end_line":32,"line":10,"text":"def parse_cron_expression(expr):","score":0.01791626}
 {"path":"src/config.rs","start_line":49,"end_line":63,"line":54,"text":"/// Environment wins over the file so a deploy can override without a rebuild.","score":0.018771568}
 {"path":"docs/architecture.md","start_line":1,"end_line":32,"line":13,"text":"Jobs live in a single table with a priority column and a visibility deadline.","score":0.01813659}
-{"path":"docs/sourdough.md","start_line":1,"end_line":32,"line":12,"text":"refeeding before you bake with it.","score":0.016953073}
-{"path":"web/client.ts","start_line":49,"end_line":80,"line":54,"text":"  /** Single request with bounded retries on transient failures. */","score":0.017523058}
-{"path":"src/queue.rs","start_line":49,"end_line":68,"line":56,"text":"    /// Return an unacked job to its lane with its attempt count incremented.","score":0.015641173}
+{"path":"docs/sourdough.md","start_line":1,"end_line":32,"line":12,"text":"refeeding before you bake with it.","score":0.01697861}
+{"path":"web/client.ts","start_line":49,"end_line":80,"line":54,"text":"  /** Single request with bounded retries on transient failures. */","score":0.017569676}
+{"path":"src/queue.rs","start_line":49,"end_line":68,"line":56,"text":"    /// Return an unacked job to its lane with its attempt count incremented.","score":0.015618777}
 {"path":"src/pool.rs","start_line":1,"end_line":32,"line":1,"text":"//! Database connection pool with a bounded wait queue.","score":0.015950745}
 ### mode=hybrid path=cold query=environment overrides beat the config file
 {"path":"src/config.rs","start_line":49,"end_line":63,"line":54,"text":"/// Environment wins over the file so a deploy can override without a rebuild.","score":0.01967213}
 {"path":"docs/operations.md","start_line":25,"end_line":40,"line":33,"text":"   is the problem, not the worker. Move it to the dead letter table by hand.","score":0.018461538}
 {"path":"src/config.rs","start_line":1,"end_line":32,"line":1,"text":"//! Configuration loading: file, then environment overrides.","score":0.019303635}
-{"path":"README.md","start_line":1,"end_line":11,"line":3,"text":"A frozen tree used by the Rust test suite and by `tools/snapshot.sh`. It stands","score":0.018364726}
+{"path":"README.md","start_line":1,"end_line":11,"line":3,"text":"A frozen tree used by the Rust test suite and by `tools/snapshot.sh`. It stands","score":0.018402778}
 {"path":"docs/sourdough.md","start_line":1,"end_line":32,"line":31,"text":"Refrigerate overnight — the long cold proof develops the acidity that gives the","score":0.01711552}
 {"path":"docs/telescopes.md","start_line":1,"end_line":32,"line":3,"text":"A second control document, unrelated to the service and to the other control.","score":0.01664861}
-{"path":"worker/schedule.py","start_line":49,"end_line":72,"line":49,"text":"    \"\"\"True when `moment` (a datetime) satisfies every field of the schedule.\"\"\"","score":0.015803894}
+{"path":"worker/schedule.py","start_line":49,"end_line":72,"line":49,"text":"    \"\"\"True when `moment` (a datetime) satisfies every field of the schedule.\"\"\"","score":0.015826289}
 {"path":"native/ring.c","start_line":49,"end_line":80,"line":49,"text":" * which showed up as 8% of the ingest profile when it was a modulo. */","score":0.016458334}
-{"path":"docs/architecture.md","start_line":1,"end_line":32,"line":16,"text":"if the worker dies without acking, the deadline passes and the job returns to","score":0.017782515}
 {"path":"src/pool.rs","start_line":25,"end_line":56,"line":37,"text":"    /// Hand out an idle connection, or open a new one while under the cap.","score":0.015839096}
+{"path":"docs/architecture.md","start_line":1,"end_line":32,"line":16,"text":"if the worker dies without acking, the deadline passes and the job returns to","score":0.017742274}
 ### mode=hybrid path=cold query=close connections that have gone idle
 {"path":"src/pool.rs","start_line":49,"end_line":70,"line":58,"text":"    /// Close connections idle past the timeout so the database is not holding","score":0.01967213}
 {"path":"docs/architecture.md","start_line":25,"end_line":45,"line":35,"text":"## Failure modes we have actually hit","score":0.019159336}
 {"path":"README.md","start_line":1,"end_line":11,"line":5,"text":"and two deliberately off-topic documents that act as controls (a lexical engine","score":0.017929293}
-{"path":"docs/telescopes.md","start_line":25,"end_line":38,"line":34,"text":"sets up convection currents in the tube that smear the image as badly as poor","score":0.01681736}
+{"path":"docs/telescopes.md","start_line":25,"end_line":38,"line":34,"text":"sets up convection currents in the tube that smear the image as badly as poor","score":0.01675485}
 {"path":"docs/sourdough.md","start_line":25,"end_line":39,"line":31,"text":"Refrigerate overnight — the long cold proof develops the acidity that gives the","score":0.016726084}
 {"path":"src/pool.rs","start_line":1,"end_line":32,"line":6,"text":"    pub max_connections: usize,","score":0.01904762}
 {"path":"worker/dispatch.py","start_line":49,"end_line":71,"line":65,"text":"        rolling deploy does not lose jobs that were mid-handler.\"\"\"","score":0.017782515}
-{"path":"src/metrics.rs","start_line":25,"end_line":56,"line":33,"text":"    /// Linear interpolation within the bucket that crosses the quantile.","score":0.016714975}
-{"path":"src/config.rs","start_line":49,"end_line":63,"line":49,"text":"        cfg.log_level = v.to_string();","score":0.002631579}
+{"path":"src/metrics.rs","start_line":25,"end_line":56,"line":33,"text":"    /// Linear interpolation within the bucket that crosses the quantile.","score":0.016666668}
+{"path":"src/config.rs","start_line":49,"end_line":63,"line":49,"text":"        cfg.log_level = v.to_string();","score":0.0025974025}
 {"path":"native/ring.c","start_line":49,"end_line":80,"line":49,"text":" * which showed up as 8% of the ingest profile when it was a modulo. */","score":0.0025641026}
 ### mode=hybrid path=cold query=upper bound of the crossing bucket
 {"path":"docs/operations.md","start_line":1,"end_line":32,"line":22,"text":"histogram uses fixed exponential buckets, so the reported p99 is the upper bound","score":0.01967213}
 {"path":"src/metrics.rs","start_line":25,"end_line":56,"line":33,"text":"    /// Linear interpolation within the bucket that crosses the quantile.","score":0.018814193}
 {"path":"docs/telescopes.md","start_line":25,"end_line":38,"line":28,"text":"motion on both axes and the field of view rotates as the object moves, which has","score":0.017425433}
 {"path":"docs/sourdough.md","start_line":1,"end_line":32,"line":25,"text":"shape of a fold rather than slumping back immediately. Watch the dough, not the","score":0.017450366}
-{"path":"native/ring.c","start_line":25,"end_line":56,"line":48,"text":"/* Power-of-two capacity turns the wrap into a mask instead of a division,","score":0.017124332}
+{"path":"native/ring.c","start_line":25,"end_line":56,"line":48,"text":"/* Power-of-two capacity turns the wrap into a mask instead of a division,","score":0.017159421}
 {"path":"worker/schedule.py","start_line":49,"end_line":72,"line":49,"text":"    \"\"\"True when `moment` (a datetime) satisfies every field of the schedule.\"\"\"","score":0.016903685}
-{"path":"src/pool.rs","start_line":25,"end_line":56,"line":39,"text":"    /// than growing the pool without bound.","score":0.017977942}
+{"path":"src/pool.rs","start_line":25,"end_line":56,"line":39,"text":"    /// than growing the pool without bound.","score":0.017950581}
 {"path":"worker/schedule.py","start_line":1,"end_line":32,"line":5,"text":"FIELD_NAMES = (\"minute\", \"hour\", \"day_of_month\", \"month\", \"day_of_week\")","score":0.015160926}
-{"path":"docs/architecture.md","start_line":1,"end_line":32,"line":16,"text":"if the worker dies without acking, the deadline passes and the job returns to","score":0.016611297}
+{"path":"docs/architecture.md","start_line":1,"end_line":32,"line":16,"text":"if the worker dies without acking, the deadline passes and the job returns to","score":0.016638655}
 {"path":"src/retry.rs","start_line":1,"end_line":32,"line":14,"text":"/// Spread retries so a fleet of workers does not stampede a recovering service.","score":0.01614297}
 ### mode=hybrid path=cold query=route a job to its registered handler
 {"path":"docs/architecture.md","start_line":25,"end_line":45,"line":26,"text":"Each worker claims up to eight jobs concurrently, routes each to a handler","score":0.019518442}
 {"path":"src/queue.rs","start_line":25,"end_line":56,"line":56,"text":"    /// Return an unacked job to its lane with its attempt count incremented.","score":0.018050067}
-{"path":"docs/telescopes.md","start_line":1,"end_line":32,"line":3,"text":"A second control document, unrelated to the service and to the other control.","score":0.016598018}
+{"path":"docs/telescopes.md","start_line":1,"end_line":32,"line":3,"text":"A second control document, unrelated to the service and to the other control.","score":0.016643291}
 {"path":"docs/sourdough.md","start_line":25,"end_line":39,"line":32,"text":"loaf its flavor and makes the dough firm enough to score cleanly.","score":0.016452992}
 {"path":"worker/dispatch.py","start_line":1,"end_line":32,"line":22,"text":"            raise ValueError(f\"handler already registered for {job_kind}\")","score":0.01904762}
 {"path":"web/client.ts","start_line":25,"end_line":56,"line":42,"text":"  async submitJob(kind: string, payload: unknown): Promise<string> {","score":0.016111111}
 {"path":"docs/operations.md","start_line":1,"end_line":32,"line":6,"text":"jobs, finishes what it holds, and exits. Wait for the drain to complete before","score":0.017690957}
-{"path":"worker/dispatch.py","start_line":49,"end_line":71,"line":50,"text":"        for job, started, handler in self.in_flight:","score":0.018204061}
 {"path":"worker/schedule.py","start_line":1,"end_line":32,"line":1,"text":"\"\"\"Recurring job scheduling from cron-style expressions.\"\"\"","score":0.015456745}
+{"path":"worker/dispatch.py","start_line":49,"end_line":71,"line":50,"text":"        for job, started, handler in self.in_flight:","score":0.018151179}
 {"path":"README.md","start_line":1,"end_line":11,"line":9,"text":"**Do not edit these files to make a test pass.** Ranked output over this tree is","score":0.015136298}
 ### mode=hybrid path=cold query=expand a cron expression into allowed values
 {"path":"worker/schedule.py","start_line":1,"end_line":32,"line":11,"text":"    \"\"\"Expand a five-field cron expression into per-field allowed value sets.","score":0.01967213}
 {"path":"native/ring.c","start_line":25,"end_line":56,"line":48,"text":"/* Power-of-two capacity turns the wrap into a mask instead of a division,","score":0.017950581}
 {"path":"src/config.rs","start_line":1,"end_line":32,"line":18,"text":"            database_url: \"postgres://localhost/jobs\".into(),","score":0.018404663}
 {"path":"docs/operations.md","start_line":1,"end_line":32,"line":8,"text":"in-flight set into the retry path and produces a visible latency spike.","score":0.018201517}
-{"path":"docs/sourdough.md","start_line":25,"end_line":39,"line":25,"text":"shape of a fold rather than slumping back immediately. Watch the dough, not the","score":0.0025641026}
+{"path":"docs/sourdough.md","start_line":25,"end_line":39,"line":25,"text":"shape of a fold rather than slumping back immediately. Watch the dough, not the","score":0.0025974025}
 {"path":"src/metrics.rs","start_line":25,"end_line":56,"line":26,"text":"impl Histogram {","score":0.0031746032}
+{"path":"worker/schedule.py","start_line":49,"end_line":72,"line":49,"text":"    \"\"\"True when `moment` (a datetime) satisfies every field of the schedule.\"\"\"","score":0.0023529413}
 {"path":"web/client.ts","start_line":49,"end_line":80,"line":49,"text":"    const response = await this.request(\"GET\", `/jobs/${encodeURIComponent(id)}`);","score":0.003125}
-{"path":"worker/schedule.py","start_line":49,"end_line":72,"line":49,"text":"    \"\"\"True when `moment` (a datetime) satisfies every field of the schedule.\"\"\"","score":0.0022988506}
 {"path":"README.md","start_line":1,"end_line":11,"line":1,"text":"# Fixture corpus","score":0.002469136}
 {"path":"src/pool.rs","start_line":1,"end_line":32,"line":1,"text":"//! Database connection pool with a bounded wait queue.","score":0.0028985508}
 ### mode=hybrid path=cold query=abort a request once the deadline passes
 {"path":"web/client.ts","start_line":1,"end_line":32,"line":24,"text":"/** Abort a request once the deadline passes so a hung socket cannot pin a","score":0.01967213}
 {"path":"docs/architecture.md","start_line":1,"end_line":32,"line":16,"text":"if the worker dies without acking, the deadline passes and the job returns to","score":0.019098824}
-{"path":"src/config.rs","start_line":25,"end_line":56,"line":34,"text":"        if let Some((key, value)) = line.split_once('=') {","score":0.018162394}
-{"path":"docs/telescopes.md","start_line":25,"end_line":38,"line":28,"text":"motion on both axes and the field of view rotates as the object moves, which has","score":0.016554609}
-{"path":"docs/sourdough.md","start_line":1,"end_line":32,"line":31,"text":"Refrigerate overnight — the long cold proof develops the acidity that gives the","score":0.017004732}
+{"path":"src/config.rs","start_line":25,"end_line":56,"line":34,"text":"        if let Some((key, value)) = line.split_once('=') {","score":0.018124342}
+{"path":"docs/telescopes.md","start_line":25,"end_line":38,"line":28,"text":"motion on both axes and the field of view rotates as the object moves, which has","score":0.016576087}
+{"path":"docs/sourdough.md","start_line":1,"end_line":32,"line":31,"text":"Refrigerate overnight — the long cold proof develops the acidity that gives the","score":0.017058823}
 {"path":"web/client.ts","start_line":49,"end_line":80,"line":49,"text":"    const response = await this.request(\"GET\", `/jobs/${encodeURIComponent(id)}`);","score":0.018655304}
 {"path":"worker/schedule.py","start_line":49,"end_line":72,"line":49,"text":"    \"\"\"True when `moment` (a datetime) satisfies every field of the schedule.\"\"\"","score":0.016775552}
-{"path":"docs/operations.md","start_line":1,"end_line":32,"line":31,"text":"   deadline will return the jobs anyway, but SIGKILL loses the metrics flush.","score":0.017910447}
 {"path":"src/pool.rs","start_line":25,"end_line":56,"line":37,"text":"    /// Hand out an idle connection, or open a new one while under the cap.","score":0.01555433}
-{"path":"native/ring.c","start_line":49,"end_line":80,"line":49,"text":" * which showed up as 8% of the ingest profile when it was a modulo. */","score":0.015714286}
+{"path":"docs/operations.md","start_line":25,"end_line":40,"line":31,"text":"   deadline will return the jobs anyway, but SIGKILL loses the metrics flush.","score":0.017929293}
+{"path":"native/ring.c","start_line":49,"end_line":80,"line":49,"text":" * which showed up as 8% of the ingest profile when it was a modulo. */","score":0.015772358}
 ### mode=hybrid path=cold query=wrap the index with a mask instead of a division
 {"path":"native/ring.c","start_line":25,"end_line":56,"line":48,"text":"/* Power-of-two capacity turns the wrap into a mask instead of a division,","score":0.01967213}
-{"path":"docs/architecture.md","start_line":1,"end_line":32,"line":16,"text":"if the worker dies without acking, the deadline passes and the job returns to","score":0.01868992}
-{"path":"docs/sourdough.md","start_line":1,"end_line":32,"line":18,"text":"handle later. Add salt with the levain, not before — salt tightens the gluten and","score":0.018050067}
+{"path":"docs/architecture.md","start_line":1,"end_line":32,"line":16,"text":"if the worker dies without acking, the deadline passes and the job returns to","score":0.018771568}
+{"path":"docs/sourdough.md","start_line":1,"end_line":32,"line":18,"text":"handle later. Add salt with the levain, not before — salt tightens the gluten and","score":0.017968416}
 {"path":"docs/telescopes.md","start_line":25,"end_line":38,"line":28,"text":"motion on both axes and the field of view rotates as the object moves, which has","score":0.017404817}
 {"path":"src/retry.rs","start_line":1,"end_line":32,"line":28,"text":"/// Trips after repeated failures so callers fail fast instead of queueing.","score":0.017775537}
 {"path":"README.md","start_line":1,"end_line":11,"line":3,"text":"A frozen tree used by the Rust test suite and by `tools/snapshot.sh`. It stands","score":0.017161429}
 {"path":"worker/dispatch.py","start_line":49,"end_line":71,"line":64,"text":"        \"\"\"SIGTERM starts a drain instead of killing in-flight work, so a","score":0.016714975}
 {"path":"worker/schedule.py","start_line":49,"end_line":72,"line":49,"text":"    \"\"\"True when `moment` (a datetime) satisfies every field of the schedule.\"\"\"","score":0.016401332}
 {"path":"native/ring.c","start_line":73,"end_line":96,"line":88,"text":"\tsize_t offset = mask(rb, tail);","score":0.016830066}
-{"path":"docs/operations.md","start_line":1,"end_line":32,"line":7,"text":"moving to the next instance — a simultaneous restart of every worker empties the","score":0.016013514}
+{"path":"docs/operations.md","start_line":1,"end_line":32,"line":7,"text":"moving to the next instance — a simultaneous restart of every worker empties the","score":0.01598265}
 ### mode=hybrid path=cold query=what happens during a rolling deploy
+{"path":"worker/dispatch.py","start_line":49,"end_line":71,"line":65,"text":"        rolling deploy does not lose jobs that were mid-handler.\"\"\"","score":0.019423746}
+{"path":"src/config.rs","start_line":49,"end_line":63,"line":54,"text":"/// Environment wins over the file so a deploy can override without a rebuild.","score":0.01836969}
 {"path":"docs/architecture.md","start_line":25,"end_line":45,"line":31,"text":"SIGTERM begins a drain rather than terminating in-flight handlers, so a rolling","score":0.01940772}
-{"path":"src/config.rs","start_line":49,"end_line":63,"line":54,"text":"/// Environment wins over the file so a deploy can override without a rebuild.","score":0.018414918}
-{"path":"worker/dispatch.py","start_line":49,"end_line":71,"line":65,"text":"        rolling deploy does not lose jobs that were mid-handler.\"\"\"","score":0.019378517}
 {"path":"docs/operations.md","start_line":1,"end_line":32,"line":5,"text":"Rolling restart, one worker at a time. Each receives SIGTERM, stops claiming new","score":0.019098824}
 {"path":"docs/telescopes.md","start_line":1,"end_line":32,"line":1,"text":"# Telescopes","score":0.003076923}
 {"path":"docs/sourdough.md","start_line":25,"end_line":39,"line":25,"text":"shape of a fold rather than slumping back immediately. Watch the dough, not the","score":0.0027027028}
-{"path":"src/auth.rs","start_line":25,"end_line":36,"line":25,"text":"/// length to anyone who can time the response.","score":0.0028571428}
-{"path":"worker/schedule.py","start_line":25,"end_line":56,"line":25,"text":"def _expand_field(field, lo, hi):","score":0.002631579}
-{"path":"src/pool.rs","start_line":49,"end_line":70,"line":49,"text":"        None","score":0.0025316456}
+{"path":"src/auth.rs","start_line":25,"end_line":36,"line":25,"text":"/// length to anyone who can time the response.","score":0.0028985508}
+{"path":"worker/schedule.py","start_line":25,"end_line":56,"line":25,"text":"def _expand_field(field, lo, hi):","score":0.0025974025}
+{"path":"src/pool.rs","start_line":49,"end_line":70,"line":49,"text":"        None","score":0.0025641026}
 {"path":"web/client.ts","start_line":49,"end_line":80,"line":49,"text":"    const response = await this.request(\"GET\", `/jobs/${encodeURIComponent(id)}`);","score":0.0029411765}
 ### mode=hybrid path=cold query=baking bread with a fermented starter
 {"path":"docs/sourdough.md","start_line":1,"end_line":32,"line":10,"text":"feeding, smells sharply sour, and is ready to leaven bread. A starter kept in the","score":0.01967213}
-{"path":"docs/telescopes.md","start_line":25,"end_line":38,"line":25,"text":"An equatorial mount has one axis aligned with the Earth's rotation, so tracking a","score":0.017752659}
+{"path":"docs/telescopes.md","start_line":25,"end_line":38,"line":25,"text":"An equatorial mount has one axis aligned with the Earth's rotation, so tracking a","score":0.017730264}
 {"path":"docs/architecture.md","start_line":1,"end_line":32,"line":13,"text":"Jobs live in a single table with a priority column and a visibility deadline.","score":0.01904762}
-{"path":"src/pool.rs","start_line":1,"end_line":32,"line":1,"text":"//! Database connection pool with a bounded wait queue.","score":0.01697861}
-{"path":"src/queue.rs","start_line":49,"end_line":68,"line":56,"text":"    /// Return an unacked job to its lane with its attempt count incremented.","score":0.017063493}
+{"path":"src/pool.rs","start_line":1,"end_line":32,"line":1,"text":"//! Database connection pool with a bounded wait queue.","score":0.017004732}
 {"path":"web/client.ts","start_line":49,"end_line":80,"line":54,"text":"  /** Single request with bounded retries on transient failures. */","score":0.017425433}
+{"path":"src/queue.rs","start_line":49,"end_line":68,"line":56,"text":"    /// Return an unacked job to its lane with its attempt count incremented.","score":0.017063493}
 {"path":"src/queue.rs","start_line":1,"end_line":32,"line":1,"text":"//! In-process job queue with priority lanes and visibility timeouts.","score":0.017161429}
 {"path":"src/config.rs","start_line":1,"end_line":32,"line":31,"text":"        if line.is_empty() || line.starts_with('#') {","score":0.016330209}
-{"path":"web/client.ts","start_line":1,"end_line":32,"line":26,"text":"function withDeadline(timeoutMs: number): AbortSignal {","score":0.016830066}
+{"path":"web/client.ts","start_line":1,"end_line":32,"line":26,"text":"function withDeadline(timeoutMs: number): AbortSignal {","score":0.016746031}
 {"path":"src/retry.rs","start_line":1,"end_line":32,"line":1,"text":"//! Retry policy: exponential backoff with jitter and a circuit breaker.","score":0.015658915}
 ### mode=hybrid path=cold query=mirrors gathering light from distant stars
 {"path":"docs/telescopes.md","start_line":1,"end_line":32,"line":16,"text":"Aperture governs both light-gathering and resolving power. Doubling the diameter","score":0.01967213}
 {"path":"src/pool.rs","start_line":1,"end_line":32,"line":15,"text":"            acquire_timeout: Duration::from_secs(5),","score":0.018402778}
 {"path":"worker/schedule.py","start_line":1,"end_line":32,"line":1,"text":"\"\"\"Recurring job scheduling from cron-style expressions.\"\"\"","score":0.017450366}
-{"path":"src/auth.rs","start_line":1,"end_line":32,"line":10,"text":"/// Derive a verifier from a password and a per-user salt.","score":0.017884616}
-{"path":"src/retry.rs","start_line":1,"end_line":32,"line":8,"text":"/// Delay before attempt `n`, doubling from `base_ms` and capped.","score":0.01843712}
+{"path":"src/retry.rs","start_line":1,"end_line":32,"line":8,"text":"/// Delay before attempt `n`, doubling from `base_ms` and capped.","score":0.018539684}
+{"path":"src/auth.rs","start_line":1,"end_line":32,"line":10,"text":"/// Derive a verifier from a password and a per-user salt.","score":0.01791626}
 {"path":"docs/architecture.md","start_line":25,"end_line":45,"line":37,"text":"- **Retry stampede.** Without jitter, a fleet recovering from a database blip","score":0.016945574}
 {"path":"web/client.ts","start_line":73,"end_line":85,"line":73,"text":"      } catch (err) {","score":0.0031746032}
 {"path":"docs/sourdough.md","start_line":1,"end_line":32,"line":1,"text":"# Sourdough","score":0.0023255814}
@@ -904,7 +904,7 @@
 {"path":"web/client.ts","start_line":49,"end_line":80,"line":49,"text":"    const response = await this.request(\"GET\", `/jobs/${encodeURIComponent(id)}`);","score":0.0028985508}
 {"path":"src/auth.rs","start_line":1,"end_line":32,"line":1,"text":"//! Session tokens and password storage.","score":0.0027777778}
 {"path":"web/client.ts","start_line":1,"end_line":32,"line":1,"text":"// HTTP client for the jobs API: timeouts, retries, and typed responses.","score":0.0028169015}
-{"path":"src/metrics.rs","start_line":25,"end_line":56,"line":26,"text":"impl Histogram {","score":0.0027027028}
+{"path":"src/metrics.rs","start_line":25,"end_line":56,"line":26,"text":"impl Histogram {","score":0.002739726}
 {"path":"docs/operations.md","start_line":1,"end_line":32,"line":1,"text":"# Operations","score":0.002631579}
 ### mode=hybrid path=warm query=how is the retry delay computed
 {"path":"src/retry.rs","start_line":1,"end_line":32,"line":1,"text":"//! Retry policy: exponential backoff with jitter and a circuit breaker.","score":0.01967213}

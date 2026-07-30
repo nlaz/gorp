@@ -82,7 +82,10 @@ fn options(cli: &Cli, mode: Mode) -> SearchOptions {
 /// A cold ranked search is also a cache build, and on a large scope that is
 /// visibly slow. Say so before it happens rather than looking hung.
 fn warn_if_first_search(root: &Path, opts: &SearchOptions) {
-    if opts.mode != Mode::Keyword && !opts.no_index && cache::discover(root).is_none() {
+    if opts.mode != Mode::Keyword
+        && !opts.no_index
+        && cache::discover(root, &opts.params).is_none()
+    {
         eprintln!(
             "semgrep: first ranked search of this scope — caching it (later searches are fast)"
         );
@@ -96,7 +99,7 @@ fn warn_if_first_search(root: &Path, opts: &SearchOptions) {
 /// scopes and ancestor or cache entries count. The fallback must never turn a
 /// fast miss into a corpus pass or a surprise cache build.
 fn suggest_ranked_alternatives(root: &Path, query: &str, opts: &SearchOptions) -> bool {
-    if opts.no_index || cache::discover(root).is_none() {
+    if opts.no_index || cache::discover(root, &opts.params).is_none() {
         return false;
     }
     let ranked_opts = SearchOptions { mode: Mode::Hybrid, k: 3, ..opts.clone() };
