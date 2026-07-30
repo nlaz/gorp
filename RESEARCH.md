@@ -1953,3 +1953,113 @@ not an upper bound.)
 identifier-query claim is baseline-shaped rather than engine-shaped, and §12.2's
 correction did not go far enough. That would need retracting, not explaining.
 
+### 13.5 `rg-oracle`: the result, and two ways the ceiling was wrong first
+
+The prediction in §13.4 was recorded before the run. Here is what happened, on
+four new corpora (rust/java/go/ruby, symbol-anchored ground truth, §13.6):
+
+**R@5, `direct`:**
+
+| corpus | rg | rg-strong | **rg-oracle** | semantic | bm25 | hybrid |
+|---|---|---|---|---|---|---|
+| jekyll | 0.034 | 0.057 | **0.205** | 0.636 | 0.864 | 0.886 |
+| tokio | 0.065 | 0.085 | **0.190** | 0.420 | 0.710 | 0.700 |
+| commons-lang | 0.070 | 0.106 | **0.236** | 0.492 | 0.849 | 0.864 |
+| etcd | 0.090 | 0.090 | **0.165** | 0.340 | 0.705 | 0.695 |
+
+**R@5, `paraphrase`:**
+
+| corpus | rg-strong | **rg-oracle** | bm25 | hybrid |
+|---|---|---|---|---|
+| jekyll | 0.000 | **0.068** | 0.136 | 0.182 |
+| tokio | 0.010 | **0.050** | 0.090 | 0.085 |
+| commons-lang | 0.015 | **0.035** | 0.146 | 0.171 |
+| etcd | 0.000 | **0.030** | 0.065 | 0.065 |
+
+**The margin survives the ceiling.** rg-oracle is 1.8–3.6× rg-strong, so
+`rg-strong` really was still leaving ripgrep performance on the table and §12.2
+did not go far enough as a bound. But semgrep is **3.7–4.3× above the oracle**
+on `direct` — against a ripgrep that is allowed to consult the answer before
+choosing its pattern. That is the falsification test §13.4 set up, and the
+claim passes it: the gap is engine-shaped, not baseline-shaped.
+
+The pre-registered falsification condition (kernel `direct` R@5 ≥ 0.85 for the
+oracle) is not met anywhere here — the highest is 0.236. The kernel run itself
+is still pending; this section will be updated with it, not replaced.
+
+**bm25 ≥ hybrid on three of four corpora.** 0.710 vs 0.700 (tokio), 0.705 vs
+0.695 (etcd), 0.849 vs 0.864 (commons-lang), 0.864 vs 0.886 (jekyll). The
+semantic half adds nothing on code here, which agrees with §12.3's CoSQA
+finding and §9.9's measurement that "on code, ese functions as a fuzzy lexical
+matcher, not a semantic model." Note this does **not** contradict §13.2, where
+hybrid beat bm25 on real agent queries — those are a different distribution,
+and that is the whole point of having both.
+
+**The paraphrase wall stands.** 0.065–0.182 R@5 for hybrid, on four corpora in
+four languages, consistent with §9.4's kernel finding. Four years of levers
+have not moved it and neither did four new corpora.
+
+#### The ceiling was not a ceiling, twice
+
+Worth recording because the failures were more informative than the result.
+
+**First: a single-token vocabulary cannot bound a conjunctive one.** The oracle
+tried every content token on its own. `rg_strong` also tries `A.*B` — both
+tokens on one line — which is strictly *more* selective than either alone, so
+gold can rank better under it than under any single token. Measured across
+1,374 real queries, the "upper bound" lost to the thing it was bounding on
+**53 of them (3.9%)**. Fixed by making the candidate set a superset of
+`rg_strong`'s attempts, which makes the bound structural rather than hoped-for.
+
+The fixture test asserting `rank(oracle) <= rank(rg_strong)` passed throughout.
+It never constructed a case where a conjunction beat every single token. A
+property test over four real corpora did, immediately.
+
+**Second: ripgrep's output order was not deterministic.** After that fix, 12
+violations remained. `rg_run` never passed `--sort`, and ripgrep parallelizes
+its directory walk and emits results as workers finish. Six runs of one pattern
+over etcd produced **two distinct top-10 orderings**. A rank is a position in
+that list, so:
+
+> Every `rg` and `rg-strong` number this harness has produced — including
+> §12.2's fair-baseline table — carried run-to-run variance from thread
+> scheduling, and no rg result was exactly reproducible.
+
+Measured spread on rg-strong R@5 over 150 etcd queries: **0.0067 across three
+runs** unsorted, **0.0000** with `--sort path`. That is small enough that it
+overturns no published conclusion, and large enough to matter at the resolution
+§11.5 is trying to reach — 0.67pp of pure scheduling noise against a target of
+resolving 3pp effects. `--sort path` is now always passed.
+
+CLAUDE.md says the snapshot tripwire "has caught non-determinism that no test
+could see." It covers ranked output over the frozen fixture; the ripgrep
+baselines were outside it, and stayed nondeterministic for the whole life of
+the harness.
+
+### 13.6 Four more corpora, and what they were for
+
+| corpus | lang | files | source | symbols | has_doc | queries |
+|---|---|---|---|---|---|---|
+| tokio | rust | 790 | 6.0 MB | 7,728 | 59% | 400 |
+| commons-lang | java | 625 | 10.3 MB | 4,985 | 88% | 398 |
+| etcd | go | 1,110 | 15.4 MB | 9,211 | 20% | 400 |
+| jekyll | ruby | 166 | 3.3 MB | 1,068 | 45% | 176 |
+
+`symbols.py` supports python/js/ts/rust/go/c/java/ruby and until now only c
+and ts were exercised by a corpus — go, java, ruby and rust were tested against
+hand-written fixtures alone. All four sit in the <2k-file band where §9.7 found
+engine variants actually diverge; the original three are 84k, 4k and 1k files.
+The `has_doc` spread (20–88%) is deliberate: it is a stratum, and a stratum
+needs variance.
+
+Ground truth is symbol-anchored, so these sets — unlike the three older ones —
+can referee a chunking change without §11.4's circularity.
+
+Running `extract()` over 22,992 real symbols found one defect the invariant
+checks did not: `def self.foo` extracted the name `self` (29 of jekyll's 1,060
+ruby symbols). Spans were correct, so ground truth was unaffected; the `symbol`
+stratum was reporting a keyword as a method name. Invariant checks — span
+ordering, EOF bounds — returned **0 violations across all four corpora** and
+would never have caught it. It surfaced from a test that asserted what the name
+should *be*.
+

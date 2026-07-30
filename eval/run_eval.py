@@ -48,7 +48,10 @@ def semgrep_search(query, corpus, mode, k, no_index, extra=()):
     if no_index:
         cmd.append("--no-index")
     cmd += list(extra) + [query, str(corpus)]
-    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+    # errors="replace" for the same reason as rg_run: hit lines carry corpus
+    # bytes, and one accented character must not end the run.
+    proc = subprocess.run(cmd, capture_output=True, text=True,
+                          errors="replace", timeout=600)
     # Exit 2 is "something went wrong", as distinct from 1 = "no match". A binary
     # that cannot answer must stop the run, not score zero: this silently
     # reported 0.00 across 400 queries when handed a binary whose embedding
@@ -70,9 +73,29 @@ def semgrep_search(query, corpus, mode, k, no_index, extra=()):
 
 
 def rg_run(pattern, corpus, k, flags=()):
+    # errors="replace": rg echoes the matched line's bytes, and a corpus with
+    # a Latin-1 identifier in it (commons-lang has several) makes strict UTF-8
+    # decoding raise mid-run. Killing a 400-query scoring run over one accented
+    # character in one matched line is not a stricter measurement, it is no
+    # measurement — and the engine itself decodes lossily for the same reason
+    # (corpus/mod.rs: "never bail on mixed-encoding trees").
+    # --sort path is load-bearing, not cosmetic. ripgrep parallelizes its
+    # directory walk and emits results as workers finish, so WITHOUT it the
+    # same pattern over the same corpus returns hits in a different order from
+    # run to run — measured: 6 runs of one pattern over etcd produced 2
+    # distinct top-10 orderings. Since a rank is a position in that list,
+    # every rg and rg-strong figure this harness has ever produced carried
+    # run-to-run variance from thread scheduling, and no rg result was
+    # reproducible. It also made the rg-oracle ceiling appear to lose to
+    # rg_strong on queries where it had simply re-run the same pattern and
+    # been handed a different order.
+    #
+    # --sort path forces a single-threaded, alphabetical walk. It costs
+    # throughput and buys a defined answer to "what are the first k hits".
     proc = subprocess.run(
-        [RG, "--no-heading", "-n", "-m", "3", *flags, pattern, str(corpus)],
-        capture_output=True, text=True, timeout=600)
+        [RG, "--no-heading", "-n", "-m", "3", "--sort", "path",
+         *flags, pattern, str(corpus)],
+        capture_output=True, text=True, errors="replace", timeout=600)
     hits = []
     for line in proc.stdout.splitlines():
         m = re.match(r"(.+?):(\d+):", line)
@@ -205,23 +228,38 @@ def rg_oracle(query, corpus, k, truth, slack):
     matching later in a file already matched by another token becomes
     invisible. An upper bound that under-credits is not an upper bound.)
     """
-    toks = content_tokens(query)
-    # Identifiers first, then the rest longest-first: same rarity proxy as
-    # rg_strong, so the two are ordered comparably when both are capped.
-    ordered = identifiers(toks) + sorted(
-        (t for t in toks if t not in set(identifiers(toks))), key=len, reverse=True)
-    ordered = _dedupe(ordered)[:ORACLE_MAX_TOKENS]
-
     window = _gold_window(corpus, truth, slack)
     if window is None:
         return []
-    live = [t for t in ordered if t.lower() in window]
-    if not live:
-        return []
+
+    toks = content_tokens(query)
+    # Identifiers first, then the rest longest-first: same rarity proxy as
+    # rg_strong, so the two are ordered comparably when both are capped.
+    idents = set(identifiers(toks))
+    ordered = identifiers(toks) + sorted(
+        (t for t in toks if t not in idents), key=len, reverse=True)
+    # A token absent from the gold window cannot produce a hit `correct()`
+    # accepts, so scanning for it cannot change the answer. Exact, not
+    # heuristic — see test_pruning_cannot_discard_a_token_that_would_have_scored.
+    live = [re.escape(t) for t in ordered[:ORACLE_MAX_TOKENS]
+            if t.lower() in window]
+
+    # Everything rg_strong would try, unpruned. Without this the oracle is NOT
+    # an upper bound, and it was not: measured over 1,374 real queries it lost
+    # to rg_strong on 53 of them (3.9%). The cause is that rg_strong tries
+    # CONJUNCTIVE patterns (`A.*B`, requiring both tokens on one line) which
+    # are strictly more selective than either token alone, so gold can rank
+    # better under them than under any single token. A single-token vocabulary
+    # cannot express that, so it cannot bound it.
+    #
+    # The fixture test asserting the bound passed anyway, because the fixtures
+    # never exercised a conjunctive win. The per-query check across four real
+    # corpora is what caught it.
+    candidates = _dedupe(rg_strong_attempts(query) + live)
 
     best_rank, best_hits = None, []
-    for t in live:
-        hits = rg_run(re.escape(t), corpus, k, flags=("-i",))
+    for pat in candidates:
+        hits = rg_run(pat, corpus, k, flags=("-i",))
         r = next((i + 1 for i, h in enumerate(hits) if correct(h, truth, slack)), None)
         if r is not None and (best_rank is None or r < best_rank):
             best_rank, best_hits = r, hits

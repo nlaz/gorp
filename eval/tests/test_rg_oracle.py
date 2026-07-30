@@ -91,6 +91,46 @@ def test_the_oracle_finds_a_token_rg_strong_never_tries(tmp_path):
     assert rank(oracle) == 1
 
 
+def test_a_conjunctive_pattern_can_beat_every_single_token(tmp_path):
+    """The case that broke the bound, kept as the reason the fix exists.
+
+    `alpha` and `beta` each appear in 20 decoy files, so neither alone ranks
+    gold in the top 10. `alpha.*beta` — which rg_strong tries and a
+    single-token vocabulary cannot express — matches only the gold line. An
+    oracle built from single tokens alone therefore LOST to rg_strong here,
+    on 53 of 1,374 real queries before this was fixed.
+    """
+    files = {f"decoy/a{i}.py": "alpha only\n" for i in range(20)}
+    files.update({f"decoy/b{i}.py": "beta only\n" for i in range(20)})
+    files["src/a.py"] = "alpha and beta together\n"
+    c = corpus(tmp_path, files)
+    t = truth(start=1, end=1)
+    q = "alpha beta"
+
+    def rank(hits):
+        return next((i + 1 for i, h in enumerate(hits) if run_eval.correct(h, t, 0)), None)
+
+    rs = rank(run_eval.rg_strong(q, c, 10))
+    ro = rank(run_eval.rg_oracle(q, c, 10, t, 0))
+    assert rs is not None, "fixture no longer exercises the conjunctive win"
+    assert ro is not None and ro <= rs
+
+
+def test_the_oracle_tries_everything_rg_strong_tries(tmp_path):
+    # The structural guarantee behind the bound: the candidate set is a
+    # superset of rg_strong's attempts, so the oracle cannot do worse.
+    c = corpus(tmp_path, {"src/a.py": "parse_config handler value\n"})
+    seen = []
+    orig = run_eval.rg_run
+    run_eval.rg_run = lambda p, corp, k, flags=(): (seen.append(p), [])[1]
+    try:
+        run_eval.rg_oracle("parse_config handler value", c, 10, truth(start=1, end=1), 0)
+    finally:
+        run_eval.rg_run = orig
+    for pat in run_eval.rg_strong_attempts("parse_config handler value"):
+        assert pat in seen, pat
+
+
 def test_the_oracle_rank_is_never_worse_than_rg_strong(tmp_path):
     """The upper-bound invariant, over a spread of query shapes."""
     files = {f"noise/n{i}.py": f"filler helper value {i}\n" for i in range(12)}
@@ -149,11 +189,15 @@ def test_the_token_budget_is_capped(tmp_path):
         run_eval.rg_oracle(q, c, 10, truth(start=1, end=1), 0)
     finally:
         run_eval.rg_run = orig
-    assert len(calls) <= run_eval.ORACLE_MAX_TOKENS
+    # The cap applies to the single-token additions; rg_strong's own attempts
+    # are always included, because bounding them requires trying them.
+    n_strong = len(run_eval.rg_strong_attempts(q))
+    assert len(calls) <= run_eval.ORACLE_MAX_TOKENS + n_strong
 
 
-def test_stopwords_are_not_scanned_for(tmp_path):
-    # Grepping for "the" would match half the corpus and cost a full scan.
+def test_stopwords_are_not_scanned_for_on_their_own(tmp_path):
+    # Grepping for "the" alone would match half the corpus and cost a full
+    # scan. (It may still appear inside rg_strong's escaped exact phrase.)
     c = corpus(tmp_path, {"src/a.py": "the value of the thing\n"})
     calls = []
     orig = run_eval.rg_run
@@ -165,7 +209,10 @@ def test_stopwords_are_not_scanned_for(tmp_path):
     assert "the" not in calls and "of" not in calls
 
 
-def test_a_query_with_no_live_tokens_scans_nothing(tmp_path):
+def test_a_query_with_no_live_tokens_still_tries_rg_strongs_attempts(tmp_path):
+    # Pruning removes single-token scans that cannot score. It must NOT remove
+    # rg_strong's attempts: the oracle bounds rg_strong, and it cannot bound
+    # what it never runs.
     c = corpus(tmp_path, {"src/a.py": "alpha\n"})
     calls = []
     orig = run_eval.rg_run
@@ -174,7 +221,8 @@ def test_a_query_with_no_live_tokens_scans_nothing(tmp_path):
         got = run_eval.rg_oracle("zeta eta theta", c, 10, truth(start=1, end=1), 0)
     finally:
         run_eval.rg_run = orig
-    assert got == [] and calls == []
+    assert got == []
+    assert calls == run_eval.rg_strong_attempts("zeta eta theta")
 
 
 def test_token_order_is_deterministic():
