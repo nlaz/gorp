@@ -14,11 +14,6 @@ pub fn new_hnsw() -> SemgrepHnsw {
     SemgrepHnsw::new(Cosine, 0xB06)
 }
 
-/// Embed a batch of chunk texts (rayon-parallel inside ese for >=16 items).
-pub fn embed_batch(texts: &[&str]) -> Vec<[f32; EMBED_DIM]> {
-    ese::encode(texts)
-}
-
 pub fn embed_query(query: &str) -> [f32; EMBED_DIM] {
     ese::encode_single(query)
 }
@@ -67,7 +62,11 @@ impl SifStats {
         });
     }
 
-    pub fn merge(&mut self, other: SifStats) {
+    /// Fold another shard's *counts* in. Deliberately not a full merge: `a` and
+    /// `mean` are configuration, not observations, and silently taking them from
+    /// whichever shard merged last is how a build ends up weighting chunks with
+    /// one constant and queries with another.
+    pub fn merge_counts(&mut self, other: SifStats) {
         for (t, c) in other.freqs {
             *self.freqs.entry(t).or_insert(0) += c;
         }
@@ -156,30 +155,6 @@ pub fn normalize(v: &mut [f32]) {
     }
 }
 
-/// Distance for *unit-normalized* vectors: `1 − a·b`, identical ordering and
-/// value to cosine distance but one FMA stream instead of three. This is the
-/// hot kernel of the brute-force scan (provenance: `rank:brute` was 72% of a
-/// warm kernel-corpus query under Cosine).
-#[inline]
-pub fn dot_distance(a: &[f32], b: &[f32]) -> f32 {
-    let n = a.len().min(b.len());
-    let (a, b) = (&a[..n], &b[..n]);
-    let mut lanes = [0.0f32; 8];
-    let mut i = 0;
-    while i + 8 <= n {
-        for l in 0..8 {
-            lanes[l] += a[i + l] * b[i + l];
-        }
-        i += 8;
-    }
-    let mut d: f32 = lanes.iter().sum();
-    while i < n {
-        d += a[i] * b[i];
-        i += 1;
-    }
-    1.0 - d
-}
-
 /// Quantize a unit vector to i8 (x → round(x·127)). On normalized vectors
 /// the i8·i8 dot preserves cosine ordering to within noise, and the 4×
 /// smaller matrix is the point: the brute scan is page-fault/IO bound
@@ -188,8 +163,10 @@ pub fn quantize_i8(v: &[f32]) -> Vec<i8> {
     v.iter().map(|&x| (x * 127.0).round().clamp(-127.0, 127.0) as i8).collect()
 }
 
-/// Distance for i8-quantized unit vectors: `1 − (a·b)/127²`, same range
-/// convention as [`dot_distance`]. Integer accumulation autovectorizes well.
+/// Distance for i8-quantized unit vectors: `1 − (a·b)/127²`, same
+/// lower-is-better convention as [`distance`]. On unit vectors this is one
+/// integer FMA stream instead of the three float passes cosine needs, and it
+/// autovectorizes; the scan it feeds was 72% of a warm kernel-corpus query.
 #[inline]
 pub fn dot_distance_i8(a: &[i8], b: &[i8]) -> f32 {
     let n = a.len().min(b.len());
@@ -227,43 +204,6 @@ pub fn brute_force_top_k_i8(query: &[i8], matrix: &[i8], k: usize) -> Vec<(u32, 
             for row in start..end {
                 let v = &matrix[row * EMBED_DIM..(row + 1) * EMBED_DIM];
                 local.push(row as u32, dot_distance_i8(query, v));
-            }
-            local.into_sorted()
-        })
-        .reduce(Vec::new, |mut a, b| {
-            a.extend(b);
-            a
-        });
-    best.sort_unstable_by(|x, y| x.1.total_cmp(&y.1).then(x.0.cmp(&y.0)));
-    best.truncate(k);
-    best
-}
-
-/// Exact top-k over a flat embedding matrix (`n × EMBED_DIM` f32 values,
-/// e.g. an mmap'd `emb.bin`). Returns (chunk_id, distance) ascending.
-/// `normalized` selects the fast dot kernel (index format v2 stores unit
-/// vectors); otherwise falls back to full cosine.
-pub fn brute_force_top_k(
-    query: &[f32],
-    matrix: &[f32],
-    k: usize,
-    normalized: bool,
-) -> Vec<(u32, f32)> {
-    let n = matrix.len() / EMBED_DIM;
-    if n == 0 || k == 0 {
-        return Vec::new();
-    }
-    let chunk_rows = 16 * 1024;
-    let dist: fn(&[f32], &[f32]) -> f32 = if normalized { dot_distance } else { distance };
-    let mut best: Vec<(u32, f32)> = (0..n.div_ceil(chunk_rows))
-        .into_par_iter()
-        .map(|block| {
-            let start = block * chunk_rows;
-            let end = (start + chunk_rows).min(n);
-            let mut local = TopK::new(k);
-            for row in start..end {
-                let v = &matrix[row * EMBED_DIM..(row + 1) * EMBED_DIM];
-                local.push(row as u32, dist(query, v));
             }
             local.into_sorted()
         })
@@ -319,11 +259,6 @@ impl TopK {
         }
     }
 
-    /// Current worst kept distance (if k items are held).
-    pub fn threshold(&self) -> Option<f32> {
-        (self.heap.len() >= self.k).then(|| self.heap.peek().unwrap().0)
-    }
-
     /// (id, distance) ascending by distance.
     pub fn into_sorted(self) -> Vec<(u32, f32)> {
         let mut v: Vec<(u32, f32)> =
@@ -347,24 +282,83 @@ mod tests {
         assert_eq!(got.iter().map(|x| x.0).collect::<Vec<_>>(), vec![3, 1, 2]);
     }
 
-    #[test]
-    fn brute_force_matches_naive() {
-        // 100 pseudo-random rows, fixed seed via LCG
-        let mut state = 42u64;
-        let mut next = || {
+    /// Deterministic pseudo-random floats in [-0.5, 0.5) — enough structure to
+    /// distinguish rows without pulling in a dependency.
+    fn lcg(seed: u64) -> impl FnMut() -> f32 {
+        let mut state = seed;
+        move || {
             state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
             ((state >> 33) as f32 / u32::MAX as f32) - 0.5
-        };
+        }
+    }
+
+    /// The scan splits the matrix into blocks, keeps a local heap per block, and
+    /// merges. That has to agree with the obvious row-by-row loop — block
+    /// boundaries and the merge are exactly where an off-by-one hides.
+    #[test]
+    fn block_parallel_scan_matches_naive() {
+        let mut next = lcg(42);
         let n = 100;
-        let matrix: Vec<f32> = (0..n * EMBED_DIM).map(|_| next()).collect();
-        let query: Vec<f32> = (0..EMBED_DIM).map(|_| next()).collect();
-        let got = brute_force_top_k(&query, &matrix, 5, false);
-        let mut naive: Vec<(u32, f32)> = (0..n)
-            .map(|i| (i as u32, distance(&query, &matrix[i * EMBED_DIM..(i + 1) * EMBED_DIM])))
+        let rows: Vec<Vec<i8>> = (0..n)
+            .map(|_| {
+                let mut v: Vec<f32> = (0..EMBED_DIM).map(|_| next()).collect();
+                normalize(&mut v);
+                quantize_i8(&v)
+            })
             .collect();
-        naive.sort_unstable_by(|a, b| a.1.total_cmp(&b.1));
+        let matrix: Vec<i8> = rows.concat();
+        let mut qf: Vec<f32> = (0..EMBED_DIM).map(|_| next()).collect();
+        normalize(&mut qf);
+        let query = quantize_i8(&qf);
+
+        let got = brute_force_top_k_i8(&query, &matrix, 5);
+        let mut naive: Vec<(u32, f32)> = rows
+            .iter()
+            .enumerate()
+            .map(|(i, row)| (i as u32, dot_distance_i8(&query, row)))
+            .collect();
+        naive.sort_unstable_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));
         naive.truncate(5);
         assert_eq!(got, naive);
+    }
+
+    /// Quantization is the whole basis of the v2 format: an i8 matrix is 4×
+    /// smaller than f32, and the scan it feeds is page-fault bound. That trade
+    /// is only sound if i8 ordering tracks the f32 cosine ordering, which
+    /// nothing checked. Rank correlation over the head, not exact equality —
+    /// quantization is allowed to disagree, just not to reorder wholesale.
+    #[test]
+    fn quantized_ranking_tracks_exact_cosine() {
+        let mut next = lcg(7);
+        let n = 200;
+        let rows: Vec<Vec<f32>> = (0..n)
+            .map(|_| {
+                let mut v: Vec<f32> = (0..EMBED_DIM).map(|_| next()).collect();
+                normalize(&mut v);
+                v
+            })
+            .collect();
+        let mut query: Vec<f32> = (0..EMBED_DIM).map(|_| next()).collect();
+        normalize(&mut query);
+
+        let mut exact: Vec<(u32, f32)> =
+            rows.iter().enumerate().map(|(i, r)| (i as u32, distance(&query, r))).collect();
+        exact.sort_unstable_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));
+
+        let matrix: Vec<i8> = rows.iter().flat_map(|r| quantize_i8(r)).collect();
+        let approx = brute_force_top_k_i8(&quantize_i8(&query), &matrix, 20);
+
+        // Every one of the quantized top-10 must be in the exact top-20.
+        let exact_head: std::collections::HashSet<u32> =
+            exact.iter().take(20).map(|&(id, _)| id).collect();
+        for &(id, _) in approx.iter().take(10) {
+            assert!(
+                exact_head.contains(&id),
+                "row {id} ranked top-10 by i8 but not top-20 exact"
+            );
+        }
+        // And the nearest row must survive quantization outright.
+        assert_eq!(approx[0].0, exact[0].0, "quantization moved the nearest neighbour");
     }
 
     #[test]

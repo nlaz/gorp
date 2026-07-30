@@ -387,40 +387,38 @@ fn search_indexed(
     // tf in hits, low df in corpus), expand the query, re-rank lexically.
     // "LLM query expansion without the LLM" — the NL query only has to land
     // near the target once; the neighborhood's vocabulary does the rest.
-    if opts.prf_terms > 0 {
-        if let Some(b) = &idx.bm25 {
-            let t0 = Instant::now();
-            let query_toks: HashSet<String> = tokenize::tokens(query).into_iter().collect();
-            let mut tf: HashMap<String, f32> = HashMap::new();
-            for &(id, _) in bm25_ranked.iter().take(10) {
-                let (chunk, path) = resolve(id);
-                let Some(text) = corpus::chunk_text_rel(&d.root, &path, &chunk) else {
-                    continue;
-                };
-                tokenize::for_each_token(&text, |tok| {
-                    if !query_toks.contains(tok) && tok.len() >= 3 {
-                        *tf.entry(tok.to_string()).or_insert(0.0) += 1.0;
-                    }
-                });
-            }
-            let n_docs = b.n_docs() as f32;
-            let mut scored: Vec<(String, f32)> = tf
-                .into_iter()
-                .map(|(t, f)| {
-                    let df = b.df(&t).max(1) as f32;
-                    let idf = ((n_docs - df + 0.5) / (df + 0.5) + 1.0).ln();
-                    (t, f * idf)
-                })
-                .collect();
-            scored.sort_unstable_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
-            let expansion: Vec<String> =
-                scored.into_iter().take(opts.prf_terms).map(|(t, _)| t).collect();
-            if !expansion.is_empty() {
-                let expanded = format!("{query} {}", expansion.join(" "));
-                bm25_ranked = bm25_rank(&expanded);
-            }
-            stages.push(("rank:prf".into(), ms(t0)));
+    if opts.prf_terms > 0
+        && let Some(b) = &idx.bm25
+    {
+        let t0 = Instant::now();
+        let query_toks: HashSet<String> = tokenize::tokens(query).into_iter().collect();
+        let mut tf: HashMap<String, f32> = HashMap::new();
+        for &(id, _) in bm25_ranked.iter().take(10) {
+            let (chunk, path) = resolve(id);
+            let Some(text) = corpus::chunk_text_rel(&d.root, &path, &chunk) else { continue };
+            tokenize::for_each_token(&text, |tok| {
+                if !query_toks.contains(tok) && tok.len() >= 3 {
+                    *tf.entry(tok.to_string()).or_insert(0.0) += 1.0;
+                }
+            });
         }
+        let n_docs = b.n_docs() as f32;
+        let mut scored: Vec<(String, f32)> = tf
+            .into_iter()
+            .map(|(t, f)| {
+                let df = b.df(&t).max(1) as f32;
+                let idf = ((n_docs - df + 0.5) / (df + 0.5) + 1.0).ln();
+                (t, f * idf)
+            })
+            .collect();
+        scored.sort_unstable_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+        let expansion: Vec<String> =
+            scored.into_iter().take(opts.prf_terms).map(|(t, _)| t).collect();
+        if !expansion.is_empty() {
+            let expanded = format!("{query} {}", expansion.join(" "));
+            bm25_ranked = bm25_rank(&expanded);
+        }
+        stages.push(("rank:prf".into(), ms(t0)));
     }
     let mut used_hnsw = false;
     let sem_ranked: Vec<(u32, f32)> = match opts.mode {
@@ -432,9 +430,7 @@ fn search_indexed(
                 Some(s) => semantic::embed_sif(query, s),
                 None => semantic::embed_query(query),
             };
-            if idx.meta.normalized {
-                semantic::normalize(&mut q);
-            }
+            semantic::normalize(&mut q);
             stages.push(("rank:embed-query".into(), ms(t0)));
             let t0 = Instant::now();
             let mut ranked: Vec<(u32, f32)> = match (&idx.hnsw, opts.use_hnsw) {
@@ -443,12 +439,9 @@ fn search_indexed(
                     used_hnsw = true;
                     h.search(&q).into_iter().map(|(d, id)| (id, d)).take(pool).collect()
                 }
-                _ if idx.meta.quantized => {
+                _ => {
                     let qi = semantic::quantize_i8(&q);
                     semantic::brute_force_top_k_i8(&qi, idx.emb_matrix_i8(), pool)
-                }
-                _ => {
-                    semantic::brute_force_top_k(&q, idx.emb_matrix(), pool, idx.meta.normalized)
                 }
             };
             ranked.retain(|&(id, _)| !tombstoned(id));
@@ -550,8 +543,8 @@ fn search_indexed(
         })
         .take(opts.k * 3)
         .collect();
-    // Chunk ids equal embedding-matrix row ids, so vectors are free here
-    // (dequantized on the fly for v2 indexes — a handful of rows).
+    // Chunk ids equal embedding-matrix row ids, so vectors are free here —
+    // dequantized on the fly, and only for the handful of candidate rows.
     let t0 = Instant::now();
     let n_delta = repair.as_ref().map_or(0, |r| r.delta.chunks.len());
     let hits = finalize_hits(&d.root, query, cands, opts, &d.prefix, |c| {
@@ -560,18 +553,13 @@ fn search_indexed(
             return Some(r.delta.vecs[(c.id - n_base) as usize].clone());
         }
         let row = c.id as usize;
-        if idx.meta.quantized {
-            let m = idx.emb_matrix_i8();
-            Some(
-                m[row * crate::EMBED_DIM..(row + 1) * crate::EMBED_DIM]
-                    .iter()
-                    .map(|&x| x as f32 / 127.0)
-                    .collect(),
-            )
-        } else {
-            let m = idx.emb_matrix();
-            Some(m[row * crate::EMBED_DIM..(row + 1) * crate::EMBED_DIM].to_vec())
-        }
+        let m = idx.emb_matrix_i8();
+        Some(
+            m[row * crate::EMBED_DIM..(row + 1) * crate::EMBED_DIM]
+                .iter()
+                .map(|&x| x as f32 / 127.0)
+                .collect(),
+        )
     });
     stages.push(("finalize".into(), ms(t0)));
 
@@ -817,10 +805,10 @@ fn finalize_hits(
     for i in order {
         let c = &kept[i];
         if let Some(mut hit) = materialize(root, &c.path, c.chunk, c.score, &query_tokens) {
-            if !strip.is_empty() {
-                if let Some(rest) = hit.path.strip_prefix(&format!("{strip}/")) {
-                    hit.path = rest.to_string();
-                }
+            if !strip.is_empty()
+                && let Some(rest) = hit.path.strip_prefix(&format!("{strip}/"))
+            {
+                hit.path = rest.to_string();
             }
             hits.push(hit);
         }

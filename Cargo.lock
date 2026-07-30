@@ -714,7 +714,6 @@ dependencies = [
  "anny",
  "anyhow",
  "ese",
- "grep-matcher",
  "grep-regex",
  "grep-searcher",
  "ignore",

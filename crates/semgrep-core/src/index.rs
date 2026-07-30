@@ -4,7 +4,7 @@
 //! .semgrep/meta.json   version, chunk params, dims, file table (staleness)
 //! .semgrep/chunks.bin  postcard Vec<Chunk>
 //! .semgrep/bm25.flat   flat mmap-able BM25 (term table + postings + doc lens)
-//! .semgrep/emb.bin     raw little-endian f32, n_chunks × EMBED_DIM (mmap'd)
+//! .semgrep/emb.bin     n_chunks × EMBED_DIM i8, unit-normalized then quantized
 //! .semgrep/hnsw.bin    optional anny HNSW graph
 //! ```
 
@@ -28,13 +28,6 @@ pub struct IndexMeta {
     pub files: Vec<FileMeta>,
     pub n_chunks: u64,
     pub has_hnsw: bool,
-    /// v2: emb.bin rows are unit-normalized, enabling the dot-product scan.
-    #[serde(default)]
-    pub normalized: bool,
-    /// v2: emb.bin stores i8-quantized rows (n × EMBED_DIM bytes) — 4× less
-    /// IO for the brute scan, which provenance showed is fault/IO bound.
-    #[serde(default)]
-    pub quantized: bool,
     /// Chunk embeddings are SIF-weighted (RESEARCH.md §9.1) — queries must
     /// be embedded with the same corpus stats (`sif.bin`).
     #[serde(default)]
@@ -118,7 +111,7 @@ pub fn build_at(
                 })
                 .collect();
             for p in partials {
-                all.merge(p);
+                all.merge_counts(p);
             }
         }
         all.a = opts.sif_a;
@@ -183,9 +176,10 @@ pub fn build_at(
             // Unit-normalize, then quantize to i8 for the on-disk matrix.
             crate::semantic::normalize(v);
             let q = crate::semantic::quantize_i8(v);
-            emb_out.write_all(unsafe {
-                std::slice::from_raw_parts(q.as_ptr() as *const u8, q.len())
-            })?;
+            // SAFETY: i8 and u8 share size and alignment (1), so a fully
+            // initialized i8 slice is a valid u8 slice of the same length.
+            let bytes = unsafe { std::slice::from_raw_parts(q.as_ptr() as *const u8, q.len()) };
+            emb_out.write_all(bytes)?;
             if let Some(h) = hnsw {
                 h.insert(*v);
             }
@@ -232,8 +226,6 @@ pub fn build_at(
         files,
         n_chunks: chunks.len() as u64,
         has_hnsw: hnsw.is_some(),
-        normalized: true,
-        quantized: true,
         sif: sif.is_some(),
     };
     std::fs::write(dir.join("meta.json"), serde_json::to_vec_pretty(&meta)?)?;
@@ -431,7 +423,7 @@ pub fn gc_old_generations() {
             continue;
         }
         let is_generation = p.file_name().is_some_and(|n| n.to_string_lossy().starts_with('v'))
-            && p.join(&keep).exists() == false
+            && !p.join(&keep).exists()
             && !p.join("meta.json").exists();
         let is_legacy_entry = p.join("meta.json").is_file() && p.join("root.txt").is_file();
         if is_generation || is_legacy_entry {
@@ -595,7 +587,7 @@ fn cache_entry_dir(root: &Path) -> PathBuf {
     for i in 0..64 {
         let dir = if i == 0 { base.join(&stem) } else { base.join(format!("{stem}-{i}")) };
         match std::fs::read_to_string(dir.join("root.txt")) {
-            Ok(r) if PathBuf::from(r.trim()) != root => continue, // collision
+            Ok(r) if Path::new(r.trim()) != root => continue, // collision
             _ => return dir,
         }
     }
@@ -711,8 +703,7 @@ impl LoadedIndex {
         let file = std::fs::File::open(dir.join("emb.bin"))?;
         let emb = unsafe { memmap2::Mmap::map(&file)? };
         t.mmap_ms = ms(t0);
-        let row_bytes = if meta.quantized { EMBED_DIM } else { EMBED_DIM * 4 };
-        if emb.len() != chunks.len() * row_bytes {
+        if emb.len() != chunks.len() * EMBED_DIM {
             bail!("emb.bin size mismatch; index is corrupt — re-run `semgrep index`");
         }
         let hnsw = if meta.has_hnsw && needs.hnsw {
@@ -733,16 +724,12 @@ impl LoadedIndex {
         Ok(Self { root: root.to_path_buf(), meta, chunks, bm25, emb, hnsw, sif, timings: t })
     }
 
-    /// The embedding matrix as a flat f32 slice (mmap-backed, page-aligned).
-    /// Only valid when `!meta.quantized` (v1-era indexes).
-    pub fn emb_matrix(&self) -> &[f32] {
-        let bytes: &[u8] = &self.emb;
-        unsafe { std::slice::from_raw_parts(bytes.as_ptr() as *const f32, bytes.len() / 4) }
-    }
-
-    /// The i8-quantized embedding matrix (v2 indexes, `meta.quantized`).
+    /// The embedding matrix: `n_chunks × EMBED_DIM` i8, one unit-normalized
+    /// row per chunk, mmap-backed.
     pub fn emb_matrix_i8(&self) -> &[i8] {
         let bytes: &[u8] = &self.emb;
+        // SAFETY: i8 and u8 have identical size and alignment (1), so any
+        // initialized byte slice is a valid i8 slice of the same length.
         unsafe { std::slice::from_raw_parts(bytes.as_ptr() as *const i8, bytes.len()) }
     }
 

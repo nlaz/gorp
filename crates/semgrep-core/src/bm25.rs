@@ -181,11 +181,7 @@ impl Bm25Index {
         term_offs.push(term_bytes.len() as u32);
         post_offs.push(postings.len() as u64);
 
-        let align8 = |v: &mut Vec<u8>| {
-            while v.len() % 8 != 0 {
-                v.push(0)
-            }
-        };
+        let align8 = |v: &mut Vec<u8>| v.resize(v.len().next_multiple_of(8), 0);
         let mut out = Vec::new();
         out.extend_from_slice(FLAT_MAGIC);
         out.extend_from_slice(&(self.doc_len.len() as u32).to_le_bytes());

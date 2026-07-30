@@ -9,19 +9,13 @@ use grep_searcher::{BinaryDetection, SearcherBuilder};
 use std::path::Path;
 use std::sync::Mutex;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct KeywordOptions {
     pub case_insensitive: bool,
     /// Treat the pattern as a literal string, not a regex.
     pub fixed_string: bool,
     /// Stop after this many total hits (0 = unlimited).
     pub max_hits: usize,
-}
-
-impl Default for KeywordOptions {
-    fn default() -> Self {
-        Self { case_insensitive: false, fixed_string: false, max_hits: 0 }
-    }
 }
 
 #[derive(Debug, Clone)]

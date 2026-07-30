@@ -16,7 +16,6 @@ rayon = { workspace = true }
 ignore = { workspace = true }
 grep-regex = { workspace = true }
 grep-searcher = { workspace = true }
-grep-matcher = { workspace = true }
 memmap2 = { workspace = true }
 
 [dev-dependencies]
