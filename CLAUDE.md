@@ -1,14 +1,41 @@
 # semgrep (repo dir: semgrep/)
 
 Semantic grep for agents built on the Bog stack: `../ese` (static embeddings,
-512-dim, compiled-in weights) + `../anny` (HNSW). See DESIGN.md for the full
-design; README.md for usage.
+256-dim, compiled-in weights) + `../anny` (HNSW). See DESIGN.md for the full
+design, README.md for usage, AUDIT.md and FIXES.md for the 2026-07 reorganization
+and what it found.
 
 ## Layout
 
-- `crates/semgrep-core` — engine library (corpus walk/chunk, tokenizer, bm25,
-  semantic, keyword via ripgrep crates, `.semgrep/` index format, search API)
-- `crates/semgrep` — CLI (`target/release/semgrep`)
+### Layers
+
+`crates/semgrep-core` is organized in layers, bottom up. **A layer may call
+downward and not upward.** That is the rule to check a change against, and it is
+what keeps the tree navigable: `rank` never touches the filesystem, `store` never
+ranks, `cache` never scores, `search` orchestrates rather than computes.
+
+- `corpus/` — directory into files into chunks. `mod` walks, `chunk` cuts and
+  re-reads, `pass` drives the parallel read, `diff` compares a tree against an
+  index.
+- `text/` — text into representations. `token` (code-aware tokenizer), `embed`,
+  `sif` (rarity-weighted pooling, §9.1).
+- `rank/` — query plus representations into ordered ids. `bm25` (one scorer over
+  a `Postings` trait), `vec` (kernels and quantization), `topk`, `fuse`, `mmr`,
+  `prf`, `maxsim`.
+- `store/` — representations on disk. `build` (+ `build/embed`, `build/sif`),
+  `load`, `bm25` (the flat mmap layout).
+- `cache/` — which index answers, and keeping it honest. `mod` (discovery,
+  fill), `compat` (generations), `budget`, `repair` (the read-repair overlay).
+- `search/` — orchestration and materialization. `indexed` (warm), `stream`
+  (cold), `rows` (the union id space), `hit`, `trace`.
+- `keyword.rs` — the exact-match escape hatch, independent of all of it.
+
+`crates/semgrep` is the CLI: `cli` (flags), `cmd/` (one file per verb), `out`
+(every write to stdout or stderr). **stdout is data, stderr is commentary** —
+`crates/semgrep/tests/cli.rs` enforces it.
+
+### Harnesses
+
 - `bench/` — perf harness vs grep/ggrep/rg/ugrep/ack (`fetch-corpora.sh`,
   `run.py`, `report.py`, `queries.json`); corpora + results are gitignored
 - `eval/` — retrieval-quality harness. `run_eval.py` scores recall@k/MRR with
@@ -18,21 +45,36 @@ design; README.md for usage.
   didn't write — prefer it for quality claims, RESEARCH.md §12);
   `locbench/replay.py` replays real agent queries offline. Two rg baselines
   exist on purpose: `rg` (legacy, weak — kept for comparability) and
-  `rg-strong` (fair). Report both.
+  `rg-strong` (fair). Report both. `levers.sh` runs the §9 lever campaign and
+  `diff.py` compares any two conditions. `pytest eval/tests` covers the scorers,
+  which decide every published number.
 
 ## Conventions
 
 - Build: `cargo build --release` (first build downloads ese weights; needs
-  network once). Test: `cargo test` (48 tests + 11 doctests: 25 lib, 20 e2e incl.
-  cache-transparency / stale-cache-eviction / budget, 3 model+token probes).
+  network once). Test: `cargo test`. Don't hand-count tests here — the number
+  drifts; `cargo test` prints it.
+- `tools/snapshot.sh --check` is the behavior tripwire: ranked output over the
+  frozen `tests/corpus/` fixture, 114 cases, byte-compared. Any change to ranking
+  must either leave it identical or re-record it deliberately in the same commit.
+  It has caught non-determinism that no test could see.
+- Two invariants worth knowing before changing anything:
+  **chunk-id lockstep** (below), and **cold == warm** — a cold search and a warm
+  one must return identical results, asserted by
+  `cold_and_warm_return_identical_results`. Both paths therefore quantize
+  identically; scoring one in f32 and the other in i8 silently broke this for a
+  long time (FIXES.md #11).
 - Chunk ids are assigned in walk order and must stay in lockstep between the
-  chunk table, BM25 add order, and `emb.bin` row order. The pass is
-  parallel (`corpus::process_file` on rayon workers) with a serial in-order
-  fold that preserves this.
+  chunk table, BM25 add order, and `emb.bin` row order. The pass is parallel
+  (`corpus::pass`, the single implementation of that guarantee) with a serial
+  in-order fold that preserves it; `store::build_at` asserts the three agree.
 - The index is a cache (RESEARCH.md §8): cold ranked searches write-through
   to `~/.cache/semgrep` (override `SEMGREP_CACHE_DIR`; tests and the eval
-  harness isolate it). `index::discover` resolves local/.semgrep, ancestor
-  dirs (git-style walk-up), then cache entries by longest prefix.
+  harness isolate it). `cache::discover` resolves local/.semgrep, ancestor
+  dirs (git-style walk-up), then cache entries by longest prefix. **Entries are
+  keyed by chunk parameters as well as root**, so a `--window` sweep cannot
+  poison ordinary searches — it could, and did (FIXES.md #10).
+  `meta.json` is written last: writing it is what publishes an index.
   Read-repair validation is throttled by `SEMGREP_CACHE_TTL_SECS`
   (default 60; 0 = always validate). `--no-index` never reads or writes.
 - `bench/run.py` invokes competitors by absolute path (`/usr/bin/grep`,

@@ -4,6 +4,49 @@ Findings and performance improvements, newest first. Measured numbers are
 medians on an M-series Mac; "kernel" = Linux 6.9 source (1.15 GB, 1.51M
 chunks). Full data: `RESULTS.md`, `bench/results/`, `eval/data/`.
 
+## 2026-07-30 — reorganization: layers, and the defects it surfaced
+
+Restructured `semgrep-core` into six layers with a one-way dependency rule
+(`corpus` → `text` → `rank` → `store` → `cache` → `search`; `keyword` apart), and
+split the CLI into flags / verbs / output. The two files that held 56% of the code
+are gone: no engine file is over 265 lines and no function over 60. Tests went
+41 → 101, plus 45 pytest cases for the harness scorers, which had none.
+
+The reorganization was a means, not the point. Thirteen defects surfaced, nine of
+them invisible to reading — they appeared only once a snapshot tripwire, a
+property test, or a measurement was pointed at the code. Full ledger in
+`FIXES.md`; the ones that changed behavior:
+
+- **Cache entries ignored chunk parameters.** One search with a non-default
+  `--window` wrote an entry that every later search of that scope was served
+  from, silently returning spans of the wrong size. The eval harness sweeps
+  `--window` against the same cache ordinary use has, so **every §9 lever number
+  was measured through a contaminated cache** and deserves a re-run.
+- **Cold and warm searches did not agree.** The cold path scored full-precision
+  cosine over f32 embeddings; the warm path scored i8 dot products over the
+  quantized matrix. 37 of 54 query/mode pairs differed. The parity test that
+  existed compared the first hit only and could not see it. Cold now quantizes as
+  the build does: **0 of 54 differ**, asserted over the full top-k.
+- **The repair overlay was inconsistent with its own base** in the same way, and
+  computed BM25 idf over its own handful of files rather than the corpus. Repair
+  now matches a full rebuild on 147 of 147 comparisons for hit set, with two
+  order divergences pinned by name.
+- **BM25 scores were not reproducible.** Two `HashMap` iteration orders feeding
+  non-associative f32 addition meant near-tied chunks swapped rank between runs
+  of the same binary on the same corpus.
+- **One unreadable file NaN'd an entire reranked head** (`--maxsim` only).
+- Interrupted cache builds leaked entries that `cache --status` could not see and
+  `cache --prune` could not free; index publication was not atomic; read-repair
+  wrote into a committed `.semgrep/`.
+
+Removed ~110 lines of unreachable f32 embedding code, dead since format v2, and
+collapsed seven eval campaign scripts into two.
+
+New guardrails: `tools/snapshot.sh` byte-compares ranked output over a frozen
+fixture corpus (it caught the reproducibility bug); `crates/semgrep/tests/cli.rs`
+covers the process contract, which had no tests; `tests/docs.rs` checks that
+source comments citing `RESEARCH.md §N` still resolve.
+
 ## 2026-07-27 — index format v2: provenance-driven perf round
 
 Added per-stage timing provenance to every query (`--stats` prints
