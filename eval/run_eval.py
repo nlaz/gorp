@@ -23,6 +23,7 @@ import math
 import random
 import re
 import subprocess
+import time
 from collections import defaultdict
 from pathlib import Path
 
@@ -376,6 +377,51 @@ def correct(hit, truth, slack):
 # which is what the path-leakage question needs.
 # ---------------------------------------------------------------------------
 
+def check_index_freshness(corpus, modes, no_index, allow_stale):
+    """Refuse to score semgrep modes against an index older than the binary.
+
+    `eval/locbench/run.py:220` has had this guard for a while — "a rebuilt
+    binary may embed different dims (e.g. a swapped embedding table), and
+    reusing that index makes every query bail on the dims check, which would
+    look like a catastrophic accuracy result rather than the mechanical
+    mismatch it is." run_eval.py never had it. This is the same guard, in the
+    place that produces the published numbers.
+
+    Honest note on why it was added: a kernel rerun scored bm25/semantic/hybrid
+    against an index a day older than the binary, and its results differed from
+    the published ones while VS Code's (whose index postdated the binary)
+    matched to three decimals. That looked like the explanation. It was not —
+    rebuilding the kernel index and rescoring reproduced all 1,194 ranks
+    EXACTLY, so the staleness had changed nothing and the discrepancy has
+    another cause (see §13.7). The guard stays because the hazard it covers is
+    real and locbench documents it, not because it explained that measurement.
+
+    Only semgrep modes read the index — rg conditions are unaffected, which is
+    why a run that is invalid for one column can be perfectly valid for
+    another.
+    """
+    if no_index:
+        return
+    sem_modes = [m for m in modes.split(",") if not m.startswith("rg")]
+    if not sem_modes:
+        return
+    meta = Path(corpus) / ".semgrep" / "meta.json"
+    if not meta.exists():
+        return                      # no local index: the cache path decides
+    if meta.stat().st_mtime >= SEMGREP.stat().st_mtime:
+        return
+    msg = (f"index at {meta.parent} is OLDER than {SEMGREP}\n"
+           f"  index:  {time.ctime(meta.stat().st_mtime)}\n"
+           f"  binary: {time.ctime(SEMGREP.stat().st_mtime)}\n"
+           f"  modes reading it: {', '.join(sem_modes)}\n"
+           f"Rebuild with `{SEMGREP} index {corpus}` — a binary built since the "
+           f"index may embed different dims, and the mismatch reads as an "
+           f"accuracy result rather than the mechanical problem it is.")
+    if not allow_stale:
+        raise SystemExit(msg + "\n(--allow-stale to score anyway)")
+    print("WARNING: " + msg)
+
+
 QUERY_DIRS = (HERE / "queries", HERE / "data")
 
 
@@ -491,6 +537,8 @@ def main():
     if vstats["n_unverifiable"]:
         print(f"note: {vstats['n_unverifiable']}/{vstats['n_rows']} rows carry no "
               f"gold_sha — an edited gold file would not be detected for those")
+
+    check_index_freshness(args.corpus, args.modes, args.no_index, args.allow_stale)
 
     rows = apply_where(rows, args.where)
     if not rows:

@@ -2086,3 +2086,60 @@ ordering, EOF bounds — returned **0 violations across all four corpora** and
 would never have caught it. It surfaced from a test that asserted what the name
 should *be*.
 
+### 13.7 Reproducing §12.2 against a deterministic ripgrep
+
+§13.5 found that every rg figure this harness had produced carried thread-
+scheduling variance. That makes §12.2's fair-baseline table a claim nobody
+could check, so it was re-measured on the same query sets with the ordering
+fixed.
+
+| cell | column | §12.2 | rerun | Δ |
+|---|---|---|---|---|
+| kernel, direct R@5 | rg | 0.050 | 0.025 | −0.025 |
+| | rg-strong | 0.320 | 0.342 | +0.022 |
+| | semgrep (hybrid) | 0.920 | 0.899 | −0.021 |
+| | *fair gap* | *2.9×* | ***2.6×*** | |
+| VS Code, direct R@5 | rg | 0.155 | 0.155 | **0.000** |
+| | rg-strong | 0.355 | 0.360 | +0.005 |
+| | semgrep (hybrid) | 0.870 | 0.870 | **0.000** |
+| | *fair gap* | *2.5×* | ***2.4×*** | |
+| kernel, paraphrase R@5 | rg / rg-strong | 0.000 | 0.000 | 0.000 |
+| | semgrep (hybrid) | 0.027 | 0.040 | +0.013 |
+| VS Code, paraphrase R@5 | rg | 0.010 | 0.010 | **0.000** |
+| | rg-strong | 0.005 | 0.010 | +0.005 |
+| | semgrep (hybrid) | 0.140 | 0.140 | **0.000** |
+
+**The conclusion holds.** The fair gap is 2.6× on the kernel and 2.4× on VS
+Code against §12.2's 2.9× and 2.5×. "The published 30× is really ~3×" survives;
+the third digit does not, and never could have.
+
+**VS Code reproduces to ±0.005** — one query in 200 — in all four cells, with
+both deterministic columns landing on 0.000. That is the strongest available
+evidence that the harness itself is now reproducible.
+
+**The kernel does not, and part of it is unexplained.** The rg columns move
+±0.025, which is the right order for scheduling noise at 84k files (§13.5
+measured 0.0067 on etcd's 1.5k). The *semgrep* column also moves — −0.021
+direct, +0.013 paraphrase — and that cannot be scheduling noise, because those
+modes are deterministic. Two candidates were tested and one was eliminated:
+
+- **Index staleness: ruled out.** The kernel index predated the binary by a
+  day, which looked like the answer. Rebuilding it and rescoring reproduced
+  **all 1,194 ranks exactly** — every mode, every query. Staleness changed
+  nothing here. (The freshness guard was kept anyway: the hazard is real and
+  `locbench/run.py:220` has guarded it for a while, but it did not explain
+  this.)
+- **Engine drift: open.** P6 was A/B'd as retrieval-neutral on **vscode**
+  (400 queries × 3 modes, all 21 metrics ±0.000) — and vscode is precisely the
+  corpus that reproduces here. The kernel was never in that A/B. Kernel-only
+  drift is consistent with everything observed and is not established.
+
+Note also that §12.2's kernel "semgrep" figure of 0.92 equals this run's **bm25**
+(0.920) rather than its hybrid (0.899), while §12.2's VS Code 0.870 equals this
+run's **hybrid** exactly. Whether that column was ever one mode is not
+recoverable from the doc.
+
+What this costs: the kernel rows of §12.2 should be read as ±0.02, not to three
+decimals. The VS Code rows are reproducible as published. Every future run is
+reproducible in both, which is the point of the exercise.
+
