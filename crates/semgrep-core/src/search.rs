@@ -1,7 +1,7 @@
 //! High-level search API tying the engines together, with indexed and
 //! unindexed (streaming) paths and hybrid RRF fusion.
 
-use crate::bm25::Bm25Index;
+use crate::bm25::{Bm25Index, Postings};
 use crate::index::{self, LoadedIndex};
 use crate::keyword::{self, KeywordOptions};
 use crate::semantic::{self, TopK};
@@ -243,44 +243,13 @@ fn repair_scope(
     let t0 = Instant::now();
     let scope_abs = if d.prefix.is_empty() { d.root.clone() } else { d.root.join(&d.prefix) };
     let live = corpus::walk(&scope_abs, &idx.meta.params).ok()?;
-    let under_prefix = |path: &str| {
-        d.prefix.is_empty() || path.strip_prefix(&d.prefix).is_some_and(|r| r.starts_with('/'))
-    };
-    let mut known: HashMap<&str, (u32, u64, u64)> = idx
-        .meta
-        .files
-        .iter()
-        .enumerate()
-        .filter(|(_, f)| under_prefix(&f.path))
-        .map(|(id, f)| (f.path.as_str(), (id as u32, f.size, f.mtime)))
-        .collect();
-    let mut changed: Vec<String> = Vec::new();
-    let mut tombstones: HashSet<u32> = HashSet::new();
-    let mut n_modified = 0usize;
-    for f in &live {
-        let irel = if d.prefix.is_empty() {
-            f.path.clone()
-        } else {
-            format!("{}/{}", d.prefix, f.path)
-        };
-        match known.remove(irel.as_str()) {
-            Some((_, size, mtime)) if size == f.size && mtime == f.mtime => {}
-            Some((id, _, _)) => {
-                n_modified += 1;
-                tombstones.insert(id);
-                changed.push(irel);
-            }
-            None => changed.push(irel),
-        }
-    }
-    // Files the index knows under this scope that no longer exist.
-    for (_, (id, _, _)) in known {
-        tombstones.insert(id);
-    }
+    let drift = corpus::diff(&idx.meta.files, &live, &d.prefix);
     stages.push(("repair:walk".into(), t0.elapsed().as_secs_f64() * 1e3));
-    if changed.is_empty() && tombstones.is_empty() {
+    if drift.is_empty() {
         return None;
     }
+    let tombstones: HashSet<u32> = drift.tombstones().collect();
+    let n_dirty = drift.len();
 
     let t0 = Instant::now();
     let mut delta = Delta {
@@ -290,7 +259,7 @@ fn repair_scope(
         bm25: Bm25Index::new(),
     };
     let mut texts: Vec<String> = Vec::new();
-    for path in &changed {
+    for path in drift.stale_paths() {
         let Some(text) = corpus::read_text(&d.root.join(path)) else { continue };
         for (chunk, slice) in corpus::chunk_lines(0, &text, &idx.meta.params) {
             let doc = corpus::doc_text(path, slice);
@@ -311,9 +280,6 @@ fn repair_scope(
     }
     delta.vecs = vecs.into_iter().map(|v| v.to_vec()).collect();
     stages.push(("repair:delta".into(), t0.elapsed().as_secs_f64() * 1e3));
-    // Each drifted file counted once: new + modified (in `changed`) plus
-    // deletions (tombstoned but never seen live).
-    let n_dirty = changed.len() + (tombstones.len() - n_modified);
     Some(Repair { tombstones, delta, n_dirty })
 }
 

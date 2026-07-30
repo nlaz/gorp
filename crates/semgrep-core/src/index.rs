@@ -779,16 +779,13 @@ impl LoadedIndex {
     /// Count files that changed/appeared/disappeared since the index was
     /// built. Cheap staleness signal — callers decide what to do with it.
     pub fn stale_files(&self) -> Result<usize> {
+        Ok(self.drift()?.len())
+    }
+
+    /// Whole-corpus drift against the file table. The same comparison
+    /// read-repair does per query scope, unscoped.
+    pub fn drift(&self) -> Result<corpus::Diff> {
         let live = corpus::walk(&self.root, &self.meta.params)?;
-        let mut indexed: std::collections::HashMap<&str, (u64, u64)> =
-            self.meta.files.iter().map(|f| (f.path.as_str(), (f.size, f.mtime))).collect();
-        let mut stale = 0usize;
-        for f in &live {
-            match indexed.remove(f.path.as_str()) {
-                Some((size, mtime)) if size == f.size && mtime == f.mtime => {}
-                _ => stale += 1,
-            }
-        }
-        Ok(stale + indexed.len())
+        Ok(corpus::diff(&self.meta.files, &live, ""))
     }
 }

@@ -244,4 +244,164 @@ mod tests {
         assert!(chunk_lines(0, "", &ChunkParams::default()).is_empty());
         assert!(chunk_lines(0, "\n\n  \n", &ChunkParams::default()).is_empty());
     }
+
+    // -----------------------------------------------------------------------
+    // tree diff
+    // -----------------------------------------------------------------------
+
+    fn fm(path: &str, size: u64, mtime: u64) -> FileMeta {
+        FileMeta { path: path.into(), size, mtime }
+    }
+
+    #[test]
+    fn diff_of_an_unchanged_tree_is_empty() {
+        let files = vec![fm("a.rs", 10, 100), fm("b/c.rs", 20, 200)];
+        let d = diff(&files, &files, "");
+        assert!(d.is_empty(), "identical trees must not drift: {d:?}");
+    }
+
+    #[test]
+    fn diff_classifies_each_kind_of_drift() {
+        let indexed = vec![
+            fm("kept.rs", 10, 100),
+            fm("resized.rs", 20, 200),
+            fm("touched.rs", 30, 300),
+            fm("gone.rs", 40, 400),
+        ];
+        let live = vec![
+            fm("kept.rs", 10, 100),
+            fm("resized.rs", 21, 200), // size moved
+            fm("touched.rs", 30, 301), // mtime moved
+            fm("fresh.rs", 50, 500),   // never indexed
+        ];
+        let d = diff(&indexed, &live, "");
+        assert_eq!(d.added, ["fresh.rs"]);
+        assert_eq!(d.modified, [(1, "resized.rs".into()), (2, "touched.rs".into())]);
+        assert_eq!(d.deleted, [3], "gone.rs is file_id 3");
+        assert_eq!(d.len(), 4, "each drifted file counted exactly once");
+
+        // Tombstones cover modified *and* deleted: serving either file's
+        // indexed content would show text that is no longer there.
+        let mut tombs: Vec<u32> = d.tombstones().collect();
+        tombs.sort_unstable();
+        assert_eq!(tombs, [1, 2, 3]);
+
+        // Only added and modified need re-reading; a deletion has nothing to read.
+        let stale: Vec<&String> = d.stale_paths().collect();
+        assert_eq!(stale.len(), 3);
+        assert!(!stale.iter().any(|p| p.as_str() == "gone.rs"));
+    }
+
+    /// The scoped case, and the one worth having a test for: a query against a
+    /// subdirectory walks only that subtree, so every indexed file outside it
+    /// is absent from `live`. Without the prefix filter the whole rest of the
+    /// corpus reads as deleted — the entire index would be tombstoned on every
+    /// subdirectory search.
+    #[test]
+    fn diff_scoped_to_a_prefix_ignores_the_rest_of_the_corpus() {
+        let indexed =
+            vec![fm("src/a.rs", 10, 100), fm("src/b.rs", 20, 200), fm("docs/c.md", 30, 300)];
+        // Walked under src/, so live paths are relative to src/.
+        let live = vec![fm("a.rs", 10, 100), fm("b.rs", 21, 200)];
+        let d = diff(&indexed, &live, "src");
+        assert!(d.added.is_empty());
+        assert_eq!(d.modified, [(1, "src/b.rs".into())], "paths come back index-relative");
+        assert!(d.deleted.is_empty(), "docs/ is out of scope, not deleted");
+    }
+
+    /// A prefix must match whole path segments. `src` must not claim `srcgen/`.
+    #[test]
+    fn diff_prefix_matches_whole_segments_only() {
+        let indexed = vec![fm("src/a.rs", 10, 100), fm("srcgen/b.rs", 20, 200)];
+        let d = diff(&indexed, &[fm("a.rs", 10, 100)], "src");
+        assert!(d.is_empty(), "srcgen/ must not be treated as inside src/: {d:?}");
+    }
+
+    #[test]
+    fn diff_handles_empty_sides() {
+        let files = vec![fm("a.rs", 10, 100)];
+        assert_eq!(diff(&[], &files, "").added, ["a.rs"], "everything is new");
+        assert_eq!(diff(&files, &[], "").deleted, [0], "everything is gone");
+        assert!(diff(&[], &[], "").is_empty());
+    }
+}
+
+/// What changed between an index's file table and the tree as it is now.
+///
+/// Paths are index-root-relative (the form the file table stores), so both
+/// callers can look files up and read them without further translation.
+/// Split out of the two places that used to compute it inline — whole-index
+/// staleness counting and scoped read-repair — which had drifted into two
+/// implementations of one predicate, neither testable without a filesystem.
+#[derive(Debug, Default, PartialEq)]
+pub struct Diff {
+    /// Live files the index has never seen.
+    pub added: Vec<String>,
+    /// (file_id, path) for files the index has, whose size or mtime moved.
+    pub modified: Vec<(u32, String)>,
+    /// file_ids the index has that are no longer on disk.
+    pub deleted: Vec<u32>,
+}
+
+impl Diff {
+    /// Files that need reading to bring an index up to date.
+    pub fn stale_paths(&self) -> impl Iterator<Item = &String> {
+        self.added.iter().chain(self.modified.iter().map(|(_, p)| p))
+    }
+
+    /// Base file_ids whose indexed content must not be served.
+    pub fn tombstones(&self) -> impl Iterator<Item = u32> + '_ {
+        self.modified.iter().map(|&(id, _)| id).chain(self.deleted.iter().copied())
+    }
+
+    /// Number of drifted files, each counted once.
+    pub fn len(&self) -> usize {
+        self.added.len() + self.modified.len() + self.deleted.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+/// Diff `live` (walked under `prefix`, so its paths are prefix-relative)
+/// against `indexed` (the whole file table, index-root-relative).
+///
+/// `prefix` scopes the comparison: only indexed files under it participate, so
+/// a query against a subdirectory does not see the rest of the corpus as
+/// deleted. `""` compares the whole tree.
+///
+/// A file counts as modified when size or mtime differs. That is cheap and
+/// wrong only in the direction that matters least: a rewrite preserving both is
+/// missed, which no content-free check can catch.
+pub fn diff(indexed: &[FileMeta], live: &[FileMeta], prefix: &str) -> Diff {
+    let under_prefix = |path: &str| {
+        prefix.is_empty() || path.strip_prefix(prefix).is_some_and(|r| r.starts_with('/'))
+    };
+    let mut known: std::collections::HashMap<&str, (u32, u64, u64)> = indexed
+        .iter()
+        .enumerate()
+        .filter(|(_, f)| under_prefix(&f.path))
+        .map(|(id, f)| (f.path.as_str(), (id as u32, f.size, f.mtime)))
+        .collect();
+
+    let mut out = Diff::default();
+    for f in live {
+        let path =
+            if prefix.is_empty() { f.path.clone() } else { format!("{}/{}", prefix, f.path) };
+        match known.remove(path.as_str()) {
+            Some((_, size, mtime)) if size == f.size && mtime == f.mtime => {}
+            Some((id, _, _)) => out.modified.push((id, path)),
+            None => out.added.push(path),
+        }
+    }
+    // Whatever the index still claims under this scope is gone.
+    out.deleted.extend(known.into_values().map(|(id, _, _)| id));
+
+    // Deterministic order: `known` is a HashMap, and callers embed these ids in
+    // chunk ids and rank order.
+    out.added.sort_unstable();
+    out.modified.sort_unstable();
+    out.deleted.sort_unstable();
+    out
 }

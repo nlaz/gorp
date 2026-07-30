@@ -2,7 +2,7 @@
 {"path":"src/retry.rs","start_line":1,"end_line":32,"line":1,"text":"//! Retry policy: exponential backoff with jitter and a circuit breaker.","score":8.249956}
 {"path":"docs/architecture.md","start_line":25,"end_line":45,"line":32,"text":"deploy finishes its current work before exiting. The grace period is 30 seconds,","score":6.544694}
 {"path":"docs/sourdough.md","start_line":25,"end_line":39,"line":31,"text":"Refrigerate overnight — the long cold proof develops the acidity that gives the","score":4.351246}
-{"path":"docs/operations.md","start_line":1,"end_line":32,"line":22,"text":"histogram uses fixed exponential buckets, so the reported p99 is the upper bound","score":3.4760096}
+{"path":"docs/operations.md","start_line":1,"end_line":32,"line":22,"text":"histogram uses fixed exponential buckets, so the reported p99 is the upper bound","score":3.4760094}
 {"path":"worker/dispatch.py","start_line":25,"end_line":56,"line":33,"text":"            if job is None:","score":2.7441216}
 {"path":"docs/telescopes.md","start_line":1,"end_line":32,"line":9,"text":"the failure of a single lens to bring every wavelength to the same focus — is why","score":1.7964245}
 {"path":"native/ring.c","start_line":49,"end_line":80,"line":62,"text":"/* Returns bytes written: 0 when the buffer is full. Never partially writes,","score":1.4646938}
@@ -10,7 +10,7 @@
 {"path":"src/pool.rs","start_line":49,"end_line":70,"line":58,"text":"    /// Close connections idle past the timeout so the database is not holding","score":1.5772691}
 {"path":"worker/schedule.py","start_line":49,"end_line":72,"line":63,"text":"    asks about the next occurrence, which is nearly always minutes away.","score":1.4486177}
 ### mode=bm25 path=cold query=spread retries so workers do not stampede
-{"path":"src/retry.rs","start_line":1,"end_line":32,"line":14,"text":"/// Spread retries so a fleet of workers does not stampede a recovering service.","score":11.827229}
+{"path":"src/retry.rs","start_line":1,"end_line":32,"line":14,"text":"/// Spread retries so a fleet of workers does not stampede a recovering service.","score":11.8272295}
 {"path":"docs/operations.md","start_line":25,"end_line":40,"line":30,"text":"3. SIGTERM and wait the full grace period. Do not SIGKILL: the visibility","score":7.2031555}
 {"path":"README.md","start_line":1,"end_line":11,"line":9,"text":"**Do not edit these files to make a test pass.** Ranked output over this tree is","score":4.9186397}
 {"path":"docs/architecture.md","start_line":25,"end_line":45,"line":31,"text":"SIGTERM begins a drain rather than terminating in-flight handlers, so a rolling","score":5.3802223}
@@ -51,7 +51,7 @@
 {"path":"native/ring.c","start_line":49,"end_line":80,"line":52,"text":"\treturn index & (rb->capacity - 1);","score":1.6070719}
 {"path":"worker/schedule.py","start_line":49,"end_line":72,"line":50,"text":"    return (","score":1.6996766}
 ### mode=bm25 path=cold query=parse a configuration file with comments
-{"path":"src/config.rs","start_line":1,"end_line":32,"line":24,"text":"/// Parse a flat `key = value` file. Blank lines and `#` comments are skipped;","score":14.149548}
+{"path":"src/config.rs","start_line":1,"end_line":32,"line":24,"text":"/// Parse a flat `key = value` file. Blank lines and `#` comments are skipped;","score":14.149547}
 {"path":"src/config.rs","start_line":49,"end_line":63,"line":54,"text":"/// Environment wins over the file so a deploy can override without a rebuild.","score":5.5281963}
 {"path":"docs/telescopes.md","start_line":25,"end_line":38,"line":25,"text":"An equatorial mount has one axis aligned with the Earth's rotation, so tracking a","score":1.2840334}
 {"path":"README.md","start_line":1,"end_line":11,"line":11,"text":"here reads as a behavior change. Add a new file instead.","score":2.4280128}
@@ -63,7 +63,7 @@
 {"path":"src/retry.rs","start_line":1,"end_line":32,"line":1,"text":"//! Retry policy: exponential backoff with jitter and a circuit breaker.","score":0.89376265}
 ### mode=bm25 path=cold query=environment overrides beat the config file
 {"path":"src/config.rs","start_line":49,"end_line":63,"line":54,"text":"/// Environment wins over the file so a deploy can override without a rebuild.","score":13.84864}
-{"path":"src/config.rs","start_line":1,"end_line":32,"line":1,"text":"//! Configuration loading: file, then environment overrides.","score":12.989029}
+{"path":"src/config.rs","start_line":1,"end_line":32,"line":1,"text":"//! Configuration loading: file, then environment overrides.","score":12.98903}
 {"path":"README.md","start_line":1,"end_line":11,"line":3,"text":"A frozen tree used by the Rust test suite and by `tools/snapshot.sh`. It stands","score":2.9727886}
 {"path":"docs/telescopes.md","start_line":25,"end_line":38,"line":28,"text":"motion on both axes and the field of view rotates as the object moves, which has","score":0.94706}
 {"path":"docs/sourdough.md","start_line":1,"end_line":32,"line":31,"text":"Refrigerate overnight — the long cold proof develops the acidity that gives the","score":0.9624607}
@@ -94,7 +94,7 @@
 {"path":"src/queue.rs","start_line":1,"end_line":32,"line":20,"text":"/// Three lanes drained urgent-first, so a flood of low-priority work cannot","score":0.8188785}
 ### mode=bm25 path=cold query=route a job to its registered handler
 {"path":"docs/architecture.md","start_line":25,"end_line":45,"line":26,"text":"Each worker claims up to eight jobs concurrently, routes each to a handler","score":8.76486}
-{"path":"worker/dispatch.py","start_line":1,"end_line":32,"line":22,"text":"            raise ValueError(f\"handler already registered for {job_kind}\")","score":8.6091175}
+{"path":"worker/dispatch.py","start_line":1,"end_line":32,"line":22,"text":"            raise ValueError(f\"handler already registered for {job_kind}\")","score":8.609118}
 {"path":"src/queue.rs","start_line":49,"end_line":68,"line":56,"text":"    /// Return an unacked job to its lane with its attempt count incremented.","score":5.51093}
 {"path":"worker/dispatch.py","start_line":49,"end_line":71,"line":50,"text":"        for job, started, handler in self.in_flight:","score":5.2366443}
 {"path":"docs/telescopes.md","start_line":1,"end_line":32,"line":3,"text":"A second control document, unrelated to the service and to the other control.","score":2.984963}
@@ -104,12 +104,12 @@
 {"path":"web/client.ts","start_line":25,"end_line":56,"line":42,"text":"  async submitJob(kind: string, payload: unknown): Promise<string> {","score":1.7431518}
 {"path":"worker/schedule.py","start_line":1,"end_line":32,"line":1,"text":"\"\"\"Recurring job scheduling from cron-style expressions.\"\"\"","score":1.2571164}
 ### mode=bm25 path=cold query=expand a cron expression into allowed values
-{"path":"worker/schedule.py","start_line":1,"end_line":32,"line":11,"text":"    \"\"\"Expand a five-field cron expression into per-field allowed value sets.","score":18.814024}
+{"path":"worker/schedule.py","start_line":1,"end_line":32,"line":11,"text":"    \"\"\"Expand a five-field cron expression into per-field allowed value sets.","score":18.814026}
 {"path":"src/config.rs","start_line":1,"end_line":32,"line":18,"text":"            database_url: \"postgres://localhost/jobs\".into(),","score":2.991714}
 {"path":"native/ring.c","start_line":25,"end_line":56,"line":48,"text":"/* Power-of-two capacity turns the wrap into a mask instead of a division,","score":2.3523033}
 {"path":"docs/operations.md","start_line":1,"end_line":32,"line":8,"text":"in-flight set into the retry path and produces a visible latency spike.","score":1.6779402}
 ### mode=bm25 path=cold query=abort a request once the deadline passes
-{"path":"web/client.ts","start_line":1,"end_line":32,"line":24,"text":"/** Abort a request once the deadline passes so a hung socket cannot pin a","score":17.629574}
+{"path":"web/client.ts","start_line":1,"end_line":32,"line":24,"text":"/** Abort a request once the deadline passes so a hung socket cannot pin a","score":17.629576}
 {"path":"docs/architecture.md","start_line":1,"end_line":32,"line":16,"text":"if the worker dies without acking, the deadline passes and the job returns to","score":5.533044}
 {"path":"web/client.ts","start_line":49,"end_line":80,"line":49,"text":"    const response = await this.request(\"GET\", `/jobs/${encodeURIComponent(id)}`);","score":5.434493}
 {"path":"docs/telescopes.md","start_line":25,"end_line":38,"line":28,"text":"motion on both axes and the field of view rotates as the object moves, which has","score":0.94706}

@@ -8,6 +8,69 @@ use std::collections::HashMap;
 const K1: f32 = 1.2;
 const B: f32 = 0.75;
 
+/// What BM25 scoring needs from a term store, so the formula is written once.
+///
+/// Two stores implement it: [`Bm25Index`] (in-memory, built during a cold pass
+/// or a repair overlay) and [`FlatBm25`] (mmap'd, read from `bm25.flat`). They
+/// used to carry a copy of the scoring loop each, and their agreement was
+/// asserted by one fixture test with a 1e-5 tolerance — which was also hiding
+/// the fact that they accumulated in different orders.
+pub trait Postings {
+    fn n_docs(&self) -> usize;
+    fn total_len(&self) -> u64;
+    /// Term id for a token, if this store knows it. Ids order the accumulation,
+    /// so a store must return them consistently for a given build.
+    fn term_id(&self, token: &str) -> Option<u32>;
+    /// (chunk_id, term frequency) for a term, chunk_ids ascending.
+    fn postings(&self, term: u32) -> impl Iterator<Item = (u32, u16)> + '_;
+    fn doc_len(&self, chunk_id: u32) -> u32;
+
+    /// Document frequency — how many chunks contain the term.
+    fn df(&self, token: &str) -> usize {
+        self.term_id(token).map_or(0, |t| self.postings(t).count())
+    }
+}
+
+/// Okapi BM25 over any [`Postings`] store. Returns (chunk_id, score), best
+/// first, ties broken by chunk id so the order is total.
+pub fn top_k<P: Postings>(store: &P, query: &str, k: usize) -> Vec<(u32, f32)> {
+    let n = store.n_docs() as f32;
+    if n == 0.0 || k == 0 {
+        return Vec::new();
+    }
+    let avgdl = (store.total_len() as f32 / n).max(1.0);
+
+    // Dedup query terms, keeping multiplicity as a weight.
+    let mut weights: HashMap<u32, f32> = HashMap::new();
+    tokenize::for_each_token(query, |tok| {
+        if let Some(id) = store.term_id(tok) {
+            *weights.entry(id).or_insert(0.0) += 1.0;
+        }
+    });
+    // Accumulate in term-id order, not hash order: f32 addition is not
+    // associative, so iterating the map would score the same document
+    // differently from run to run and let near-tied chunks swap rank.
+    let mut terms: Vec<(u32, f32)> = weights.into_iter().collect();
+    terms.sort_unstable_by_key(|&(id, _)| id);
+
+    let mut scores: HashMap<u32, f32> = HashMap::new();
+    for (term, weight) in terms {
+        let df = store.postings(term).count() as f32;
+        let idf = ((n - df + 0.5) / (df + 0.5) + 1.0).ln();
+        for (chunk_id, tf) in store.postings(term) {
+            let tf = tf as f32;
+            let dl = store.doc_len(chunk_id) as f32;
+            let denom = tf + K1 * (1.0 - B + B * dl / avgdl);
+            *scores.entry(chunk_id).or_insert(0.0) += weight * idf * tf * (K1 + 1.0) / denom;
+        }
+    }
+
+    let mut hits: Vec<(u32, f32)> = scores.into_iter().collect();
+    hits.sort_unstable_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+    hits.truncate(k);
+    hits
+}
+
 #[derive(Default, Serialize, Deserialize)]
 pub struct Bm25Index {
     /// term -> term_id
@@ -87,9 +150,29 @@ impl Bm25Index {
         chunk_id
     }
 
-    /// Postings are appended per-doc so within a term they are ascending
-    /// already; sort defensively after deserialize or parallel merges.
+    /// Canonicalize the index. Must be called before querying.
+    ///
+    /// Two jobs. Postings are appended per-doc so within a term they are
+    /// ascending already; sorting is defensive after a deserialize or a merge.
+    ///
+    /// More importantly, term ids are renumbered into sorted-term order. Ids
+    /// are handed out here in first-appearance order, but `FlatBm25` numbers
+    /// terms by position in its sorted table — and [`top_k`] accumulates in
+    /// term-id order, which f32 addition makes significant. Without this the
+    /// cold path (this store) and the warm path (the flat one) computed scores
+    /// differing in the last bits, so a pair of near-tied chunks could come
+    /// back in one order cold and the other warm. The two stores now number
+    /// terms identically, which makes their agreement structural rather than
+    /// something a test has to allow slack for.
     pub fn finalize(&mut self) {
+        let mut by_name: Vec<(String, u32)> = self.terms.drain().collect();
+        by_name.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+        let mut renumbered: Vec<Vec<(u32, u16)>> = Vec::with_capacity(by_name.len());
+        for (new_id, (term, old_id)) in by_name.into_iter().enumerate() {
+            renumbered.push(std::mem::take(&mut self.postings[old_id as usize]));
+            self.terms.insert(term, new_id as u32);
+        }
+        self.postings = renumbered;
         for p in &mut self.postings {
             p.sort_unstable_by_key(|&(c, _)| c);
         }
@@ -97,44 +180,29 @@ impl Bm25Index {
 
     /// Top-k chunks by BM25. Returns (chunk_id, score) descending.
     pub fn query(&self, query: &str, k: usize) -> Vec<(u32, f32)> {
-        let n = self.doc_len.len() as f32;
-        if n == 0.0 {
-            return Vec::new();
-        }
-        let avgdl = (self.total_len as f32 / n).max(1.0);
-        // Dedup query terms, keeping multiplicity as a weight.
-        let mut qterms: HashMap<u32, f32> = HashMap::new();
-        tokenize::for_each_token(query, |tok| {
-            if let Some(&id) = self.terms.get(tok) {
-                *qterms.entry(id).or_insert(0.0) += 1.0;
-            }
-        });
-        // Accumulate in term-id order, not hash order: f32 addition is not
-        // associative, so iterating a HashMap (seeded per process) makes the
-        // same query score the same document differently run to run. The last
-        // bits are cosmetic, but near-tied chunks then swap rank at random.
-        let mut qterms: Vec<(u32, f32)> = qterms.into_iter().collect();
-        qterms.sort_unstable_by_key(|&(id, _)| id);
+        top_k(self, query, k)
+    }
+}
 
-        let mut scores: HashMap<u32, f32> = HashMap::new();
-        for (term_id, qweight) in qterms {
-            let plist = &self.postings[term_id as usize];
-            let df = plist.len() as f32;
-            let idf = ((n - df + 0.5) / (df + 0.5) + 1.0).ln();
-            for &(chunk_id, tf) in plist {
-                let tf = tf as f32;
-                let dl = self.doc_len[chunk_id as usize] as f32;
-                let denom = tf + K1 * (1.0 - B + B * dl / avgdl);
-                *scores.entry(chunk_id).or_insert(0.0) +=
-                    qweight * idf * tf * (K1 + 1.0) / denom;
-            }
-        }
-        let mut hits: Vec<(u32, f32)> = scores.into_iter().collect();
-        hits.sort_unstable_by(|a, b| {
-            b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal).then(a.0.cmp(&b.0))
-        });
-        hits.truncate(k);
-        hits
+impl Postings for Bm25Index {
+    fn n_docs(&self) -> usize {
+        self.doc_len.len()
+    }
+
+    fn total_len(&self) -> u64 {
+        self.total_len
+    }
+
+    fn term_id(&self, token: &str) -> Option<u32> {
+        self.terms.get(token).copied()
+    }
+
+    fn postings(&self, term: u32) -> impl Iterator<Item = (u32, u16)> + '_ {
+        self.postings[term as usize].iter().copied()
+    }
+
+    fn doc_len(&self, chunk_id: u32) -> u32 {
+        self.doc_len[chunk_id as usize]
     }
 }
 
@@ -293,53 +361,38 @@ impl FlatBm25 {
     }
 
     #[inline]
-    fn doc_len(&self, chunk_id: u32) -> u32 {
+    fn doc_len_at(&self, chunk_id: u32) -> u32 {
         self.u32_le(self.off[4] as usize + chunk_id as usize * 4)
     }
 
-    /// Document frequency of a term (0 if absent) — for idf-style scoring
-    /// outside the BM25 query itself (e.g. PRF expansion-term selection).
-    pub fn df(&self, term: &str) -> usize {
-        self.find_term(term).map_or(0, |i| self.postings_at(i).count())
+    /// Top-k chunks by BM25 — the same scorer [`Bm25Index::query`] uses.
+    pub fn query(&self, query: &str, k: usize) -> Vec<(u32, f32)> {
+        top_k(self, query, k)
+    }
+}
+
+impl Postings for FlatBm25 {
+    fn n_docs(&self) -> usize {
+        self.n_docs as usize
     }
 
-    /// Top-k chunks by BM25 — same scoring as [`Bm25Index::query`].
-    pub fn query(&self, query: &str, k: usize) -> Vec<(u32, f32)> {
-        let n = self.n_docs as f32;
-        if n == 0.0 {
-            return Vec::new();
-        }
-        let avgdl = (self.total_len as f32 / n).max(1.0);
-        let mut qterms: HashMap<usize, f32> = HashMap::new();
-        tokenize::for_each_token(query, |tok| {
-            if let Some(i) = self.find_term(tok) {
-                *qterms.entry(i).or_insert(0.0) += 1.0;
-            }
-        });
-        // Term order, not hash order — see [`Bm25Index::query`]. Here the index
-        // *is* sorted-term order, so this also fixes the accumulation order to
-        // something both stores could agree on exactly.
-        let mut qterms: Vec<(usize, f32)> = qterms.into_iter().collect();
-        qterms.sort_unstable_by_key(|&(i, _)| i);
+    fn total_len(&self) -> u64 {
+        self.total_len
+    }
 
-        let mut scores: HashMap<u32, f32> = HashMap::new();
-        for (term_i, qweight) in qterms {
-            let df = self.postings_at(term_i).count() as f32;
-            let idf = ((n - df + 0.5) / (df + 0.5) + 1.0).ln();
-            for (chunk_id, tf) in self.postings_at(term_i) {
-                let tf = tf as f32;
-                let dl = self.doc_len(chunk_id) as f32;
-                let denom = tf + K1 * (1.0 - B + B * dl / avgdl);
-                *scores.entry(chunk_id).or_insert(0.0) +=
-                    qweight * idf * tf * (K1 + 1.0) / denom;
-            }
-        }
-        let mut hits: Vec<(u32, f32)> = scores.into_iter().collect();
-        hits.sort_unstable_by(|a, b| {
-            b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal).then(a.0.cmp(&b.0))
-        });
-        hits.truncate(k);
-        hits
+    /// Term ids here are positions in the sorted term table, so they order the
+    /// accumulation by term string — the same relation the in-memory store now
+    /// has, which is why the two agree bit for bit.
+    fn term_id(&self, token: &str) -> Option<u32> {
+        self.find_term(token).map(|i| i as u32)
+    }
+
+    fn postings(&self, term: u32) -> impl Iterator<Item = (u32, u16)> + '_ {
+        self.postings_at(term as usize)
+    }
+
+    fn doc_len(&self, chunk_id: u32) -> u32 {
+        self.doc_len_at(chunk_id)
     }
 }
 
@@ -470,12 +523,93 @@ mod flat_tests {
         let f = FlatBm25::open(&p).unwrap();
         assert_eq!(f.n_docs(), 3);
         for q in ["validate the session token", "backoff delay", "bake bread", "zzz missing"] {
-            let a = i.query(q, 10);
-            let b = f.query(q, 10);
-            assert_eq!(a.len(), b.len(), "query {q:?}");
-            for ((ca, sa), (cb, sb)) in a.iter().zip(&b) {
-                assert_eq!(ca, cb, "query {q:?}");
-                assert!((sa - sb).abs() < 1e-5, "query {q:?}: {sa} vs {sb}");
+            // Exactly equal, not within a tolerance. Both stores run the same
+            // scorer over term-id order, and in the flat store term ids *are*
+            // sorted-term positions, so the float accumulation is identical.
+            // The old 1e-5 slack was hiding two different accumulation orders.
+            assert_eq!(i.query(q, 10), f.query(q, 10), "query {q:?}");
+        }
+    }
+
+    /// Store parity as a property, over corpora big enough to have deep
+    /// postings lists, terms shared across many documents, and queries that
+    /// miss. One hand-written fixture cannot cover the interesting cases:
+    /// binary search near term-table boundaries, multi-term accumulation,
+    /// documents of very different lengths driving the length normalization.
+    #[test]
+    fn stores_agree_on_generated_corpora() {
+        let mut state = 0x5EEDu64;
+        let mut next = move || {
+            state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
+            (state >> 33) as usize
+        };
+        let vocab = [
+            "retry",
+            "backoff",
+            "jitter",
+            "queue",
+            "urgent",
+            "token",
+            "session",
+            "digest",
+            "pool",
+            "connection",
+            "idle",
+            "reap",
+            "histogram",
+            "quantile",
+            "bucket",
+            "cron",
+            "schedule",
+            "dispatch",
+            "handler",
+            "drain",
+            "ring",
+            "buffer",
+            "mask",
+            "atomic",
+        ];
+
+        for trial in 0..8 {
+            let n_docs = 1 + next() % 60;
+            let docs: Vec<String> = (0..n_docs)
+                .map(|d| {
+                    let n_words = 1 + next() % 40;
+                    let body: Vec<&str> =
+                        (0..n_words).map(|_| vocab[next() % vocab.len()]).collect();
+                    // A path prefix, as real chunk docs have.
+                    format!("src/mod{}/file{}.rs\n{}", d % 4, d, body.join(" "))
+                })
+                .collect();
+
+            let mut mem = Bm25Index::new();
+            for d in &docs {
+                mem.add_doc(d);
+            }
+            mem.finalize();
+            let dir = tempfile::tempdir().unwrap();
+            let p = dir.path().join("bm25.flat");
+            std::fs::write(&p, mem.to_flat_bytes()).unwrap();
+            let flat = FlatBm25::open(&p).unwrap();
+
+            assert_eq!(mem.n_docs(), flat.n_docs(), "trial {trial}");
+            for _ in 0..12 {
+                let n_terms = 1 + next() % 4;
+                let mut q: Vec<&str> =
+                    (0..n_terms).map(|_| vocab[next() % vocab.len()]).collect();
+                if next() % 4 == 0 {
+                    q.push("nonexistentterm"); // must be ignored identically
+                }
+                let query = q.join(" ");
+                assert_eq!(
+                    mem.query(&query, 10),
+                    flat.query(&query, 10),
+                    "trial {trial}, query {query:?}"
+                );
+                // And df must agree, since PRF term selection reads it.
+                for term in &q {
+                    assert_eq!(mem.df(term), flat.df(term), "df({term:?}) trial {trial}");
+                }
             }
         }
     }
