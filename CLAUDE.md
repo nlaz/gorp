@@ -39,15 +39,26 @@ ranks, `cache` never scores, `search` orchestrates rather than computes.
 - `bench/` — perf harness vs grep/ggrep/rg/ugrep/ack (`fetch-corpora.sh`,
   `run.py`, `report.py`, `queries.json`); corpora + results are gitignored
 - `eval/` — retrieval-quality harness. `run_eval.py` scores recall@k/MRR with
-  paired bootstrap CIs + sign tests (`--baseline`, `--compare-modes`);
+  paired bootstrap CIs + sign tests (`--baseline`, `--compare-modes`), cuts by
+  `--stratify`/`--where`, and prints leakage above every table;
   `generate.py --anchor symbol` makes chunking-neutral query sets via
   `symbols.py`; `fetch-cosqa.sh` pulls 9k real human queries (the only set we
   didn't write — prefer it for quality claims, RESEARCH.md §12);
-  `locbench/replay.py` replays real agent queries offline. Two rg baselines
-  exist on purpose: `rg` (legacy, weak — kept for comparability) and
-  `rg-strong` (fair). Report both. `levers.sh` runs the §9 lever campaign and
-  `diff.py` compares any two conditions. `pytest eval/tests` covers the scorers,
-  which decide every published number.
+  `locbench/replay.py` replays real agent queries offline (§13.2).
+  **Query sets live in `eval/queries/`, checked in** — `eval/data/` is
+  gitignored and the sets are `claude`-generated, so nothing published was
+  reproducible without them. Three rg conditions exist on purpose: `rg`
+  (legacy, weak — kept for comparability), `rg-strong` (fair), and `rg-oracle`
+  (a *ceiling* — it consults the answer, so no agent can run it; §13.4).
+  Report all three. `levers.sh` runs the §9 lever campaign and `diff.py`
+  compares any two conditions. `pytest eval/tests` covers the scorers, which
+  decide every published number.
+- Guards that run beside the numbers: `eval/leakage.py` (how much of the
+  answer a query already contains — §12.5 made structural),
+  `eval/validate_queries.py` (`run_eval` refuses to score a query set that has
+  drifted from its corpus), `bench/manifest.py --check` (detects a corpus tree
+  that changed), `eval/reclaim.sh --dry-run` (what the harness holds on disk
+  and what rebuilds it).
 
 ## Conventions
 
@@ -82,7 +93,14 @@ ranks, `cache` never scores, `search` orchestrates rather than computes.
 - Smoke tests in sibling repos: set `SEMGREP_CACHE_DIR` to a temp dir (a
   plain ranked search now writes a cache entry for that scope).
 - The benchmark corpora live in `bench/corpora/` (~5 GB with the linux index;
-  refetch with `bench/fetch-corpora.sh`, vscode needs GIT_LFS_SKIP_SMUDGE=1).
+  refetch with `bench/fetch-corpora.sh`). Seven of them: linux (C, 84k files),
+  vscode (TS, 4k), wikipedia (prose, 1k), plus tokio/commons-lang/etcd/jekyll
+  (rust/java/go/ruby, 166–1,500 files, ~35 MB total) which sit in the <2k-file
+  band where §9.7 found engine variants actually diverge. Every clone is
+  pinned to a SHA; wikipedia cannot be (Wikimedia expires dated dumps), and
+  the vscode/wikipedia trees fetched before pinning carry
+  `revision: unknown` — recorded honestly rather than invented. Tree digests
+  in `bench/corpora/MANIFEST.json` make a corpus checkable either way.
 
 ## Known costs (measured, M-series mac, linux kernel corpus, index v2, 256 dims)
 

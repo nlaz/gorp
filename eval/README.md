@@ -44,6 +44,23 @@ and staleness is surfaced, not smoothed over.
 Aggregate: 1.51 GB of source → 629 MB of index in 63 s (~24 MB/s;
 index ≈ 0.42× source bytes).
 
+**Language corpora** (added 2026-07-30) — four small, pinned repos covering the
+languages `symbols.py` supports that nothing else exercised. They sit in the
+<2k-file band where §9.7 found engine variants actually diverge; the original
+three are 84k, 4k and 1k files.
+
+| corpus | lang | files | source | symbols | has_doc |
+|---|---|---|---|---|---|
+| tokio | rust | 790 | 6.0 MB | 7,728 | 59% |
+| commons-lang | java | 625 | 10.3 MB | 4,985 | 88% |
+| etcd | go | 1,110 | 15.4 MB | 9,211 | 20% |
+| jekyll | ruby | 166 | 3.3 MB | 1,068 | 45% |
+
+The `has_doc` spread is deliberate — it is a stratum, and a stratum needs
+variance. Their query sets are symbol-anchored (`--anchor symbol`), so ground
+truth is a function span rather than a 30-line window: chunking-neutral by
+construction, which the older three sets are not (§11.4).
+
 **Bench corpora** — full rebuild (`semgrep index`, fresh timing):
 
 | corpus | files | source | build | index | peak RSS |
