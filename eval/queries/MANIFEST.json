@@ -338,5 +338,141 @@
         "gold_token_overlap": null
       }
     }
+  },
+  "linux-sym.jsonl": {
+    "sha256": "81c50b36908ea8b1",
+    "queries_fp": "81c50b36908ea8b1",
+    "n": 400,
+    "kinds": {
+      "direct": 200,
+      "paraphrase": 200
+    },
+    "corpus": "linux",
+    "anchor": "symbol",
+    "provenance": "generate.py --anchor symbol, path NOT in prompt (replaces linux.jsonl for new work)",
+    "leakage": {
+      "direct": {
+        "n": 200,
+        "identifier_pct": 0.135,
+        "median_words": 12,
+        "basename_pct": 0.0,
+        "stem_pct": 0.075,
+        "path_seg_pct": 0.135,
+        "path_seg_not_in_gold_pct": 0.0,
+        "gold_token_overlap": null
+      },
+      "paraphrase": {
+        "n": 200,
+        "identifier_pct": 0.0,
+        "median_words": 15,
+        "basename_pct": 0.0,
+        "stem_pct": 0.015,
+        "path_seg_pct": 0.045,
+        "path_seg_not_in_gold_pct": 0.0,
+        "gold_token_overlap": null
+      }
+    }
+  },
+  "vscode-sym.jsonl": {
+    "sha256": "8560ccc61d88c482",
+    "queries_fp": "8560ccc61d88c482",
+    "n": 400,
+    "kinds": {
+      "direct": 200,
+      "paraphrase": 200
+    },
+    "corpus": "vscode",
+    "anchor": "symbol",
+    "provenance": "generate.py --anchor symbol, path NOT in prompt",
+    "leakage": {
+      "direct": {
+        "n": 200,
+        "identifier_pct": 0.125,
+        "median_words": 12,
+        "basename_pct": 0.0,
+        "stem_pct": 0.045,
+        "path_seg_pct": 0.21,
+        "path_seg_not_in_gold_pct": 0.0,
+        "gold_token_overlap": null
+      },
+      "paraphrase": {
+        "n": 200,
+        "identifier_pct": 0.005,
+        "median_words": 15,
+        "basename_pct": 0.0,
+        "stem_pct": 0.015,
+        "path_seg_pct": 0.145,
+        "path_seg_not_in_gold_pct": 0.0,
+        "gold_token_overlap": null
+      }
+    }
+  },
+  "wikipedia-v2.jsonl": {
+    "sha256": "44b2f0f42f0e7b0b",
+    "queries_fp": "44b2f0f42f0e7b0b",
+    "n": 400,
+    "kinds": {
+      "direct": 200,
+      "paraphrase": 200
+    },
+    "corpus": "wikipedia",
+    "anchor": "window",
+    "provenance": "generate.py --anchor window, path NOT in prompt. Window is forced: wikipedia is prose, 0/1013 files have an extension symbols.py can parse",
+    "leakage": {
+      "direct": {
+        "n": 200,
+        "identifier_pct": 0.01,
+        "median_words": 11,
+        "basename_pct": 0.0,
+        "stem_pct": 0.0,
+        "path_seg_pct": 0.0,
+        "path_seg_not_in_gold_pct": 0.0,
+        "gold_token_overlap": null
+      },
+      "paraphrase": {
+        "n": 200,
+        "identifier_pct": 0.0,
+        "median_words": 15,
+        "basename_pct": 0.0,
+        "stem_pct": 0.0,
+        "path_seg_pct": 0.0,
+        "path_seg_not_in_gold_pct": 0.0,
+        "gold_token_overlap": null
+      }
+    }
+  },
+  "ablation-linux-window-newprompt.jsonl": {
+    "sha256": "eb7dcfed84d53132",
+    "queries_fp": "eb7dcfed84d53132",
+    "n": 120,
+    "kinds": {
+      "direct": 60,
+      "paraphrase": 60
+    },
+    "corpus": "linux",
+    "anchor": "window",
+    "provenance": "n=60 chunks. Same anchor as linux.jsonl, new prompt \u2014 isolates the prompt's effect from the anchor's. Not for scoring.",
+    "leakage": {
+      "direct": {
+        "n": 60,
+        "identifier_pct": 0.2,
+        "median_words": 12,
+        "basename_pct": 0.0,
+        "stem_pct": 0.15,
+        "path_seg_pct": 0.2667,
+        "path_seg_not_in_gold_pct": 0.0,
+        "gold_token_overlap": null
+      },
+      "paraphrase": {
+        "n": 60,
+        "identifier_pct": 0.0167,
+        "median_words": 15,
+        "basename_pct": 0.0,
+        "stem_pct": 0.0167,
+        "path_seg_pct": 0.1333,
+        "path_seg_not_in_gold_pct": 0.0,
+        "gold_token_overlap": null
+      }
+    }
   }
 }
