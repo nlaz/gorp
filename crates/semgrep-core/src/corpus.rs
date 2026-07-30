@@ -104,11 +104,7 @@ pub fn chunk_lines<'a>(
         let slice = &text[line_starts[start]..line_starts[end]];
         if !slice.trim().is_empty() {
             chunks.push((
-                Chunk {
-                    file_id,
-                    start_line: start as u32 + 1,
-                    end_line: end as u32,
-                },
+                Chunk { file_id, start_line: start as u32 + 1, end_line: end as u32 },
                 slice,
             ));
         }
@@ -202,8 +198,8 @@ pub fn chunk_text_rel(root: &Path, rel_path: &str, chunk: &Chunk) -> Option<Stri
 /// Extract the lines of `chunk` from its file on disk (for result display).
 pub fn chunk_text(root: &Path, file: &FileMeta, chunk: &Chunk) -> Result<String> {
     let path = abs_path(root, file);
-    let text = read_text(&path)
-        .with_context(|| format!("cannot re-read {}", path.display()))?;
+    let text =
+        read_text(&path).with_context(|| format!("cannot re-read {}", path.display()))?;
     let mut out = String::new();
     for (i, line) in text.lines().enumerate() {
         let line_no = i as u32 + 1;

@@ -1,0 +1,95 @@
+name: ci
+
+# PREREQUISITE: this workspace builds against sibling checkouts of the Bog
+# stack (`../ese`, `../anny`), which live in a different org than this repo.
+# CI therefore needs read access to them: set the `BOG_TOKEN` secret to a PAT
+# with `contents: read` on flowercomputers/ese and flowercomputers/anny, or
+# make those repositories public and drop the `token:` lines below.
+#
+# The first build downloads the ese weight table over the network (~40 MB into
+# OUT_DIR); the cargo cache below keeps that to once per lockfile change.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: semgrep
+      - uses: actions/checkout@v4
+        with:
+          repository: flowercomputers/ese
+          path: ese
+          token: ${{ secrets.BOG_TOKEN }}
+      - uses: actions/checkout@v4
+        with:
+          repository: flowercomputers/anny
+          path: anny
+          token: ${{ secrets.BOG_TOKEN }}
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            semgrep/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('semgrep/Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      - name: format
+        working-directory: semgrep
+        run: cargo fmt --check
+
+      - name: clippy
+        working-directory: semgrep
+        run: cargo clippy --workspace --all-targets
+
+      - name: test
+        working-directory: semgrep
+        run: cargo test --workspace
+
+      # The behavior tripwire (PLAN.md Pass 5): ranked output over the frozen
+      # fixture corpus must be byte-identical. A commit that changes ranking
+      # has to re-record it deliberately.
+      - name: snapshot
+        working-directory: semgrep
+        run: |
+          cargo build --release
+          tools/snapshot.sh --check
+
+  harness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # 2,300 lines of eval/bench harness that decides every published number.
+      # Syntax first; the scorer unit tests land with PLAN.md P8.
+      # Explicit file list, not the directories: bench/corpora and eval/data
+      # hold multi-gigabyte third-party checkouts whose syntax is not our
+      # problem (and whose warnings would bury ours).
+      - name: compile
+        run: python -m compileall -q bench/*.py eval/*.py eval/locbench/*.py
+
+      - name: test
+        run: |
+          if [ -d eval/tests ]; then
+            python -m pip install --quiet pytest
+            python -m pytest eval/tests -q
+          else
+            echo "no eval/tests yet (PLAN.md P8)"
+          fi

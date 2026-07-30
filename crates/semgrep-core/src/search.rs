@@ -223,8 +223,7 @@ fn repair_scope(
     let _ = std::fs::write(&marker, b"");
 
     let t0 = Instant::now();
-    let scope_abs =
-        if d.prefix.is_empty() { d.root.clone() } else { d.root.join(&d.prefix) };
+    let scope_abs = if d.prefix.is_empty() { d.root.clone() } else { d.root.join(&d.prefix) };
     let live = corpus::walk(&scope_abs, &idx.meta.params).ok()?;
     let under_prefix = |path: &str| {
         d.prefix.is_empty() || path.strip_prefix(&d.prefix).is_some_and(|r| r.starts_with('/'))
@@ -344,9 +343,7 @@ fn search_indexed(
     let repair = repair_scope(d, &idx, &mut stages);
     let n_base = idx.chunks.len() as u32;
     let tombstoned = |id: u32| {
-        repair
-            .as_ref()
-            .is_some_and(|r| r.tombstones.contains(&idx.chunks[id as usize].file_id))
+        repair.as_ref().is_some_and(|r| r.tombstones.contains(&idx.chunks[id as usize].file_id))
     };
 
     // Map a ranked id (base row or delta overlay) to its chunk + path.
@@ -397,7 +394,9 @@ fn search_indexed(
             let mut tf: HashMap<String, f32> = HashMap::new();
             for &(id, _) in bm25_ranked.iter().take(10) {
                 let (chunk, path) = resolve(id);
-                let Some(text) = corpus::chunk_text_rel(&d.root, &path, &chunk) else { continue };
+                let Some(text) = corpus::chunk_text_rel(&d.root, &path, &chunk) else {
+                    continue;
+                };
                 tokenize::for_each_token(&text, |tok| {
                     if !query_toks.contains(tok) && tok.len() >= 3 {
                         *tf.entry(tok.to_string()).or_insert(0.0) += 1.0;
@@ -448,7 +447,9 @@ fn search_indexed(
                     let qi = semantic::quantize_i8(&q);
                     semantic::brute_force_top_k_i8(&qi, idx.emb_matrix_i8(), pool)
                 }
-                _ => semantic::brute_force_top_k(&q, idx.emb_matrix(), pool, idx.meta.normalized),
+                _ => {
+                    semantic::brute_force_top_k(&q, idx.emb_matrix(), pool, idx.meta.normalized)
+                }
             };
             ranked.retain(|&(id, _)| !tombstoned(id));
             if let Some(r) = &repair {
@@ -464,10 +465,8 @@ fn search_indexed(
                 ranked.sort_unstable_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));
                 ranked.truncate(pool);
             }
-            stages.push((
-                if used_hnsw { "rank:ann" } else { "rank:brute" }.to_string(),
-                ms(t0),
-            ));
+            stages
+                .push((if used_hnsw { "rank:ann" } else { "rank:brute" }.to_string(), ms(t0)));
             // Pre-fusion MaxSim rerank (§9.4): reorder the semantic list's
             // head by late-interaction score *before* RRF, so BM25's
             // exact-match signal is fused with it rather than overridden by
@@ -481,9 +480,11 @@ fn search_indexed(
                     // Head 96 won the §9.6 sweep on all three corpora
                     // (semantic +0.03..0.06 R@5 over head 24, ~54 ms).
                     let auto = (opts.k * 3).max(96);
-                    let m = ranked
-                        .len()
-                        .min(if opts.maxsim_pool > 0 { opts.maxsim_pool } else { auto });
+                    let m = ranked.len().min(if opts.maxsim_pool > 0 {
+                        opts.maxsim_pool
+                    } else {
+                        auto
+                    });
                     let scored: Vec<(u32, f32, f32)> = ranked[..m]
                         .par_iter()
                         .map(|&(id, dist)| {
@@ -504,9 +505,9 @@ fn search_indexed(
                     // min-max normalized within the head) when < 1.0.
                     let alpha = opts.maxsim_blend.clamp(0.0, 1.0);
                     let norm = |xs: Vec<f32>| -> Vec<f32> {
-                        let (lo, hi) = xs.iter().fold((f32::MAX, f32::MIN), |(l, h), &x| {
-                            (l.min(x), h.max(x))
-                        });
+                        let (lo, hi) = xs
+                            .iter()
+                            .fold((f32::MAX, f32::MIN), |(l, h), &x| (l.min(x), h.max(x)));
                         let span = (hi - lo).max(f32::EPSILON);
                         xs.into_iter().map(|x| (x - lo) / span).collect()
                     };
@@ -539,8 +540,7 @@ fn search_indexed(
     let rank_ms = t_rank.elapsed().as_millis();
 
     let in_scope = |path: &str| {
-        d.prefix.is_empty()
-            || path.strip_prefix(&d.prefix).is_some_and(|r| r.starts_with('/'))
+        d.prefix.is_empty() || path.strip_prefix(&d.prefix).is_some_and(|r| r.starts_with('/'))
     };
     let cands: Vec<Candidate> = ranked
         .into_iter()
@@ -938,13 +938,8 @@ mod tests {
         let sem = vec![(2, 0.1), (1, 0.4)];
         let fused = fuse(Mode::Hybrid, bm25, sem, 10, 0.5);
         assert_eq!(fused[0].0, 1, "bm25 winner should lead at sem_weight<1");
-        let equal = fuse(
-            Mode::Hybrid,
-            vec![(1, 9.0), (2, 5.0)],
-            vec![(2, 0.1), (1, 0.4)],
-            10,
-            1.0,
-        );
+        let equal =
+            fuse(Mode::Hybrid, vec![(1, 9.0), (2, 5.0)], vec![(2, 0.1), (1, 0.4)], 10, 1.0);
         // sanity: at weight 1.0 the two docs tie on RRF and order falls to id
         assert_eq!(equal.len(), 2);
     }
@@ -953,11 +948,8 @@ mod tests {
     fn mmr_prefers_diverse_over_redundant() {
         // a and b are near-identical vectors with top scores; c is distinct
         // with a slightly lower score. With diversity on, c should beat b.
-        let cands = vec![
-            cand(0, "a.rs", 1, 1.0),
-            cand(1, "b.rs", 1, 0.95),
-            cand(2, "c.rs", 1, 0.80),
-        ];
+        let cands =
+            vec![cand(0, "a.rs", 1, 1.0), cand(1, "b.rs", 1, 0.95), cand(2, "c.rs", 1, 0.80)];
         let mut va = vec![0.0f32; 8];
         va[0] = 1.0;
         let mut vb = va.clone();

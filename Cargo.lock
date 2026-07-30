@@ -704,6 +704,7 @@ dependencies = [
  "libc",
  "semgrep-core",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]

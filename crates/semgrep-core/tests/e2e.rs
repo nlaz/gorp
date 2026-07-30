@@ -3,9 +3,9 @@
 //! cache behaviors: write-through, ancestor discovery, scope promotion, and
 //! the read-repair overlay (cache-transparency invariant).
 
+use semgrep_core::ChunkParams;
 use semgrep_core::index::{self, BuildOptions};
 use semgrep_core::search::{Mode, SearchOptions, search};
-use semgrep_core::ChunkParams;
 use std::fs;
 use std::path::Path;
 
@@ -13,9 +13,26 @@ use std::path::Path;
 /// and make read-repair validation unthrottled. Called first in every test
 /// that runs `search()`; `cache_base()` resolves env once per process, so
 /// this must win the race — OnceLock synchronizes callers.
-fn isolate_cache() {
-    static INIT: std::sync::OnceLock<()> = std::sync::OnceLock::new();
-    INIT.get_or_init(|| {
+///
+/// The returned guard is what keeps the suite honest. One cache directory is
+/// shared by every test in this binary (it has to be: the base is resolved from
+/// the environment exactly once per process), so a test that evicts entries
+/// operates on *everyone's* state. `shared()` tests hold a read lock and run in
+/// parallel; `exclusive()` tests — anything that prunes or clears — hold a write
+/// lock and run alone. Without this the suite failed intermittently, and the
+/// failure looked like a repair bug rather than a test-isolation bug.
+fn isolate_cache() -> std::sync::RwLockReadGuard<'static, ()> {
+    cache_lock().read().unwrap()
+}
+
+/// For tests that delete cache entries they do not own.
+fn isolate_cache_exclusive() -> std::sync::RwLockWriteGuard<'static, ()> {
+    cache_lock().write().unwrap()
+}
+
+fn cache_lock() -> &'static std::sync::RwLock<()> {
+    static LOCK: std::sync::OnceLock<std::sync::RwLock<()>> = std::sync::OnceLock::new();
+    LOCK.get_or_init(|| {
         let dir = tempfile::tempdir().unwrap();
         unsafe {
             std::env::set_var("SEMGREP_CACHE_DIR", dir.path());
@@ -23,7 +40,8 @@ fn isolate_cache() {
         }
         // Leak: the cache dir must outlive every test in the process.
         std::mem::forget(dir);
-    });
+        std::sync::RwLock::new(())
+    })
 }
 
 /// Small corpus with clearly separated topics so retrieval is unambiguous.
@@ -99,7 +117,7 @@ fn stream_opts(mode: Mode) -> SearchOptions {
 
 #[test]
 fn bm25_unindexed_finds_identifier_from_nl_query() {
-    isolate_cache();
+    let _cache = isolate_cache();
     let dir = tempfile::tempdir().unwrap();
     fixture(dir.path());
     let r = search(dir.path(), "compute the backoff delay", &stream_opts(Mode::Bm25)).unwrap();
@@ -110,36 +128,50 @@ fn bm25_unindexed_finds_identifier_from_nl_query() {
 
 #[test]
 fn semantic_unindexed_beats_keywords() {
-    isolate_cache();
+    let _cache = isolate_cache();
     let dir = tempfile::tempdir().unwrap();
     fixture(dir.path());
     // No lexical overlap with "sourdough"/"ferment": paraphrase only.
-    let r = search(dir.path(), "baking bread with a fermented starter", &stream_opts(Mode::Semantic))
-        .unwrap();
+    let r = search(
+        dir.path(),
+        "baking bread with a fermented starter",
+        &stream_opts(Mode::Semantic),
+    )
+    .unwrap();
     assert_eq!(r.hits[0].path, "docs/cooking.md");
 }
 
 #[test]
 fn hybrid_unindexed_ranks_target_first() {
-    isolate_cache();
+    let _cache = isolate_cache();
     let dir = tempfile::tempdir().unwrap();
     fixture(dir.path());
-    let r = search(dir.path(), "check whether a session token is valid", &stream_opts(Mode::Hybrid))
-        .unwrap();
+    let r = search(
+        dir.path(),
+        "check whether a session token is valid",
+        &stream_opts(Mode::Hybrid),
+    )
+    .unwrap();
     assert_eq!(r.hits[0].path, "src/auth.rs");
 }
 
 #[test]
 fn indexed_matches_unindexed_results() {
-    isolate_cache();
+    let _cache = isolate_cache();
     let dir = tempfile::tempdir().unwrap();
     fixture(dir.path());
     let params = ChunkParams { window: 8, overlap: 2, ..Default::default() };
 
-    let cold = search(dir.path(), "exponential backoff retries", &stream_opts(Mode::Hybrid)).unwrap();
+    let cold =
+        search(dir.path(), "exponential backoff retries", &stream_opts(Mode::Hybrid)).unwrap();
     assert!(!cold.report.used_index);
 
-    index::build(dir.path(), &BuildOptions { params, hnsw: false, ..Default::default() }, |_, _| {}).unwrap();
+    index::build(
+        dir.path(),
+        &BuildOptions { params, hnsw: false, ..Default::default() },
+        |_, _| {},
+    )
+    .unwrap();
     let warm = search(dir.path(), "exponential backoff retries", &opts(Mode::Hybrid)).unwrap();
     assert!(warm.report.used_index);
     assert!(!warm.report.used_hnsw);
@@ -152,18 +184,24 @@ fn indexed_matches_unindexed_results() {
         search(dir.path(), "mirrors gathering light from stars", &stream_opts(Mode::Semantic))
             .unwrap();
     let warm_sem =
-        search(dir.path(), "mirrors gathering light from stars", &opts(Mode::Semantic)).unwrap();
+        search(dir.path(), "mirrors gathering light from stars", &opts(Mode::Semantic))
+            .unwrap();
     assert_eq!(cold_sem.hits[0].path, warm_sem.hits[0].path);
     assert_eq!(warm_sem.hits[0].path, "docs/astronomy.md");
 }
 
 #[test]
 fn hnsw_index_agrees_with_exact_on_top_hit() {
-    isolate_cache();
+    let _cache = isolate_cache();
     let dir = tempfile::tempdir().unwrap();
     fixture(dir.path());
     let params = ChunkParams { window: 8, overlap: 2, ..Default::default() };
-    index::build(dir.path(), &BuildOptions { params, hnsw: true, ..Default::default() }, |_, _| {}).unwrap();
+    index::build(
+        dir.path(),
+        &BuildOptions { params, hnsw: true, ..Default::default() },
+        |_, _| {},
+    )
+    .unwrap();
 
     let mut o = opts(Mode::Semantic);
     let hnsw = search(dir.path(), "hashing a password with salt", &o).unwrap();
@@ -180,7 +218,12 @@ fn staleness_detected_after_edit() {
     let dir = tempfile::tempdir().unwrap();
     fixture(dir.path());
     let params = ChunkParams { window: 8, overlap: 2, ..Default::default() };
-    index::build(dir.path(), &BuildOptions { params, hnsw: false, ..Default::default() }, |_, _| {}).unwrap();
+    index::build(
+        dir.path(),
+        &BuildOptions { params, hnsw: false, ..Default::default() },
+        |_, _| {},
+    )
+    .unwrap();
 
     let idx = index::LoadedIndex::load(dir.path(), index::LoadNeeds::all()).unwrap();
     assert_eq!(idx.stale_files().unwrap(), 0);
@@ -191,11 +234,16 @@ fn staleness_detected_after_edit() {
 
 #[test]
 fn no_index_flag_forces_streaming() {
-    isolate_cache();
+    let _cache = isolate_cache();
     let dir = tempfile::tempdir().unwrap();
     fixture(dir.path());
     let params = ChunkParams { window: 8, overlap: 2, ..Default::default() };
-    index::build(dir.path(), &BuildOptions { params, hnsw: false, ..Default::default() }, |_, _| {}).unwrap();
+    index::build(
+        dir.path(),
+        &BuildOptions { params, hnsw: false, ..Default::default() },
+        |_, _| {},
+    )
+    .unwrap();
     let mut o = opts(Mode::Bm25);
     o.no_index = true;
     let r = search(dir.path(), "backoff", &o).unwrap();
@@ -209,11 +257,16 @@ fn no_index_flag_forces_streaming() {
 
 #[test]
 fn ancestor_index_serves_subdir_scope() {
-    isolate_cache();
+    let _cache = isolate_cache();
     let dir = tempfile::tempdir().unwrap();
     fixture(dir.path());
     let params = ChunkParams { window: 8, overlap: 2, ..Default::default() };
-    index::build(dir.path(), &BuildOptions { params, hnsw: false, ..Default::default() }, |_, _| {}).unwrap();
+    index::build(
+        dir.path(),
+        &BuildOptions { params, hnsw: false, ..Default::default() },
+        |_, _| {},
+    )
+    .unwrap();
 
     // Query scoped to src/ — the index lives one level up.
     let r = search(&dir.path().join("src"), "validate a session token", &opts(Mode::Hybrid))
@@ -228,7 +281,7 @@ fn ancestor_index_serves_subdir_scope() {
 
 #[test]
 fn write_through_is_transparent() {
-    isolate_cache();
+    let _cache = isolate_cache();
     let dir = tempfile::tempdir().unwrap();
     fixture(dir.path());
     let q = "exponential backoff for retries";
@@ -251,7 +304,7 @@ fn write_through_is_transparent() {
 
 #[test]
 fn scope_promotion_evicts_child_entries() {
-    isolate_cache();
+    let _cache = isolate_cache();
     let dir = tempfile::tempdir().unwrap();
     fixture(dir.path());
     let canon = fs::canonicalize(dir.path()).unwrap();
@@ -281,7 +334,7 @@ fn scope_promotion_evicts_child_entries() {
 
 #[test]
 fn read_repair_serves_current_tree() {
-    isolate_cache();
+    let _cache = isolate_cache();
     let dir = tempfile::tempdir().unwrap();
     fixture(dir.path());
 
@@ -299,7 +352,8 @@ fn read_repair_serves_current_tree() {
     .unwrap();
 
     // New file is found without any rebuild (lazy fill ≡ repair)…
-    let r = search(dir.path(), "superconducting qubits coherence", &opts(Mode::Hybrid)).unwrap();
+    let r =
+        search(dir.path(), "superconducting qubits coherence", &opts(Mode::Hybrid)).unwrap();
     assert!(r.report.used_index);
     assert!(r.report.stale_files > 0, "repair should report the drift");
     assert_eq!(r.hits[0].path, "docs/quantum.md");
@@ -380,7 +434,8 @@ fn cache_entries_are_namespaced_by_compat_generation() {
     let alien = semgrep_core::index::cache_base().join("v2-d999-deadbeefdeadbeef");
     std::fs::create_dir_all(alien.join("abc")).unwrap();
     std::fs::write(alien.join("abc/meta.json"), b"{}").unwrap();
-    std::fs::write(alien.join("abc/root.txt"), dir.path().to_string_lossy().as_bytes()).unwrap();
+    std::fs::write(alien.join("abc/root.txt"), dir.path().to_string_lossy().as_bytes())
+        .unwrap();
     assert!(
         semgrep_core::index::cache_entries().iter().all(|(d, _)| !d.starts_with(&alien)),
         "entries from another generation must not be discovered"
@@ -426,9 +481,12 @@ fn corrupt_cache_entry_degrades_to_a_miss() {
 /// A cache with no ceiling is a slow disk leak: the kernel corpus alone
 /// indexes to ~946 MB. Entries whose repo is gone are dead weight forever,
 /// and past the budget the least-recently-used must go.
+///
+/// Exclusive: eviction deletes entries belonging to every other test in this
+/// binary, so it cannot run alongside them.
 #[test]
 fn cache_prunes_dead_entries_and_enforces_a_budget() {
-    let _cache = isolate_cache();
+    let _cache = isolate_cache_exclusive();
     let opts = semgrep_core::search::SearchOptions::default();
 
     // Two scopes; one of them we then delete off disk.
@@ -451,10 +509,12 @@ fn cache_prunes_dead_entries_and_enforces_a_budget() {
     assert!(!after.iter().any(|e| e.root == doomed_root), "dead entry survived");
     assert!(after.iter().any(|e| e.root == keep_root), "live entry was evicted");
 
-    // With a budget of zero, even a live entry must be evicted.
-    unsafe { std::env::set_var("SEMGREP_CACHE_MAX_BYTES", "0") };
-    semgrep_core::index::enforce_budget();
-    assert!(semgrep_core::index::cache_status().is_empty(),
-            "a zero budget should evict everything");
-    unsafe { std::env::remove_var("SEMGREP_CACHE_MAX_BYTES") };
+    // With a budget of zero, even a live entry must be evicted. Passing the cap
+    // explicitly rather than through the environment: `cache_max_bytes` is read
+    // per call, so mutating it here would leak into whatever else is running.
+    semgrep_core::index::enforce_budget_with_cap(0);
+    assert!(
+        semgrep_core::index::cache_status().is_empty(),
+        "a zero budget should evict everything"
+    );
 }

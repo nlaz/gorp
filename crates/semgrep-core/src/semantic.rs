@@ -54,11 +54,8 @@ impl SifStats {
     /// a/(a + p(w)); unseen tokens get the maximum weight (rare = strong).
     #[inline]
     pub fn weight(&self, token: &str) -> f32 {
-        let p = self
-            .freqs
-            .get(token)
-            .map(|&c| c as f64 / self.total.max(1) as f64)
-            .unwrap_or(0.0);
+        let p =
+            self.freqs.get(token).map(|&c| c as f64 / self.total.max(1) as f64).unwrap_or(0.0);
         (self.a / (self.a + p)) as f32
     }
 
@@ -363,9 +360,7 @@ mod tests {
         let query: Vec<f32> = (0..EMBED_DIM).map(|_| next()).collect();
         let got = brute_force_top_k(&query, &matrix, 5, false);
         let mut naive: Vec<(u32, f32)> = (0..n)
-            .map(|i| {
-                (i as u32, distance(&query, &matrix[i * EMBED_DIM..(i + 1) * EMBED_DIM]))
-            })
+            .map(|i| (i as u32, distance(&query, &matrix[i * EMBED_DIM..(i + 1) * EMBED_DIM])))
             .collect();
         naive.sort_unstable_by(|a, b| a.1.total_cmp(&b.1));
         naive.truncate(5);

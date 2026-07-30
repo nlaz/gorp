@@ -40,9 +40,8 @@ pub fn scan(root: &Path, pattern: &str, opts: &KeywordOptions) -> Result<Vec<Key
     if opts.fixed_string {
         builder.fixed_strings(true);
     }
-    let matcher = builder
-        .build(pattern)
-        .with_context(|| format!("invalid pattern: {pattern}"))?;
+    let matcher =
+        builder.build(pattern).with_context(|| format!("invalid pattern: {pattern}"))?;
 
     let hits = Mutex::new(Vec::new());
     let done = std::sync::atomic::AtomicBool::new(false);
@@ -66,11 +65,8 @@ pub fn scan(root: &Path, pattern: &str, opts: &KeywordOptions) -> Result<Vec<Key
                 return WalkState::Continue;
             }
             let path = entry.path();
-            let rel = path
-                .strip_prefix(root)
-                .unwrap_or(path)
-                .to_string_lossy()
-                .replace('\\', "/");
+            let rel =
+                path.strip_prefix(root).unwrap_or(path).to_string_lossy().replace('\\', "/");
             if rel.starts_with(".semgrep/") {
                 return WalkState::Continue;
             }

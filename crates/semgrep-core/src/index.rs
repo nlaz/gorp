@@ -135,7 +135,8 @@ pub fn build_at(
                 .par_iter()
                 .filter_map(|fm| {
                     let text = corpus::read_text(&corpus::abs_path(root, fm))?;
-                    let (_, slice) = corpus::chunk_lines(0, &text, &opts.params).into_iter().next()?;
+                    let (_, slice) =
+                        corpus::chunk_lines(0, &text, &opts.params).into_iter().next()?;
                     Some(semantic::embed_sif(&corpus::doc_text(&fm.path, slice), &all))
                 })
                 .collect();
@@ -168,8 +169,8 @@ pub fn build_at(
     let sif_ref = sif.as_ref();
     let mut pending: Vec<String> = Vec::with_capacity(EMBED_BATCH);
     let flush = |pending: &mut Vec<String>,
-                     emb_out: &mut std::io::BufWriter<std::fs::File>,
-                     hnsw: &mut Option<SemgrepHnsw>|
+                 emb_out: &mut std::io::BufWriter<std::fs::File>,
+                 hnsw: &mut Option<SemgrepHnsw>|
      -> Result<()> {
         if pending.is_empty() {
             return Ok(());
@@ -286,10 +287,7 @@ pub struct Discovered {
 }
 
 fn rel_prefix(root: &Path, scope: &Path) -> String {
-    scope
-        .strip_prefix(root)
-        .map(|p| p.to_string_lossy().replace('\\', "/"))
-        .unwrap_or_default()
+    scope.strip_prefix(root).map(|p| p.to_string_lossy().replace('\\', "/")).unwrap_or_default()
 }
 
 /// Resolve the index that should serve a query over `query_root`, if any.
@@ -432,9 +430,7 @@ pub fn gc_old_generations() {
         if !p.is_dir() || p.file_name().is_some_and(|n| n == keep.as_str()) {
             continue;
         }
-        let is_generation = p
-            .file_name()
-            .is_some_and(|n| n.to_string_lossy().starts_with('v'))
+        let is_generation = p.file_name().is_some_and(|n| n.to_string_lossy().starts_with('v'))
             && p.join(&keep).exists() == false
             && !p.join("meta.json").exists();
         let is_legacy_entry = p.join("meta.json").is_file() && p.join("root.txt").is_file();
@@ -513,6 +509,13 @@ pub fn cache_status() -> Vec<CacheEntryInfo> {
 /// Returns (entries removed, bytes reclaimed). Called after a write, so the
 /// cost lands on the path that already pays for a full corpus pass.
 pub fn enforce_budget() -> (usize, u64) {
+    enforce_budget_with_cap(cache_max_bytes())
+}
+
+/// [`enforce_budget`] against an explicit cap. Separated so a caller — a test,
+/// or a future `--max-bytes` flag — can exercise eviction without mutating the
+/// process environment that `cache_max_bytes` reads.
+pub fn enforce_budget_with_cap(cap: u64) -> (usize, u64) {
     let mut entries = cache_status();
     let (mut n, mut freed) = (0usize, 0u64);
 
@@ -531,7 +534,6 @@ pub fn enforce_budget() -> (usize, u64) {
 
     // 2. LRU until under the cap. Oldest first; `cache_status` sorts by
     //    recency ascending, so walk from the back.
-    let cap = cache_max_bytes();
     let mut total: u64 = entries.iter().map(|e| e.bytes).sum();
     while total > cap {
         let Some(victim) = entries.pop() else { break };
@@ -591,11 +593,7 @@ fn cache_entry_dir(root: &Path) -> PathBuf {
         .collect();
     let stem = format!("{label}-{:08x}", h.finish() as u32);
     for i in 0..64 {
-        let dir = if i == 0 {
-            base.join(&stem)
-        } else {
-            base.join(format!("{stem}-{i}"))
-        };
+        let dir = if i == 0 { base.join(&stem) } else { base.join(format!("{stem}-{i}")) };
         match std::fs::read_to_string(dir.join("root.txt")) {
             Ok(r) if PathBuf::from(r.trim()) != root => continue, // collision
             _ => return dir,
@@ -686,10 +684,17 @@ impl LoadedIndex {
         )?;
         t.meta_ms = ms(t0);
         if meta.version != FORMAT_VERSION {
-            bail!("index format v{} != supported v{FORMAT_VERSION}; re-run `semgrep index`", meta.version);
+            bail!(
+                "index format v{} != supported v{FORMAT_VERSION}; re-run `semgrep index`",
+                meta.version
+            );
         }
         if meta.dims != EMBED_DIM {
-            bail!("index built with {} dims but this binary embeds {}; re-run `semgrep index`", meta.dims, EMBED_DIM);
+            bail!(
+                "index built with {} dims but this binary embeds {}; re-run `semgrep index`",
+                meta.dims,
+                EMBED_DIM
+            );
         }
         let t0 = std::time::Instant::now();
         let chunks: Vec<Chunk> = postcard::from_bytes(&std::fs::read(dir.join("chunks.bin"))?)?;
@@ -732,9 +737,7 @@ impl LoadedIndex {
     /// Only valid when `!meta.quantized` (v1-era indexes).
     pub fn emb_matrix(&self) -> &[f32] {
         let bytes: &[u8] = &self.emb;
-        unsafe {
-            std::slice::from_raw_parts(bytes.as_ptr() as *const f32, bytes.len() / 4)
-        }
+        unsafe { std::slice::from_raw_parts(bytes.as_ptr() as *const f32, bytes.len() / 4) }
     }
 
     /// The i8-quantized embedding matrix (v2 indexes, `meta.quantized`).
@@ -751,12 +754,8 @@ impl LoadedIndex {
     /// built. Cheap staleness signal — callers decide what to do with it.
     pub fn stale_files(&self) -> Result<usize> {
         let live = corpus::walk(&self.root, &self.meta.params)?;
-        let mut indexed: std::collections::HashMap<&str, (u64, u64)> = self
-            .meta
-            .files
-            .iter()
-            .map(|f| (f.path.as_str(), (f.size, f.mtime)))
-            .collect();
+        let mut indexed: std::collections::HashMap<&str, (u64, u64)> =
+            self.meta.files.iter().map(|f| (f.path.as_str(), (f.size, f.mtime))).collect();
         let mut stale = 0usize;
         for f in &live {
             match indexed.remove(f.path.as_str()) {

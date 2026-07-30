@@ -72,10 +72,7 @@ mod tests {
     fn splits_snake_and_camel() {
         assert_eq!(tokens("get_user_name"), ["get", "user", "name"]);
         assert_eq!(tokens("getUserName"), ["get", "user", "name", "getusername"]);
-        assert_eq!(
-            tokens("HTTPServerError"),
-            ["http", "server", "error", "httpservererror"]
-        );
+        assert_eq!(tokens("HTTPServerError"), ["http", "server", "error", "httpservererror"]);
     }
 
     #[test]
@@ -86,10 +83,7 @@ mod tests {
 
     #[test]
     fn prose_is_plain_words() {
-        assert_eq!(
-            tokens("The quick brown fox."),
-            ["the", "quick", "brown", "fox"]
-        );
+        assert_eq!(tokens("The quick brown fox."), ["the", "quick", "brown", "fox"]);
     }
 
     #[test]

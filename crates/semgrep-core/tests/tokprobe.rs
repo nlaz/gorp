@@ -28,13 +28,18 @@ fn per_token_argmax_shows_the_bait_mechanism() {
             let (mut best, mut best_tok) = (f32::NEG_INFINITY, "");
             for (dtok, (_, dvec)) in dt.iter().zip(&dv) {
                 let sim: f32 = qvec.iter().zip(dvec.iter()).map(|(a, b)| a * b).sum();
-                if sim > best { best = sim; best_tok = dtok; }
+                if sim > best {
+                    best = sim;
+                    best_tok = dtok;
+                }
             }
             println!("  {qtok:>10} -> {best_tok:>10}  sim={best:.3}");
         }
     }
-    let (g, b) = (maxsim(&token_vectors(q, None), &token_vectors(gold, None)),
-                  maxsim(&token_vectors(q, None), &token_vectors(bait, None)));
+    let (g, b) = (
+        maxsim(&token_vectors(q, None), &token_vectors(gold, None)),
+        maxsim(&token_vectors(q, None), &token_vectors(bait, None)),
+    );
     println!("total: gold={g:.3} bait={b:.3}");
     // The documented failure: the unrelated chunk outscores the definition.
     assert!(b > g, "bait no longer outscores gold — revisit §9.8");

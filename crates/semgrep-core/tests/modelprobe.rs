@@ -13,13 +13,24 @@ fn sim(a: &str, b: &str) -> f32 {
 
 #[test]
 fn prose_pairs_vs_code_pairs() {
-    let prose = [("delete", "remove"), ("start", "begin"), ("big", "large"),
-                 ("error", "mistake"), ("fast", "quick")];
+    let prose = [
+        ("delete", "remove"),
+        ("start", "begin"),
+        ("big", "large"),
+        ("error", "mistake"),
+        ("fast", "quick"),
+    ];
     // bool~boolean deliberately excluded: it scores via shared wordpiece
     // surface form, not learned code semantics (see §9.9).
-    let code = [("def", "function"), ("fn", "function"), ("none", "null"),
-                ("str", "string"), ("mutex", "lock"), ("kmalloc", "allocate"),
-                ("regex", "pattern")];
+    let code = [
+        ("def", "function"),
+        ("fn", "function"),
+        ("none", "null"),
+        ("str", "string"),
+        ("mutex", "lock"),
+        ("kmalloc", "allocate"),
+        ("regex", "pattern"),
+    ];
     println!("-- prose synonym pairs --");
     let mut prose_sum = 0.0;
     for (a, b) in prose {
@@ -40,14 +51,27 @@ fn prose_pairs_vs_code_pairs() {
     // §9.9 documented finding: the space encodes prose synonymy but not
     // code-concept relations. If this flips (new embedder), revisit the
     // semantic stack's role on code.
-    assert!(prose_mean > 3.0 * code_mean.max(0.01),
-            "code pairs now score comparably to prose — embedding space changed");
+    assert!(
+        prose_mean > 3.0 * code_mean.max(0.01),
+        "code pairs now score comparably to prose — embedding space changed"
+    );
     println!("-- UNK detection (vs garbage token) --");
     let garbage = vec_of("qzxjvqk");
-    for w in ["kmalloc", "regridder", "semaphore", "mutex", "goroutine",
-              "dataframe", "tokenizer", "breakfast"] {
+    for w in [
+        "kmalloc",
+        "regridder",
+        "semaphore",
+        "mutex",
+        "goroutine",
+        "dataframe",
+        "tokenizer",
+        "breakfast",
+    ] {
         let v = vec_of(w);
         let s: f32 = garbage.iter().zip(&v).map(|(x, y)| x * y).sum();
-        println!("  {w:>10} sim-to-UNK={s:.3}{}", if s > 0.99 { "  ← OOV (falls to UNK)" } else { "" });
+        println!(
+            "  {w:>10} sim-to-UNK={s:.3}{}",
+            if s > 0.99 { "  ← OOV (falls to UNK)" } else { "" }
+        );
     }
 }

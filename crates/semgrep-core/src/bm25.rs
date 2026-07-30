@@ -42,7 +42,13 @@ pub fn tokenize_doc(text: &str) -> TokenizedDoc {
             }
         }
     });
-    TokenizedDoc { terms: tf.into_iter().collect(), len }
+    // Sorted, not hash order: `add_tokenized` assigns term ids in the order it
+    // first sees each term, so draining the map directly would give the same
+    // corpus a different term table every run — and with it a different score
+    // accumulation order and different serialized bytes.
+    let mut terms: Vec<(String, u16)> = tf.into_iter().collect();
+    terms.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+    TokenizedDoc { terms, len }
 }
 
 impl Bm25Index {
@@ -103,8 +109,15 @@ impl Bm25Index {
                 *qterms.entry(id).or_insert(0.0) += 1.0;
             }
         });
+        // Accumulate in term-id order, not hash order: f32 addition is not
+        // associative, so iterating a HashMap (seeded per process) makes the
+        // same query score the same document differently run to run. The last
+        // bits are cosmetic, but near-tied chunks then swap rank at random.
+        let mut qterms: Vec<(u32, f32)> = qterms.into_iter().collect();
+        qterms.sort_unstable_by_key(|&(id, _)| id);
+
         let mut scores: HashMap<u32, f32> = HashMap::new();
-        for (&term_id, &qweight) in &qterms {
+        for (term_id, qweight) in qterms {
             let plist = &self.postings[term_id as usize];
             let df = plist.len() as f32;
             let idf = ((n - df + 0.5) / (df + 0.5) + 1.0).ln();
@@ -168,7 +181,11 @@ impl Bm25Index {
         term_offs.push(term_bytes.len() as u32);
         post_offs.push(postings.len() as u64);
 
-        let align8 = |v: &mut Vec<u8>| while v.len() % 8 != 0 { v.push(0) };
+        let align8 = |v: &mut Vec<u8>| {
+            while v.len() % 8 != 0 {
+                v.push(0)
+            }
+        };
         let mut out = Vec::new();
         out.extend_from_slice(FLAT_MAGIC);
         out.extend_from_slice(&(self.doc_len.len() as u32).to_le_bytes());
@@ -303,8 +320,14 @@ impl FlatBm25 {
                 *qterms.entry(i).or_insert(0.0) += 1.0;
             }
         });
+        // Term order, not hash order — see [`Bm25Index::query`]. Here the index
+        // *is* sorted-term order, so this also fixes the accumulation order to
+        // something both stores could agree on exactly.
+        let mut qterms: Vec<(usize, f32)> = qterms.into_iter().collect();
+        qterms.sort_unstable_by_key(|&(i, _)| i);
+
         let mut scores: HashMap<u32, f32> = HashMap::new();
-        for (&term_i, &qweight) in &qterms {
+        for (term_i, qweight) in qterms {
             let df = self.postings_at(term_i).count() as f32;
             let idf = ((n - df + 0.5) / (df + 0.5) + 1.0).ln();
             for (chunk_id, tf) in self.postings_at(term_i) {
@@ -351,11 +374,7 @@ mod tests {
 
     #[test]
     fn idf_prefers_rare_terms() {
-        let i = idx(&[
-            "alpha beta beta beta",
-            "alpha gamma",
-            "alpha delta",
-        ]);
+        let i = idx(&["alpha beta beta beta", "alpha gamma", "alpha delta"]);
         // "gamma" is rarer than "alpha"; doc 1 should win a mixed query.
         let hits = i.query("alpha gamma", 10);
         assert_eq!(hits[0].0, 1);
@@ -380,6 +399,29 @@ mod tests {
         assert_eq!(j.n_docs(), 2);
     }
 
+    /// Scores must be bit-identical across queries built in a different token
+    /// order. They were not: accumulation followed `HashMap` iteration order,
+    /// which is seeded per process, so near-tied chunks swapped rank at random
+    /// between runs and no output could be snapshot-compared.
+    #[test]
+    fn scores_do_not_depend_on_term_order() {
+        let i = idx(&[
+            "alpha beta gamma delta epsilon",
+            "alpha alpha beta zeta",
+            "gamma delta delta eta theta",
+            "epsilon zeta eta alpha beta gamma",
+        ]);
+        let baseline = i.query("alpha beta gamma delta epsilon zeta eta", 10);
+        for permuted in [
+            "eta zeta epsilon delta gamma beta alpha",
+            "gamma alpha eta beta delta zeta epsilon",
+            "delta epsilon alpha eta beta gamma zeta",
+        ] {
+            let got = i.query(permuted, 10);
+            assert_eq!(got, baseline, "query {permuted:?} scored differently");
+        }
+    }
+
     #[test]
     fn empty_query_and_empty_index() {
         let i = idx(&["something"]);
@@ -392,6 +434,28 @@ mod tests {
 #[cfg(test)]
 mod flat_tests {
     use super::*;
+
+    /// Same documents in, same bytes out. Term ids used to be assigned in
+    /// `HashMap` drain order, so two indexes over one corpus disagreed on the
+    /// term table — invisible through the query API, but it made the serialized
+    /// index, and every score that depended on accumulation order, irreproducible.
+    #[test]
+    fn identical_corpora_serialize_identically() {
+        let docs = [
+            "src/queue.rs\nfn dequeue_urgent_first(lane: Priority) -> Option<Job>",
+            "src/retry.rs\nfn compute_backoff_delay(attempt: u32) -> Duration",
+            "docs/ops.md\ndrain the worker before restarting it",
+        ];
+        let build = || {
+            let mut i = Bm25Index::new();
+            for d in docs {
+                i.add_doc(d);
+            }
+            i.finalize();
+            i.to_flat_bytes()
+        };
+        assert_eq!(build(), build(), "index serialization must be reproducible");
+    }
 
     #[test]
     fn flat_matches_in_memory() {

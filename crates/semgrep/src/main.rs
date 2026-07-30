@@ -15,11 +15,11 @@
 //! asked which engine to use.
 
 use anyhow::Result;
+use clap::{Parser, Subcommand};
 use semgrep_core::index::{self, BuildOptions};
 use semgrep_core::keyword::KeywordOptions;
 use semgrep_core::search::{Mode, SearchOptions, search};
 use semgrep_core::{ChunkParams, corpus};
-use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 /// Exact mode prints at most this many matches unless --all is given; the
@@ -211,8 +211,13 @@ fn cache_cmd(prune: bool, clear: bool) -> Result<i32> {
     let entries = index::cache_status();
     let total: u64 = entries.iter().map(|e| e.bytes).sum();
     let cap = index::cache_max_bytes();
-    println!("{}  ({} entries, {} of {} budget)",
-             index::cache_base().display(), entries.len(), human(total), human(cap));
+    println!(
+        "{}  ({} entries, {} of {} budget)",
+        index::cache_base().display(),
+        entries.len(),
+        human(total),
+        human(cap)
+    );
     println!("generation {}", index::compat_key());
     for e in &entries {
         let age = if e.age_secs > 86_400 {
@@ -222,13 +227,19 @@ fn cache_cmd(prune: bool, clear: bool) -> Result<i32> {
         } else {
             format!("{}m", e.age_secs / 60)
         };
-        println!("  {:>9}  {:>5} ago  {}{}",
-                 human(e.bytes), age, e.root.display(),
-                 if e.root_exists { "" } else { "   (gone — prunable)" });
+        println!(
+            "  {:>9}  {:>5} ago  {}{}",
+            human(e.bytes),
+            age,
+            e.root.display(),
+            if e.root_exists { "" } else { "   (gone — prunable)" }
+        );
     }
     if !entries.is_empty() {
-        println!("\nsemgrep cache --prune to reclaim, --clear to remove all; \
-                  SEMGREP_CACHE_MAX_BYTES sets the budget");
+        println!(
+            "\nsemgrep cache --prune to reclaim, --clear to remove all; \
+                  SEMGREP_CACHE_MAX_BYTES sets the budget"
+        );
     }
     Ok(0)
 }
@@ -387,14 +398,12 @@ fn print_miss_suggestions(root: &std::path::Path, query: &str, opts: &SearchOpti
     eprintln!("semgrep: -e found 0 exact matches · ranked search for the same terms finds:");
     for hit in &ranked.hits {
         let text = hit.text.trim();
-        let text = text
-            .char_indices()
-            .nth(100)
-            .map(|(i, _)| &text[..i])
-            .unwrap_or(text);
+        let text = text.char_indices().nth(100).map(|(i, _)| &text[..i]).unwrap_or(text);
         eprintln!("semgrep:   {}:{}:{}", hit.path, hit.line, text);
     }
-    eprintln!("semgrep: (wrong path? broaden it · drop -e to run this ranked search on stdout)");
+    eprintln!(
+        "semgrep: (wrong path? broaden it · drop -e to run this ranked search on stdout)"
+    );
     true
 }
 
