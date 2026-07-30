@@ -9,32 +9,30 @@ use semgrep_core::search::{Mode, SearchOptions, search};
 use std::fs;
 use std::path::Path;
 
-/// Point the cache at a per-process tempdir (never the user's real cache)
-/// and make read-repair validation unthrottled. Called first in every test
-/// that runs `search()`; `cache_base()` resolves env once per process, so
-/// this must win the race — OnceLock synchronizes callers.
+/// Take the cache for the duration of a test.
 ///
-/// The returned guard is what keeps the suite honest. One cache directory is
-/// shared by every test in this binary (it has to be: the base is resolved from
-/// the environment exactly once per process), so a test that evicts entries
-/// operates on *everyone's* state. `shared()` tests hold a read lock and run in
-/// parallel; `exclusive()` tests — anything that prunes or clears — hold a write
-/// lock and run alone. Without this the suite failed intermittently, and the
-/// failure looked like a repair bug rather than a test-isolation bug.
-/// Poison is ignored deliberately: the lock guards ordering, not data. Letting
-/// it poison turns one real failure into a dozen `PoisonError` panics that
-/// bury the actual one.
-fn isolate_cache() -> std::sync::RwLockReadGuard<'static, ()> {
-    cache_lock().read().unwrap_or_else(|e| e.into_inner())
-}
-
-/// For tests that delete cache entries they do not own.
-fn isolate_cache_exclusive() -> std::sync::RwLockWriteGuard<'static, ()> {
-    cache_lock().write().unwrap_or_else(|e| e.into_inner())
-}
-
-fn cache_lock() -> &'static std::sync::RwLock<()> {
-    static LOCK: std::sync::OnceLock<std::sync::RwLock<()>> = std::sync::OnceLock::new();
+/// Every test in this binary shares one cache directory, and it cannot be
+/// otherwise today: `index::cache_base()` resolves `SEMGREP_CACHE_DIR` through
+/// a `OnceLock`, so the whole process gets one cache no matter what a test
+/// sets. Cache state is therefore global mutable state, and these tests are all
+/// mutators — a write-through search creates entries, while scope promotion and
+/// budget enforcement delete entries belonging to whoever else is running.
+///
+/// So they are serialized. A finer read/write split was tried first and did not
+/// hold: assertions about *which* entries exist, or about whether repair fired,
+/// fail whenever a concurrent test's write-through prunes or promotes. Those
+/// failures read as engine bugs, which is the expensive kind of flake.
+/// Serializing costs nothing measurable — the whole binary runs in ~0.06 s.
+///
+/// The real fix is to make the cache root an explicit parameter instead of
+/// process-global state, the same move `enforce_budget_with_cap` made for the
+/// cap. That belongs with the `cache/` module split.
+///
+/// Poison is ignored deliberately: the lock orders tests, it guards no data.
+/// Letting it poison turns one real failure into a dozen `PoisonError` panics
+/// that bury the original.
+fn isolate_cache() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
     LOCK.get_or_init(|| {
         let dir = tempfile::tempdir().unwrap();
         unsafe {
@@ -43,8 +41,10 @@ fn cache_lock() -> &'static std::sync::RwLock<()> {
         }
         // Leak: the cache dir must outlive every test in the process.
         std::mem::forget(dir);
-        std::sync::RwLock::new(())
+        std::sync::Mutex::new(())
     })
+    .lock()
+    .unwrap_or_else(|e| e.into_inner())
 }
 
 /// Small corpus with clearly separated topics so retrieval is unambiguous.
@@ -417,12 +417,9 @@ fn unreadable_cache_entry_degrades_to_a_miss() {
 /// index format, dims, and embedding-table fingerprint. An entry written by
 /// an incompatible binary sorts into a sibling directory and is therefore
 /// never discovered — the failure mode is "not found", not "error".
-///
-/// Exclusive: `gc_old_generations` deletes directories across the whole cache
-/// base, not just this test's own.
 #[test]
 fn cache_entries_are_namespaced_by_compat_generation() {
-    let _cache = isolate_cache_exclusive();
+    let _cache = isolate_cache();
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("a.py"), "def parse_config():\n    return {}\n").unwrap();
     let opts = semgrep_core::search::SearchOptions::default();
@@ -487,12 +484,9 @@ fn corrupt_cache_entry_degrades_to_a_miss() {
 /// A cache with no ceiling is a slow disk leak: the kernel corpus alone
 /// indexes to ~946 MB. Entries whose repo is gone are dead weight forever,
 /// and past the budget the least-recently-used must go.
-///
-/// Exclusive: eviction deletes entries belonging to every other test in this
-/// binary, so it cannot run alongside them.
 #[test]
 fn cache_prunes_dead_entries_and_enforces_a_budget() {
-    let _cache = isolate_cache_exclusive();
+    let _cache = isolate_cache();
     let opts = semgrep_core::search::SearchOptions::default();
 
     // Two scopes; one of them we then delete off disk.
@@ -532,11 +526,9 @@ fn cache_prunes_dead_entries_and_enforces_a_budget() {
 /// unreclaimable for the life of the machine. `root.txt` is now written before
 /// the build, which makes the entry countable and prunable while still not
 /// discoverable (that needs `meta.json`).
-///
-/// Exclusive: reclamation deletes entries this test does not own.
 #[test]
 fn interrupted_build_leaves_a_reclaimable_entry() {
-    let _cache = isolate_cache_exclusive();
+    let _cache = isolate_cache();
     let orphan = index::cache_generation().join("orphan-halfbuilt");
     fs::create_dir_all(&orphan).unwrap();
     fs::write(orphan.join("root.txt"), "/nonexistent-but-registered").unwrap();
@@ -564,7 +556,7 @@ fn interrupted_build_leaves_a_reclaimable_entry() {
 /// Reclaiming it would delete the directory a concurrent process is filling.
 #[test]
 fn a_build_in_flight_is_not_reclaimed() {
-    let _cache = isolate_cache_exclusive();
+    let _cache = isolate_cache();
     // A root that exists, so `incomplete` is the only thing under test — a
     // missing root is separately (and correctly) grounds for reclamation.
     let repo = tempfile::tempdir().unwrap();

@@ -193,31 +193,30 @@ pub fn build_at(
         Ok(())
     };
 
-    // The pass is batched: each batch of files is read/chunked/tokenized in
-    // parallel (the serial version left ~9 cores idle for 2/3 of the pass),
-    // then folded serially in file order so chunk ids stay in lockstep with
-    // the chunk table, BM25 add order, and emb.bin rows. Bounded batches keep
-    // resident text to a few MB regardless of corpus size.
-    for (base, batch) in corpus::pass_batches(&files, 256, 16 << 20) {
-        let works: Vec<corpus::FileWork> = batch
-            .par_iter()
-            .enumerate()
-            .map(|(i, fm)| {
-                corpus::process_file(root, (base + i) as u32, fm, &opts.params, true, true)
-            })
-            .collect();
-        for (i, work) in works.into_iter().enumerate() {
-            progress(base + i + 1, files.len());
-            stats.bytes_indexed += work.bytes;
-            for (chunk, doc, tokens) in work.docs {
-                bm25.add_tokenized(tokens.expect("build pass tokenizes"));
-                chunks.push(chunk);
-                pending.push(doc.expect("build pass keeps text"));
-                if pending.len() >= EMBED_BATCH {
-                    flush(&mut pending, &mut emb_out, &mut hnsw)?;
-                }
+    // Errors from the embed flush have to escape the fold closure, which cannot
+    // return them: hold the first one and stop feeding it work.
+    let mut flush_err: Option<anyhow::Error> = None;
+    let n_files = files.len();
+    corpus::pass(root, &files, &opts.params, true, true, |i, work| {
+        if flush_err.is_some() {
+            return;
+        }
+        progress(i + 1, n_files);
+        stats.bytes_indexed += work.bytes;
+        for (chunk, doc, tokens) in work.docs {
+            bm25.add_tokenized(tokens.expect("build pass tokenizes"));
+            chunks.push(chunk);
+            pending.push(doc.expect("build pass keeps text"));
+            if pending.len() >= EMBED_BATCH
+                && let Err(e) = flush(&mut pending, &mut emb_out, &mut hnsw)
+            {
+                flush_err = Some(e);
+                return;
             }
         }
+    });
+    if let Some(e) = flush_err {
+        return Err(e);
     }
     flush(&mut pending, &mut emb_out, &mut hnsw)?;
     emb_out.flush()?;

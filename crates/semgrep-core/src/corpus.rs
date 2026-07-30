@@ -1,7 +1,7 @@
 //! Corpus walking and chunking.
 
 use crate::{Chunk, ChunkParams, FileMeta};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
@@ -176,43 +176,68 @@ pub fn process_file(
     FileWork { bytes: text.len() as u64, docs }
 }
 
-/// Extract the lines of `chunk` from a file given by root-relative path
-/// (for query-time re-reads where no FileMeta is at hand: PRF term
-/// extraction, MaxSim reranking).
-pub fn chunk_text_rel(root: &Path, rel_path: &str, chunk: &Chunk) -> Option<String> {
+/// Re-read a chunk's lines from disk, by root-relative path.
+///
+/// Chunk text is never stored, so anything that needs the body — displaying a
+/// hit, mining PRF terms, scoring MaxSim — comes back here. Returns `None` if
+/// the file has become unreadable or vanished since it was indexed, which is
+/// normal on a tree that moves under you.
+pub fn lines(root: &Path, rel_path: &str, chunk: &Chunk) -> Option<String> {
     let text = read_text(&root.join(rel_path))?;
     let mut out = String::new();
     for (i, line) in text.lines().enumerate() {
         let line_no = i as u32 + 1;
-        if line_no >= chunk.start_line && line_no <= chunk.end_line {
-            out.push_str(line);
-            out.push('\n');
-        }
         if line_no > chunk.end_line {
             break;
+        }
+        if line_no >= chunk.start_line {
+            out.push_str(line);
+            out.push('\n');
         }
     }
     Some(out)
 }
 
-/// Extract the lines of `chunk` from its file on disk (for result display).
-pub fn chunk_text(root: &Path, file: &FileMeta, chunk: &Chunk) -> Result<String> {
-    let path = abs_path(root, file);
-    let text =
-        read_text(&path).with_context(|| format!("cannot re-read {}", path.display()))?;
-    let mut out = String::new();
-    for (i, line) in text.lines().enumerate() {
-        let line_no = i as u32 + 1;
-        if line_no >= chunk.start_line && line_no <= chunk.end_line {
-            out.push_str(line);
-            out.push('\n');
-        }
-        if line_no > chunk.end_line {
-            break;
+/// Run the corpus pass: read, chunk, and tokenize every file, handing each
+/// file's work to `fold` in walk order.
+///
+/// The parallelism and the ordering are both load-bearing, which is why this
+/// exists once instead of once per caller (index build and cold search had a
+/// copy each). Files are processed in bounded batches on rayon workers — the
+/// serial version left most cores idle for two thirds of the pass — and folded
+/// back serially in file order, so chunk ids stay in lockstep across the chunk
+/// table, the BM25 add order, and the embedding rows. Batches bound resident
+/// text to a few MB regardless of corpus size.
+///
+/// `want_text` keeps chunk text for embedding; `want_tokens` tokenizes for
+/// BM25. `fold` sees `(file_index, FileWork)`.
+pub fn pass(
+    root: &Path,
+    files: &[FileMeta],
+    params: &ChunkParams,
+    want_text: bool,
+    want_tokens: bool,
+    mut fold: impl FnMut(usize, FileWork),
+) {
+    use rayon::prelude::*;
+    for (base, batch) in pass_batches(files, PASS_MAX_FILES, PASS_MAX_BYTES) {
+        let works: Vec<FileWork> = batch
+            .par_iter()
+            .enumerate()
+            .map(|(i, fm)| {
+                process_file(root, (base + i) as u32, fm, params, want_text, want_tokens)
+            })
+            .collect();
+        for (i, work) in works.into_iter().enumerate() {
+            fold(base + i, work);
         }
     }
-    Ok(out)
 }
+
+/// Batch bounds for [`pass`]: at most this many files, or this many bytes of
+/// source, resident per batch.
+const PASS_MAX_FILES: usize = 256;
+const PASS_MAX_BYTES: u64 = 16 << 20;
 
 #[cfg(test)]
 mod tests {
@@ -315,6 +340,137 @@ mod tests {
         let indexed = vec![fm("src/a.rs", 10, 100), fm("srcgen/b.rs", 20, 200)];
         let d = diff(&indexed, &[fm("a.rs", 10, 100)], "src");
         assert!(d.is_empty(), "srcgen/ must not be treated as inside src/: {d:?}");
+    }
+
+    // -----------------------------------------------------------------------
+    // the pass: batching and in-order folding
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn batches_are_bounded_by_count_and_by_bytes() {
+        let small: Vec<FileMeta> = (0..10).map(|i| fm(&format!("f{i}"), 1, 0)).collect();
+        let batches = pass_batches(&small, 4, 1 << 20);
+        assert_eq!(batches.iter().map(|(_, b)| b.len()).collect::<Vec<_>>(), [4, 4, 2]);
+        // Base indices must let the caller reconstruct the global file index.
+        assert_eq!(batches.iter().map(|(base, _)| *base).collect::<Vec<_>>(), [0, 4, 8]);
+
+        // Byte cap splits earlier than the count cap would.
+        let fat: Vec<FileMeta> = (0..6).map(|i| fm(&format!("f{i}"), 100, 0)).collect();
+        let by_bytes = pass_batches(&fat, 100, 250);
+        assert!(
+            by_bytes.iter().all(|(_, b)| b.len() <= 3),
+            "250-byte cap over 100-byte files means at most 3 per batch"
+        );
+
+        // Every file appears exactly once, in order.
+        let flat: Vec<&str> =
+            by_bytes.iter().flat_map(|(_, b)| b.iter().map(|f| f.path.as_str())).collect();
+        assert_eq!(flat, ["f0", "f1", "f2", "f3", "f4", "f5"]);
+    }
+
+    /// A single file larger than the byte cap must still be processed, in a
+    /// batch of its own, rather than being skipped or splitting into nothing.
+    #[test]
+    fn a_file_over_the_byte_cap_still_gets_a_batch() {
+        let files = vec![fm("small", 10, 0), fm("huge", 10_000, 0), fm("also_small", 10, 0)];
+        let batches = pass_batches(&files, 100, 100);
+        let seen: Vec<&str> =
+            batches.iter().flat_map(|(_, b)| b.iter().map(|f| f.path.as_str())).collect();
+        assert_eq!(seen, ["small", "huge", "also_small"], "no file may be dropped");
+    }
+
+    #[test]
+    fn pass_batches_of_nothing_is_nothing() {
+        assert!(pass_batches(&[], 4, 1 << 20).is_empty());
+    }
+
+    /// The pass's contract, and the one CLAUDE.md calls load-bearing: work
+    /// arrives in walk order with a dense global file index, so a serial fold
+    /// can assign chunk ids that stay in lockstep with the BM25 add order and
+    /// the embedding rows. The processing is parallel, so this is the only
+    /// thing keeping those three in agreement.
+    #[test]
+    fn pass_folds_in_file_order_with_dense_indices() {
+        let dir = tempfile::tempdir().unwrap();
+        // Enough files to span several batches once the caps are small.
+        for i in 0..40 {
+            std::fs::write(
+                dir.path().join(format!("f{i:03}.txt")),
+                format!("line one of {i}\nline two of {i}\n"),
+            )
+            .unwrap();
+        }
+        let params = ChunkParams { window: 8, overlap: 2, ..Default::default() };
+        let files = walk(dir.path(), &params).unwrap();
+        assert_eq!(files.len(), 40);
+
+        let mut order: Vec<usize> = Vec::new();
+        let mut chunk_file_ids: Vec<u32> = Vec::new();
+        pass(dir.path(), &files, &params, true, true, |i, work| {
+            order.push(i);
+            for (chunk, doc, tokens) in work.docs {
+                chunk_file_ids.push(chunk.file_id);
+                assert!(doc.is_some(), "want_text was requested");
+                assert!(tokens.is_some(), "want_tokens was requested");
+            }
+        });
+
+        assert_eq!(order, (0..40).collect::<Vec<_>>(), "fold must see files in walk order");
+        // file_id is the global file index, so it must match the fold order and
+        // never skip: a gap here is a chunk pointing at the wrong file.
+        assert_eq!(chunk_file_ids, (0..40).map(|i| i as u32).collect::<Vec<_>>());
+    }
+
+    /// A binary file yields no work but must not disturb the indices of the
+    /// files around it — a skipped file still occupies its file_id.
+    #[test]
+    fn pass_skips_unreadable_files_without_shifting_indices() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("a.txt"), "hello world\n").unwrap();
+        std::fs::write(dir.path().join("b.bin"), b"bad\0bytes").unwrap();
+        std::fs::write(dir.path().join("c.txt"), "goodbye world\n").unwrap();
+
+        let params = ChunkParams::default();
+        let files = walk(dir.path(), &params).unwrap();
+        let mut work_by_index: Vec<(usize, usize)> = Vec::new();
+        pass(dir.path(), &files, &params, true, true, |i, work| {
+            work_by_index.push((i, work.docs.len()));
+        });
+        assert_eq!(
+            work_by_index,
+            [(0, 1), (1, 0), (2, 1)],
+            "the binary file yields nothing but keeps index 1"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // chunk re-reads
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn lines_returns_exactly_the_chunk_span() {
+        let dir = tempfile::tempdir().unwrap();
+        let body: String = (1..=10).map(|i| format!("line {i}\n")).collect();
+        std::fs::write(dir.path().join("f.txt"), &body).unwrap();
+        let chunk = Chunk { file_id: 0, start_line: 3, end_line: 5 };
+        assert_eq!(lines(dir.path(), "f.txt", &chunk).unwrap(), "line 3\nline 4\nline 5\n");
+    }
+
+    #[test]
+    fn lines_of_a_missing_file_is_none() {
+        let dir = tempfile::tempdir().unwrap();
+        let chunk = Chunk { file_id: 0, start_line: 1, end_line: 2 };
+        assert!(lines(dir.path(), "gone.txt", &chunk).is_none());
+    }
+
+    /// A span past the end of a file — the file shrank since it was indexed —
+    /// returns what is there rather than failing or padding.
+    #[test]
+    fn lines_past_end_of_file_returns_what_exists() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("f.txt"), "only\ntwo\n").unwrap();
+        let chunk = Chunk { file_id: 0, start_line: 2, end_line: 99 };
+        assert_eq!(lines(dir.path(), "f.txt", &chunk).unwrap(), "two\n");
     }
 
     #[test]

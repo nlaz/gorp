@@ -14,6 +14,8 @@ use std::time::Instant;
 /// How many candidates each ranked engine contributes to RRF fusion.
 const FUSION_POOL: usize = 128;
 const RRF_K: f32 = 60.0;
+/// Chunk texts are embedded in batches this large on the streaming path.
+const EMBED_BATCH: usize = 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
@@ -379,7 +381,7 @@ fn search_indexed(
         let mut tf: HashMap<String, f32> = HashMap::new();
         for &(id, _) in bm25_ranked.iter().take(10) {
             let (chunk, path) = resolve(id);
-            let Some(text) = corpus::chunk_text_rel(&d.root, &path, &chunk) else { continue };
+            let Some(text) = corpus::lines(&d.root, &path, &chunk) else { continue };
             tokenize::for_each_token(&text, |tok| {
                 if !query_toks.contains(tok) && tok.len() >= 3 {
                     *tf.entry(tok.to_string()).or_insert(0.0) += 1.0;
@@ -466,7 +468,7 @@ fn search_indexed(
                         .par_iter()
                         .map(|&(id, dist)| {
                             let (chunk, path) = resolve(id);
-                            let sim = corpus::chunk_text_rel(&d.root, &path, &chunk)
+                            let sim = corpus::lines(&d.root, &path, &chunk)
                                 .map(|text| {
                                     let dtoks = semantic::token_vectors(
                                         &corpus::doc_text(&path, &text),
@@ -603,42 +605,22 @@ fn search_streaming(root: &Path, query: &str, opts: &SearchOptions) -> Result<Se
         pending.clear();
     };
 
-    // Parallel batched pass (see index::build for the rationale): per-file
-    // read/chunk/tokenize on rayon workers, serial in-order fold so chunk
-    // ids stay deterministic.
-    use rayon::prelude::*;
     let t_pass = Instant::now();
-    for (base, batch) in corpus::pass_batches(&files, 256, 16 << 20) {
-        let works: Vec<corpus::FileWork> = batch
-            .par_iter()
-            .enumerate()
-            .map(|(i, fm)| {
-                corpus::process_file(
-                    root,
-                    (base + i) as u32,
-                    fm,
-                    &opts.params,
-                    want_sem,
-                    want_bm25,
-                )
-            })
-            .collect();
-        for work in works {
-            for (chunk, doc, tokens) in work.docs {
-                let chunk_id = chunks.len() as u32;
-                chunks.push(chunk);
-                if let (Some(b), Some(t)) = (&mut bm25, tokens) {
-                    b.add_tokenized(t);
-                }
-                if let Some(doc) = doc {
-                    pending.push((chunk_id, doc));
-                    if pending.len() >= 1024 {
-                        flush(&mut pending, &mut top);
-                    }
+    corpus::pass(root, &files, &opts.params, want_sem, want_bm25, |_, work| {
+        for (chunk, doc, tokens) in work.docs {
+            let chunk_id = chunks.len() as u32;
+            chunks.push(chunk);
+            if let (Some(b), Some(t)) = (&mut bm25, tokens) {
+                b.add_tokenized(t);
+            }
+            if let Some(doc) = doc {
+                pending.push((chunk_id, doc));
+                if pending.len() >= EMBED_BATCH {
+                    flush(&mut pending, &mut top);
                 }
             }
         }
-    }
+    });
     flush(&mut pending, &mut top);
     let pass_total = ms(t_pass);
     let mut stages: Vec<(String, f64)> = vec![
@@ -680,7 +662,7 @@ fn search_streaming(root: &Path, query: &str, opts: &SearchOptions) -> Result<Se
     let t0 = Instant::now();
     let hits = finalize_hits(root, query, cands, opts, "", |c| {
         let fm = &files[c.chunk.file_id as usize];
-        let text = corpus::chunk_text(root, fm, &c.chunk).ok()?;
+        let text = corpus::lines(root, &fm.path, &c.chunk)?;
         Some(semantic::embed_query(&corpus::doc_text(&fm.path, &text)).to_vec())
     });
     stages.push(("finalize".into(), ms(t0)));
