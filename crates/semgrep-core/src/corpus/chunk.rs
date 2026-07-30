@@ -1,0 +1,70 @@
+//! Cutting file text into chunks, and reading a chunk's lines back.
+
+use super::read_text;
+use crate::{Chunk, ChunkParams};
+use std::path::Path;
+
+/// Split file text into overlapping line-window chunks, yielding the chunk
+/// record and its text slice bounds so callers can avoid copying.
+pub fn chunk_lines<'a>(
+    file_id: u32,
+    text: &'a str,
+    params: &ChunkParams,
+) -> Vec<(Chunk, &'a str)> {
+    let mut line_starts: Vec<usize> = vec![0];
+    for (i, b) in text.bytes().enumerate() {
+        if b == b'\n' {
+            line_starts.push(i + 1);
+        }
+    }
+    // Trailing entry marks EOF so slicing line i..j is uniform.
+    if *line_starts.last().unwrap() != text.len() {
+        line_starts.push(text.len());
+    }
+    let n_lines = line_starts.len() - 1;
+    if n_lines == 0 {
+        return Vec::new();
+    }
+
+    let window = params.window.max(1) as usize;
+    let stride = window.saturating_sub(params.overlap as usize).max(1);
+    let mut chunks = Vec::new();
+    let mut start = 0usize;
+    loop {
+        let end = (start + window).min(n_lines);
+        let slice = &text[line_starts[start]..line_starts[end]];
+        if !slice.trim().is_empty() {
+            chunks.push((
+                Chunk { file_id, start_line: start as u32 + 1, end_line: end as u32 },
+                slice,
+            ));
+        }
+        if end == n_lines {
+            break;
+        }
+        start += stride;
+    }
+    chunks
+}
+
+/// Re-read a chunk's lines from disk, by root-relative path.
+///
+/// Chunk text is never stored, so anything that needs the body — displaying a
+/// hit, mining PRF terms, scoring MaxSim — comes back here. Returns `None` if
+/// the file has become unreadable or vanished since it was indexed, which is
+/// normal on a tree that moves under you.
+pub fn lines(root: &Path, rel_path: &str, chunk: &Chunk) -> Option<String> {
+    let text = read_text(&root.join(rel_path))?;
+    let mut out = String::new();
+    for (i, line) in text.lines().enumerate() {
+        let line_no = i as u32 + 1;
+        if line_no > chunk.end_line {
+            break;
+        }
+        if line_no >= chunk.start_line {
+            out.push_str(line);
+            out.push('\n');
+        }
+    }
+    Some(out)
+}

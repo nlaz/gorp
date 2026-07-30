@@ -1,0 +1,85 @@
+//! The on-disk index: reading and writing a `.semgrep/` directory.
+//!
+//! ```text
+//! meta.json   version, chunk params, dims, file table (staleness)
+//! chunks.bin  postcard Vec<Chunk>
+//! bm25.flat   flat mmap-able BM25 (term table + postings + doc lens)
+//! emb.bin     n_chunks × EMBED_DIM i8, unit-normalized then quantized
+//! hnsw.bin    optional anny HNSW graph
+//! sif.bin     optional corpus token statistics (SIF-weighted indexes)
+//! ```
+//!
+//! This layer persists and loads representations. Deciding *which* index answers
+//! a query, and keeping it honest against a moving tree, is `cache`'s job.
+//!
+//! `meta.json` is written last and removed before a rebuild: writing it is what
+//! publishes an index, so a reader either sees a complete one or none.
+
+pub mod bm25;
+mod build;
+mod load;
+
+pub use build::{build, build_at};
+pub use load::{LoadNeeds, LoadTimings, LoadedIndex};
+
+use crate::{ChunkParams, FileMeta};
+use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
+
+/// Directory name for a repo-local index.
+pub const DIR: &str = ".semgrep";
+pub(crate) const FORMAT_VERSION: u32 = 2;
+
+#[derive(Serialize, Deserialize)]
+pub struct IndexMeta {
+    pub version: u32,
+    pub dims: usize,
+    pub params: ChunkParams,
+    pub files: Vec<FileMeta>,
+    pub n_chunks: u64,
+    pub has_hnsw: bool,
+    /// Chunk embeddings are SIF-weighted (RESEARCH.md §9.1) — queries must
+    /// be embedded with the same corpus stats (`sif.bin`).
+    #[serde(default)]
+    pub sif: bool,
+}
+
+#[derive(Debug, Default)]
+pub struct BuildStats {
+    pub n_files: usize,
+    pub n_chunks: usize,
+    pub bytes_indexed: u64,
+    pub index_bytes: u64,
+}
+
+pub struct BuildOptions {
+    pub params: ChunkParams,
+    pub hnsw: bool,
+    /// SIF-weighted chunk embeddings (experimental, RESEARCH.md §9.1):
+    /// adds a frequency-counting pre-pass and stores `sif.bin`.
+    pub sif: bool,
+    /// SIF smoothing constant a in a/(a+p(w)); larger = milder weighting.
+    pub sif_a: f64,
+    /// Subtract the sample-estimated common component (SIF's second half).
+    pub sif_center: bool,
+}
+
+impl Default for BuildOptions {
+    fn default() -> Self {
+        Self {
+            params: ChunkParams::default(),
+            hnsw: false,
+            sif: false,
+            sif_a: crate::text::SIF_A,
+            sif_center: false,
+        }
+    }
+}
+
+pub fn index_dir(root: &Path) -> PathBuf {
+    root.join(DIR)
+}
+
+pub fn exists(root: &Path) -> bool {
+    index_dir(root).join("meta.json").is_file()
+}

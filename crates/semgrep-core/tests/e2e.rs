@@ -4,15 +4,16 @@
 //! the read-repair overlay (cache-transparency invariant).
 
 use semgrep_core::ChunkParams;
-use semgrep_core::index::{self, BuildOptions};
+use semgrep_core::cache;
 use semgrep_core::search::{Mode, SearchOptions, search};
+use semgrep_core::store::{self, BuildOptions};
 use std::fs;
 use std::path::Path;
 
 /// Take the cache for the duration of a test.
 ///
 /// Every test in this binary shares one cache directory, and it cannot be
-/// otherwise today: `index::cache_base()` resolves `SEMGREP_CACHE_DIR` through
+/// otherwise today: `cache::cache_base()` resolves `SEMGREP_CACHE_DIR` through
 /// a `OnceLock`, so the whole process gets one cache no matter what a test
 /// sets. Cache state is therefore global mutable state, and these tests are all
 /// mutators — a write-through search creates entries, while scope promotion and
@@ -169,7 +170,7 @@ fn indexed_matches_unindexed_results() {
         search(dir.path(), "exponential backoff retries", &stream_opts(Mode::Hybrid)).unwrap();
     assert!(!cold.report.used_index);
 
-    index::build(
+    store::build(
         dir.path(),
         &BuildOptions { params, hnsw: false, ..Default::default() },
         |_, _| {},
@@ -199,7 +200,7 @@ fn hnsw_index_agrees_with_exact_on_top_hit() {
     let dir = tempfile::tempdir().unwrap();
     fixture(dir.path());
     let params = ChunkParams { window: 8, overlap: 2, ..Default::default() };
-    index::build(
+    store::build(
         dir.path(),
         &BuildOptions { params, hnsw: true, ..Default::default() },
         |_, _| {},
@@ -221,14 +222,14 @@ fn staleness_detected_after_edit() {
     let dir = tempfile::tempdir().unwrap();
     fixture(dir.path());
     let params = ChunkParams { window: 8, overlap: 2, ..Default::default() };
-    index::build(
+    store::build(
         dir.path(),
         &BuildOptions { params, hnsw: false, ..Default::default() },
         |_, _| {},
     )
     .unwrap();
 
-    let idx = index::LoadedIndex::load(dir.path(), index::LoadNeeds::all()).unwrap();
+    let idx = store::LoadedIndex::load(dir.path(), store::LoadNeeds::all()).unwrap();
     assert_eq!(idx.stale_files().unwrap(), 0);
 
     fs::write(dir.path().join("src/new_file.rs"), "pub fn brand_new() {}\n").unwrap();
@@ -241,7 +242,7 @@ fn no_index_flag_forces_streaming() {
     let dir = tempfile::tempdir().unwrap();
     fixture(dir.path());
     let params = ChunkParams { window: 8, overlap: 2, ..Default::default() };
-    index::build(
+    store::build(
         dir.path(),
         &BuildOptions { params, hnsw: false, ..Default::default() },
         |_, _| {},
@@ -264,7 +265,7 @@ fn ancestor_index_serves_subdir_scope() {
     let dir = tempfile::tempdir().unwrap();
     fixture(dir.path());
     let params = ChunkParams { window: 8, overlap: 2, ..Default::default() };
-    index::build(
+    store::build(
         dir.path(),
         &BuildOptions { params, hnsw: false, ..Default::default() },
         |_, _| {},
@@ -316,7 +317,7 @@ fn scope_promotion_evicts_child_entries() {
     let r = search(&dir.path().join("src"), "hash a password", &opts(Mode::Hybrid)).unwrap();
     assert!(r.report.wrote_cache);
     let roots = |base: &Path| -> Vec<std::path::PathBuf> {
-        index::cache_entries()
+        cache::cache_entries()
             .into_iter()
             .map(|(_, root)| root)
             .filter(|r| r.starts_with(base))
@@ -391,7 +392,7 @@ fn unreadable_cache_entry_degrades_to_a_miss() {
     // Only this test's own entry — the cache dir is shared with other tests
     // running in parallel, so corrupting all of them clobbers their state.
     let mine = std::fs::canonicalize(dir.path()).unwrap();
-    let entries: Vec<_> = semgrep_core::index::cache_entries()
+    let entries: Vec<_> = semgrep_core::cache::cache_entries()
         .into_iter()
         .filter(|(_, root)| *root == mine)
         .collect();
@@ -425,35 +426,35 @@ fn cache_entries_are_namespaced_by_compat_generation() {
     let opts = semgrep_core::search::SearchOptions::default();
     semgrep_core::search::search(dir.path(), "configuration parsing", &opts).unwrap();
 
-    let gen_dir = semgrep_core::index::cache_generation();
-    let key = semgrep_core::index::compat_key();
+    let gen_dir = semgrep_core::cache::cache_generation();
+    let key = semgrep_core::cache::compat_key();
     assert!(gen_dir.ends_with(&key), "generation dir should be the compat key");
     assert!(
-        semgrep_core::index::cache_entries().iter().all(|(d, _)| d.starts_with(&gen_dir)),
+        semgrep_core::cache::cache_entries().iter().all(|(d, _)| d.starts_with(&gen_dir)),
         "every entry must live under the current generation"
     );
 
     // An entry from another generation is invisible, not an error.
-    let alien = semgrep_core::index::cache_base().join("v2-d999-deadbeefdeadbeef");
+    let alien = semgrep_core::cache::cache_base().join("v2-d999-deadbeefdeadbeef");
     std::fs::create_dir_all(alien.join("abc")).unwrap();
     std::fs::write(alien.join("abc/meta.json"), b"{}").unwrap();
     std::fs::write(alien.join("abc/root.txt"), dir.path().to_string_lossy().as_bytes())
         .unwrap();
     assert!(
-        semgrep_core::index::cache_entries().iter().all(|(d, _)| !d.starts_with(&alien)),
+        semgrep_core::cache::cache_entries().iter().all(|(d, _)| !d.starts_with(&alien)),
         "entries from another generation must not be discovered"
     );
 
     // ...and a write reclaims it, along with pre-generation flat entries
     // left by older builds (identified by holding meta.json directly).
-    let legacy = semgrep_core::index::cache_base().join("deadbeef00000000");
+    let legacy = semgrep_core::cache::cache_base().join("deadbeef00000000");
     std::fs::create_dir_all(&legacy).unwrap();
     std::fs::write(legacy.join("meta.json"), b"{}").unwrap();
     std::fs::write(legacy.join("root.txt"), b"/tmp").unwrap();
-    let unrelated = semgrep_core::index::cache_base().join("someones-other-data");
+    let unrelated = semgrep_core::cache::cache_base().join("someones-other-data");
     std::fs::create_dir_all(&unrelated).unwrap();
 
-    semgrep_core::index::gc_old_generations();
+    semgrep_core::cache::gc_old_generations();
     assert!(!alien.exists(), "stale generation should be garbage-collected");
     assert!(!legacy.exists(), "pre-generation flat entry should be reclaimed");
     assert!(unrelated.exists(), "unrelated directories must be left alone");
@@ -470,7 +471,7 @@ fn corrupt_cache_entry_degrades_to_a_miss() {
     semgrep_core::search::search(dir.path(), "backoff", &opts).unwrap();
 
     let mine = std::fs::canonicalize(dir.path()).unwrap();
-    let (entry, _) = semgrep_core::index::cache_entries()
+    let (entry, _) = semgrep_core::cache::cache_entries()
         .into_iter()
         .find(|(_, root)| *root == mine)
         .expect("entry for this scope");
@@ -499,22 +500,22 @@ fn cache_prunes_dead_entries_and_enforces_a_budget() {
 
     let doomed_root = std::fs::canonicalize(doomed.path()).unwrap();
     let keep_root = std::fs::canonicalize(keep.path()).unwrap();
-    assert!(semgrep_core::index::cache_status().iter().any(|e| e.root == doomed_root));
+    assert!(semgrep_core::cache::cache_status().iter().any(|e| e.root == doomed_root));
 
     // The repo goes away; its entry can never be useful again.
     drop(doomed);
-    let (n, _freed) = semgrep_core::index::enforce_budget();
+    let (n, _freed) = semgrep_core::cache::enforce_budget();
     assert!(n >= 1, "expected the dead entry to be reclaimed");
-    let after = semgrep_core::index::cache_status();
+    let after = semgrep_core::cache::cache_status();
     assert!(!after.iter().any(|e| e.root == doomed_root), "dead entry survived");
     assert!(after.iter().any(|e| e.root == keep_root), "live entry was evicted");
 
     // With a budget of zero, even a live entry must be evicted. Passing the cap
     // explicitly rather than through the environment: `cache_max_bytes` is read
     // per call, so mutating it here would leak into whatever else is running.
-    semgrep_core::index::enforce_budget_with_cap(0, 0);
+    semgrep_core::cache::enforce_budget_with_cap(0, 0);
     assert!(
-        semgrep_core::index::cache_status().is_empty(),
+        semgrep_core::cache::cache_status().is_empty(),
         "a zero budget should evict everything"
     );
 }
@@ -529,25 +530,25 @@ fn cache_prunes_dead_entries_and_enforces_a_budget() {
 #[test]
 fn interrupted_build_leaves_a_reclaimable_entry() {
     let _cache = isolate_cache();
-    let orphan = index::cache_generation().join("orphan-halfbuilt");
+    let orphan = cache::cache_generation().join("orphan-halfbuilt");
     fs::create_dir_all(&orphan).unwrap();
     fs::write(orphan.join("root.txt"), "/nonexistent-but-registered").unwrap();
     fs::write(orphan.join("emb.bin"), vec![0u8; 4096]).unwrap();
 
-    let seen = index::cache_status();
+    let seen = cache::cache_status();
     let mine = seen.iter().find(|e| e.dir == orphan).expect("half-built entry must be visible");
     assert!(mine.incomplete, "no meta.json means unpublished");
     assert!(mine.bytes >= 4096, "its bytes must count against the budget");
 
     // Not discoverable, though: an unpublished entry must never serve a query.
     assert!(
-        !index::cache_entries().iter().any(|(d, _)| *d == orphan),
+        !cache::cache_entries().iter().any(|(d, _)| *d == orphan),
         "an entry without meta.json must not be discoverable"
     );
 
     // And a prune frees it. `0` for the abandonment threshold: a real prune
     // waits ABANDONED_AFTER_SECS so it cannot delete a build in flight.
-    let (n, freed) = index::enforce_budget_with_cap(index::cache_max_bytes(), 0);
+    let (n, freed) = cache::enforce_budget_with_cap(cache::cache_max_bytes(), 0);
     assert!(n >= 1 && freed >= 4096, "prune should reclaim the orphan");
     assert!(!orphan.exists(), "orphan survived the prune");
 }
@@ -560,11 +561,11 @@ fn a_build_in_flight_is_not_reclaimed() {
     // A root that exists, so `incomplete` is the only thing under test — a
     // missing root is separately (and correctly) grounds for reclamation.
     let repo = tempfile::tempdir().unwrap();
-    let live = index::cache_generation().join("build-in-flight");
+    let live = cache::cache_generation().join("build-in-flight");
     fs::create_dir_all(&live).unwrap();
     fs::write(live.join("root.txt"), repo.path().to_string_lossy().as_bytes()).unwrap();
 
-    index::enforce_budget_with_cap(index::cache_max_bytes(), 600);
+    cache::enforce_budget_with_cap(cache::cache_max_bytes(), 600);
     assert!(live.exists(), "an entry younger than the threshold must be left alone");
     let _ = fs::remove_dir_all(&live);
 }
@@ -580,15 +581,15 @@ fn an_index_is_invisible_until_it_is_complete() {
     let dir = tempfile::tempdir().unwrap();
     fixture(dir.path());
     let params = ChunkParams { window: 8, overlap: 2, ..Default::default() };
-    index::build(
+    store::build(
         dir.path(),
         &BuildOptions { params, hnsw: false, ..Default::default() },
         |_, _| {},
     )
     .unwrap();
 
-    let idx_dir = index::index_dir(dir.path());
-    assert!(index::exists(dir.path()));
+    let idx_dir = store::index_dir(dir.path());
+    assert!(store::exists(dir.path()));
 
     // Every other artifact must already be there when meta.json appears.
     for artifact in ["chunks.bin", "bm25.flat", "emb.bin"] {
@@ -598,7 +599,7 @@ fn an_index_is_invisible_until_it_is_complete() {
     // Remove meta.json the way an interrupted rebuild leaves things: the
     // artifacts are present but the index is unpublished, so it is not found.
     fs::remove_file(idx_dir.join("meta.json")).unwrap();
-    assert!(!index::exists(dir.path()), "an index without meta.json is not an index");
+    assert!(!store::exists(dir.path()), "an index without meta.json is not an index");
     let r = search(dir.path(), "session token validation", &opts(Mode::Hybrid)).unwrap();
     assert!(!r.hits.is_empty(), "an unpublished index must degrade to an answer, not an error");
 }
@@ -614,14 +615,14 @@ fn searching_does_not_write_into_a_repo_local_index() {
     let dir = tempfile::tempdir().unwrap();
     fixture(dir.path());
     let params = ChunkParams { window: 8, overlap: 2, ..Default::default() };
-    index::build(
+    store::build(
         dir.path(),
         &BuildOptions { params, hnsw: false, ..Default::default() },
         |_, _| {},
     )
     .unwrap();
 
-    let idx_dir = index::index_dir(dir.path());
+    let idx_dir = store::index_dir(dir.path());
     let fingerprint = || -> Vec<(String, u64, std::time::SystemTime)> {
         let mut out: Vec<_> = fs::read_dir(&idx_dir)
             .unwrap()

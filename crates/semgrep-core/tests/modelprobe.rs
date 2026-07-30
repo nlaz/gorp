@@ -1,6 +1,6 @@
 //! §9.9 probe: is ese's embedding SPACE prose-shaped? Compare synonym
 //! similarity for prose pairs vs code-concept pairs, and detect UNK words.
-use semgrep_core::semantic::normalize;
+use semgrep_core::rank::normalize;
 
 fn vec_of(w: &str) -> Vec<f32> {
     let mut v = ese::encode_single(w).to_vec();

@@ -1,6 +1,7 @@
 //! §9.8 forensics: why MaxSim reranking failed on code (kept as documentation
 //! of the mechanism — if these assertions ever flip, revisit --maxsim).
-use semgrep_core::semantic::{maxsim, token_vectors};
+use semgrep_core::rank::maxsim;
+use semgrep_core::text::token_vectors;
 
 #[test]
 fn identifiers_are_shredded_by_the_tokenizer() {

@@ -16,9 +16,10 @@
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use semgrep_core::index::{self, BuildOptions};
+use semgrep_core::cache;
 use semgrep_core::keyword::KeywordOptions;
 use semgrep_core::search::{Mode, SearchOptions, search};
+use semgrep_core::store::{self, BuildOptions};
 use semgrep_core::{ChunkParams, corpus};
 use std::path::PathBuf;
 
@@ -196,7 +197,7 @@ fn human(bytes: u64) -> String {
 
 fn cache_cmd(prune: bool, clear: bool) -> Result<i32> {
     if clear {
-        let (n, freed) = index::cache_clear();
+        let (n, freed) = cache::cache_clear();
         println!("cleared {n} entries, reclaimed {}", human(freed));
         return Ok(0);
     }
@@ -204,21 +205,21 @@ fn cache_cmd(prune: bool, clear: bool) -> Result<i32> {
         // An explicit prune reclaims everything reclaimable, not just the
         // current generation: automatic GC only runs on a cold write, so a
         // user who only queries warm scopes would never reclaim anything.
-        index::gc_old_generations();
-        let (n, freed) = index::enforce_budget();
+        cache::gc_old_generations();
+        let (n, freed) = cache::enforce_budget();
         println!("pruned {n} entries, reclaimed {}", human(freed));
     }
-    let entries = index::cache_status();
+    let entries = cache::cache_status();
     let total: u64 = entries.iter().map(|e| e.bytes).sum();
-    let cap = index::cache_max_bytes();
+    let cap = cache::cache_max_bytes();
     println!(
         "{}  ({} entries, {} of {} budget)",
-        index::cache_base().display(),
+        cache::cache_base().display(),
         entries.len(),
         human(total),
         human(cap)
     );
-    println!("generation {}", index::compat_key());
+    println!("generation {}", cache::compat_key());
     for e in &entries {
         let age = if e.age_secs > 86_400 {
             format!("{}d", e.age_secs / 86_400)
@@ -260,7 +261,7 @@ fn run(cli: Cli) -> Result<i32> {
                 sif_center,
             };
             let t0 = std::time::Instant::now();
-            let stats = index::build(&root, &opts, |done, total| {
+            let stats = store::build(&root, &opts, |done, total| {
                 if done % 500 == 0 || done == total {
                     eprint!("\rindexing {done}/{total} files");
                 }
@@ -270,7 +271,7 @@ fn run(cli: Cli) -> Result<i32> {
                 stats.n_files,
                 stats.n_chunks,
                 stats.bytes_indexed as f64 / 1e6,
-                index::index_dir(&root).display(),
+                store::index_dir(&root).display(),
                 t0.elapsed().as_secs_f64(),
                 stats.index_bytes as f64 / 1e6,
             );
@@ -286,11 +287,11 @@ fn run(cli: Cli) -> Result<i32> {
 }
 
 fn index_status(root: &std::path::Path) -> Result<i32> {
-    if !index::exists(root) {
+    if !store::exists(root) {
         println!("no index (run `semgrep index {}`)", root.display());
         return Ok(1);
     }
-    let idx = index::LoadedIndex::load(root, index::LoadNeeds { bm25: false, hnsw: false })?;
+    let idx = store::LoadedIndex::load(root, store::LoadNeeds { bm25: false, hnsw: false })?;
     let stale = idx.stale_files()?;
     println!(
         "index: {} files, {} chunks, hnsw={}, stale files: {stale}",
@@ -319,7 +320,7 @@ fn run_search(cli: &Cli, query: &str) -> Result<i32> {
     let mode = resolve_mode(cli)?;
     // A cold ranked search is also a cache build (write-through); say so up
     // front, since large scopes make the first search visibly slower.
-    if mode != Mode::Keyword && !cli.no_index && index::discover(&root).is_none() {
+    if mode != Mode::Keyword && !cli.no_index && cache::discover(&root).is_none() {
         eprintln!(
             "semgrep: first ranked search of this scope — caching it (later searches are fast)"
         );
@@ -387,7 +388,7 @@ fn print_miss_suggestions(root: &std::path::Path, query: &str, opts: &SearchOpti
     // Only when an index/cache already covers this scope (via discovery, so
     // subdir scopes and ancestor/cache entries count): the fallback must
     // never turn a fast miss into a corpus pass or a surprise cache build.
-    if opts.no_index || index::discover(root).is_none() {
+    if opts.no_index || cache::discover(root).is_none() {
         return false;
     }
     let ranked_opts = SearchOptions { mode: Mode::Hybrid, k: 3, ..opts.clone() };

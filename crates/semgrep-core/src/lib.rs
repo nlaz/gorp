@@ -1,19 +1,23 @@
 //! semgrep-core: keyword, BM25, and semantic search over file trees.
 //!
-//! The engine works in two modes:
-//! - **unindexed**: a single streaming pass over the corpus (chunk → tokenize →
-//!   embed), retaining only postings and a top-k heap.
-//! - **indexed**: a `.semgrep/` directory built by [`index::build`] holding BM25
-//!   postings, a raw embedding matrix (mmap'd at query time), and optionally an
-//!   anny HNSW graph.
+//! Two ranked paths, one contract. **Cold**: a single streaming pass over the
+//! corpus (chunk → tokenize → embed), keeping only postings and a top-k heap.
+//! **Warm**: an index answers — a directory of BM25 postings, a quantized
+//! embedding matrix mmap'd at query time, and optionally an HNSW graph. The
+//! index is a cache, so the cold path also writes one on its way through, and
+//! a warm answer is repaired against the live tree before it is served.
 
-pub mod bm25;
+// Layers, bottom up. Each may call downward and not upward: `rank` never
+// touches the filesystem, `store` never ranks, `cache` never scores, `search`
+// orchestrates rather than computes. `keyword` is the exact-match escape hatch
+// and stands apart from all of it.
+pub mod cache;
 pub mod corpus;
-pub mod index;
 pub mod keyword;
+pub mod rank;
 pub mod search;
-pub mod semantic;
-pub mod tokenize;
+pub mod store;
+pub mod text;
 
 pub const EMBED_DIM: usize = ese::DIMENSIONS;
 
