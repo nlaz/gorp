@@ -103,8 +103,10 @@ def rg_agent_style(query, corpus, k):
     # IndexError once the first two patterns missed, and a query with none at
     # all grepped for "" — which matches every line and scores as a hit.
     # Neither could affect a published number: 0 of the 2,398 queries in
-    # linux/vscode/wikipedia/cosqa have <=1 content word. Both fire constantly
-    # on real agent queries, where 195/1194 (16%) have <=1 and 6 have none.
+    # linux/vscode/wikipedia/cosqa have <=1 content word. Both fire on real
+    # agent queries (eval/queries/replay-agent.jsonl and its exact-mode twin),
+    # where 181/1223 (15%) have <=1 — 6% of ranked queries and 21% of exact
+    # ones, 5 of which have no content word at all.
     attempts = [query]
     if rare:
         attempts.append(".*".join(rare))
@@ -170,6 +172,77 @@ def rg_strong_attempts(query):
     # it did not earn. No published query is empty; real agent queries include
     # several (see the note in rg_agent_style).
     return _dedupe(attempts)
+
+
+def rg_oracle(query, corpus, k, truth, slack):
+    """A strict UPPER BOUND on ripgrep, not a baseline.
+
+    §12.2 corrected the legacy `rg` baseline's tokenizer and the published
+    "30× gap" collapsed to ~2.9×. But `rg-strong` is still a hand-tuned
+    heuristic — two identifiers, longest first, then some fallbacks — so the
+    honest question §12 left open is how much of the remaining gap is the
+    engine and how much is still the baseline's query planning.
+
+    This answers it by removing the planning entirely: try EVERY content token
+    as its own pattern and keep the best rank any of them achieves. No agent
+    could run this — choosing the winning token requires already knowing the
+    answer — so it is a ceiling, and it must be reported as one. If semgrep's
+    margin survives it, the margin is the engine. If it does not, §12.2's
+    correction did not go far enough and the claim is baseline-shaped.
+
+    Cost is the whole design problem: ~12 tokens x 400 queries x a 1.15 GB
+    kernel scan is hours. The pruning below is exact rather than approximate.
+    A hit only counts if it lands in the gold file on a line overlapping the
+    gold span (+/- slack), so a token that does not appear ANYWHERE in that
+    window cannot produce a correct hit at any rank, and scanning the corpus
+    for it cannot change the oracle's answer. Reading one gold window is free
+    next to a corpus scan, and it typically leaves 1-3 tokens instead of 12.
+
+    (The obvious alternative — one `rg --json -e tok1 -e tok2 ...` scan — was
+    rejected: rg reports the matched *text* rather than which pattern matched,
+    and `-m 1` caps output at the first matching line per file, so a token
+    matching later in a file already matched by another token becomes
+    invisible. An upper bound that under-credits is not an upper bound.)
+    """
+    toks = content_tokens(query)
+    # Identifiers first, then the rest longest-first: same rarity proxy as
+    # rg_strong, so the two are ordered comparably when both are capped.
+    ordered = identifiers(toks) + sorted(
+        (t for t in toks if t not in set(identifiers(toks))), key=len, reverse=True)
+    ordered = _dedupe(ordered)[:ORACLE_MAX_TOKENS]
+
+    window = _gold_window(corpus, truth, slack)
+    if window is None:
+        return []
+    live = [t for t in ordered if t.lower() in window]
+    if not live:
+        return []
+
+    best_rank, best_hits = None, []
+    for t in live:
+        hits = rg_run(re.escape(t), corpus, k, flags=("-i",))
+        r = next((i + 1 for i, h in enumerate(hits) if correct(h, truth, slack)), None)
+        if r is not None and (best_rank is None or r < best_rank):
+            best_rank, best_hits = r, hits
+    return best_hits
+
+
+ORACLE_MAX_TOKENS = 12
+
+
+def _gold_window(corpus, truth, slack):
+    """Lowercased text of the gold span widened by `slack`, or None.
+
+    This is the pruning oracle: a token absent from here can never produce a
+    hit that `correct()` accepts, whatever the corpus does.
+    """
+    try:
+        lines = (Path(corpus) / truth["file"]).read_text(errors="replace").splitlines()
+    except OSError:
+        return None
+    lo = max(0, truth["start_line"] - 1 - slack)
+    hi = min(len(lines), truth["end_line"] + slack)
+    return "\n".join(lines[lo:hi]).lower()
 
 
 def correct(hit, truth, slack):
@@ -327,6 +400,10 @@ def main():
                 hits = rg_agent_style(truth["query"], args.corpus, args.k)
             elif mode == "rg-strong":
                 hits = rg_strong(truth["query"], args.corpus, args.k)
+            elif mode == "rg-oracle":
+                # Takes `truth`, unlike every other condition — that is what
+                # makes it a ceiling rather than a baseline.
+                hits = rg_oracle(truth["query"], args.corpus, args.k, truth, args.slack)
             else:
                 hits = semgrep_search(truth["query"], args.corpus, mode, args.k, args.no_index, extra)
             rank = next((r + 1 for r, h in enumerate(hits) if correct(h, truth, args.slack)), None)
@@ -355,6 +432,12 @@ def main():
                         # whether a 0.01 delta is signal.
                         "ranks": rs,
                         "queries_fp": queries_fp})
+    if any(m == "rg-oracle" for m in modes):
+        print("\n* rg-oracle is a CEILING, not a baseline: it tries every query\n"
+              "  token as its own pattern and keeps whichever scored best, which\n"
+              "  requires already knowing the answer. No agent can run it. Read it\n"
+              "  as 'the most ripgrep could possibly do here', and compare\n"
+              "  semgrep's margin against it, not against rg-strong alone.")
     if args.compare_modes:
         a, b = args.compare_modes.split(",")
         compare_modes(results, a.strip(), b.strip(), args.bootstrap)
