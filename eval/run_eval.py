@@ -68,10 +68,50 @@ def rg_run(pattern, corpus, k, flags=()):
 
 
 def rg_agent_style(query, corpus, k):
+    """Legacy baseline. Kept for comparability with published numbers — but
+    it is weaker than a competent agent, and knowingly so:
+
+    `[a-zA-Z0-9]+` excludes `_`, so `blkg_rwstat_add` is shredded to
+    blkg/rwstat/add before ripgrep sees it, and "rarest" is approximated by
+    *longest*, which on a typical direct query picks generic words like
+    "function"/"choosing" over the identifier. Use `rg-strong` for the fair
+    comparison; scoring both is the only way to know how much of our
+    reported gap was the baseline rather than the engine.
+    """
     words = [w for w in re.findall(r"[a-zA-Z0-9]+", query.lower()) if w not in STOPWORDS]
     rare = sorted(words, key=len, reverse=True)[:2]
     for attempt in ([query], [".*".join(rare)], ["|".join(rare)] if len(rare) > 1 else []):
         hits = rg_run(attempt[0], corpus, k, flags=("-i",))
+        if hits:
+            return hits
+    return []
+
+
+def rg_strong(query, corpus, k):
+    """What a competent agent actually does with ripgrep.
+
+    Identifiers survive tokenization, and any identifier-shaped token in the
+    query is tried FIRST — if the question contains `parse_config`, grepping
+    for it is the obvious move and it is nearly free to get right.
+    """
+    toks = [w for w in re.findall(r"[A-Za-z0-9_]+", query) if w.lower() not in STOPWORDS]
+    # A *true* identifier is snake_case or camelCase. Long lowercase runs are
+    # usually just long English words ("workaround", "statistic") — grepping
+    # those is a fallback, not the obvious first move, and conflating the two
+    # would overstate what this baseline does. Measured: 66-70% of direct code
+    # queries carry a true identifier, vs 2% of paraphrase queries.
+    idents = sorted((w for w in toks if "_" in w or re.search(r"[a-z][A-Z]", w)),
+                    key=len, reverse=True)
+    rare = sorted(toks, key=len, reverse=True)[:2]
+
+    attempts = []
+    attempts += [re.escape(i) for i in idents[:2]]      # the obvious symbol
+    attempts.append(re.escape(query))                    # exact phrase
+    if len(rare) > 1:
+        attempts.append(".*".join(re.escape(r) for r in rare))   # both on a line
+        attempts.append("|".join(re.escape(r) for r in rare))    # either
+    for pat in attempts:
+        hits = rg_run(pat, corpus, k, flags=("-i",))
         if hits:
             return hits
     return []
@@ -100,6 +140,9 @@ def main():
                          "bootstrap CIs and a sign test instead of bare numbers")
     ap.add_argument("--bootstrap", type=int, default=2000,
                     help="bootstrap resamples for the delta CI")
+    ap.add_argument("--compare-modes", default="",
+                    help="paired stats between two modes in THIS run, "
+                         "e.g. 'hybrid,rg' — the semgrep-vs-ripgrep claim")
     args = ap.parse_args()
     extra = tuple(args.extra.split()) if args.extra else ()
 
@@ -114,6 +157,8 @@ def main():
         for mode in modes:
             if mode == "rg":
                 hits = rg_agent_style(truth["query"], args.corpus, args.k)
+            elif mode == "rg-strong":
+                hits = rg_strong(truth["query"], args.corpus, args.k)
             else:
                 hits = semgrep_search(truth["query"], args.corpus, mode, args.k, args.no_index, extra)
             rank = next((r + 1 for r, h in enumerate(hits) if correct(h, truth, args.slack)), None)
@@ -138,6 +183,9 @@ def main():
                         # whether a 0.01 delta is signal.
                         "ranks": rs,
                         "queries_fp": queries_fp})
+    if args.compare_modes:
+        a, b = args.compare_modes.split(",")
+        compare_modes(results, a.strip(), b.strip(), args.bootstrap)
     if args.baseline:
         compare(results, args.baseline, args.bootstrap)
 
@@ -198,6 +246,33 @@ def _sign_test(a, b, metric):
         return wins, loss, 1.0
     tail = sum(math.comb(n, i) for i in range(0, min(wins, loss) + 1))
     return wins, loss, min(1.0, 2 * tail / 2 ** n)
+
+
+def compare_modes(results, a, b, n_resamples):
+    """Paired stats between two modes scored on the SAME queries in one run.
+
+    Every query was answered by both engines, so this is a paired design with
+    no run-to-run variance at all — the cleanest form of the comparison the
+    project actually makes: ranked search vs ripgrep.
+    """
+    by = {(r["mode"], r["kind"]): r for r in results}
+    kinds = sorted({k for (_, k) in by})
+    print(f"\n=== {a} vs {b}, paired on the same queries "
+          f"(bootstrap {n_resamples}x, 95% CI) ===")
+    print(f"{'kind':<12} {'metric':<10} {b:>7} {a:>7} {'delta':>8} "
+          f"{'95% CI':>19} {'w-l':>9} {'p':>7}  verdict")
+    for kind in kinds:
+        ra, rb = by.get((a, kind)), by.get((b, kind))
+        if not ra or not rb or "ranks" not in ra or "ranks" not in rb:
+            continue
+        for m in METRICS:
+            point, lo, hi = _bootstrap_ci(ra["ranks"], rb["ranks"], m, n_resamples)
+            st = _sign_test(ra["ranks"], rb["ranks"], m)
+            wl = f"{st[0]}-{st[1]}" if st else ""
+            pv = f"{st[2]:.4f}" if st else ""
+            verdict = "WIN" if lo > 0 else ("LOSS" if hi < 0 else "inconclusive")
+            print(f"{kind:<12} {m:<10} {rb[m]:>7.3f} {ra[m]:>7.3f} {point:>+8.3f} "
+                  f"[{lo:>+6.3f},{hi:>+6.3f}] {wl:>9} {pv:>7}  {verdict}")
 
 
 def compare(results, baseline_path, n_resamples):

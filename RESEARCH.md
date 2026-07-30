@@ -1643,3 +1643,142 @@ shipped; it took a real format change to expose it.
 
 Agent-eval spend this session: $39.07 (sg-code $13.14, sg-p256 $13.50,
 sg-fnchunk $12.43).
+
+## 12. Adversarial audit of our own eval (2026-07-29)
+
+The eval-v2 statistics reported semgrep beating ripgrep at p < 0.0001 on
+every metric of every corpus, with discordance as lopsided as 173-0. A result
+that clean, from a benchmark we wrote ourselves, is a reason to audit the
+benchmark rather than celebrate.
+
+### 12.1 The ripgrep baseline was a strawman
+
+`run_eval.py`'s `rg_agent_style` had three compounding flaws:
+
+1. `re.findall(r"[a-zA-Z0-9]+", ...)` — **no underscore**, so
+   `blkg_rwstat_add` was shredded into blkg/rwstat/add before ripgrep saw it.
+2. "Rarest" was approximated by **longest**. On
+   `blkg_rwstat_add inline function choosing percpu counter…` that selects
+   `function` and `choosing` — generic prose — and never the identifier.
+3. The two terms were then required **on the same line**, which grep's
+   line-orientation makes unlikely.
+
+Net: on the queries where the answer's own name appears in the question, our
+baseline never grepped for it. A competent agent runs `rg blkg_rwstat_add`
+and lands immediately.
+
+How often does that matter? Measured share of queries containing a *true*
+identifier (snake_case or camelCase):
+
+| corpus | direct | paraphrase |
+|---|---|---|
+| kernel | **66%** | 2% |
+| VS Code | **70%** | 2% |
+| wikipedia | 1% | 0% |
+
+(An earlier version of this measurement counted long lowercase words like
+`workaround` as identifiers and reported 93% for paraphrase — wrong, and
+corrected here. The audit needed auditing.)
+
+### 12.2 What a fair baseline costs us
+
+`rg-strong` tries identifier-shaped tokens first, then the phrase, then the
+AND/OR fallbacks. It was added **beside** the legacy condition rather than
+replacing it, so the delta stays auditable instead of silently moving
+published numbers.
+
+| corpus / kind | rg (legacy) | rg-strong | semgrep | fair gap |
+|---|---|---|---|---|
+| kernel, direct R@5 | 0.05 | **0.32** | 0.92 | **2.9×** |
+| VS Code, direct R@5 | 0.155 | **0.355** | 0.870 | **2.4×** |
+| kernel, paraphrase R@5 | 0.000 | 0.000 | 0.027 | — |
+| VS Code, paraphrase R@5 | 0.010 | 0.005 | 0.140 | 28× |
+
+**The published "30× gap on identifier queries" is really ~2.9×.** Fixing the
+tokenizer alone improves ripgrep 6.4× on the kernel and 2.3× on VS Code.
+semgrep still wins every stratum at p < 0.0001 (kernel direct 45-0), but the
+magnitude of the claim was substantially our own baseline.
+
+Paraphrase is untouched by the fix — 0.005 vs 0.010 on VS Code, 0.000 both
+ways on the kernel. There is no identifier to grep for, which is the
+definition of the stratum. That asymmetry is the strongest evidence available
+that the remaining advantage is a real capability difference and not an
+artifact: improving the opponent closes the gap exactly where theory says it
+should, and nowhere else.
+
+### 12.3 Real queries: our conditions bracket reality, they do not represent it
+
+Added CoSQA (`eval/fetch-cosqa.sh`): 9,020 human-written Bing queries,
+relevance-labelled against 20,604 Python functions, with the **whole** corpus
+written out so retrieval faces real distractors. Nobody who wrote these
+queries had seen the code, so no generator could leak the answer's vocabulary
+into the question.
+
+| query set | n | has identifier | median words | tokens present in gold |
+|---|---|---|---|---|
+| ours, direct | 199 | 66% | 10 | — |
+| ours, paraphrase | 199 | 2% | 17 | — |
+| **CoSQA (real)** | **9,020** | **0%** | **6** | **42%** |
+
+Real queries carry no identifiers, are far shorter, yet still share 42% of
+their content tokens with the gold function. So `direct` is *easier* than
+reality (the name is handed over) and `paraphrase` is *harder* (vocabulary
+deliberately stripped, and 17 words where users type 6). Every quality claim
+this project has made was anchored to one of those two poles; neither is
+where users are.
+
+Results on 1,200 sampled real queries:
+
+| condition | R@1 | R@5 | R@10 | MRR@10 |
+|---|---|---|---|---|
+| **bm25** | 0.07 | **0.22** | 0.33 | **0.138** |
+| hybrid (shipped) | 0.07 | 0.21 | 0.33 | 0.133 |
+| semantic | 0.02 | 0.08 | 0.12 | 0.048 |
+| rg / rg-strong | 0.01 | 0.03 | 0.04 | 0.013 |
+
+Three findings:
+
+1. **The fair baseline changes nothing here** (0.03 either way) — 0% of real
+   queries contain an identifier, so a smarter grep has nothing to grab.
+2. **semgrep's real-query advantage is larger than on synthetic direct
+   queries**: 8.3× at R@5, 237-17 discordant, p < 0.0001. The strawman
+   *understated* the tool in the regime that matters while overstating it on
+   identifier queries.
+3. **The semantic half contributes nothing.** BM25 alone (0.22) matches
+   hybrid (0.21) and nearly triples semantic alone (0.08). On real queries
+   over real Python, the win is code-aware *lexical* ranking — subtoken
+   tokenization, path augmentation, ranked top-k over chunks — not
+   embeddings. Consistent with §9.9, and with four straight embedding levers
+   failing to transfer.
+
+Caveat in the other direction: CoSQA labels one gold function among 20,604,
+and `python condition non none` could be answered by many. Single-truth
+scoring makes 0.21 a floor.
+
+### 12.4 A cost asymmetry the accuracy tables hide
+
+`rg-strong` is expensive *because* it is fair. A paraphrase query exhausts
+all five patterns — two identifier attempts, the phrase, the AND fallback,
+the OR fallback — and each is a full 1.15 GB scan. Including the legacy
+condition, a kernel query that ripgrep ultimately fails to answer costs
+**~8 full scans, ~25 s**, against semgrep's single ~100 ms warm query.
+
+This is the retry-loop argument of §5.3, finally visible. Loc-Bench could not
+show it because agent cost there is 91% conversation-replay cache reads
+(§7.1), which swamps search entirely. A competent grep strategy means *more*
+scans on failure, not fewer.
+
+### 12.5 Decisions
+
+- **Revise the README.** "3-27%" for ripgrep understates it (32-36% on direct
+  with a fair baseline), and the 30× framing must go. Replace the single
+  multiple with the split the data supports: modest advantage when the
+  identifier is known, large advantage when it is not.
+- **Keep both baselines.** `rg` for comparability with published numbers,
+  `rg-strong` as the honest opponent. Report both.
+- **CoSQA becomes a standing corpus**, and the first-class one for quality
+  claims, because it is the only query set not written by us.
+- **Regenerate our own sets symbol-anchored** (§11.5 item 1) and consider
+  retiring `direct` entirely — a query containing the answer's name measures
+  tokenizer plumbing, not retrieval.
+

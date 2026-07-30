@@ -35,14 +35,17 @@ guess, another tool call, more tokens, more latency.
  3 round-trips, still guessing   1 call, ranked
 ```
 
-Measured on real query sets, the miss is the norm, not the edge case: NL
-intents keyword-ized into ripgrep find the target in the top 5 **3–27%** of
-the time; semgrep's ranked search finds it **88–99%** of the time on the same
-intents.
+Measured on 1,200 **real** search queries (CoSQA — human-written Bing queries
+labelled against 20,604 Python functions), ripgrep finds the target in the top
+5 **3%** of the time; semgrep finds it **21%** of the time. Both numbers are
+low because scoring credits one gold function out of 20,604 — the 7× gap is
+the signal, and it holds at p < 0.0001.
 
 The bet: for an agent, the quality of the *first* result matters more than the
 speed of the scan, because every miss is a full round-trip that never needed
-to happen. rg answers a miss in 1.7 s. semgrep answers a hit in ~0.1 s.
+to happen. And a miss is not cheap — an agent that falls back through phrase,
+AND, then OR patterns pays ~8 full kernel scans (~25 s) to fail, against
+semgrep's single ~100 ms warm query.
 
 ## Performance
 
@@ -209,21 +212,44 @@ CLI-surface collapse, cache design, reranker post-mortems — in
 
 ## Retrieval quality
 
-400 LLM-generated queries per corpus, ground truth = source chunk ±10 lines.
-"direct" queries name identifiers; "paraphrase" queries deliberately avoid the
-chunk's vocabulary. "rg" is the agent-style fallback: the query keyword-ized
-into ripgrep, how agents use it today.
+The honest version of this section is shorter than it used to be, because an
+adversarial audit of our own benchmark found that the ripgrep baseline was a
+strawman (RESEARCH.md §12): it tokenized without underscores, so an identifier
+in the query was shredded before ripgrep ever saw it. Fixing that improves
+ripgrep 6.4× on the kernel. The numbers below use `rg-strong`, which greps the
+identifier first — what a competent agent does.
 
-| Recall@5 | Kernel | VS Code | Wikipedia |
+**Real queries** (CoSQA, 1,200 sampled human-written queries over 20,604
+Python functions — nobody who wrote them had seen the code):
+
+| recall@5 | rg | semgrep | |
 |---|---|---|---|
-| semgrep, direct | **0.92** | **0.88** | **0.99** |
-| rg, direct | 0.03 | 0.17 | 0.27 |
-| semgrep, paraphrase | 0.05 | 0.14 | **0.41** |
-| rg, paraphrase | 0.00 | 0.01 | 0.03 |
+| real user queries | 0.03 | **0.21** | 7×, p < 0.0001 |
 
-On the kernel that is a **30× gap** on identifier queries. Scoring is strict
-single-truth, so absolute numbers understate usefulness — the cross-tool delta
-is the signal.
+**Our own generated sets** (400/corpus) split by whether the query contains the
+answer's own identifier. That split turns out to bracket reality rather than
+represent it: real queries contain **0%** identifiers (so `direct` is easier
+than reality) but still share 42% of their tokens with the answer (so
+`paraphrase`, which deliberately strips vocabulary, is harder than reality).
+
+| recall@5 | kernel | VS Code |
+|---|---|---|
+| semgrep, direct | **0.92** | **0.87** |
+| rg-strong, direct | 0.32 | 0.36 |
+| semgrep, paraphrase | 0.03 | **0.14** |
+| rg-strong, paraphrase | 0.00 | 0.01 |
+
+So the gap depends entirely on whether you already know what the thing is
+called: **~2.5–3× when you do, 8–28× when you don't.** A better grep strategy
+closes the first gap and does nothing to the second — which is the clearest
+evidence that what remains is a capability difference rather than a
+measurement artifact.
+
+One finding that cuts against our own framing: on real queries, **BM25 alone
+(0.22) matches the hybrid default (0.21)** and nearly triples semantic-only
+(0.08). The advantage over grep is code-aware *lexical* ranking — subtoken
+tokenization, path augmentation, ranked top-k over chunks — more than it is
+embeddings.
 
 ## Does it actually help an agent?
 
@@ -263,7 +289,8 @@ agent-level evals, not retrieval micro-benchmarks (RESEARCH.md §7, §9).
 ## Known limits
 
 Paraphrased queries over *code* are the open problem: every engine scores
-≤ 0.05 recall@5 on kernel paraphrase. The root cause is diagnosed, not
+≤ 0.05 recall@5 on kernel paraphrase, and on real user queries the semantic
+half contributes nothing measurable over BM25 alone (§12.3). The root cause is diagnosed, not
 speculative — ese's embedding space is prose-trained, and probe similarities
 like `str`~`string` = −0.002 and `mutex`~`lock` = 0.045 mean that on code it
 behaves as a fuzzy lexical matcher, not a semantic model (RESEARCH.md §9.9).

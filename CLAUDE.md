@@ -11,14 +11,20 @@ design; README.md for usage.
 - `crates/semgrep` — CLI (`target/release/semgrep`)
 - `bench/` — perf harness vs grep/ggrep/rg/ugrep/ack (`fetch-corpora.sh`,
   `run.py`, `report.py`, `queries.json`); corpora + results are gitignored
-- `eval/` — retrieval-quality harness (`generate.py` makes LLM query sets,
-  `run_eval.py` scores recall@k/MRR, `agent-eval.md` protocol)
+- `eval/` — retrieval-quality harness. `run_eval.py` scores recall@k/MRR with
+  paired bootstrap CIs + sign tests (`--baseline`, `--compare-modes`);
+  `generate.py --anchor symbol` makes chunking-neutral query sets via
+  `symbols.py`; `fetch-cosqa.sh` pulls 9k real human queries (the only set we
+  didn't write — prefer it for quality claims, RESEARCH.md §12);
+  `locbench/replay.py` replays real agent queries offline. Two rg baselines
+  exist on purpose: `rg` (legacy, weak — kept for comparability) and
+  `rg-strong` (fair). Report both.
 
 ## Conventions
 
 - Build: `cargo build --release` (first build downloads ese weights; needs
-  network once). Test: `cargo test` (38 tests incl. e2e fixture corpus,
-  cache-transparency, and stale-cache-eviction tests).
+  network once). Test: `cargo test` (48 tests + 11 doctests: 25 lib, 20 e2e incl.
+  cache-transparency / stale-cache-eviction / budget, 3 model+token probes).
 - Chunk ids are assigned in walk order and must stay in lockstep between the
   chunk table, BM25 add order, and `emb.bin` row order. The pass is
   parallel (`corpus::process_file` on rayon workers) with a serial in-order
@@ -46,8 +52,12 @@ that involve embeddings all moved, BM25 and keyword did not.
 - keyword ≈ rg (same engine crates), ~12 MB RSS
 - cold (unindexed): semantic ~20 s / 154 MB; bm25 ~39 s / 916 MB (postings —
   candidate for two-pass streaming rewrite); hybrid ~53 s
-- index build 45.9 s → 946 MB (386 MB i8 emb.bin + 541 MB bm25.flat),
-  0.78 GiB peak RSS. vscode 63 MB, wikipedia 205 MB.
+- index build 27–46 s → 946 MB (386 MB i8 emb.bin + 541 MB bm25.flat),
+  peak RSS 0.8–1.6 GB. vscode 2.1 s / 63 MB, wikipedia 205 MB.
+  The spread is real, not sloppy measurement: wall time is dominated by
+  page-cache state (a corpus already resident reads far faster) and peak RSS
+  by rayon batch timing. Quote the range, or re-measure with `bench/run.py`
+  and compare via `report.py --against` — single samples here mislead.
 - warm queries: bm25 88 ms, semantic 53 ms, hybrid 115 ms (halving dims
   halved the embedding scan; the old f32 scan was fault/IO-bound at ~3-4 s)
 - `--stats` prints per-stage provenance; `--check-stale` is separate (walks
