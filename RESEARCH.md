@@ -1984,8 +1984,14 @@ choosing its pattern. That is the falsification test §13.4 set up, and the
 claim passes it: the gap is engine-shaped, not baseline-shaped.
 
 The pre-registered falsification condition (kernel `direct` R@5 ≥ 0.85 for the
-oracle) is not met anywhere here — the highest is 0.236. The kernel run itself
-is still pending; this section will be updated with it, not replaced.
+oracle) is not met anywhere here — the highest is 0.236.
+
+**The kernel and CoSQA oracle runs have NOT been done.** Both were started and
+both were interrupted before producing any output; nothing is reported for them
+above, and the §13.4 prediction for those two corpora stands untested. They are
+the two with the sharpest predictions, so this is the gap in this section and
+not a footnote to it. Cost estimate below, so whoever runs them budgets for it
+rather than discovering it.
 
 **bm25 ≥ hybrid on three of four corpora.** 0.710 vs 0.700 (tokio), 0.705 vs
 0.695 (etcd), 0.849 vs 0.864 (commons-lang), 0.864 vs 0.886 (jekyll). The
@@ -2035,6 +2041,23 @@ CLAUDE.md says the snapshot tripwire "has caught non-determinism that no test
 could see." It covers ranked output over the frozen fixture; the ripgrep
 baselines were outside it, and stayed nondeterministic for the whole life of
 the harness.
+
+**What determinism costs.** `--sort path` makes ripgrep walk single-threaded.
+Measured on the kernel with a warm page cache, three patterns, best of three:
+
+| pattern | unsorted | `--sort path` | ratio |
+|---|---|---|---|
+| `blkg_rwstat_add` | 1.76 s | 6.50 s | 3.7× |
+| `config` | 1.92 s | 8.36 s | 4.4× |
+| `static` | 1.92 s | 8.46 s | 4.4× |
+
+That is the price of a reproducible rank and it is worth paying, but it changes
+what is affordable. `rg-oracle` issues up to `ORACLE_MAX_TOKENS` + ~5 patterns
+per query, so a 150-query kernel oracle run is on the order of **hours**, not
+minutes. On the small corpora (3–15 MB) the same run is a few minutes, which is
+why §13.5's table exists and the kernel's does not yet. Budget for it, or lower
+`ORACLE_MAX_TOKENS` for large corpora and say in the writeup that the ceiling
+was capped.
 
 ### 13.6 Four more corpora, and what they were for
 
