@@ -63,3 +63,29 @@ On a median real-world repo the entire question is worth less than a
 second. Staleness *detection* is much cheaper than rebuild (~1 s to re-walk
 84k files; `--check-stale`), so "is my index stale?" can be asked freely —
 it's only the refresh that pays the pass.
+
+## Tests
+
+The scorers are pure functions that decide every number published in
+RESEARCH.md, so they have their own tests:
+
+    python3 -m pytest eval/tests -q
+
+`test_scoring.py` covers the Loc-Bench scorer (§11) — the cases where a scorer
+is tempted to over-credit, since that is the failure that flatters the tool
+under test. `test_run_eval.py` covers the hit predicate that decides every
+recall@k and MRR figure. `test_symbols.py` covers symbol extraction, which
+defines the ground truth for the symbol-anchored query sets (§11.4).
+
+## Running a lever campaign
+
+    eval/levers.sh --list              # available conditions
+    eval/levers.sh                     # all of them, all corpora
+    eval/levers.sh base maxsim         # a subset
+    eval/diff.py --base base --cand maxsim --metric recall@5
+
+`levers.sh` groups conditions by index flags and rebuilds a corpus once per
+distinct build rather than once per condition, and restores a default index
+afterwards so a later run does not silently measure against whatever the last
+condition built. It uses its own `SEMGREP_CACHE_DIR`; see FIXES.md #10 for why
+that matters.

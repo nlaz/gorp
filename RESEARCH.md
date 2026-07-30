@@ -920,7 +920,7 @@ semgrep gained `index --sif` (freq pre-pass + weighted pooling, stats in
 `sif.bin`, query pooled in the same space), `--maxsim` (late-interaction
 rerank of the candidate pool, ~35 ms), `--prf N` (top-hit term expansion,
 ~32 ms). All hidden flags, default off. Full tables:
-`eval/data/lever-*.json`, `eval/lever-report.py`. Verdicts:
+`eval/data/lever-*.json`, compared with `eval/diff.py`. Verdicts:
 
 | lever | verdict | evidence (R@5 / MRR deltas vs base) |
 |---|---|---|
@@ -962,7 +962,7 @@ worth one condition in the upcoming re-run. sem_weight stays 0.2.
 Parameterized (`--maxsim-pool`, `--maxsim-blend`, `index --sif-a`,
 `--sif-center`; `a` and the sample-estimated common component persist in
 `sif.bin` so query pooling always matches build). 7 conditions × 3
-corpora vs the §9.5 references (`tune-report.py`):
+corpora vs the §9.5 references (`eval/diff.py --base maxsim2`):
 
 - **Pool 96 adopted as the `--maxsim` default head** (was k×3 min 24):
   semantic direct +0.03/+0.04/+0.06 R@5 (kernel/wiki/vscode), hybrid MRR
@@ -983,7 +983,7 @@ corpora vs the §9.5 references (`tune-report.py`):
   kernel hybrid direct 0.92, the campaign's best — but no pattern).
   Stays implemented behind `--sif-center` for future embedder work.
 
-**Six-point pool curve** (24/32/48/64/96/128, `run-pool-sweep.sh`): no
+**Six-point pool curve** (24/32/48/64/96/128, `eval/levers.sh mp32 mp64 mp128`): no
 universal knee — cells peak at different depths. Semantic *direct* keeps
 creeping through 96 (kernel still rising at 128: 0.78); semantic
 *paraphrase* on code **peaks at 48 and degrades past it** (vscode

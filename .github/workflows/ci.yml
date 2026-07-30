@@ -77,19 +77,14 @@ jobs:
         with:
           python-version: "3.12"
 
-      # 2,300 lines of eval/bench harness that decides every published number.
-      # Syntax first; the scorer unit tests land with PLAN.md P8.
       # Explicit file list, not the directories: bench/corpora and eval/data
       # hold multi-gigabyte third-party checkouts whose syntax is not our
       # problem (and whose warnings would bury ours).
       - name: compile
-        run: python -m compileall -q bench/*.py eval/*.py eval/locbench/*.py
+        run: python -m compileall -q bench/*.py eval/*.py eval/locbench/*.py eval/tests/*.py
 
+      # The scorers decide every published number in RESEARCH.md.
       - name: test
         run: |
-          if [ -d eval/tests ]; then
-            python -m pip install --quiet pytest
-            python -m pytest eval/tests -q
-          else
-            echo "no eval/tests yet (PLAN.md P8)"
-          fi
+          python -m pip install --quiet pytest
+          python -m pytest eval/tests -q
