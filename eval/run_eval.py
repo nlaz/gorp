@@ -37,6 +37,7 @@ RG = "/opt/homebrew/bin/rg"
 # purpose: the leakage percentage printed above every results table must be
 # the same predicate that decides the rg-strong baseline, or the two drift and
 # §12.1's audit stops meaning anything.
+import corpus_text  # noqa: E402
 import leakage  # noqa: E402
 from leakage import STOPWORDS, content_tokens, identifiers  # noqa: E402
 from validate_queries import format_problems, validate  # noqa: E402
@@ -236,9 +237,8 @@ def _gold_window(corpus, truth, slack):
     This is the pruning oracle: a token absent from here can never produce a
     hit that `correct()` accepts, whatever the corpus does.
     """
-    try:
-        lines = (Path(corpus) / truth["file"]).read_text(errors="replace").splitlines()
-    except OSError:
+    lines, ok = corpus_text.read_lines(Path(corpus) / truth["file"])
+    if not ok:
         return None
     lo = max(0, truth["start_line"] - 1 - slack)
     hi = min(len(lines), truth["end_line"] + slack)

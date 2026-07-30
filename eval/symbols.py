@@ -32,6 +32,10 @@ Usage:
 from __future__ import annotations
 
 import re
+import sys
+from pathlib import Path as _P
+sys.path.insert(0, str(_P(__file__).parent))
+import corpus_text  # noqa: E402
 from pathlib import Path
 
 EXT_LANG = {
@@ -137,7 +141,7 @@ def extract(path: Path, text: str | None = None) -> list[dict]:
         except OSError:
             return []
 
-    lines = text.split("\n")
+    lines = corpus_text.split_lines(text)
     brace = lang in BRACE_LANGS
     out = []
     for i, line in enumerate(lines):

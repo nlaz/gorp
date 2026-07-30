@@ -22,6 +22,7 @@ import subprocess
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+import corpus_text  # noqa: E402
 import validate_queries  # noqa: E402
 
 CODE_EXT = {".c", ".h", ".rs", ".ts", ".js", ".py", ".go", ".java", ".cpp", ".md", ".txt"}
@@ -88,11 +89,13 @@ def sample_symbols(root: Path, n: int, seed: int, min_lines: int = 4):
     for p in files:
         if len(out) >= n:
             break
-        try:
-            text = p.read_text(errors="replace")
-        except OSError:
+        # Never sample a file semgrep's walker skips: a gold span in one can
+        # never be returned, so the row would be a permanent miss for every
+        # condition and read as an accuracy result.
+        text = corpus_text.read_text(p)
+        if text is None:
             continue
-        lines = text.split("\n")
+        lines = corpus_text.split_lines(text)
         syms = [s for s in symmod.extract(p, text) if s["n_lines"] >= min_lines]
         if not syms:
             continue

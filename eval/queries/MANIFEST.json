@@ -1,4 +1,38 @@
 {
+  "commons-lang.jsonl": {
+    "sha256": "c2f8ce8060f5ca40",
+    "queries_fp": "c2f8ce8060f5ca40",
+    "n": 398,
+    "kinds": {
+      "direct": 199,
+      "paraphrase": 199
+    },
+    "corpus": "commons-lang",
+    "anchor": "symbol",
+    "provenance": "generate.py --anchor symbol, path NOT in prompt; 2 unindexable rows dropped",
+    "leakage": {
+      "direct": {
+        "n": 199,
+        "identifier_pct": 0.392,
+        "median_words": 11,
+        "basename_pct": 0.0,
+        "stem_pct": 0.0352,
+        "path_seg_pct": 0.3367,
+        "path_seg_not_in_gold_pct": 0.0,
+        "gold_token_overlap": null
+      },
+      "paraphrase": {
+        "n": 199,
+        "identifier_pct": 0.0101,
+        "median_words": 15,
+        "basename_pct": 0.0,
+        "stem_pct": 0.0,
+        "path_seg_pct": 0.2211,
+        "path_seg_not_in_gold_pct": 0.0,
+        "gold_token_overlap": null
+      }
+    }
+  },
   "cosqa-1200.jsonl": {
     "sha256": "b0fe982c083a825e",
     "queries_fp": "b0fe982c083a825e",
@@ -17,6 +51,74 @@
         "basename_pct": 0.0,
         "stem_pct": 0.0,
         "path_seg_pct": 0.0,
+        "path_seg_not_in_gold_pct": 0.0,
+        "gold_token_overlap": null
+      }
+    }
+  },
+  "etcd.jsonl": {
+    "sha256": "50b120153956eec6",
+    "queries_fp": "50b120153956eec6",
+    "n": 400,
+    "kinds": {
+      "direct": 200,
+      "paraphrase": 200
+    },
+    "corpus": "etcd",
+    "anchor": "symbol",
+    "provenance": "generate.py --anchor symbol, path NOT in prompt",
+    "leakage": {
+      "direct": {
+        "n": 200,
+        "identifier_pct": 0.095,
+        "median_words": 12,
+        "basename_pct": 0.0,
+        "stem_pct": 0.145,
+        "path_seg_pct": 0.165,
+        "path_seg_not_in_gold_pct": 0.0,
+        "gold_token_overlap": null
+      },
+      "paraphrase": {
+        "n": 200,
+        "identifier_pct": 0.0,
+        "median_words": 15,
+        "basename_pct": 0.0,
+        "stem_pct": 0.02,
+        "path_seg_pct": 0.1,
+        "path_seg_not_in_gold_pct": 0.0,
+        "gold_token_overlap": null
+      }
+    }
+  },
+  "jekyll.jsonl": {
+    "sha256": "d0c3aee0c884caa3",
+    "queries_fp": "d0c3aee0c884caa3",
+    "n": 176,
+    "kinds": {
+      "direct": 88,
+      "paraphrase": 88
+    },
+    "corpus": "jekyll",
+    "anchor": "symbol",
+    "provenance": "generate.py --anchor symbol, path NOT in prompt",
+    "leakage": {
+      "direct": {
+        "n": 88,
+        "identifier_pct": 0.0568,
+        "median_words": 12,
+        "basename_pct": 0.0,
+        "stem_pct": 0.1477,
+        "path_seg_pct": 0.0682,
+        "path_seg_not_in_gold_pct": 0.0,
+        "gold_token_overlap": null
+      },
+      "paraphrase": {
+        "n": 88,
+        "identifier_pct": 0.0,
+        "median_words": 15,
+        "basename_pct": 0.0,
+        "stem_pct": 0.0341,
+        "path_seg_pct": 0.0682,
         "path_seg_not_in_gold_pct": 0.0,
         "gold_token_overlap": null
       }
@@ -66,7 +168,7 @@
     },
     "corpus": "linux",
     "anchor": "window",
-    "provenance": "generate.py --anchor window, claude-generated direct+paraphrase pairs",
+    "provenance": "generate.py --anchor window (path WAS in the prompt \u2014 see RESEARCH.md \u00a713.1)",
     "leakage": {
       "direct": {
         "n": 199,
@@ -85,6 +187,51 @@
         "basename_pct": 0.0,
         "stem_pct": 0.0,
         "path_seg_pct": 0.2513,
+        "path_seg_not_in_gold_pct": 0.0,
+        "gold_token_overlap": null
+      }
+    }
+  },
+  "replay-agent.jsonl": {
+    "sha256": "6ad20c726da27761",
+    "queries_fp": "6ad20c726da27761",
+    "n": 497,
+    "kinds": {
+      "?": 497
+    },
+    "corpus": "(locbench worktrees)",
+    "anchor": "n/a (query strings only)",
+    "provenance": "harvested from 706 locbench shim logs \u2014 real agent queries, not written by us"
+  },
+  "tokio.jsonl": {
+    "sha256": "b2c4c4a168089652",
+    "queries_fp": "b2c4c4a168089652",
+    "n": 400,
+    "kinds": {
+      "direct": 200,
+      "paraphrase": 200
+    },
+    "corpus": "tokio",
+    "anchor": "symbol",
+    "provenance": "generate.py --anchor symbol, path NOT in prompt",
+    "leakage": {
+      "direct": {
+        "n": 200,
+        "identifier_pct": 0.3,
+        "median_words": 12,
+        "basename_pct": 0.0,
+        "stem_pct": 0.155,
+        "path_seg_pct": 0.1,
+        "path_seg_not_in_gold_pct": 0.0,
+        "gold_token_overlap": null
+      },
+      "paraphrase": {
+        "n": 200,
+        "identifier_pct": 0.005,
+        "median_words": 14,
+        "basename_pct": 0.0,
+        "stem_pct": 0.05,
+        "path_seg_pct": 0.05,
         "path_seg_not_in_gold_pct": 0.0,
         "gold_token_overlap": null
       }
@@ -134,7 +281,7 @@
     },
     "corpus": "vscode",
     "anchor": "window",
-    "provenance": "generate.py --anchor window, claude-generated direct+paraphrase pairs",
+    "provenance": "generate.py --anchor window (path WAS in the prompt)",
     "leakage": {
       "direct": {
         "n": 200,
@@ -168,7 +315,7 @@
     },
     "corpus": "wikipedia",
     "anchor": "window",
-    "provenance": "generate.py --anchor window, claude-generated direct+paraphrase pairs",
+    "provenance": "generate.py --anchor window (path WAS in the prompt)",
     "leakage": {
       "direct": {
         "n": 200,

@@ -31,7 +31,11 @@ text cannot be explained away as identifier overlap.
 """
 
 import re
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+import corpus_text  # noqa: E402
 
 # Shared with run_eval.py's ripgrep baselines. Imported there rather than
 # duplicated: the leakage percentage we PRINT and the identifier predicate
@@ -75,11 +79,10 @@ def _gold_text(row, corpus):
     make `path_seg_not_in_gold` fire for every segment and manufacture
     leakage that isn't there. Callers get None and must skip the row.
     """
-    try:
-        lines = (Path(corpus) / row["file"]).read_text(errors="replace").splitlines()
-    except OSError:
+    lines, ok = corpus_text.read_lines(Path(corpus) / row["file"])
+    if not ok:
         return None
-    return "\n".join(lines[row["start_line"] - 1:row["end_line"]])
+    return corpus_text.span(lines, row["start_line"], row["end_line"])
 
 
 def leakage(row, corpus=None):

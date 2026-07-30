@@ -30,7 +30,11 @@ missing check is reported as unverifiable, not as a pass.
 
 import hashlib
 import json
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+import corpus_text  # noqa: E402
 
 
 def span_sha(text):
@@ -53,13 +57,23 @@ def validate(rows, corpus, check_sha=True):
             continue
         if rel not in cache:
             p = corpus / rel
-            try:
-                cache[rel] = p.read_text(errors="replace").splitlines()
-            except (OSError, ValueError):
-                cache[rel] = None
-        lines = cache[rel]
-        if lines is None:
+            if not p.exists():
+                cache[rel] = ("missing", None)
+            else:
+                lines, ok = corpus_text.read_lines(p)
+                # A file semgrep's walker skips is not a missing file and not
+                # a passing row: the gold span in it can never be returned by
+                # any condition, so it is a permanent, uniform miss that reads
+                # as an accuracy result. Name it.
+                cache[rel] = ("ok", lines) if ok else ("unindexable", None)
+        kind, lines = cache[rel]
+        if kind == "missing":
             problems.append((i, "missing-file", rel))
+            continue
+        if kind == "unindexable":
+            problems.append((i, "unindexable-gold",
+                             f"{rel} (NUL byte in first 8 KiB — semgrep's walker "
+                             f"skips it, so this row can never be found)"))
             continue
 
         s, e = row.get("start_line"), row.get("end_line")
@@ -78,7 +92,7 @@ def validate(rows, corpus, check_sha=True):
 
         if check_sha and "gold_sha" in row:
             n_sha_checked += 1
-            got = span_sha("\n".join(lines[s - 1:e]))
+            got = span_sha(corpus_text.span(lines, s, e))
             if got != row["gold_sha"]:
                 problems.append((i, "gold-content-changed",
                                  f"{rel}:{s}-{e} ({row['gold_sha']} -> {got})"))
