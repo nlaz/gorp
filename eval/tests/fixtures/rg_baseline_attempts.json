@@ -1,0 +1,894 @@
+[
+  {
+    "query": "constants controlling which incoming traffic types can wake a wireless card from power-save sleep",
+    "rg_strong_attempts": [
+      "constants\\ controlling\\ which\\ incoming\\ traffic\\ types\\ can\\ wake\\ a\\ wireless\\ card\\ from\\ power\\-save\\ sleep",
+      "controlling.*constants",
+      "controlling|constants"
+    ],
+    "rg_attempts": [
+      "constants controlling which incoming traffic types can wake a wireless card from power-save sleep",
+      "controlling.*constants",
+      "controlling|constants"
+    ]
+  },
+  {
+    "query": "loop naming hardware monitoring entries with optional processor identifier suffix, unwinding allocations on failure",
+    "rg_strong_attempts": [
+      "loop\\ naming\\ hardware\\ monitoring\\ entries\\ with\\ optional\\ processor\\ identifier\\ suffix,\\ unwinding\\ allocations\\ on\\ failure",
+      "allocations.*monitoring",
+      "allocations|monitoring"
+    ],
+    "rg_attempts": [
+      "loop naming hardware monitoring entries with optional processor identifier suffix, unwinding allocations on failure",
+      "allocations.*monitoring",
+      "allocations|monitoring"
+    ]
+  },
+  {
+    "query": "SPRAM tag0 base address alignment enable and DSPRAM test pattern write",
+    "rg_strong_attempts": [
+      "SPRAM\\ tag0\\ base\\ address\\ alignment\\ enable\\ and\\ DSPRAM\\ test\\ pattern\\ write",
+      "alignment.*address",
+      "alignment|address"
+    ],
+    "rg_attempts": [
+      "SPRAM tag0 base address alignment enable and DSPRAM test pattern write",
+      "alignment.*address",
+      "alignment|address"
+    ]
+  },
+  {
+    "query": "header file exposing the routine that reads back and initializes display hardware configuration state in the Intel graphics driver",
+    "rg_strong_attempts": [
+      "header\\ file\\ exposing\\ the\\ routine\\ that\\ reads\\ back\\ and\\ initializes\\ display\\ hardware\\ configuration\\ state\\ in\\ the\\ Intel\\ graphics\\ driver",
+      "configuration.*initializes",
+      "configuration|initializes"
+    ],
+    "rg_attempts": [
+      "header file exposing the routine that reads back and initializes display hardware configuration state in the Intel graphics driver",
+      "configuration.*initializes",
+      "configuration|initializes"
+    ]
+  },
+  {
+    "query": "sysfs internal header declaring sysfs_add_file_mode_ns and sysfs_warn_dup",
+    "rg_strong_attempts": [
+      "sysfs_add_file_mode_ns",
+      "sysfs_warn_dup",
+      "sysfs\\ internal\\ header\\ declaring\\ sysfs_add_file_mode_ns\\ and\\ sysfs_warn_dup",
+      "sysfs_add_file_mode_ns.*sysfs_warn_dup",
+      "sysfs_add_file_mode_ns|sysfs_warn_dup"
+    ],
+    "rg_attempts": [
+      "sysfs internal header declaring sysfs_add_file_mode_ns and sysfs_warn_dup",
+      "declaring.*internal",
+      "declaring|internal"
+    ]
+  },
+  {
+    "query": "kernel tracing header that enumerates which memory-safety and diagnostic subsystems flagged a problem",
+    "rg_strong_attempts": [
+      "kernel\\ tracing\\ header\\ that\\ enumerates\\ which\\ memory\\-safety\\ and\\ diagnostic\\ subsystems\\ flagged\\ a\\ problem",
+      "enumerates.*diagnostic",
+      "enumerates|diagnostic"
+    ],
+    "rg_attempts": [
+      "kernel tracing header that enumerates which memory-safety and diagnostic subsystems flagged a problem",
+      "enumerates.*diagnostic",
+      "enumerates|diagnostic"
+    ]
+  },
+  {
+    "query": "aperture_remove_conflicting_devices function that disables sysfb and detaches devices",
+    "rg_strong_attempts": [
+      "aperture_remove_conflicting_devices",
+      "aperture_remove_conflicting_devices\\ function\\ that\\ disables\\ sysfb\\ and\\ detaches\\ devices",
+      "aperture_remove_conflicting_devices.*function",
+      "aperture_remove_conflicting_devices|function"
+    ],
+    "rg_attempts": [
+      "aperture_remove_conflicting_devices function that disables sysfb and detaches devices",
+      "conflicting.*aperture",
+      "conflicting|aperture"
+    ]
+  },
+  {
+    "query": "list_head and hlist_node struct definitions in kconfig list_types header",
+    "rg_strong_attempts": [
+      "hlist_node",
+      "list_types",
+      "list_head\\ and\\ hlist_node\\ struct\\ definitions\\ in\\ kconfig\\ list_types\\ header",
+      "definitions.*hlist_node",
+      "definitions|hlist_node"
+    ],
+    "rg_attempts": [
+      "list_head and hlist_node struct definitions in kconfig list_types header",
+      "definitions.*kconfig",
+      "definitions|kconfig"
+    ]
+  },
+  {
+    "query": "tunable attribute write handler that parses a number, validates its range, and updates a background flushing thread's scheduling priority",
+    "rg_strong_attempts": [
+      "tunable\\ attribute\\ write\\ handler\\ that\\ parses\\ a\\ number,\\ validates\\ its\\ range,\\ and\\ updates\\ a\\ background\\ flushing\\ thread's\\ scheduling\\ priority",
+      "background.*scheduling",
+      "background|scheduling"
+    ],
+    "rg_attempts": [
+      "tunable attribute write handler that parses a number, validates its range, and updates a background flushing thread's scheduling priority",
+      "background.*scheduling",
+      "background|scheduling"
+    ]
+  },
+  {
+    "query": "dpaa_bp buffer pool struct with per-CPU count, seed callback and rx error counters",
+    "rg_strong_attempts": [
+      "dpaa_bp",
+      "dpaa_bp\\ buffer\\ pool\\ struct\\ with\\ per\\-CPU\\ count,\\ seed\\ callback\\ and\\ rx\\ error\\ counters",
+      "callback.*counters",
+      "callback|counters"
+    ],
+    "rg_attempts": [
+      "dpaa_bp buffer pool struct with per-CPU count, seed callback and rx error counters",
+      "callback.*counters",
+      "callback|counters"
+    ]
+  },
+  {
+    "query": "options structure for USB ethernet gadget with mutex guarding concurrent attribute and symlink access",
+    "rg_strong_attempts": [
+      "options\\ structure\\ for\\ USB\\ ethernet\\ gadget\\ with\\ mutex\\ guarding\\ concurrent\\ attribute\\ and\\ symlink\\ access",
+      "concurrent.*structure",
+      "concurrent|structure"
+    ],
+    "rg_attempts": [
+      "options structure for USB ethernet gadget with mutex guarding concurrent attribute and symlink access",
+      "concurrent.*structure",
+      "concurrent|structure"
+    ]
+  },
+  {
+    "query": "how the pcie controller driver shuts down hardware on device removal and before entering sleep",
+    "rg_strong_attempts": [
+      "how\\ the\\ pcie\\ controller\\ driver\\ shuts\\ down\\ hardware\\ on\\ device\\ removal\\ and\\ before\\ entering\\ sleep",
+      "controller.*hardware",
+      "controller|hardware"
+    ],
+    "rg_attempts": [
+      "how the pcie controller driver shuts down hardware on device removal and before entering sleep",
+      "controller.*hardware",
+      "controller|hardware"
+    ]
+  },
+  {
+    "query": "code that picks the correct downloadable build name for each operating system and processor type, noting one older 32-bit chip has no remote build available",
+    "rg_strong_attempts": [
+      "code\\ that\\ picks\\ the\\ correct\\ downloadable\\ build\\ name\\ for\\ each\\ operating\\ system\\ and\\ processor\\ type,\\ noting\\ one\\ older\\ 32\\-bit\\ chip\\ has\\ no\\ remote\\ build\\ available",
+      "downloadable.*operating",
+      "downloadable|operating"
+    ],
+    "rg_attempts": [
+      "code that picks the correct downloadable build name for each operating system and processor type, noting one older 32-bit chip has no remote build available",
+      "downloadable.*operating",
+      "downloadable|operating"
+    ]
+  },
+  {
+    "query": "spec checking prompt rendering to JSON still succeeds when the mocked model provider throws errors",
+    "rg_strong_attempts": [
+      "spec\\ checking\\ prompt\\ rendering\\ to\\ JSON\\ still\\ succeeds\\ when\\ the\\ mocked\\ model\\ provider\\ throws\\ errors",
+      "rendering.*checking",
+      "rendering|checking"
+    ],
+    "rg_attempts": [
+      "spec checking prompt rendering to JSON still succeeds when the mocked model provider throws errors",
+      "rendering.*checking",
+      "rendering|checking"
+    ]
+  },
+  {
+    "query": "VisualizationTestRun singleton startRun with IDebugValueEditorGlobals and known labels set",
+    "rg_strong_attempts": [
+      "IDebugValueEditorGlobals",
+      "VisualizationTestRun",
+      "VisualizationTestRun\\ singleton\\ startRun\\ with\\ IDebugValueEditorGlobals\\ and\\ known\\ labels\\ set",
+      "IDebugValueEditorGlobals.*VisualizationTestRun",
+      "IDebugValueEditorGlobals|VisualizationTestRun"
+    ],
+    "rg_attempts": [
+      "VisualizationTestRun singleton startRun with IDebugValueEditorGlobals and known labels set",
+      "idebugvalueeditorglobals.*visualizationtestrun",
+      "idebugvalueeditorglobals|visualizationtestrun"
+    ]
+  },
+  {
+    "query": "test doubles that stub out background file watching and force streaming while turning off user-provided instructions",
+    "rg_strong_attempts": [
+      "test\\ doubles\\ that\\ stub\\ out\\ background\\ file\\ watching\\ and\\ force\\ streaming\\ while\\ turning\\ off\\ user\\-provided\\ instructions",
+      "instructions.*background",
+      "instructions|background"
+    ],
+    "rg_attempts": [
+      "test doubles that stub out background file watching and force streaming while turning off user-provided instructions",
+      "instructions.*background",
+      "instructions|background"
+    ]
+  },
+  {
+    "query": "recursive function findNodeModulesFiles collecting node_modules file paths skipping out src git",
+    "rg_strong_attempts": [
+      "findNodeModulesFiles",
+      "node_modules",
+      "recursive\\ function\\ findNodeModulesFiles\\ collecting\\ node_modules\\ file\\ paths\\ skipping\\ out\\ src\\ git",
+      "findNodeModulesFiles.*node_modules",
+      "findNodeModulesFiles|node_modules"
+    ],
+    "rg_attempts": [
+      "recursive function findNodeModulesFiles collecting node_modules file paths skipping out src git",
+      "findnodemodulesfiles.*collecting",
+      "findnodemodulesfiles|collecting"
+    ]
+  },
+  {
+    "query": "autocomplete installed add-on names while editing the suggested plugins list inside a multi-root project settings file",
+    "rg_strong_attempts": [
+      "autocomplete\\ installed\\ add\\-on\\ names\\ while\\ editing\\ the\\ suggested\\ plugins\\ list\\ inside\\ a\\ multi\\-root\\ project\\ settings\\ file",
+      "autocomplete.*installed",
+      "autocomplete|installed"
+    ],
+    "rg_attempts": [
+      "autocomplete installed add-on names while editing the suggested plugins list inside a multi-root project settings file",
+      "autocomplete.*installed",
+      "autocomplete|installed"
+    ]
+  },
+  {
+    "query": "getProductionDependencies merge distro npm dependencies from .build folder",
+    "rg_strong_attempts": [
+      "getProductionDependencies",
+      "getProductionDependencies\\ merge\\ distro\\ npm\\ dependencies\\ from\\ \\.build\\ folder",
+      "getProductionDependencies.*dependencies",
+      "getProductionDependencies|dependencies"
+    ],
+    "rg_attempts": [
+      "getProductionDependencies merge distro npm dependencies from .build folder",
+      "getproductiondependencies.*dependencies",
+      "getproductiondependencies|dependencies"
+    ]
+  },
+  {
+    "query": "test setup that throws error for undisposed disposables after each test",
+    "rg_strong_attempts": [
+      "test\\ setup\\ that\\ throws\\ error\\ for\\ undisposed\\ disposables\\ after\\ each\\ test",
+      "disposables.*undisposed",
+      "disposables|undisposed"
+    ],
+    "rg_attempts": [
+      "test setup that throws error for undisposed disposables after each test",
+      "disposables.*undisposed",
+      "disposables|undisposed"
+    ]
+  },
+  {
+    "query": "recursive function comparing nested lists item by item and plain object keys for deep sameness",
+    "rg_strong_attempts": [
+      "recursive\\ function\\ comparing\\ nested\\ lists\\ item\\ by\\ item\\ and\\ plain\\ object\\ keys\\ for\\ deep\\ sameness",
+      "recursive.*comparing",
+      "recursive|comparing"
+    ],
+    "rg_attempts": [
+      "recursive function comparing nested lists item by item and plain object keys for deep sameness",
+      "recursive.*comparing",
+      "recursive|comparing"
+    ]
+  },
+  {
+    "query": "tests verifying ChatExtPerfMark enum values and markChatExt per-session behavior",
+    "rg_strong_attempts": [
+      "ChatExtPerfMark",
+      "markChatExt",
+      "tests\\ verifying\\ ChatExtPerfMark\\ enum\\ values\\ and\\ markChatExt\\ per\\-session\\ behavior",
+      "ChatExtPerfMark.*markChatExt",
+      "ChatExtPerfMark|markChatExt"
+    ],
+    "rg_attempts": [
+      "tests verifying ChatExtPerfMark enum values and markChatExt per-session behavior",
+      "chatextperfmark.*markchatext",
+      "chatextperfmark|markchatext"
+    ]
+  },
+  {
+    "query": "read an npm dependency file, ignore entries used only for development, and collect each library's name and version from its nested path",
+    "rg_strong_attempts": [
+      "read\\ an\\ npm\\ dependency\\ file,\\ ignore\\ entries\\ used\\ only\\ for\\ development,\\ and\\ collect\\ each\\ library's\\ name\\ and\\ version\\ from\\ its\\ nested\\ path",
+      "development.*dependency",
+      "development|dependency"
+    ],
+    "rg_attempts": [
+      "read an npm dependency file, ignore entries used only for development, and collect each library's name and version from its nested path",
+      "development.*dependency",
+      "development|dependency"
+    ]
+  },
+  {
+    "query": "code that loops over open console sessions to match one by its process number and read its captured text output",
+    "rg_strong_attempts": [
+      "code\\ that\\ loops\\ over\\ open\\ console\\ sessions\\ to\\ match\\ one\\ by\\ its\\ process\\ number\\ and\\ read\\ its\\ captured\\ text\\ output",
+      "sessions.*captured",
+      "sessions|captured"
+    ],
+    "rg_attempts": [
+      "code that loops over open console sessions to match one by its process number and read its captured text output",
+      "sessions.*captured",
+      "sessions|captured"
+    ]
+  },
+  {
+    "query": "Canadian grappler who led a villainous foreign faction in Japan and later became a top titleholder and executive in a new American promotion",
+    "rg_strong_attempts": [
+      "Canadian\\ grappler\\ who\\ led\\ a\\ villainous\\ foreign\\ faction\\ in\\ Japan\\ and\\ later\\ became\\ a\\ top\\ titleholder\\ and\\ executive\\ in\\ a\\ new\\ American\\ promotion",
+      "titleholder.*villainous",
+      "titleholder|villainous"
+    ],
+    "rg_attempts": [
+      "Canadian grappler who led a villainous foreign faction in Japan and later became a top titleholder and executive in a new American promotion",
+      "titleholder.*villainous",
+      "titleholder|villainous"
+    ]
+  },
+  {
+    "query": "northern Italian town where several famous performance automobile brands have their plants",
+    "rg_strong_attempts": [
+      "northern\\ Italian\\ town\\ where\\ several\\ famous\\ performance\\ automobile\\ brands\\ have\\ their\\ plants",
+      "performance.*automobile",
+      "performance|automobile"
+    ],
+    "rg_attempts": [
+      "northern Italian town where several famous performance automobile brands have their plants",
+      "performance.*automobile",
+      "performance|automobile"
+    ]
+  },
+  {
+    "query": "incest taboo history Egyptian royal family Cleopatra sibling marriage birth defects",
+    "rg_strong_attempts": [
+      "incest\\ taboo\\ history\\ Egyptian\\ royal\\ family\\ Cleopatra\\ sibling\\ marriage\\ birth\\ defects",
+      "Cleopatra.*Egyptian",
+      "Cleopatra|Egyptian"
+    ],
+    "rg_attempts": [
+      "incest taboo history Egyptian royal family Cleopatra sibling marriage birth defects",
+      "cleopatra.*egyptian",
+      "cleopatra|egyptian"
+    ]
+  },
+  {
+    "query": "duet a rising pop songwriter wrote with the superstar she opened for, on her second 2024 album",
+    "rg_strong_attempts": [
+      "duet\\ a\\ rising\\ pop\\ songwriter\\ wrote\\ with\\ the\\ superstar\\ she\\ opened\\ for,\\ on\\ her\\ second\\ 2024\\ album",
+      "songwriter.*superstar",
+      "songwriter|superstar"
+    ],
+    "rg_attempts": [
+      "duet a rising pop songwriter wrote with the superstar she opened for, on her second 2024 album",
+      "songwriter.*superstar",
+      "songwriter|superstar"
+    ]
+  },
+  {
+    "query": "Unbinilium element 120 Ubn hypothetical alkaline earth metal synthesis attempts",
+    "rg_strong_attempts": [
+      "Unbinilium\\ element\\ 120\\ Ubn\\ hypothetical\\ alkaline\\ earth\\ metal\\ synthesis\\ attempts",
+      "hypothetical.*Unbinilium",
+      "hypothetical|Unbinilium"
+    ],
+    "rg_attempts": [
+      "Unbinilium element 120 Ubn hypothetical alkaline earth metal synthesis attempts",
+      "hypothetical.*unbinilium",
+      "hypothetical|unbinilium"
+    ]
+  },
+  {
+    "query": "list of small towns in an eastern Dutch province with their resident counts",
+    "rg_strong_attempts": [
+      "list\\ of\\ small\\ towns\\ in\\ an\\ eastern\\ Dutch\\ province\\ with\\ their\\ resident\\ counts",
+      "province.*resident",
+      "province|resident"
+    ],
+    "rg_attempts": [
+      "list of small towns in an eastern Dutch province with their resident counts",
+      "province.*resident",
+      "province|resident"
+    ]
+  },
+  {
+    "query": "why have wheels never evolved in animals, rolling organisms in nature",
+    "rg_strong_attempts": [
+      "why\\ have\\ wheels\\ never\\ evolved\\ in\\ animals,\\ rolling\\ organisms\\ in\\ nature",
+      "organisms.*evolved",
+      "organisms|evolved"
+    ],
+    "rg_attempts": [
+      "why have wheels never evolved in animals, rolling organisms in nature",
+      "organisms.*evolved",
+      "organisms|evolved"
+    ]
+  },
+  {
+    "query": "Carolina Miranda roles Vicenta Acero Who Killed Sara Perfil Falso Netflix",
+    "rg_strong_attempts": [
+      "Carolina\\ Miranda\\ roles\\ Vicenta\\ Acero\\ Who\\ Killed\\ Sara\\ Perfil\\ Falso\\ Netflix",
+      "Carolina.*Miranda",
+      "Carolina|Miranda"
+    ],
+    "rg_attempts": [
+      "Carolina Miranda roles Vicenta Acero Who Killed Sara Perfil Falso Netflix",
+      "carolina.*miranda",
+      "carolina|miranda"
+    ]
+  },
+  {
+    "query": "Polish airport near the Baltic coast named for a famous labor union, with rail links and holiday charters to Red Sea resorts",
+    "rg_strong_attempts": [
+      "Polish\\ airport\\ near\\ the\\ Baltic\\ coast\\ named\\ for\\ a\\ famous\\ labor\\ union,\\ with\\ rail\\ links\\ and\\ holiday\\ charters\\ to\\ Red\\ Sea\\ resorts",
+      "charters.*airport",
+      "charters|airport"
+    ],
+    "rg_attempts": [
+      "Polish airport near the Baltic coast named for a famous labor union, with rail links and holiday charters to Red Sea resorts",
+      "charters.*airport",
+      "charters|airport"
+    ]
+  },
+  {
+    "query": "Ectopoglossus isthminus frog Panama isthmus Chagres National Park chytridiomycosis",
+    "rg_strong_attempts": [
+      "Ectopoglossus\\ isthminus\\ frog\\ Panama\\ isthmus\\ Chagres\\ National\\ Park\\ chytridiomycosis",
+      "chytridiomycosis.*Ectopoglossus",
+      "chytridiomycosis|Ectopoglossus"
+    ],
+    "rg_attempts": [
+      "Ectopoglossus isthminus frog Panama isthmus Chagres National Park chytridiomycosis",
+      "chytridiomycosis.*ectopoglossus",
+      "chytridiomycosis|ectopoglossus"
+    ]
+  },
+  {
+    "query": "category 5 Atlantic storm early in the season whose name was withdrawn and replaced after causing billions in damage",
+    "rg_strong_attempts": [
+      "category\\ 5\\ Atlantic\\ storm\\ early\\ in\\ the\\ season\\ whose\\ name\\ was\\ withdrawn\\ and\\ replaced\\ after\\ causing\\ billions\\ in\\ damage",
+      "withdrawn.*category",
+      "withdrawn|category"
+    ],
+    "rg_attempts": [
+      "category 5 Atlantic storm early in the season whose name was withdrawn and replaced after causing billions in damage",
+      "withdrawn.*category",
+      "withdrawn|category"
+    ]
+  },
+  {
+    "query": "1960s folk singer urged young fans to give up narcotics after being arrested himself",
+    "rg_strong_attempts": [
+      "1960s\\ folk\\ singer\\ urged\\ young\\ fans\\ to\\ give\\ up\\ narcotics\\ after\\ being\\ arrested\\ himself",
+      "narcotics.*arrested",
+      "narcotics|arrested"
+    ],
+    "rg_attempts": [
+      "1960s folk singer urged young fans to give up narcotics after being arrested himself",
+      "narcotics.*arrested",
+      "narcotics|arrested"
+    ]
+  },
+  {
+    "query": "display root folder name in python",
+    "rg_strong_attempts": [
+      "display\\ root\\ folder\\ name\\ in\\ python",
+      "display.*folder",
+      "display|folder"
+    ],
+    "rg_attempts": [
+      "display root folder name in python",
+      "display.*folder",
+      "display|folder"
+    ]
+  },
+  {
+    "query": "move cursor down line python",
+    "rg_strong_attempts": [
+      "move\\ cursor\\ down\\ line\\ python",
+      "cursor.*python",
+      "cursor|python"
+    ],
+    "rg_attempts": [
+      "move cursor down line python",
+      "cursor.*python",
+      "cursor|python"
+    ]
+  },
+  {
+    "query": "how to check if all elements in a list are the same python",
+    "rg_strong_attempts": [
+      "how\\ to\\ check\\ if\\ all\\ elements\\ in\\ a\\ list\\ are\\ the\\ same\\ python",
+      "elements.*python",
+      "elements|python"
+    ],
+    "rg_attempts": [
+      "how to check if all elements in a list are the same python",
+      "elements.*python",
+      "elements|python"
+    ]
+  },
+  {
+    "query": "python 3 md5hash file",
+    "rg_strong_attempts": [
+      "python\\ 3\\ md5hash\\ file",
+      "md5hash.*python",
+      "md5hash|python"
+    ],
+    "rg_attempts": [
+      "python 3 md5hash file",
+      "md5hash.*python",
+      "md5hash|python"
+    ]
+  },
+  {
+    "query": "python center region in square",
+    "rg_strong_attempts": [
+      "python\\ center\\ region\\ in\\ square",
+      "python.*center",
+      "python|center"
+    ],
+    "rg_attempts": [
+      "python center region in square",
+      "python.*center",
+      "python|center"
+    ]
+  },
+  {
+    "query": "python delete specific index",
+    "rg_strong_attempts": [
+      "python\\ delete\\ specific\\ index",
+      "specific.*python",
+      "specific|python"
+    ],
+    "rg_attempts": [
+      "python delete specific index",
+      "specific.*python",
+      "specific|python"
+    ]
+  },
+  {
+    "query": "python pass list to format",
+    "rg_strong_attempts": [
+      "python\\ pass\\ list\\ to\\ format",
+      "python.*format",
+      "python|format"
+    ],
+    "rg_attempts": [
+      "python pass list to format",
+      "python.*format",
+      "python|format"
+    ]
+  },
+  {
+    "query": "count non na python numpy axis",
+    "rg_strong_attempts": [
+      "count\\ non\\ na\\ python\\ numpy\\ axis",
+      "python.*count",
+      "python|count"
+    ],
+    "rg_attempts": [
+      "count non na python numpy axis",
+      "python.*count",
+      "python|count"
+    ]
+  },
+  {
+    "query": "how do i time the amount of time it takes to run an operation in python",
+    "rg_strong_attempts": [
+      "how\\ do\\ i\\ time\\ the\\ amount\\ of\\ time\\ it\\ takes\\ to\\ run\\ an\\ operation\\ in\\ python",
+      "operation.*amount",
+      "operation|amount"
+    ],
+    "rg_attempts": [
+      "how do i time the amount of time it takes to run an operation in python",
+      "operation.*amount",
+      "operation|amount"
+    ]
+  },
+  {
+    "query": "how to move legend to left side python",
+    "rg_strong_attempts": [
+      "how\\ to\\ move\\ legend\\ to\\ left\\ side\\ python",
+      "legend.*python",
+      "legend|python"
+    ],
+    "rg_attempts": [
+      "how to move legend to left side python",
+      "legend.*python",
+      "legend|python"
+    ]
+  },
+  {
+    "query": "how to have python skip empty lines",
+    "rg_strong_attempts": [
+      "how\\ to\\ have\\ python\\ skip\\ empty\\ lines",
+      "python.*empty",
+      "python|empty"
+    ],
+    "rg_attempts": [
+      "how to have python skip empty lines",
+      "python.*empty",
+      "python|empty"
+    ]
+  },
+  {
+    "query": "print to cerr in python",
+    "rg_strong_attempts": [
+      "print\\ to\\ cerr\\ in\\ python",
+      "python.*print",
+      "python|print"
+    ],
+    "rg_attempts": [
+      "print to cerr in python",
+      "python.*print",
+      "python|print"
+    ]
+  },
+  {
+    "query": ".",
+    "rg_strong_attempts": [
+      "\\."
+    ],
+    "rg_attempts": [
+      "."
+    ]
+  },
+  {
+    "query": "5",
+    "rg_strong_attempts": [
+      "5"
+    ],
+    "rg_attempts": [
+      "5",
+      "5"
+    ]
+  },
+  {
+    "query": "$:",
+    "rg_strong_attempts": [
+      "\\$:"
+    ],
+    "rg_attempts": [
+      "$:"
+    ]
+  },
+  {
+    "query": "10",
+    "rg_strong_attempts": [
+      "10"
+    ],
+    "rg_attempts": [
+      "10",
+      "10"
+    ]
+  },
+  {
+    "query": "15",
+    "rg_strong_attempts": [
+      "15"
+    ],
+    "rg_attempts": [
+      "15",
+      "15"
+    ]
+  },
+  {
+    "query": "20",
+    "rg_strong_attempts": [
+      "20"
+    ],
+    "rg_attempts": [
+      "20",
+      "20"
+    ]
+  },
+  {
+    "query": "'\\$",
+    "rg_strong_attempts": [
+      "'\\\\\\$"
+    ],
+    "rg_attempts": [
+      "'\\$"
+    ]
+  },
+  {
+    "query": "200",
+    "rg_strong_attempts": [
+      "200"
+    ],
+    "rg_attempts": [
+      "200",
+      "200"
+    ]
+  },
+  {
+    "query": "404",
+    "rg_strong_attempts": [
+      "404"
+    ],
+    "rg_attempts": [
+      "404",
+      "404"
+    ]
+  },
+  {
+    "query": "CPU",
+    "rg_strong_attempts": [
+      "CPU"
+    ],
+    "rg_attempts": [
+      "CPU",
+      "cpu"
+    ]
+  },
+  {
+    "query": "GLM",
+    "rg_strong_attempts": [
+      "GLM"
+    ],
+    "rg_attempts": [
+      "GLM",
+      "glm"
+    ]
+  },
+  {
+    "query": "XSS",
+    "rg_strong_attempts": [
+      "XSS"
+    ],
+    "rg_attempts": [
+      "XSS",
+      "xss"
+    ]
+  },
+  {
+    "query": "\\$:",
+    "rg_strong_attempts": [
+      "\\\\\\$:"
+    ],
+    "rg_attempts": [
+      "\\$:"
+    ]
+  },
+  {
+    "query": "git",
+    "rg_strong_attempts": [
+      "git"
+    ],
+    "rg_attempts": [
+      "git",
+      "git"
+    ]
+  },
+  {
+    "query": "hfb",
+    "rg_strong_attempts": [
+      "hfb"
+    ],
+    "rg_attempts": [
+      "hfb",
+      "hfb"
+    ]
+  },
+  {
+    "query": "parse_config and parseConfig together",
+    "rg_strong_attempts": [
+      "parse_config",
+      "parseConfig",
+      "parse_config\\ and\\ parseConfig\\ together",
+      "parse_config.*parseConfig",
+      "parse_config|parseConfig"
+    ],
+    "rg_attempts": [
+      "parse_config and parseConfig together",
+      "parseconfig.*together",
+      "parseconfig|together"
+    ]
+  },
+  {
+    "query": "a the of",
+    "rg_strong_attempts": [
+      "a\\ the\\ of"
+    ],
+    "rg_attempts": [
+      "a the of"
+    ]
+  },
+  {
+    "query": "single",
+    "rg_strong_attempts": [
+      "single"
+    ],
+    "rg_attempts": [
+      "single",
+      "single"
+    ]
+  },
+  {
+    "query": "",
+    "rg_strong_attempts": [
+      ""
+    ],
+    "rg_attempts": []
+  },
+  {
+    "query": "UPPER_CASE_CONST value",
+    "rg_strong_attempts": [
+      "UPPER_CASE_CONST",
+      "UPPER_CASE_CONST\\ value",
+      "UPPER_CASE_CONST.*value",
+      "UPPER_CASE_CONST|value"
+    ],
+    "rg_attempts": [
+      "UPPER_CASE_CONST value",
+      "upper.*const",
+      "upper|const"
+    ]
+  },
+  {
+    "query": "regex.*special+chars?(here)",
+    "rg_strong_attempts": [
+      "regex\\.\\*special\\+chars\\?\\(here\\)",
+      "special.*regex",
+      "special|regex"
+    ],
+    "rg_attempts": [
+      "regex.*special+chars?(here)",
+      "special.*regex",
+      "special|regex"
+    ]
+  },
+  {
+    "query": "x y",
+    "rg_strong_attempts": [
+      "x\\ y",
+      "x.*y",
+      "x|y"
+    ],
+    "rg_attempts": [
+      "x y",
+      "x.*y",
+      "x|y"
+    ]
+  },
+  {
+    "query": "snake_case_one snake_case_two snake_case_three",
+    "rg_strong_attempts": [
+      "snake_case_three",
+      "snake_case_one",
+      "snake_case_one\\ snake_case_two\\ snake_case_three",
+      "snake_case_three.*snake_case_one",
+      "snake_case_three|snake_case_one"
+    ],
+    "rg_attempts": [
+      "snake_case_one snake_case_two snake_case_three",
+      "snake.*snake",
+      "snake|snake"
+    ]
+  },
+  {
+    "query": "workaround statistic",
+    "rg_strong_attempts": [
+      "workaround\\ statistic",
+      "workaround.*statistic",
+      "workaround|statistic"
+    ],
+    "rg_attempts": [
+      "workaround statistic",
+      "workaround.*statistic",
+      "workaround|statistic"
+    ]
+  }
+]

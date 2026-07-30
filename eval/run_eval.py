@@ -27,12 +27,19 @@ from collections import defaultdict
 from pathlib import Path
 
 import os
+import sys
 HERE = Path(__file__).parent
+sys.path.insert(0, str(HERE))
 SEMGREP = Path(os.environ.get("SEMGREP_BIN", HERE.parent / "target/release/semgrep"))
 RG = "/opt/homebrew/bin/rg"
 
-STOPWORDS = set("""a an and are as at be by code does file find for from how in is
-it its of on or that the this to what when where which who why with""".split())
+# The identifier predicate and the stopword list are shared with leakage.py on
+# purpose: the leakage percentage printed above every results table must be
+# the same predicate that decides the rg-strong baseline, or the two drift and
+# §12.1's audit stops meaning anything.
+import leakage  # noqa: E402
+from leakage import STOPWORDS, content_tokens, identifiers  # noqa: E402
+from validate_queries import format_problems, validate  # noqa: E402
 
 
 def semgrep_search(query, corpus, mode, k, no_index, extra=()):
@@ -90,11 +97,40 @@ def rg_agent_style(query, corpus, k):
     """
     words = [w for w in re.findall(r"[a-zA-Z0-9]+", query.lower()) if w not in STOPWORDS]
     rare = sorted(words, key=len, reverse=True)[:2]
-    for attempt in ([query], [".*".join(rare)], ["|".join(rare)] if len(rare) > 1 else []):
-        hits = rg_run(attempt[0], corpus, k, flags=("-i",))
+    # The attempt list used to be built inline as
+    #   ([query], [".*".join(rare)], ["|".join(rare)] if len(rare) > 1 else [])
+    # and indexed with attempt[0], so a query with <=1 content word raised
+    # IndexError once the first two patterns missed, and a query with none at
+    # all grepped for "" — which matches every line and scores as a hit.
+    # Neither could affect a published number: 0 of the 2,398 queries in
+    # linux/vscode/wikipedia/cosqa have <=1 content word. Both fire constantly
+    # on real agent queries, where 195/1194 (16%) have <=1 and 6 have none.
+    attempts = [query]
+    if rare:
+        attempts.append(".*".join(rare))
+    if len(rare) > 1:
+        attempts.append("|".join(rare))
+    for pat in _dedupe(attempts):
+        hits = rg_run(pat, corpus, k, flags=("-i",))
         if hits:
             return hits
     return []
+
+
+def _dedupe(patterns):
+    """Drop empties and repeats, preserving order.
+
+    Cannot change a result — the same pattern returns the same hits, and the
+    first occurrence already decided it. It removes wasted full-corpus scans:
+    a one-word query like `init` produced the pattern twice, and §12.4 puts
+    the cost of a kernel scan at ~3 s.
+    """
+    seen, out = set(), []
+    for p in patterns:
+        if p and p not in seen:
+            seen.add(p)
+            out.append(p)
+    return out
 
 
 def rg_strong(query, corpus, k):
@@ -104,14 +140,24 @@ def rg_strong(query, corpus, k):
     query is tried FIRST — if the question contains `parse_config`, grepping
     for it is the obvious move and it is nearly free to get right.
     """
-    toks = [w for w in re.findall(r"[A-Za-z0-9_]+", query) if w.lower() not in STOPWORDS]
-    # A *true* identifier is snake_case or camelCase. Long lowercase runs are
-    # usually just long English words ("workaround", "statistic") — grepping
-    # those is a fallback, not the obvious first move, and conflating the two
-    # would overstate what this baseline does. Measured: 66-70% of direct code
-    # queries carry a true identifier, vs 2% of paraphrase queries.
-    idents = sorted((w for w in toks if "_" in w or re.search(r"[a-z][A-Z]", w)),
-                    key=len, reverse=True)
+    for pat in rg_strong_attempts(query):
+        hits = rg_run(pat, corpus, k, flags=("-i",))
+        if hits:
+            return hits
+    return []
+
+
+def rg_strong_attempts(query):
+    """The ordered patterns `rg_strong` tries. Split out so the baseline is
+    testable without invoking ripgrep, and pinned byte-for-byte against a
+    fixture captured before `identifiers()` moved to leakage.py — if this
+    list moves, §12.1's and §12.2's published percentages move with it.
+
+    A *true* identifier is snake_case or camelCase; see `leakage.identifiers`
+    for why long lowercase words are deliberately excluded.
+    """
+    toks = content_tokens(query)
+    idents = identifiers(toks)
     rare = sorted(toks, key=len, reverse=True)[:2]
 
     attempts = []
@@ -120,11 +166,10 @@ def rg_strong(query, corpus, k):
     if len(rare) > 1:
         attempts.append(".*".join(re.escape(r) for r in rare))   # both on a line
         attempts.append("|".join(re.escape(r) for r in rare))    # either
-    for pat in attempts:
-        hits = rg_run(pat, corpus, k, flags=("-i",))
-        if hits:
-            return hits
-    return []
+    # An empty pattern matches every line, so a blank query would score hits
+    # it did not earn. No published query is empty; real agent queries include
+    # several (see the note in rg_agent_style).
+    return _dedupe(attempts)
 
 
 def correct(hit, truth, slack):
@@ -132,6 +177,61 @@ def correct(hit, truth, slack):
     return (path == truth["file"]
             and s <= truth["end_line"] + slack
             and e >= truth["start_line"] - slack)
+
+
+# ---------------------------------------------------------------------------
+# strata and filtering
+#
+# generate.py has written `split`, `symbol`, `symbol_kind`, `lang`, `has_doc`
+# and `n_lines` onto every row since the symbol-anchored sampler landed, and
+# this scorer read none of them — the dev/locked discipline §11.5 asked for
+# was unenforceable because nothing could filter on it. Rather than special-
+# casing `split`, any row field works, and so does any computed leakage field,
+# which is what the path-leakage question needs.
+# ---------------------------------------------------------------------------
+
+def apply_where(rows, where):
+    """Keep rows matching every `k=v` clause. Values compare as strings so
+    `has_doc=True` and `n_lines=12` work without type declarations."""
+    if not where:
+        return rows
+    clauses = []
+    for c in where.split(","):
+        if "=" not in c:
+            raise SystemExit(f"--where clause {c!r} is not k=v")
+        k, v = c.split("=", 1)
+        clauses.append((k.strip(), v.strip()))
+    for k, _ in clauses:
+        if not any(k in r for r in rows):
+            raise SystemExit(
+                f"--where field {k!r} is on no row; available: "
+                f"{sorted(set().union(*(r.keys() for r in rows)))}")
+    return [r for r in rows
+            if all(str(r.get(k)) == v for k, v in clauses)]
+
+
+def cell_of(row, strata, corpus=None):
+    """The results-table cell a row belongs to: its kind, plus any strata.
+
+    An absent field is an error rather than a silent bucket. A stratum that
+    quietly lumps every row into `None` produces a table that looks like a
+    breakdown and is not one.
+    """
+    parts = [str(row.get("kind", "?"))]
+    lk = None
+    for s in strata:
+        if s in row:
+            parts.append(f"{s}={row[s]}")
+            continue
+        if lk is None:
+            lk = leakage.leakage(row, corpus)
+        if s in lk:
+            parts.append(f"{s}={lk[s]}")
+            continue
+        raise SystemExit(
+            f"--stratify field {s!r} is neither a row field nor a leakage field "
+            f"({sorted(lk)})")
+    return "|".join(parts)
 
 
 def main():
@@ -153,17 +253,55 @@ def main():
     ap.add_argument("--compare-modes", default="",
                     help="paired stats between two modes in THIS run, "
                          "e.g. 'hybrid,rg' — the semgrep-vs-ripgrep claim")
+    ap.add_argument("--stratify", default="",
+                    help="break the table down by row fields or computed "
+                         "leakage fields, e.g. 'has_identifier' or 'lang,has_doc'")
+    ap.add_argument("--where", default="",
+                    help="keep only matching rows, e.g. 'split=dev'")
+    ap.add_argument("--allow-stale", action="store_true",
+                    help="score even if gold spans no longer match the corpus")
     args = ap.parse_args()
     extra = tuple(args.extra.split()) if args.extra else ()
 
     raw = args.queries.read_text()
-    queries_fp = hashlib.sha256(raw.encode()).hexdigest()[:16]
     rows = [json.loads(l) for l in raw.splitlines() if l.strip()]
+    if not rows:
+        raise SystemExit(f"{args.queries} has no rows — nothing to score")
+
+    # A stale query set does not fail loudly, it scores 0 and looks like a
+    # measurement. Check before spending an hour of scans on it.
+    problems, vstats = validate(rows, args.corpus)
+    if problems:
+        print(f"query set does not match the corpus: {vstats['n_problems']} problems")
+        print(format_problems(problems))
+        if not args.allow_stale:
+            raise SystemExit(
+                "refusing to score a drifted query set (--allow-stale to override)")
+        print("--allow-stale: scoring anyway; affected rows will read as misses")
+    if vstats["n_unverifiable"]:
+        print(f"note: {vstats['n_unverifiable']}/{vstats['n_rows']} rows carry no "
+              f"gold_sha — an edited gold file would not be detected for those")
+
+    rows = apply_where(rows, args.where)
+    if not rows:
+        raise SystemExit(f"--where {args.where!r} matched no rows")
+
+    # The fingerprint covers the filter and the strata as well as the file, so
+    # a filtered run can never be --baseline-compared against an unfiltered one.
+    queries_fp = hashlib.sha256(
+        (raw + "\0" + args.where + "\0" + args.stratify).encode()).hexdigest()[:16]
+
+    lk = leakage.summarize(rows, args.corpus)
+    print()
+    print(leakage.format_summary(lk, f"({args.queries.name})"))
+
+    strata = [s for s in args.stratify.split(",") if s]
     modes = args.modes.split(",")
-    # metric accumulators: (mode, kind) -> list of first-correct ranks (None = miss)
+    # metric accumulators: (mode, cell) -> list of first-correct ranks (None = miss)
     ranks = defaultdict(list)
 
     for i, truth in enumerate(rows):
+        cell = cell_of(truth, strata, args.corpus)
         for mode in modes:
             if mode == "rg":
                 hits = rg_agent_style(truth["query"], args.corpus, args.k)
@@ -172,11 +310,15 @@ def main():
             else:
                 hits = semgrep_search(truth["query"], args.corpus, mode, args.k, args.no_index, extra)
             rank = next((r + 1 for r, h in enumerate(hits) if correct(h, truth, args.slack)), None)
-            ranks[(mode, truth["kind"])].append(rank)
+            ranks[(mode, cell)].append(rank)
         if (i + 1) % 25 == 0:
             print(f"  {i + 1}/{len(rows)} queries")
 
-    print(f"\n{'condition':<24} {'n':>4} {'R@1':>6} {'R@5':>6} {'R@10':>6} {'MRR@10':>7}")
+    assert sum(len(v) for v in ranks.values()) == len(rows) * len(modes), \
+        "strata dropped rows — every query must land in exactly one cell"
+
+    width = max([24] + [len(f"{m}:{c}") for (m, c) in ranks])
+    print(f"\n{'condition':<{width}} {'n':>4} {'R@1':>6} {'R@5':>6} {'R@10':>6} {'MRR@10':>7}")
     results = []
     for (mode, kind), rs in sorted(ranks.items()):
         n = len(rs)
@@ -184,7 +326,7 @@ def main():
         r5 = sum(1 for r in rs if r and r <= 5) / n
         r10 = sum(1 for r in rs if r and r <= 10) / n
         mrr = sum(1 / r for r in rs if r) / n
-        print(f"{mode + ':' + kind:<24} {n:>4} {r1:>6.2f} {r5:>6.2f} {r10:>6.2f} {mrr:>7.3f}")
+        print(f"{mode + ':' + kind:<{width}} {n:>4} {r1:>6.2f} {r5:>6.2f} {r10:>6.2f} {mrr:>7.3f}")
         results.append({"mode": mode, "kind": kind, "n": n,
                         "recall@1": round(r1, 3), "recall@5": round(r5, 3),
                         "recall@10": round(r10, 3), "mrr@10": round(mrr, 3),
