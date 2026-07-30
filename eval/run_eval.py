@@ -198,6 +198,72 @@ def rg_strong_attempts(query):
     return _dedupe(attempts)
 
 
+# ---------------------------------------------------------------------------
+# checkpointing
+#
+# A full run over the kernel takes hours: --sort path costs 3.7-4.4x there
+# (§13.5), and rg-oracle issues up to ORACLE_MAX_TOKENS + ~5 scans per query.
+# Any interruption used to throw away every scan already paid for, which is
+# how the kernel and CoSQA oracle runs failed three times without producing a
+# single number.
+#
+# The unit of work is one (query index, mode) pair. Each result is appended to
+# a JSONL file as soon as it is known, so a killed run resumes where it
+# stopped. The header pins the query fingerprint, mode list and corpus: a
+# checkpoint from a different run is REFUSED rather than silently mixed in,
+# because half a table from one condition and half from another is worse than
+# no table.
+# ---------------------------------------------------------------------------
+
+NOT_DONE = object()
+
+
+class Checkpoint:
+    def __init__(self, path, queries_fp, modes, corpus):
+        self.path = Path(path) if path else None
+        self.done = {}
+        self.fh = None
+        if self.path is None:
+            return
+        header = {"queries_fp": queries_fp, "modes": modes, "corpus": corpus}
+        if self.path.exists():
+            lines = self.path.read_text().splitlines()
+            if lines:
+                got = json.loads(lines[0])
+                if got != header:
+                    raise SystemExit(
+                        f"checkpoint {self.path} is from a different run:\n"
+                        f"  it has:   {got}\n"
+                        f"  this run: {header}\n"
+                        f"Delete it or pass a different --checkpoint.")
+                for ln in lines[1:]:
+                    try:
+                        r = json.loads(ln)
+                    except json.JSONDecodeError:
+                        continue      # a torn last line from a hard kill
+                    self.done[(r["i"], r["mode"])] = r["rank"]
+        else:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self.path.write_text(json.dumps(header) + "\n")
+        self.fh = self.path.open("a")
+
+    def get(self, i, mode):
+        return self.done.get((i, mode), NOT_DONE)
+
+    def put(self, i, mode, rank):
+        if self.fh is None:
+            return
+        self.fh.write(json.dumps({"i": i, "mode": mode, "rank": rank}) + "\n")
+        # flush per result: the whole point is surviving a kill -9, and a
+        # buffered write loses exactly the work we are trying to keep.
+        self.fh.flush()
+
+    def close(self):
+        if self.fh is not None:
+            self.fh.close()
+            self.fh = None
+
+
 def rg_oracle(query, corpus, k, truth, slack):
     """A strict UPPER BOUND on ripgrep, not a baseline.
 
@@ -390,6 +456,10 @@ def main():
                     help="keep only matching rows, e.g. 'split=dev'")
     ap.add_argument("--allow-stale", action="store_true",
                     help="score even if gold spans no longer match the corpus")
+    ap.add_argument("--checkpoint", type=Path, default=None,
+                    help="append each (query, mode) result here and resume from "
+                         "it on restart — a kernel or oracle run takes hours and "
+                         "an interruption otherwise discards every scan paid for")
     args = ap.parse_args()
     extra = tuple(args.extra.split()) if args.extra else ()
 
@@ -431,9 +501,18 @@ def main():
     # metric accumulators: (mode, cell) -> list of first-correct ranks (None = miss)
     ranks = defaultdict(list)
 
+    ckpt = Checkpoint(args.checkpoint, queries_fp, args.modes, str(args.corpus))
+    if ckpt.done:
+        print(f"resuming from {args.checkpoint}: {len(ckpt.done)} "
+              f"(query, mode) pairs already scored")
+
     for i, truth in enumerate(rows):
         cell = cell_of(truth, strata, args.corpus)
         for mode in modes:
+            cached = ckpt.get(i, mode)
+            if cached is not NOT_DONE:
+                ranks[(mode, cell)].append(cached)
+                continue
             if mode == "rg":
                 hits = rg_agent_style(truth["query"], args.corpus, args.k)
             elif mode == "rg-strong":
@@ -445,9 +524,11 @@ def main():
             else:
                 hits = semgrep_search(truth["query"], args.corpus, mode, args.k, args.no_index, extra)
             rank = next((r + 1 for r, h in enumerate(hits) if correct(h, truth, args.slack)), None)
+            ckpt.put(i, mode, rank)
             ranks[(mode, cell)].append(rank)
         if (i + 1) % 25 == 0:
-            print(f"  {i + 1}/{len(rows)} queries")
+            print(f"  {i + 1}/{len(rows)} queries", flush=True)
+    ckpt.close()
 
     assert sum(len(v) for v in ranks.values()) == len(rows) * len(modes), \
         "strata dropped rows — every query must land in exactly one cell"
