@@ -1782,3 +1782,174 @@ scans on failure, not fewer.
   retiring `direct` entirely — a query containing the answer's name measures
   tokenizer plumbing, not retrieval.
 
+
+---
+
+## 13. A fourth corner, and a ceiling for ripgrep (2026-07-30)
+
+§12 audited the eval and found two things: the ripgrep baseline was a strawman,
+and our own query sets leak the answer into the question. It closed with two
+open items — replay the queries agents actually issued (§11.5 item 3, "do this
+before any further spend"), and find out how much of the remaining gap is still
+the baseline. This section does both, and measures a third leak §12 missed.
+
+### 13.1 Path leakage: the generator was shown the answer's filename
+
+`eval/generate.py` put the file path into the prompt — *"Below is a chunk of a
+file from a corpus ({path}, lines {start}-{end})"* — and semgrep's tokenizer
+does path augmentation. So the generator saw the document identifier and the
+scorer indexes the document identifier.
+
+| set | kind | basename | **file stem** | dir segment | **path seg NOT in gold** |
+|---|---|---|---|---|---|
+| linux | direct | 1.5% | 32.7% | 48.2% | **16.1%** |
+| linux | paraphrase | 0.0% | 0.0% | 25.1% | **17.1%** |
+| vscode | direct | 0.0% | 22.5% | 46.0% | **12.0%** |
+| vscode | paraphrase | 0.0% | 0.0% | 26.5% | **12.0%** |
+| wikipedia | both | 0.0% | 0.0% | 0.0% | 0.0% |
+
+The last column is the one that isolates the effect: a path segment the query
+carries that the gold *text* does not, which identifier overlap cannot explain.
+
+**The finding that matters is the second row.** §12.3 treated `paraphrase` as
+the clean pole — vocabulary deliberately stripped, 2% identifier share. But it
+leaks path segments at 17.1%, *higher* than `direct`'s 16.1%. The generator was
+told to avoid the chunk's identifiers. Nothing told it to avoid the path, so it
+reached for the one piece of the answer it was still allowed to see. Neither
+pole is clean, and `paraphrase` is not the conservative choice it was taken for.
+
+Caveat, recorded rather than buried: in C a file stem and an identifier prefix
+are frequently the same token (`blkg-rwstat.c` ↔ `blkg_rwstat_add`), so the
+`file stem` column partly re-measures §12.1's identifier leakage rather than
+isolating a new effect. Only the last column is clean.
+
+The prompt no longer passes `{path}`. The measurement above is of the sets on
+disk, taken *before* that change, so the delta stays auditable — §12.2's
+precedent.
+
+`run_eval.py` now prints this table above every results table and stores it in
+`--out`. §12.5 said no quality claim should be read without knowing which pole
+produced it; that is now a property of the harness rather than a note in a doc.
+
+### 13.2 Query replay: what agents actually type
+
+497 unique ranked queries and 726 exact ones, harvested from 706 shim logs
+across 42 instances, replayed offline against each instance's worktree.
+`replay.py` existed but had never been run.
+
+Four defects were fixed first, two of which would have produced a *quotable
+wrong number* rather than an error:
+
+1. **The bootstrap ignored clustering.** Queries are not independent draws —
+   one instance contributed 55 of 497 (11%), the median 14. Resampling queries
+   treats those 55 as 55 observations. Now resamples **instances**, and prints
+   the naive interval beside the clustered one so the inflation is visible.
+2. **`harvest()` mixed regexes with queries.** Its filter took `rg`
+   invocations too, and those are patterns like `csrf|CSRF|X-CSRF|wtf`. That is
+   390 of 887 rows measuring how BM25 tokenizes punctuation. `rg` is now
+   excluded by default.
+3. **No cache isolation and no index.** Conditions could be answered from
+   whatever cache state a previous condition left (FIXES.md #10's shape), and
+   the first condition paid a cold search while later ones ran warm. Now a
+   run-local `SEMGREP_CACHE_DIR` and one `ensure_index` per worktree, with
+   index-affecting flags rejected outright.
+4. **`rank_of_gold` credited path-suffix matches**, so a hit on
+   `tests/test_a.py` counted as finding `src/tests/test_a.py`. Now exact, with
+   the loose clause instrumented: it fired **0 times in 1,491 scored queries**.
+
+**Results** (rank of the first gold file, k=10):
+
+| condition | hit@1 | hit@5 | hit@10 | MRR |
+|---|---|---|---|---|
+| hybrid | **0.254** | **0.493** | **0.610** | **0.362** |
+| bm25 | 0.219 | 0.473 | 0.584 | 0.330 |
+| semantic | 0.195 | 0.461 | 0.563 | 0.306 |
+
+| pair | MRR delta | clustered 95% CI | naive 95% CI | verdict |
+|---|---|---|---|---|
+| hybrid − bm25 | +0.0315 | [+0.0012, +0.0630] | [+0.0134, +0.0501] | WIN, barely |
+| hybrid − semantic | +0.0563 | [+0.0079, +0.1065] | [+0.0264, +0.0887] | WIN |
+| bm25 − semantic | +0.0248 | [−0.0277, +0.0804] | [−0.0105, +0.0602] | inconclusive |
+
+Two things to say about this honestly.
+
+**The clustering correction is not cosmetic.** `hybrid − bm25` has a clustered
+lower bound of **+0.0012**. The naive interval starts at +0.0134, an order of
+magnitude clear of zero. Same data, same point estimate; one of them would have
+been reported as a solid win and the other is a coin-flip away from
+inconclusive. Every replay number in this section is the clustered one.
+
+**This contradicts §12.3's conclusion on CoSQA, and the contradiction is the
+interesting part.** There, "the semantic half contributes nothing" — bm25 0.22
+matched hybrid 0.21. Here hybrid beats bm25. The difference is the query
+distribution: CoSQA queries are human prose with 0% identifiers, agent queries
+are half identifiers and a quarter the length. Neither result is wrong. The
+lesson is that "does the semantic half earn its keep" has no corpus-independent
+answer, and §12.3's finding should be read as scoped to human prose queries,
+not as a general verdict.
+
+### 13.3 The query distribution, which is a fourth corner and not a fix
+
+§12.3 put our two synthetic poles beside real human queries. Replay adds real
+*agent* queries, and they are a fourth point, not a resolution:
+
+| set | n | identifier% | median words |
+|---|---|---|---|
+| ours, direct | 199 | 66% | 10 |
+| ours, paraphrase | 199 | 2% | 17 |
+| CoSQA (real humans) | 9,020 | 0% | 6 |
+| **agent replay, ranked** | **497** | **47%** | **4** |
+| **agent replay, exact (`-e`)** | **726** | **63%** | **1** |
+
+Agents do not write prose and they do not write our paraphrases. They type
+short identifier-shaped fragments — a median of *four* words ranked, *one* in
+exact mode. So: replay is where this product's actual input lives, CoSQA is
+where human users live, and our two generated poles are neither.
+
+The queries are checked in at `eval/queries/replay-agent.jsonl` (strings only,
+no repo content) so this distribution is reproducible from the repo.
+
+An earlier count in this session said 880 queries at a median of 2 words. That
+was wrong twice over: it parsed `argv` with an off-by-one, and it counted the
+`rg` regexes as queries. The numbers above come from `replay.harvest` itself.
+
+### 13.4 `rg-oracle`: a ceiling for ripgrep (prediction, pre-registered)
+
+§12.2 replaced the strawman baseline with `rg-strong` and the kernel gap fell
+from "30×" to ~2.9×. But `rg-strong` is still a hand-tuned query planner: two
+identifiers longest-first, then the phrase, then two fallbacks. So the question
+§12 left open is whether the *rest* of the gap is the engine or still the
+baseline's planning.
+
+`rg-oracle` removes the planning. It tries every content token in the query as
+its own pattern and keeps whichever scored best — which requires already
+knowing the answer, so **no agent can run it**. It is a ceiling, reported as
+one, added beside `rg` and `rg-strong` and replacing neither.
+
+Cost is the design problem: 12 tokens × 400 queries × a 1.15 GB kernel scan is
+hours. The pruning is exact rather than heuristic — a hit only counts if it
+lands in the gold file on a line overlapping the gold span ± slack, so a token
+absent from that window cannot produce a correct hit at any rank and its scan
+cannot change the answer. That typically leaves 1–3 tokens instead of 12.
+
+(The cheaper-looking alternative, one `rg --json -e tok1 -e tok2 …` scan, was
+rejected: rg reports the matched *text*, not which pattern matched, and `-m 1`
+caps output at the first matching line per file, so a token matching later in
+an already-matched file becomes invisible. An upper bound that under-credits is
+not an upper bound.)
+
+**Prediction, recorded before the run so it can be falsified:**
+
+- CoSQA R@5: rg-strong 0.03 → oracle **0.06–0.10**, staying under bm25's 0.22.
+  Real human queries carry 0% identifiers, so there is little for any token to
+  find and the ceiling should stay low.
+- Kernel `direct` R@5: rg-strong 0.32 → oracle **0.60–0.80**, against
+  semgrep's 0.92. Two-thirds of these queries contain the gold identifier, so
+  a perfect token chooser should do well — but ranked retrieval should still
+  lead.
+- Kernel `paraphrase` R@5: **≈0**. Vocabulary was stripped; there is no token.
+
+**Falsification condition:** if kernel `direct` R@5 reaches **≥0.85**, the
+identifier-query claim is baseline-shaped rather than engine-shaped, and §12.2's
+correction did not go far enough. That would need retracting, not explaining.
+
