@@ -201,6 +201,24 @@ fn repair_ttl_secs() -> u64 {
     })
 }
 
+/// Where the "last validated at" timestamp for an index lives.
+///
+/// For a cache entry: inside it, where it doubles as the entry's access time
+/// for LRU. For a repo-local `.semgrep/`, which is a committed artifact the
+/// user owns: under the cache, because a search must not write into the
+/// user's tree. Searching used to dirty a tracked directory.
+fn check_marker(d: &index::Discovered) -> std::path::PathBuf {
+    if d.from_cache {
+        return d.index_dir.join("last_check");
+    }
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    d.index_dir.hash(&mut h);
+    let checks = index::cache_base().join("checks");
+    let _ = std::fs::create_dir_all(&checks);
+    checks.join(format!("{:016x}", h.finish()))
+}
+
 /// Throttled scoped validation: diff the live tree under the query scope
 /// against the index's file table; build the overlay if anything drifted.
 fn repair_scope(
@@ -208,7 +226,7 @@ fn repair_scope(
     idx: &index::LoadedIndex,
     stages: &mut Vec<(String, f64)>,
 ) -> Option<Repair> {
-    let marker = d.index_dir.join("last_check");
+    let marker = check_marker(d);
     let ttl = repair_ttl_secs();
     if ttl > 0 {
         let fresh = std::fs::metadata(&marker)

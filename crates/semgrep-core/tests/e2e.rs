@@ -21,13 +21,16 @@ use std::path::Path;
 /// parallel; `exclusive()` tests — anything that prunes or clears — hold a write
 /// lock and run alone. Without this the suite failed intermittently, and the
 /// failure looked like a repair bug rather than a test-isolation bug.
+/// Poison is ignored deliberately: the lock guards ordering, not data. Letting
+/// it poison turns one real failure into a dozen `PoisonError` panics that
+/// bury the actual one.
 fn isolate_cache() -> std::sync::RwLockReadGuard<'static, ()> {
-    cache_lock().read().unwrap()
+    cache_lock().read().unwrap_or_else(|e| e.into_inner())
 }
 
 /// For tests that delete cache entries they do not own.
 fn isolate_cache_exclusive() -> std::sync::RwLockWriteGuard<'static, ()> {
-    cache_lock().write().unwrap()
+    cache_lock().write().unwrap_or_else(|e| e.into_inner())
 }
 
 fn cache_lock() -> &'static std::sync::RwLock<()> {
@@ -414,9 +417,12 @@ fn unreadable_cache_entry_degrades_to_a_miss() {
 /// index format, dims, and embedding-table fingerprint. An entry written by
 /// an incompatible binary sorts into a sibling directory and is therefore
 /// never discovered — the failure mode is "not found", not "error".
+///
+/// Exclusive: `gc_old_generations` deletes directories across the whole cache
+/// base, not just this test's own.
 #[test]
 fn cache_entries_are_namespaced_by_compat_generation() {
-    let _cache = isolate_cache();
+    let _cache = isolate_cache_exclusive();
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("a.py"), "def parse_config():\n    return {}\n").unwrap();
     let opts = semgrep_core::search::SearchOptions::default();
@@ -512,9 +518,134 @@ fn cache_prunes_dead_entries_and_enforces_a_budget() {
     // With a budget of zero, even a live entry must be evicted. Passing the cap
     // explicitly rather than through the environment: `cache_max_bytes` is read
     // per call, so mutating it here would leak into whatever else is running.
-    semgrep_core::index::enforce_budget_with_cap(0);
+    semgrep_core::index::enforce_budget_with_cap(0, 0);
     assert!(
         semgrep_core::index::cache_status().is_empty(),
         "a zero budget should evict everything"
     );
+}
+
+/// An interrupted first search — Ctrl-C during the initial index of a large
+/// repo, which is exactly when people interrupt — used to leave a directory
+/// with no `root.txt`. Every enumerator skips those, so `cache --status`
+/// under-reported, `cache --prune` freed nothing, and the bytes were
+/// unreclaimable for the life of the machine. `root.txt` is now written before
+/// the build, which makes the entry countable and prunable while still not
+/// discoverable (that needs `meta.json`).
+///
+/// Exclusive: reclamation deletes entries this test does not own.
+#[test]
+fn interrupted_build_leaves_a_reclaimable_entry() {
+    let _cache = isolate_cache_exclusive();
+    let orphan = index::cache_generation().join("orphan-halfbuilt");
+    fs::create_dir_all(&orphan).unwrap();
+    fs::write(orphan.join("root.txt"), "/nonexistent-but-registered").unwrap();
+    fs::write(orphan.join("emb.bin"), vec![0u8; 4096]).unwrap();
+
+    let seen = index::cache_status();
+    let mine = seen.iter().find(|e| e.dir == orphan).expect("half-built entry must be visible");
+    assert!(mine.incomplete, "no meta.json means unpublished");
+    assert!(mine.bytes >= 4096, "its bytes must count against the budget");
+
+    // Not discoverable, though: an unpublished entry must never serve a query.
+    assert!(
+        !index::cache_entries().iter().any(|(d, _)| *d == orphan),
+        "an entry without meta.json must not be discoverable"
+    );
+
+    // And a prune frees it. `0` for the abandonment threshold: a real prune
+    // waits ABANDONED_AFTER_SECS so it cannot delete a build in flight.
+    let (n, freed) = index::enforce_budget_with_cap(index::cache_max_bytes(), 0);
+    assert!(n >= 1 && freed >= 4096, "prune should reclaim the orphan");
+    assert!(!orphan.exists(), "orphan survived the prune");
+}
+
+/// A young incomplete entry is a build happening right now, not garbage.
+/// Reclaiming it would delete the directory a concurrent process is filling.
+#[test]
+fn a_build_in_flight_is_not_reclaimed() {
+    let _cache = isolate_cache_exclusive();
+    // A root that exists, so `incomplete` is the only thing under test — a
+    // missing root is separately (and correctly) grounds for reclamation.
+    let repo = tempfile::tempdir().unwrap();
+    let live = index::cache_generation().join("build-in-flight");
+    fs::create_dir_all(&live).unwrap();
+    fs::write(live.join("root.txt"), repo.path().to_string_lossy().as_bytes()).unwrap();
+
+    index::enforce_budget_with_cap(index::cache_max_bytes(), 600);
+    assert!(live.exists(), "an entry younger than the threshold must be left alone");
+    let _ = fs::remove_dir_all(&live);
+}
+
+/// `discover` keys on `meta.json`, so writing it first published an index that
+/// could not yet be loaded: a concurrent reader found the entry, failed on the
+/// chunks.bin that did not exist yet, and — a cache load failure being a miss —
+/// deleted the directory the builder was still writing. meta.json is now
+/// written last, and removed before a rebuild begins.
+#[test]
+fn an_index_is_invisible_until_it_is_complete() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    let params = ChunkParams { window: 8, overlap: 2, ..Default::default() };
+    index::build(
+        dir.path(),
+        &BuildOptions { params, hnsw: false, ..Default::default() },
+        |_, _| {},
+    )
+    .unwrap();
+
+    let idx_dir = index::index_dir(dir.path());
+    assert!(index::exists(dir.path()));
+
+    // Every other artifact must already be there when meta.json appears.
+    for artifact in ["chunks.bin", "bm25.flat", "emb.bin"] {
+        assert!(idx_dir.join(artifact).is_file(), "{artifact} missing from a published index");
+    }
+
+    // Remove meta.json the way an interrupted rebuild leaves things: the
+    // artifacts are present but the index is unpublished, so it is not found.
+    fs::remove_file(idx_dir.join("meta.json")).unwrap();
+    assert!(!index::exists(dir.path()), "an index without meta.json is not an index");
+    let r = search(dir.path(), "session token validation", &opts(Mode::Hybrid)).unwrap();
+    assert!(!r.hits.is_empty(), "an unpublished index must degrade to an answer, not an error");
+}
+
+/// A repo-local `.semgrep/` is a committed artifact. Read-repair used to touch
+/// `last_check` inside it on every validation, so merely *searching* dirtied a
+/// tracked directory. The marker now lives under the cache for repo-local
+/// indexes; for cache entries it stays put, where it doubles as the LRU
+/// access time.
+#[test]
+fn searching_does_not_write_into_a_repo_local_index() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    let params = ChunkParams { window: 8, overlap: 2, ..Default::default() };
+    index::build(
+        dir.path(),
+        &BuildOptions { params, hnsw: false, ..Default::default() },
+        |_, _| {},
+    )
+    .unwrap();
+
+    let idx_dir = index::index_dir(dir.path());
+    let fingerprint = || -> Vec<(String, u64, std::time::SystemTime)> {
+        let mut out: Vec<_> = fs::read_dir(&idx_dir)
+            .unwrap()
+            .flatten()
+            .map(|e| {
+                let m = e.metadata().unwrap();
+                (e.file_name().to_string_lossy().into_owned(), m.len(), m.modified().unwrap())
+            })
+            .collect();
+        out.sort();
+        out
+    };
+
+    let before = fingerprint();
+    for query in ["session token validation", "backoff delay", "sourdough starter"] {
+        search(dir.path(), query, &opts(Mode::Hybrid)).unwrap();
+    }
+    assert_eq!(before, fingerprint(), "a search must not modify a repo-local .semgrep/");
 }

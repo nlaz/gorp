@@ -94,6 +94,11 @@ pub fn build_at(
     use rayon::prelude::*;
     let files = corpus::walk(root, &opts.params)?;
     std::fs::create_dir_all(dir)?;
+    // Unpublish before touching anything. A rebuild overwrites emb.bin in
+    // place, so leaving the old meta.json readable would let a concurrent
+    // query pair a stale file table with a half-rewritten matrix. Absent is a
+    // miss and costs a streaming pass; mixed is a wrong answer.
+    let _ = std::fs::remove_file(dir.join("meta.json"));
 
     // SIF pre-pass: count corpus token frequencies before any embedding, so
     // weighted pooling has its p(w). Cheap relative to the embed pass.
@@ -228,7 +233,6 @@ pub fn build_at(
         has_hnsw: hnsw.is_some(),
         sif: sif.is_some(),
     };
-    std::fs::write(dir.join("meta.json"), serde_json::to_vec_pretty(&meta)?)?;
     std::fs::write(dir.join("chunks.bin"), postcard::to_allocvec(&chunks)?)?;
     std::fs::write(dir.join("bm25.flat"), bm25.to_flat_bytes())?;
     match &sif {
@@ -243,6 +247,12 @@ pub fn build_at(
             let _ = std::fs::remove_file(dir.join("hnsw.bin"));
         }
     }
+    // meta.json last: it is what `discover` keys on, so writing it is what
+    // publishes the index. Written first (as it used to be), a concurrent
+    // reader could find the entry, fail to load the chunks.bin that did not
+    // exist yet, and — for a cache entry, where a load failure is a miss —
+    // delete the directory this build was still writing into.
+    std::fs::write(dir.join("meta.json"), serde_json::to_vec_pretty(&meta)?)?;
 
     for name in ["meta.json", "chunks.bin", "bm25.flat", "emb.bin", "hnsw.bin", "sif.bin"] {
         if let Ok(m) = std::fs::metadata(dir.join(name)) {
@@ -446,6 +456,10 @@ pub fn cache_max_bytes() -> u64 {
         .unwrap_or(2 * 1024 * 1024 * 1024)
 }
 
+/// How long an entry may sit without a `meta.json` before it is presumed
+/// abandoned rather than mid-build. Generous: a kernel-scale build takes ~45 s.
+const ABANDONED_AFTER_SECS: u64 = 600;
+
 #[derive(Debug, Clone)]
 pub struct CacheEntryInfo {
     pub dir: PathBuf,
@@ -456,6 +470,10 @@ pub struct CacheEntryInfo {
     /// False once the indexed directory no longer exists — a dead entry that
     /// can never be useful again.
     pub root_exists: bool,
+    /// Registered but never published: `root.txt` without `meta.json`. Either a
+    /// build in flight right now, or one that was interrupted and left this
+    /// behind. Age tells the two apart.
+    pub incomplete: bool,
 }
 
 fn dir_bytes(dir: &Path) -> u64 {
@@ -478,7 +496,8 @@ pub fn cache_status() -> Vec<CacheEntryInfo> {
         let root = PathBuf::from(root.trim());
         // `last_check` is touched by read-repair, `meta.json` by a build, so
         // the newer of the two is when this entry was last actually used.
-        let age = ["last_check", "meta.json"]
+        // `root.txt` is the fallback: an entry mid-build has only that.
+        let age = ["last_check", "meta.json", "root.txt"]
             .iter()
             .filter_map(|f| std::fs::metadata(dir.join(f)).ok()?.modified().ok())
             .filter_map(|t| now.duration_since(t).ok())
@@ -488,6 +507,7 @@ pub fn cache_status() -> Vec<CacheEntryInfo> {
         out.push(CacheEntryInfo {
             bytes: dir_bytes(&dir),
             root_exists: root.is_dir(),
+            incomplete: !dir.join("meta.json").is_file(),
             dir,
             root,
             age_secs: age,
@@ -501,20 +521,24 @@ pub fn cache_status() -> Vec<CacheEntryInfo> {
 /// Returns (entries removed, bytes reclaimed). Called after a write, so the
 /// cost lands on the path that already pays for a full corpus pass.
 pub fn enforce_budget() -> (usize, u64) {
-    enforce_budget_with_cap(cache_max_bytes())
+    enforce_budget_with_cap(cache_max_bytes(), ABANDONED_AFTER_SECS)
 }
 
-/// [`enforce_budget`] against an explicit cap. Separated so a caller — a test,
-/// or a future `--max-bytes` flag — can exercise eviction without mutating the
-/// process environment that `cache_max_bytes` reads.
-pub fn enforce_budget_with_cap(cap: u64) -> (usize, u64) {
+/// [`enforce_budget`] with explicit thresholds. Separated so a caller — a test,
+/// or a future `--max-bytes` flag — can exercise reclamation without mutating
+/// the process environment that `cache_max_bytes` reads.
+pub fn enforce_budget_with_cap(cap: u64, abandoned_after_secs: u64) -> (usize, u64) {
     let mut entries = cache_status();
     let (mut n, mut freed) = (0usize, 0u64);
 
-    // 1. Entries whose repo is gone can never be useful — a deleted or moved
-    //    checkout would otherwise hold its index forever.
+    // 1. Entries that can never serve a query, in either of the two ways:
+    //    the repo is gone (a moved or deleted checkout would otherwise hold
+    //    its index forever), or the build that registered them never published
+    //    a meta.json and is long past finishing. A young incomplete entry is
+    //    left alone — that is a build happening right now.
     entries.retain(|e| {
-        if e.root_exists {
+        let dead = !e.root_exists || (e.incomplete && e.age_secs >= abandoned_after_secs);
+        if !dead {
             return true;
         }
         if std::fs::remove_dir_all(&e.dir).is_ok() {
@@ -604,10 +628,25 @@ pub fn write_cache_entry(
 ) -> Result<PathBuf> {
     let dir = cache_entry_dir(root);
     std::fs::create_dir_all(&dir)?;
+    // root.txt first, before a single byte of index. It is what makes an entry
+    // *enumerable*, and only enumerable entries can be counted or reclaimed —
+    // written afterwards, a build interrupted partway (Ctrl-C during the first
+    // search of a large repo, which is exactly when people interrupt) left a
+    // directory that `cache --status` could not see and `cache --prune` could
+    // not free. It does not make the entry discoverable: that needs meta.json,
+    // which `build_at` writes last.
+    std::fs::write(dir.join("root.txt"), root.to_string_lossy().as_bytes())?;
     build_at(&dir, root, opts, progress)?;
+
+    // Reclaim only after the entry is complete and registered, so the budget
+    // enforcer actually sees what was just built. Running it before the write
+    // meant a corpus larger than the whole budget evicted every *other* entry
+    // and then sat over the cap until some later write noticed.
     gc_old_generations();
     enforce_budget();
-    std::fs::write(dir.join("root.txt"), root.to_string_lossy().as_bytes())?;
+
+    // Scope promotion: a wider entry serves every descendant through the
+    // prefix filter, so narrower ones are now dead weight.
     for (edir, eroot) in cache_entries() {
         if eroot != root && eroot.starts_with(root) {
             let _ = std::fs::remove_dir_all(edir);
