@@ -1,0 +1,258 @@
+- generic [active] [ref=f3e1]:
+  - banner [ref=f3e2]:
+    - paragraph [ref=f3e3]: Mechanism Â· semgrep Â· cache/repair.rs
+    - 'heading "Read-repair: keeping a cached answer true of a tree that moved" [level=1] [ref=f3e4]'
+    - paragraph [ref=f3e5]: The index describes the corpus as it was. The corpus is as it is. Read-repair is the thing that closes that gap on every query â€” and the reason it gets expensive is visible once you follow what it actually does.
+  - generic [ref=f3e6]:
+    - paragraph [ref=f3e7]: The premise
+    - heading "Why anything has to happen at all" [level=2] [ref=f3e8]
+    - paragraph [ref=f3e9]: semgrep's index is a cache, and a cache of a directory goes stale the moment anyone saves a file.
+    - paragraph [ref=f3e10]: "A warm search ranks over chunks recorded when the index was built: line spans, a BM25 posting list, and a matrix of embeddings. None of that is re-read at query time â€” the whole point is that it isn't. So if a file changed since the build, the index will happily rank a chunk of it, and the hit will point at lines that now contain something else. If a file was deleted, it will point at a file that isn't there."
+    - paragraph [ref=f3e11]: "The engine's contract is that a warm answer and a cold answer are the same answer. Read-repair is what makes that true without rebuilding: before serving from an index, work out what drifted, and patch around it."
+  - separator [ref=f3e12]
+  - generic [ref=f3e13]:
+    - paragraph [ref=f3e14]: The pipeline
+    - heading "Six steps, three of which can exit early" [level=2] [ref=f3e15]
+  - figure "Steps 1â€“3 are cheap and bounded. Step 4 is proportional to how much drifted, with no upper limit. Step 6 is why step 4 happens again on the next query." [ref=f3e16]:
+    - generic [ref=f3e17]:
+      - paragraph [ref=f3e18]: cache::repair::scope() â€” every warm query enters here
+      - generic [ref=f3e19]:
+        - generic [ref=f3e20]:
+          - generic [ref=f3e21]:
+            - text: 1 Â· TTL gate
+            - emphasis [ref=f3e22]: check_marker
+          - generic [ref=f3e23]:
+            - text: When was this index last validated? A marker file holds the timestamp. Inside
+            - code [ref=f3e24]: SEMGREP_CACHE_TTL_SECS
+            - text: (default 60), stop here and serve as-is â€” because a staleness walk costs about a second on a large tree, against a query that costs a hundred milliseconds.
+        - generic [ref=f3e25]: exits TtlFresh â†’ the answer may be stale, deliberately
+        - generic [ref=f3e26]:
+          - generic [ref=f3e27]:
+            - text: 2 Â· Walk
+            - emphasis [ref=f3e28]: corpus::walk
+          - generic [ref=f3e29]: "List the tree under the query's scope as it is right now â€” path, size, mtime for every file. Flat cost: about 7 ms on 865 files, and it does not grow with how much changed."
+        - generic [ref=f3e30]: exits WalkFailed â†’ served unrepaired, and the marker was already written
+        - generic [ref=f3e31]:
+          - generic [ref=f3e32]:
+            - text: 3 Â· Diff
+            - emphasis [ref=f3e33]: corpus::diff
+          - generic [ref=f3e34]:
+            - text: "Compare that listing against the index's file table. Produces three lists: added (new files), modified (size or mtime moved), deleted (gone). A file counts as modified on"
+            - code [ref=f3e35]: (size, mtime)
+            - text: alone â€” no content is read.
+        - generic [ref=f3e36]: exits NoDrift â†’ the common case, and the cheap one
+        - generic [ref=f3e37]:
+          - generic [ref=f3e38]:
+            - text: 4 Â· Build the overlay
+            - emphasis [ref=f3e39]: the unbounded step
+          - generic [ref=f3e40]: "For every added or modified file: read it, cut it into chunks, tokenize each chunk into a fresh BM25 index, and embed each chunk into a vector. Deleted and modified files also yield tombstones â€” the ids of base rows that must never be served."
+        - generic [ref=f3e41]:
+          - generic [ref=f3e42]:
+            - text: 5 Â· Rank over both
+            - emphasis [ref=f3e43]: search::rows
+          - generic [ref=f3e44]: The index and the overlay are addressed as one id space. Base rows that were tombstoned are dropped; overlay rows are scored and merged in.
+        - generic [ref=f3e45]:
+          - generic [ref=f3e46]:
+            - text: 6 Â· Discard
+            - emphasis [ref=f3e47]: process exit
+          - generic [ref=f3e48]: The overlay is in memory only. Nothing is written back. The cache entry on disk is byte-identical to what it was before the query.
+  - separator [ref=f3e50]
+  - generic [ref=f3e51]:
+    - paragraph [ref=f3e52]: Interactive
+    - heading "Watch it work, and watch it stop working" [level=2] [ref=f3e53]
+    - paragraph [ref=f3e54]: Below is a scale model of the tokio corpus â€” 865 files, 8,042 indexed chunks. Move the slider to change how much of the tree has drifted since the index was built. Each cell is roughly 200 chunks.
+  - figure "A full cold pass over this corpus â€” no cache at all â€” costs 126.6 ms. Rebuilding the index costs about 129.8 ms once, after which queries return to 8.7 ms." [ref=f3e55]:
+    - generic [ref=f3e56]:
+      - generic [ref=f3e57]:
+        - generic [ref=f3e58]: Files changed since the index was built
+        - slider "Files changed since the index was built" [ref=f3e59]: "2"
+        - generic [ref=f3e60]: 5%
+      - generic [ref=f3e61]:
+        - generic [ref=f3e62]: 0%
+        - generic [ref=f3e63]: 1%
+        - generic [ref=f3e64]: 5%
+        - generic [ref=f3e65]: 10%
+        - generic [ref=f3e66]: 25%
+        - generic [ref=f3e67]: 50%
+        - generic [ref=f3e68]: 100%
+      - paragraph [ref=f3e69]: Seven measured levels. Every number below is from the recorded run, not a model.
+      - generic [ref=f3e70]:
+        - generic [ref=f3e71]:
+          - generic [ref=f3e72]:
+            - generic [ref=f3e73]: the index on disk â€” what the cache knows
+            - generic [ref=f3e74]: 7,640 of 8,042 chunks still servable
+          - 'img "Index: 7640 chunks servable, 402 tombstoned." [ref=f3e75]'
+          - generic [ref=f3e116]: "Index: 7640 chunks servable, 402 tombstoned."
+        - generic [ref=f3e117]:
+          - generic [ref=f3e118]:
+            - generic [ref=f3e119]: the overlay â€” rebuilt in memory, this query and every query
+            - generic [ref=f3e120]: 402 chunks rebuilt
+          - 'img "Overlay: 402 chunks rebuilt in memory." [ref=f3e121]'
+          - generic [ref=f3e162]: "Overlay: 402 chunks rebuilt in memory."
+      - generic [ref=f3e163]:
+        - generic [ref=f3e164]: base chunk, still true
+        - generic [ref=f3e166]: tombstoned â€” its file drifted, must not be served
+        - generic [ref=f3e168]: overlay chunk â€” read, chunked, tokenized, embedded now
+      - generic [ref=f3e170]:
+        - generic [ref=f3e171]:
+          - generic [ref=f3e172]: Files re-read
+          - generic [ref=f3e173]: "43"
+        - generic [ref=f3e174]:
+          - generic [ref=f3e175]: Chunks embedded
+          - generic [ref=f3e176]: "402"
+        - generic [ref=f3e177]:
+          - generic [ref=f3e178]: Finding the drift
+          - generic [ref=f3e179]: 7.4 ms
+        - generic [ref=f3e180]:
+          - generic [ref=f3e181]: Building the overlay
+          - generic [ref=f3e182]: 25.6 ms
+        - generic [ref=f3e183]:
+          - generic [ref=f3e184]: Query total
+          - generic [ref=f3e185]: 35.1 ms
+        - generic [ref=f3e186]:
+          - generic [ref=f3e187]: Peak memory
+          - generic [ref=f3e188]: 45 MB
+      - paragraph [ref=f3e189]: Still cheaper than a cold pass (126.6 ms), but the overlay is now 73% of the query and is rebuilt every time. A rebuild would pay for itself after 5 queries.
+  - separator [ref=f3e191]
+  - generic [ref=f3e192]:
+    - paragraph [ref=f3e193]: Step 5, in detail
+    - heading "One id space, two sources" [level=2] [ref=f3e194]
+    - paragraph [ref=f3e195]:
+      - text: This is the part that is easy to get subtly, dangerously wrong, and it is the reason
+      - code [ref=f3e196]: search/rows.rs
+      - text: exists as its own module.
+    - paragraph [ref=f3e197]:
+      - text: "Ranking does not want to know that some rows come from a memory-mapped matrix and others from a hash map built four milliseconds ago. So the two are stitched into a single numbering: ids below"
+      - code [ref=f3e198]: n_base
+      - text: resolve through the index, ids at or above it resolve through the overlay.
+  - figure [ref=f3e199]:
+    - generic [ref=f3e200]:
+      - paragraph [ref=f3e201]: The row space a warm query ranks over
+      - generic [ref=f3e202]:
+        - generic [ref=f3e203]:
+          - generic [ref=f3e204]: base rows â€” the index
+          - generic [ref=f3e205]: overlay rows
+        - generic [ref=f3e206]:
+          - generic [ref=f3e207]: "0"
+          - generic [ref=f3e208]: n_base
+          - generic [ref=f3e209]: n_base + n_delta
+      - generic [ref=f3e210]: "// search/rows.rs â€” the boundary, stated once fn delta_index(&self, id: u32) -> Option<usize> { (id >= self.n_base).then(|| (id - self.n_base) as usize) } // and the merge that folds one into the other let mut out = base.into_iter().filter(|&(id, _)| self.live(id)).collect(); out.extend(delta.into_iter().map(|(j, s)| (self.n_base + j, s))); out.sort_unstable_by(...); out.truncate(pool);"
+    - generic [ref=f3e211]:
+      - text: "The comment in that file puts it plainly: this arithmetic \"used to live as"
+      - code [ref=f3e212]: id < n_base
+      - text: and
+      - code [ref=f3e213]: id - n_base
+      - text: written out at six places inside one 290-line functionâ€¦ get it wrong and a query returns another file's text with a straight face."
+  - generic [ref=f3e214]:
+    - paragraph [ref=f3e215]: "Three things happen in that merge, and each one is load-bearing:"
+    - table [ref=f3e217]:
+      - rowgroup [ref=f3e218]:
+        - row [ref=f3e219]:
+          - columnheader "What" [ref=f3e220]
+          - columnheader "Why" [ref=f3e221]
+      - rowgroup [ref=f3e222]:
+        - row [ref=f3e223]:
+          - cell "filter(live)" [ref=f3e224]
+          - cell "Drops base rows whose file drifted. This is what stops the index serving text that no longer exists. Overlay rows are always live â€” they were read off disk moments ago." [ref=f3e225]
+        - row [ref=f3e226]:
+          - cell "n_base + j" [ref=f3e227]
+          - cell [ref=f3e228]:
+            - text: Translates overlay row
+            - emphasis [ref=f3e229]: j
+            - text: into the shared space. An off-by-one here returns the wrong file's content under a plausible-looking path, which is why it has its own module and six dedicated tests.
+        - row [ref=f3e230]:
+          - cell "sort Â· truncate" [ref=f3e231]
+          - cell "Re-ranks the combined list. BM25 sorts descending and vector distance ascending, which is the one thing the merge has to be told." [ref=f3e232]
+    - paragraph [ref=f3e233]:
+      - text: There is a subtlety worth naming. The overlay holds only the drifted files, so scoring it against its own handful of documents would put it on a completely different scale from the base index it is being merged with â€” a term appearing in 3 of 5 overlay documents looks common, when in the real corpus it appears in 3 of 8,042. The lexical path passes corpus-wide statistics down (
+      - code [ref=f3e234]: rank::Rest
+      - text: ) so the two lists are comparable. The semantic path does the same by scoring the overlay with the same quantized query vector the base was scored with.
+    - generic [ref=f3e235]:
+      - generic [ref=f3e236]: Documentation drift, found while writing this
+      - paragraph [ref=f3e237]:
+        - text: The doc comment on
+        - code [ref=f3e238]: Rows::merge
+        - text: still says the overlay's idf "comes from the delta alone rather than the whole corpus, which is an approximation that holds while the overlay stays small." That was true, and was fixed â€”
+        - code [ref=f3e239]: indexed.rs
+        - text: passes
+        - code [ref=f3e240]: rank::Rest
+        - text: with the base's corpus statistics. The comment describes the bug, not the code.
+  - separator [ref=f3e241]
+  - generic [ref=f3e242]:
+    - paragraph [ref=f3e243]: Step 4, in detail
+    - heading "Where the cost lives" [level=2] [ref=f3e244]
+    - paragraph [ref=f3e245]: Everything expensive about read-repair is in one loop, and the loop has no upper bound on how many times it runs.
+  - generic [ref=f3e246]: "// cache/repair.rs let mut texts: Vec<String> = Vec::new(); for path in drift.stale_paths() { // â†\x90 every drifted file. no cap. let Some(text) = corpus::read_text(&d.root.join(path)) else { continue }; for (chunk, slice) in corpus::chunk_lines(0, &text, &idx.meta.params) { let doc = corpus::doc_text(path, slice); delta.bm25.add_doc(&doc); delta.chunks.push(chunk); delta.paths.push(path.clone()); texts.push(doc); // â†\x90 every chunk's text, all resident } } let mut vecs: Vec<[f32; EMBED_DIM]> = ese::encode(texts.iter()); // â†\x90 one batch, whatever the size delta.vecs = vecs.iter_mut().map(|v| { normalize(v); quantize_i8(v) }).collect();"
+  - generic [ref=f3e247]:
+    - paragraph [ref=f3e248]: Two costs, and they behave differently.
+    - heading "Time â€” and it never amortizes" [level=3] [ref=f3e249]
+    - paragraph [ref=f3e250]:
+      - text: "The loop is proportional to drift, so a query's cost rises with how much changed. That alone would be tolerable. What makes it a cliff is step 6: the overlay is discarded, so the"
+      - emphasis [ref=f3e251]: next
+      - text: query does all of it again. The tenth identical query over an unchanged-but-drifted tree costs what the first did. After a branch switch, that is the steady state, not a transient.
+    - paragraph [ref=f3e252]: "Because a rebuild makes every subsequent query fast while repair keeps charging, the honest comparison is amortized:"
+    - table [ref=f3e254]:
+      - rowgroup [ref=f3e255]:
+        - row [ref=f3e256]:
+          - columnheader "Drift" [ref=f3e257]
+          - columnheader "Query" [ref=f3e258]
+          - columnheader "Extra vs a clean query" [ref=f3e259]
+          - columnheader "Rebuild pays for itself after" [ref=f3e260]
+      - rowgroup [ref=f3e261]:
+        - row [ref=f3e262]:
+          - cell "1%" [ref=f3e263]
+          - cell "14.1 ms" [ref=f3e264]
+          - cell "+5.4" [ref=f3e265]
+          - cell "24 queries" [ref=f3e266]
+        - row [ref=f3e267]:
+          - cell "5%" [ref=f3e268]
+          - cell "35.1 ms" [ref=f3e269]
+          - cell "+26.4" [ref=f3e270]
+          - cell "5 queries" [ref=f3e271]
+        - row [ref=f3e272]:
+          - cell "10%" [ref=f3e273]
+          - cell "41.7 ms" [ref=f3e274]
+          - cell "+33.0" [ref=f3e275]
+          - cell "4 queries" [ref=f3e276]
+        - row [ref=f3e277]:
+          - cell "25%" [ref=f3e278]
+          - cell "90.6 ms" [ref=f3e279]
+          - cell "+81.9" [ref=f3e280]
+          - cell "2 queries" [ref=f3e281]
+        - row [ref=f3e282]:
+          - cell "50%" [ref=f3e283]
+          - cell "131.1 ms" [ref=f3e284]
+          - cell "+122.4" [ref=f3e285]
+          - cell "1 query" [ref=f3e286]
+    - heading "Memory â€” and this one has no ceiling at all" [level=3] [ref=f3e287]
+    - paragraph [ref=f3e288]:
+      - code [ref=f3e289]: texts
+      - text: accumulates every drifted chunk's text before a single embedding is computed. Then
+      - code [ref=f3e290]: ese::encode
+      - text: is handed the whole thing at once, producing a full array of f32 vectors, which is then quantized into a second full array of i8 vectors. Three complete representations of the drifted corpus, resident simultaneously.
+    - paragraph [ref=f3e291]:
+      - text: The build path does exactly this work and is careful not to, batching at 1,024 with the comment
+      - emphasis [ref=f3e292]: "\"Batching is what keeps the build's memory flat.\""
+      - text: Repair inherited the work and not the care.
+    - generic [ref=f3e293]:
+      - generic [ref=f3e294]: Measured, tokio â€” a 13 MB corpus
+      - paragraph [ref=f3e295]:
+        - text: Peak memory rises from
+        - strong [ref=f3e296]: 9 MB
+        - text: at no drift to
+        - strong [ref=f3e297]: 63 MB
+        - text: at full drift, with no bound in the code. Scaled to an 84,000-file tree â€” an extrapolation, not a measurement, since that corpus was out of scope â€” a branch switch touching a third of it would put roughly a gigabyte resident inside a single query, on a path the build handles flat.
+  - separator [ref=f3e298]
+  - generic [ref=f3e299]:
+    - paragraph [ref=f3e300]: The shape of the fix
+    - heading "What repair is for, and where it stops being for that" [level=2] [ref=f3e301]
+    - paragraph [ref=f3e302]: "Read-repair is not the problem. In the regime it was designed for it is excellent: an agent edits two files in an 865-file repo â€” 0.2% drift â€” and pays about 3 ms on top of an 8.7 ms query to get an answer that is true of the tree. Nothing else in the design gives you that. Deleting repair would mean serving text that isn't there."
+    - paragraph [ref=f3e303]: "What it lacks is an exit. The design document already specifies one: past a threshold â€” roughly 5% of files, the signature of a branch switch rather than an edit â€” stop patching and treat the query as a cache miss. That was written down and never built. The insertion point is three lines below the diff, where both the drift count and the file count are already sitting in local variables."
+    - paragraph [ref=f3e304]: A threshold has to be high enough that the edit-then-search loop never trips it. Three files out of 865 is 0.35%; a branch switch is 10â€“60%. Five percent sits cleanly between, which is presumably why it was the number chosen before anyone had measured anything.
+    - generic [ref=f3e305]:
+      - generic [ref=f3e306]: One sequencing constraint
+      - paragraph [ref=f3e307]:
+        - text: Making high drift trigger a rebuild means index builds start happening
+        - emphasis [ref=f3e308]: during
+        - text: queries much more often â€” which walks straight into the separate, open bug where concurrent builds crash readers with a memory fault. The staging-directory fix for that should land first, or alongside. Not after.
+    - paragraph [ref=f3e309]: "Batching the overlay's embedding is worth doing regardless of what is decided about thresholds: it bounds the memory today, it is a small and local change, and it mirrors code that already exists a directory away."

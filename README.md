@@ -289,10 +289,10 @@ Being clear about this matters more than the wins:
   time against ripgrep's 0%. That is the difference between possible and
   impossible, not between good and great.
 - **The semantic half barely earns its keep on code.** Plain lexical ranking
-  (BM25) scores 0.22 on real queries; adding embeddings gives 0.21. A *perfect*
-  ripgrep (0.10) even outscores embeddings alone (0.08). The win is code-aware
-  ranking — subtoken splitting, path awareness, ranked top-k — far more than it
-  is "AI search."
+  (BM25) scores 0.22 on real queries; adding embeddings gives 0.21. Embeddings
+  alone manage 0.11 — level with a *perfect* ripgrep (0.10), and less than half
+  of BM25. The win is code-aware ranking — subtoken splitting, path awareness,
+  ranked top-k — far more than it is "AI search."
 - **It is one number per query set**, and the sets we wrote ourselves leak: our
   "easy" queries hand over the answer's name 66% of the time, our "hard" ones
   strip vocabulary users would actually use. Only CoSQA and the replayed agent

@@ -1,0 +1,382 @@
+- generic [active] [ref=f1e1]:
+  - banner [ref=f1e2]:
+    - paragraph [ref=f1e3]: Post-mortem Â· semgrep Â· 31 July 2026
+    - heading "Running the search engine as a session, not a query" [level=1] [ref=f1e4]
+    - paragraph [ref=f1e5]: Two harnesses measured semgrep one query at a time. Almost everything that can go wrong needs three. Here is what happened when it got a third.
+    - generic [ref=f1e6]:
+      - generic [ref=f1e7]: 19 scenarios
+      - generic [ref=f1e8]: 3 corpora
+      - generic [ref=f1e9]: 660 invocations
+      - generic [ref=f1e10]: 240 pre-registered checks
+      - generic [ref=f1e11]: 6 real defects
+      - generic [ref=f1e12]: 4 predictions wrong
+  - generic [ref=f1e13]:
+    - paragraph [ref=f1e14]: The gap
+    - heading "Why a third harness" [level=2] [ref=f1e15]
+    - paragraph [ref=f1e16]:
+      - code [ref=f1e17]: eval/
+      - text: scores retrieval quality one query at a time.
+      - code [ref=f1e18]: bench/
+      - text: times one query at a time. Both are good at what they do, and neither can see the thing that actually breaks.
+    - paragraph [ref=f1e19]:
+      - text: semgrep's index is a cache. That single design decision means most of its interesting behavior only exists
+      - emphasis [ref=f1e20]: across a sequence
+      - text: â€” where step N changes what step N+1 sees. A first search silently builds an index. A second one is answered warm. An edit in between triggers read-repair, or doesn't, depending on a clock. A cache entry gets evicted by a budget. A corrupt entry gets thrown away â€” in theory.
+    - paragraph [ref=f1e21]: "None of that is visible to a harness that runs one query and records one number. So the work had two halves: give the binary enough instrumentation to describe its own behavior, then drive it through sequences designed to break it."
+  - generic [ref=f1e22]:
+    - generic [ref=f1e23]:
+      - generic [ref=f1e24]: Crashing invocations
+      - generic [ref=f1e25]: "300"
+      - generic [ref=f1e26]: All 30 were one bug.Fixed; none remain.
+    - generic [ref=f1e27]:
+      - generic [ref=f1e28]: Unattributed time
+      - generic [ref=f1e29]: 31%2%
+      - generic [ref=f1e30]: Query time no stagecould account for.
+    - generic [ref=f1e31]:
+      - generic [ref=f1e32]: Defects found
+      - generic [ref=f1e33]: "6"
+      - generic [ref=f1e34]: 2 severe, 2 moderate,2 agent-facing.
+    - generic [ref=f1e35]:
+      - generic [ref=f1e36]: Predictions missed
+      - generic [ref=f1e37]: "4"
+      - generic [ref=f1e38]: All four about wherethe time goes.
+  - generic [ref=f1e39]:
+    - paragraph [ref=f1e40]: The sequence
+    - heading "What was done, in the order it had to be done" [level=2] [ref=f1e41]
+    - paragraph [ref=f1e42]: Each step depended on the one before it. You cannot pre-register a prediction after seeing results, and you cannot measure a bottleneck before the binary can report one.
+    - list [ref=f1e43]:
+      - listitem [ref=f1e44]:
+        - heading "Write down the predictions, and commit them" [level=3] [ref=f1e45]
+        - paragraph [ref=f1e46]: Every prediction came from reading the code â€” which is exactly how you convince yourself of something false. Committed before the harness existed, so a contradicted prediction becomes a finding instead of a quiet edit.
+        - paragraph [ref=f1e47]: commit 29f8b5d Â· eval/sim/PREREGISTER.md Â· 279 lines
+      - listitem [ref=f1e48]:
+        - heading "Make the binary describe itself" [level=3] [ref=f1e49]
+        - paragraph [ref=f1e50]: Timing stages became a closed enum with a declared schedule per code path, zero-filled so the shape never varies. Coarse totals became derived sums rather than separate clocks â€” which is what makes the leftover meaningful.
+        - paragraph [ref=f1e51]: commit 42850d9 Â· +1 residual metric Â· ranking untouched
+      - listitem [ref=f1e52]:
+        - heading "Build a harness that records trajectories" [level=3] [ref=f1e53]
+        - paragraph [ref=f1e54]:
+          - text: A session is an ordered run of
+          - emphasis [ref=f1e55]: mutate
+          - text: /
+          - emphasis [ref=f1e56]: invoke
+          - text: /
+          - emphasis [ref=f1e57]: check
+          - text: steps against one corpus under one isolated cache. Every invocation carries its full timing envelope, so a step can be judged against what the engine actually did.
+        - paragraph [ref=f1e58]: eval/sim/ Â· stdlib only, like every other harness here
+      - listitem [ref=f1e59]:
+        - heading "Run 19 scenarios across three corpora" [level=3] [ref=f1e60]
+        - paragraph [ref=f1e61]: Cold starts, warm sessions, drift and repair, branch switches, budget pressure, hostile filenames, deliberately corrupted index files, eight processes racing for one cache.
+        - paragraph [ref=f1e62]: synthetic (61 files) Â· jekyll (501) Â· tokio (865)
+      - listitem [ref=f1e63]:
+        - heading "Fix only what crashed" [level=3] [ref=f1e64]
+        - paragraph [ref=f1e65]: One defect got a patch, because it took the process down and left the cache permanently unusable. Everything else was written up with an exact patch site and left as a decision to make.
+        - paragraph [ref=f1e66]: commit 5c6a10c Â· 133 tests pass Â· ranking snapshot byte-identical
+  - separator [ref=f1e67]
+  - generic [ref=f1e68]:
+    - paragraph [ref=f1e69]: Finding 01
+    - heading "The 64-byte coincidence" [level=2] [ref=f1e70]
+    - paragraph [ref=f1e71]: A corrupt index file didn't return an error. It panicked â€” and because it panicked instead of erroring, the cleanup that would have thrown the file away never ran.
+    - paragraph [ref=f1e72]: "semgrep's BM25 index file opens with a header. The reader validated two things: that the magic bytes matched, and that the file was at least 64 bytes long. Then it read five section offsets out of that header and used them to slice into the file."
+    - paragraph [ref=f1e73]:
+      - text: The header is
+      - strong [ref=f1e74]: exactly 64 bytes
+      - text: . So a file truncated to precisely its own header passes both checks, and hands back five offsets pointing far past the end of the file.
+  - figure "The five section offsets (blue) are read out of the header and used as unchecked slice indices. A file cut at byte 64 keeps them intact while deleting everything they point at." [ref=f1e75]:
+    - generic [ref=f1e76]:
+      - paragraph [ref=f1e77]: bm25.flat â€” header layout vs. the accepted minimum
+      - 'img "Byte layout of the bm25.flat header The header occupies bytes 0 through 63: 8 bytes of magic, 4 for document count, 4 for term count, 8 for total length, and 40 bytes holding five section offsets. The validity check accepted any file of 64 bytes or more, which is exactly the header length." [ref=f1e78]':
+        - generic [ref=f1e79]:
+          - generic [ref=f1e86]: magic 8
+          - generic [ref=f1e87]: docs
+          - generic [ref=f1e88]: terms
+          - generic [ref=f1e89]: total_len 8
+          - generic [ref=f1e90]: 5 Ã— section offset = 40
+          - generic [ref=f1e91]: term table Â· postings Â· doc lengths
+        - generic [ref=f1e92]: "0"
+        - generic [ref=f1e93]: "24"
+        - generic [ref=f1e94]: "64"
+        - generic [ref=f1e95]: end of file
+        - generic [ref=f1e96]: truncate here â†’ still passes
+        - generic [ref=f1e97]: "the check was: len â‰¥ 64 && magic ok â€” satisfied by the header alone"
+  - generic [ref=f1e99]:
+    - paragraph [ref=f1e100]:
+      - text: "That would be a contained bug if it returned an error. semgrep treats a cache entry as disposable: any failure to read one deletes it and falls back to scanning the corpus directly. But that recovery only runs on an"
+      - code [ref=f1e101]: Err
+      - text: . A panic goes around it.
+    - paragraph [ref=f1e102]: So the bad entry survived, and every subsequent invocation hit the same bytes and died the same way. The simulation ran each corruption three times in a row specifically to test whether the damage cleared itself. It didn't.
+  - generic [ref=f1e103]: "# three consecutive runs, same corrupted cache entry before exit codes [101, 101, 101] hits [0, 0, 0] â†\x90 recoverable only by `semgrep cache --clear` after exit codes [ 0, 0, 0] hits [5, 5, 5] â†\x90 degrades to a miss, answers correctly"
+  - generic [ref=f1e104]:
+    - paragraph [ref=f1e105]: Three separate corruptions produced it, on all three corpora. It was the only crash class in 660 invocations â€” and it accounted for every one of the 30.
+    - paragraph [ref=f1e107]:
+      - strong [ref=f1e108]: Why the fix is deliberately shallow.
+      - text: The repair validates that every section named by the header lies inside the file, and stops there. Verifying that every offset
+      - emphasis [ref=f1e109]: inside
+      - text: those tables is ordered would mean reading tens of megabytes on a large index â€” undoing the entire reason the format is memory-mapped. The accessors were made bounds-safe instead, so an inconsistent-but-in-range table returns nothing rather than crashing.
+    - paragraph [ref=f1e110]:
+      - text: The test truncates a real index at
+      - emphasis [ref=f1e111]: every
+      - text: "byte offset from zero to its full length and asserts each prefix either errors or answers. A sampled check would have missed this: the bug lived at exactly one length."
+  - separator [ref=f1e112]
+  - generic [ref=f1e113]:
+    - paragraph [ref=f1e114]: Finding 02
+    - heading "Repairing costs more than starting over" [level=2] [ref=f1e115]
+    - paragraph [ref=f1e116]: When files change under a cached index, semgrep patches around them rather than rebuilding. Past a certain amount of change, that patch costs more than the rebuild it was avoiding â€” and it never stops costing it.
+    - paragraph [ref=f1e117]: "The design document specifies the missing guard: if more than about 5% of files have drifted â€” a branch switch, say â€” treat the whole query as a cache miss and rebuild. That guard was never implemented, so the repair path re-reads, re-chunks and re-embeds every changed file, on every query, forever."
+  - figure "Finding the drift is flat at about 7 ms no matter how much has changed. Every millisecond of growth is re-embedding work â€” precisely what the unimplemented threshold would have skipped." [ref=f1e118]:
+    - generic [ref=f1e119]:
+      - paragraph [ref=f1e120]: Query cost against corpus drift â€” tokio, 865 files
+      - generic [ref=f1e121]:
+        - generic [ref=f1e122]: measured query (median of 10)
+        - generic [ref=f1e124]: full cold pass, no cache at all
+      - img "Query time rising with corpus drift, crossing the cold-pass cost Median query time rises from 8.7 milliseconds at zero drift to 196.9 milliseconds at 100% drift. A full cold pass over the same corpus costs 126.6 milliseconds, and the measured line crosses it between 25 and 50 percent drift." [ref=f1e126]:
+        - generic [ref=f1e127]:
+          - generic [ref=f1e128]: "0"
+          - generic [ref=f1e129]: "50"
+          - generic [ref=f1e130]: "100"
+          - generic [ref=f1e131]: "150"
+          - generic [ref=f1e132]: "200"
+          - generic [ref=f1e133]: ms
+          - generic [ref=f1e135]: "126.6"
+          - generic [ref=f1e136]: cold pass
+          - generic [ref=f1e139]: 0%
+          - generic [ref=f1e140]: "8.7"
+          - 'img "0% drift: query 8.7 milliseconds" [ref=f1e141] [cursor=pointer]'
+          - generic [ref=f1e143]: 1%
+          - 'img "1% drift: query 14.1 milliseconds" [ref=f1e144] [cursor=pointer]'
+          - generic [ref=f1e146]: 5%
+          - 'img "5% drift: query 35.1 milliseconds" [ref=f1e147] [cursor=pointer]'
+          - generic [ref=f1e149]: 10%
+          - 'img "10% drift: query 41.7 milliseconds" [ref=f1e150] [cursor=pointer]'
+          - generic [ref=f1e152]: 25%
+          - generic [ref=f1e153]: "90.6"
+          - 'img "25% drift: query 90.6 milliseconds" [ref=f1e154] [cursor=pointer]'
+          - generic [ref=f1e156]: 50%
+          - generic [ref=f1e157]: "131.1"
+          - 'img "50% drift: query 131.1 milliseconds" [ref=f1e158] [cursor=pointer]'
+          - generic [ref=f1e160]: 100%
+          - generic [ref=f1e161]: "196.9"
+          - 'img "100% drift: query 196.9 milliseconds" [ref=f1e162] [cursor=pointer]'
+          - generic [ref=f1e163]: share of files changed since the index was built
+      - group [ref=f1e164]:
+        - generic "Show the numbers" [ref=f1e165] [cursor=pointer]
+  - paragraph [ref=f1e168]:
+    - text: Two details make it worse than the curve suggests. The tenth identical query costs what the first did, because the patch is thrown away and rebuilt every time â€” so after a branch switch this is the steady state, not a transient. And the crossover sits between 25% and 50% drift, which is well inside what a normal
+    - code [ref=f1e169]: git checkout
+    - text: produces on a feature branch.
+  - separator [ref=f1e170]
+  - generic [ref=f1e171]:
+    - paragraph [ref=f1e172]: Findings 03â€“06
+    - heading "The rest of what broke" [level=2] [ref=f1e173]
+  - generic [ref=f1e174]:
+    - generic [ref=f1e175]:
+      - generic [ref=f1e176]:
+        - generic [ref=f1e177]: Severe
+        - generic [ref=f1e178]: Eight processes searching at once crash with a memory fault
+      - paragraph [ref=f1e179]:
+        - text: A known race was documented as producing "an occasional zero-hit run." It actually produces
+        - strong [ref=f1e180]: SIGBUS
+        - text: â€” the signature of a memory-mapped file being replaced underneath a live mapping, which is what an index rebuild does. It fired in 5 to 8 of 20 trials on a small corpus, and occasionally on a large one. Nobody had ever measured the rate.
+      - generic [ref=f1e181]: cache/mod.rs â€” needs a staging directory and a rename
+    - generic [ref=f1e182]:
+      - generic [ref=f1e183]:
+        - generic [ref=f1e184]: Moderate
+        - generic [ref=f1e185]: Under budget pressure, semgrep builds an index, deletes it, then scans anyway
+      - paragraph [ref=f1e186]: With a cache budget smaller than one entry, a query builds a complete index, the budget enforcer immediately reclaims it, the re-lookup misses, and the query falls through to a full corpus scan. It pays for both and keeps neither. Observed on 5 of 8 queries.
+      - generic [ref=f1e187]: cache/mod.rs â€” don't write an entry that cannot fit
+    - generic [ref=f1e188]:
+      - generic [ref=f1e189]:
+        - generic [ref=f1e190]: Moderate
+        - generic [ref=f1e191]: A failed eviction destroys healthy cache entries and keeps the broken one
+      - paragraph [ref=f1e192]: "The eviction loop removes a victim from its list before trying to delete it, and only counts the space freed on success. So a delete that fails neither stops the loop nor accounts for itself. Starting from four entries with one made undeletable: one entry left, and it was the undeletable one. Exit code 0, no warning."
+      - generic [ref=f1e193]: cache/budget.rs â€” decrement only what was actually freed
+    - generic [ref=f1e194]:
+      - generic [ref=f1e195]:
+        - generic [ref=f1e196]: Agent-facing
+        - generic [ref=f1e197]: A newline in a filename splits one result across two lines of output
+      - paragraph [ref=f1e198]:
+        - text: Results print as
+        - code [ref=f1e199]: path:line:text
+        - text: with no escaping, so a file named with an embedded newline produces two output lines from one hit, and one named with a colon parses wrong. Six files on disk produced seven lines of output. The JSON output is unaffected â€” six valid objects â€” which tells you the fix is escaping, not redesign.
+      - generic [ref=f1e200]: out.rs â€” the "stdout is data" contract depends on this
+    - generic [ref=f1e201]:
+      - generic [ref=f1e202]:
+        - generic [ref=f1e203]: Agent-facing
+        - generic [ref=f1e204]: A mistyped path reports "no results" instead of an error
+      - paragraph [ref=f1e205]:
+        - text: Searching a directory that doesn't exist exits 1 â€” the code for "found nothing" â€” so an agent reads it as
+        - emphasis [ref=f1e206]: the code isn't there
+        - text: and stops looking, when the path was simply wrong. The ranked path additionally announces that it's caching a scope that doesn't exist.
+      - generic [ref=f1e207]: cmd/search.rs â€” exit 2 exists for exactly this
+  - separator [ref=f1e208]
+  - generic [ref=f1e209]:
+    - paragraph [ref=f1e210]: The useful half
+    - heading "Four things I was wrong about" [level=2] [ref=f1e211]
+    - paragraph [ref=f1e212]: All four were wrong about where the time goes â€” which is the exact question the instrumentation was built to answer. That is what makes them worth more than the bugs.
+    - paragraph [ref=f1e213]: The prediction was that a warm query is dominated by re-reading the index off disk, because every query is a fresh process and nothing stays resident between them. That reasoning is sound. The measurement says it accounts for about a seventh of the query.
+  - 'figure "What actually costs: the brute-force vector scan, and re-opening each hit''s file to pick the best line to show. The second of those was invisible before â€” four separate steps shared one label." [ref=f1e214]':
+    - generic [ref=f1e215]:
+      - paragraph [ref=f1e216]: Where a warm query actually spends its time â€” tokio, median 1.77 ms
+      - generic [ref=f1e217]:
+        - generic [ref=f1e218]:
+          - generic [ref=f1e219]: predicted
+          - generic [ref=f1e220]: before running anything
+        - 'img "Predicted: loading the index more than 60 percent, everything else under 40 percent." [ref=f1e221]':
+          - generic [ref=f1e222]: loading the index >60%
+          - generic [ref=f1e224]: everything else
+      - generic [ref=f1e226]:
+        - generic [ref=f1e227]:
+          - generic [ref=f1e228]: measured
+          - generic [ref=f1e229]: 1.77 ms
+        - 'img "Measured: vector scan 43 percent, re-reading hit files 28 percent, loading the index 14 percent, everything else 15 percent." [ref=f1e230]':
+          - generic [ref=f1e231]: vector scan 43%
+          - generic [ref=f1e233]: re-reading files 28%
+          - generic [ref=f1e235]: load 14%
+          - generic [ref=f1e237]: rest 15%
+        - generic [ref=f1e239]: the segment the prediction was about
+      - group [ref=f1e242]:
+        - generic "Show the numbers" [ref=f1e243] [cursor=pointer]
+  - generic [ref=f1e245]:
+    - paragraph [ref=f1e246]: This has a direct consequence. The roadmap proposes a persistent server to amortize the index load away. At this corpus size that would buy roughly 13%. The measurement doesn't kill the idea â€” index load genuinely does dominate on a very large corpus â€” but it does say the idea can't be justified from these numbers, and points at two other costs instead.
+    - paragraph [ref=f1e247]: The same thing happened with index builds. Embedding was assumed to be the expensive part. It's the smaller half.
+  - figure "First time this split has been visible at all â€” build statistics carried counts and no timings. The optimization on the roadmap overlaps embedding with reading; the larger half is the one being overlapped into." [ref=f1e248]:
+    - generic [ref=f1e249]:
+      - paragraph [ref=f1e250]: Where an index build spends its time â€” tokio, 129.8 ms total
+      - generic [ref=f1e251]:
+        - img "Reading and tokenizing 55 percent, embedding 35 percent, walking the directory and writing the files 10 percent." [ref=f1e252]:
+          - generic [ref=f1e253]: read + tokenize 55%
+          - generic [ref=f1e255]: embed 35%
+          - generic [ref=f1e257]: 10%
+        - generic [ref=f1e259]:
+          - generic [ref=f1e260]:
+            - generic [ref=f1e262]: 71.4 ms
+            - text: reading and tokenizing
+          - generic [ref=f1e263]:
+            - generic [ref=f1e265]: 45.5 ms
+            - text: embedding
+          - generic [ref=f1e266]:
+            - generic [ref=f1e268]: 12.9 ms
+            - text: walking the tree and writing the files
+  - generic [ref=f1e270]:
+    - heading "The other two misses" [level=3] [ref=f1e271]
+    - paragraph [ref=f1e272]: The drift crossover was predicted between 5% and 25%; it landed between 25% and 50%. Direction and mechanism right, magnitude optimistic by a step.
+    - paragraph [ref=f1e273]:
+      - text: "And a small one worth keeping because it was found by writing a test rather than by running anything: a failed exact-match search was predicted to look up the index three times. It looks it up twice. Three is what a"
+      - emphasis [ref=f1e274]: ranked
+      - text: search does on a cache miss. Both counts are now pinned by tests, and the error is recorded in the commit rather than quietly corrected.
+  - separator [ref=f1e275]
+  - generic [ref=f1e276]:
+    - paragraph [ref=f1e277]: The instrument
+    - heading "The number that found its own gaps" [level=2] [ref=f1e278]
+    - paragraph [ref=f1e279]:
+      - text: The instrumentation change that mattered wasn't adding timers. It was making the totals
+      - emphasis [ref=f1e280]: derived
+      - text: ". Every stage belongs to exactly one bucket, and the coarse figures are sums of those buckets rather than separate stopwatches. That leaves exactly one number unaccounted for:"
+  - generic [ref=f1e281]: unattributed_ms = total_ms âˆ’ sum(every stage)
+  - generic [ref=f1e282]:
+    - paragraph [ref=f1e283]: Measured independently, the coarse totals and the stage list disagree for legitimate reasons â€” some stages nest inside others â€” and the difference is noise. Derived, they reconcile by construction, and the leftover is exactly the work nobody is timing.
+    - paragraph [ref=f1e284]:
+      - text: It paid for itself within the hour. The first run reported
+      - strong [ref=f1e285]: 31% unattributed
+      - text: on the cold path. The cause was the query's own embedding call sitting outside every measured span â€” on the code path whose entire job is embedding. After that fix it sits at 2%, and a test now fails the build if it drifts past 10%.
+    - paragraph [ref=f1e287]: There is a second-order benefit worth naming. Because the stage list is a fixed shape â€” every stage always reported, zeroed when it didn't run â€” two runs can be compared without special-casing which optional steps happened to fire. That's what made a scenario harness possible at all.
+  - separator [ref=f1e288]
+  - generic [ref=f1e289]:
+    - paragraph [ref=f1e290]: Honesty check
+    - heading "Where the harness lied to me" [level=2] [ref=f1e291]
+    - paragraph [ref=f1e292]: A test harness that only reports the system's failures isn't being measured. Five of these were caught, four of them because a check passed when it should have been impossible.
+  - table [ref=f1e295]:
+    - rowgroup [ref=f1e296]:
+      - row [ref=f1e297]:
+        - columnheader "What went wrong" [ref=f1e298]
+        - columnheader "How it presented" [ref=f1e299]
+        - columnheader "Fix" [ref=f1e300]
+    - rowgroup [ref=f1e301]:
+      - row [ref=f1e302]:
+        - cell "A format check ran against a tree where one enormous file flooded the captured output before the hostile filenames appeared" [ref=f1e303]
+        - cell "passed, testing nothing" [ref=f1e304]
+        - cell "scope to a directory of only the hostile names; record how many files were on disk" [ref=f1e305]
+      - row [ref=f1e306]:
+        - cell "The eviction scenario queried an already-cached corpus, so the budget enforcer â€” which only runs when writing â€” never fired" [ref=f1e307]
+        - cell "passed, testing nothing" [ref=f1e308]
+        - cell "force a cold write with a corpus that has never been indexed" [ref=f1e309]
+      - row [ref=f1e310]:
+        - cell "The same-second-edit scenario tried to race the clock and landed in a different second every time" [ref=f1e311]
+        - cell "passed, testing nothing" [ref=f1e312]
+        - cell "restore the timestamp explicitly, and assert the condition was actually built" [ref=f1e313]
+      - row [ref=f1e314]:
+        - cell "Three scenarios named a file that only exists in the synthetic corpus; the first real-corpus run copied a leftover index, so nothing was ever cold" [ref=f1e315]
+        - cell "passed, testing nothing" [ref=f1e316]
+        - cell "pick files by shape, not name; exclude stale index directories when copying" [ref=f1e317]
+      - row [ref=f1e318]:
+        - cell "\"semgrep emits invalid JSON\" â€” it was the harness's own 64 KB output cut slicing a line in half" [ref=f1e319]
+        - cell "a false finding" [ref=f1e320]
+        - cell "drop a torn final line; flag when output was truncated" [ref=f1e321]
+  - generic [ref=f1e322]:
+    - paragraph [ref=f1e323]: Two thresholds were also reporting noise as signal â€” a stability check using max-over-min, which let one slow query decide the verdict, and an amortization check that failed on an exact boundary value. Both were made robust.
+    - paragraph [ref=f1e324]: "And the synthetic corpus turned out to be useless for timing: at 61 tiny files every measurement is 4â€“5 ms and run-to-run variance exceeds the effects being measured. It's kept because it's where the concurrency race and the fault injection reproduce most readily â€” but no timing number in the report comes from it."
+  - separator [ref=f1e325]
+  - generic [ref=f1e326]:
+    - paragraph [ref=f1e327]: Loose end
+    - heading "A branch that moved underfoot" [level=2] [ref=f1e328]
+    - paragraph [ref=f1e329]:
+      - text: Worth knowing about, since it's your repository. Partway through, work was happening on
+      - code [ref=f1e330]: main
+      - text: in parallel with mine. I had created a branch and committed the pre-registration to it; the branch was then switched back to
+      - code [ref=f1e331]: main
+      - text: and a docs commit cherry-picked across. My later commits landed on
+      - code [ref=f1e332]: main
+      - text: â€” which is correct â€” but the pre-registration was stranded on the side branch, and its file vanished from the working tree.
+    - paragraph [ref=f1e333]:
+      - text: "Nothing was lost, and it surfaced the right way: a documentation test that checks every file path mentioned in"
+      - code [ref=f1e334]: CLAUDE.md
+      - text: actually exists failed the build. The commit was cherry-picked onto
+      - code [ref=f1e335]: main
+      - text: ", in front of every result that cites it. The"
+      - code [ref=f1e336]: sim-testing
+      - text: branch still holds the originals and is yours to delete.
+  - separator [ref=f1e337]
+  - generic [ref=f1e338]:
+    - paragraph [ref=f1e339]: State
+    - heading "Where things stand" [level=2] [ref=f1e340]
+    - table [ref=f1e342]:
+      - rowgroup [ref=f1e343]:
+        - row [ref=f1e344]:
+          - columnheader "Item" [ref=f1e345]
+          - columnheader "State" [ref=f1e346]
+      - rowgroup [ref=f1e347]:
+        - row [ref=f1e348]:
+          - cell "Panicking BM25 reader" [ref=f1e349]
+          - cell "Fixed bounds-checked, plus a test truncating at every byte" [ref=f1e350]
+        - row [ref=f1e351]:
+          - cell "Concurrency SIGBUS" [ref=f1e352]
+          - cell "Reported â€” needs staging dir + rename" [ref=f1e353]
+        - row [ref=f1e354]:
+          - cell "Repair delta threshold" [ref=f1e355]
+          - cell "Reported â€” the design doc already specifies it" [ref=f1e356]
+        - row [ref=f1e357]:
+          - cell "Budget build-then-evict" [ref=f1e358]
+          - cell "Reported" [ref=f1e359]
+        - row [ref=f1e360]:
+          - cell "Eviction accounting" [ref=f1e361]
+          - cell "Reported" [ref=f1e362]
+        - row [ref=f1e363]:
+          - cell "Path escaping in output" [ref=f1e364]
+          - cell "Reported" [ref=f1e365]
+        - row [ref=f1e366]:
+          - cell "Mistyped-path exit code" [ref=f1e367]
+          - cell "Reported" [ref=f1e368]
+        - row [ref=f1e369]:
+          - cell "Duplicate index lookup per query" [ref=f1e370]
+          - cell "Reported â€” cheapest of the lot to fix" [ref=f1e371]
+        - row [ref=f1e372]:
+          - cell "Narrow-scope starvation" [ref=f1e373]
+          - cell "Reported â€” two directories returned zero hits from a fully indexed corpus" [ref=f1e374]
+    - paragraph [ref=f1e375]:
+      - text: Everything is on
+      - code [ref=f1e376]: main
+      - text: . 133 tests pass, the ranking snapshot is byte-identical, and the sessions are checked in so any number here can be traced back to the invocation that produced it.
+    - paragraph [ref=f1e378]:
+      - strong [ref=f1e379]: Scope, stated plainly.
+      - text: "Three corpora of 61 to 865 files on one machine. The 84,000-file kernel corpus was deliberately out of scope, so nothing here describes behavior at that scale â€” and at least one finding (index load being a small share of a warm query) is explicitly size-dependent. Retrieval quality is a different harness's subject: a passing scenario shows the predicted behavior occurred, not that the answers were good."
+  - status

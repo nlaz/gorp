@@ -242,7 +242,7 @@ bm25 top 5:  d11479.py, d20352.py, d7408.py ← GOLD, d17645.py, d15517.py
 
 | rg | rg-strong | **rg-oracle** | semantic | hybrid | bm25 |
 |---|---|---|---|---|---|
-| 0.030 | 0.030 | **0.101** | 0.083 | 0.208 | **0.222** |
+| 0.030 | 0.030 | **0.101** | 0.108 | 0.208 | **0.222** |
 
 **Real agent queries (replay, 497, hit@5 on first gold file):**
 
@@ -272,10 +272,21 @@ the same reason.** Future gaps get quoted against the ceiling.
 it: 0.222 vs hybrid's 0.208 on real queries, and bm25 ≥ hybrid on three of the
 four new corpora. The semantic half does not earn its keep on code.
 
-**And an oracle-grep beats our semantic mode** on real queries — 0.101 vs
-0.083. §9.9 measured why: on code, the static embedding functions as a fuzzy
-lexical matcher (`def~function` 0.037, `mutex~lock` 0.045), not a semantic
-model. This is that probe result surfacing in an end-to-end score.
+**An oracle-grep and our semantic mode are level** on real queries — 0.101 vs
+0.108, 121 against 130 of 1,200, CI [-0.013,+0.029], inconclusive.
+
+> **Retracted 2026-07-31.** This section previously read "an oracle-grep *beats*
+> our semantic mode, 0.101 vs 0.083." That was measured before MaxSim became
+> the default for `--mode semantic`, which lifted CoSQA semantic to 0.108
+> (+0.026, CI [+0.006,+0.046], p=0.011). The comparison is now a tie, and the
+> stronger claim is withdrawn. It was caught by a reader asking whether the new
+> reranker was in these numbers — not by the harness, which has no way to know
+> a doc is quoting a figure the binary no longer produces.
+
+The underlying point still holds and is worth keeping: semantic-only (0.108) is
+less than half of bm25 alone (0.222), and §9.9 measured why — on code the static
+embedding functions as a fuzzy lexical matcher (`def~function` 0.037,
+`mutex~lock` 0.045) rather than a semantic model.
 
 **The paraphrase asymmetry is the strongest evidence in the eval.** `rg-oracle`
 scores **exactly 0.000** on all 199 kernel paraphrase queries. Not 0.005. A
@@ -368,6 +379,7 @@ point (RESEARCH.md §13.10):
 | commons-lang | 0.492 | **0.583** | unchanged |
 | tokio | 0.420 | **0.530** | unchanged |
 | etcd | 0.340 | **0.420** | unchanged |
+| cosqa | 0.083 | **0.108** | unchanged |
 
 Reranking the semantic list is worth +0.07 to +0.15 R@5. Fused hybrid does not
 move at all, because BM25 carries it — which is why MaxSim is on for semantic

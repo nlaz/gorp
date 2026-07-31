@@ -5358,6 +5358,32 @@
     ]
   },
   {
+    "name": "sem96-cosqa",
+    "n_cells": 1,
+    "n_ranks": 1200,
+    "corpus": "eval/data/cosqa/corpus",
+    "queries": "eval/queries/cosqa-1200.jsonl",
+    "queries_fp": "a9006a29f625c5b9",
+    "query_set": "unknown (fp a9006a29f625c5b9)",
+    "corpus_digest": null,
+    "at": "2026-07-31T15:15:34Z",
+    "git_head": "5c6a10c",
+    "binary_mtime": "2026-07-31T07:12:23Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "real",
+        "n": 1200,
+        "recall@1": 0.051,
+        "recall@5": 0.108,
+        "recall@10": 0.173,
+        "mrr@10": 0.078,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
     "name": "sem96-linux",
     "n_cells": 2,
     "n_ranks": 398,
