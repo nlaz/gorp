@@ -15,6 +15,7 @@ import time
 from pathlib import Path
 
 import corpora
+import harness
 
 REGISTRY = []
 
@@ -70,9 +71,12 @@ def subdirs(root, limit=4):
 @scenario("s1-cold-start", tier=1, expect={
     "path_taken": "cold_write_through",
     "build_share_of_total": ">= 0.90",
-    "discover_calls": 3,
+    "discover_calls": 2,
     "build_stages_visible": True,
-}, notes="The first ranked search of a scope builds an index inside search().")
+}, notes="The first ranked search of a scope builds an index inside search(). "
+         "Was 3 resolutions until the CLI stopped resolving on its own to decide "
+         "whether to print the cold-start notice (FIXES.md #12); the remaining two "
+         "are the engine's own miss and its post-build re-discovery.")
 def s1_cold_start(sess, ctx):
     step = sess.run(["--json", "-k", "10", Q], env={"SEMGREP_CACHE_TTL_SECS": "0"})
     t = step.trace or {}
@@ -85,7 +89,9 @@ def s1_cold_start(sess, ctx):
     sess.check("build dominates the first query", True, round(build / total, 3),
                ok=build / total >= 0.90,
                note=f"build={build:.1f}ms total={total:.1f}ms share={build/total:.3f}")
-    sess.check("index resolved three times", 3, res.get("discover_calls"))
+    sess.check("index resolved twice", 2, res.get("discover_calls"),
+               note="was 3 before FIXES.md #12; the engine's miss plus its "
+                    "post-build re-discovery, both unavoidable today")
     sess.check("the build's internal split is reported", True,
                [s["stage"] for s in timing.get("stages", []) if s["stage"].startswith("build:")
                 and s["ms"] > 0],
@@ -249,11 +255,17 @@ def s3d(sess, ctx):
 # ---------------------------------------------------------------------------
 
 @scenario("s4-delta-cliff", tier=2, expect={
-    "repair_delta_grows_linearly_with_drift": True,
-    "query_10_costs_the_same_as_query_1": True,
-    "repair_exceeds_rebuild_above_some_drift": "crossover predicted in 5-25%",
-    "threshold_implemented": False,
-}, notes="RESEARCH.md §8 mechanism 2 specifies a delta-size threshold; repair.rs has none.")
+    "repair_delta_grows_linearly_with_drift": "below the threshold only",
+    "query_10_costs_the_same_as_query_1": "below the threshold only",
+    "drift_above_threshold_rebuilds": True,
+    "threshold_implemented": True,
+}, notes="RESEARCH.md §8 mechanism 2 specifies a delta-size threshold. The original "
+         "run measured what its absence cost — 131ms/query at 50% drift against a "
+         "127ms cold pass, forever — and those two predictions HELD (SIMULATION.md "
+         "§1.3). The threshold is now implemented (FIXES.md #7), so the two "
+         "unqualified predictions above are deliberately retired rather than "
+         "relaxed: they still describe drift below the bound, and above it the "
+         "entry is rebuilt instead, which is a different claim and is checked as one.")
 def s4_cliff(sess, ctx):
     root = ctx["root"]
     fractions = [0.0, 0.01, 0.05, 0.10, 0.25, 0.50, 1.00]
@@ -293,36 +305,74 @@ def s4_cliff(sess, ctx):
             "delta_first": deltas[0], "delta_last": deltas[-1],
             "delta_median": sorted(deltas)[len(deltas) // 2],
             "walk_median": sorted(walks)[len(walks) // 2],
+            # Both ends, and the distinction is the whole point once a threshold
+            # exists: the *first* query after drifting is the one that decides
+            # repair-or-rebuild, and if it rebuilds then every query behind it
+            # sees a clean entry and reports `no_drift`. Recording only the last
+            # one made a working rebuild look like nothing had drifted at all.
+            "outcome_first": reps[0].trace["repair"]["outcome"] if reps[0].trace else None,
             "outcome": reps[-1].trace["repair"]["outcome"] if reps[-1].trace else None,
         })
 
     sess.mutate("record-sweep", fn=lambda: {"sweep": measured,
                                             "cold_reference_ms": cold_ms})
 
-    # Does the 10th identical query cost less than the 1st? If repair amortized
-    # at all, it would.
-    ratios = [m["delta_last"] / max(m["delta_first"], 1e-9)
-              for m in measured if m["delta_first"] > 0.5]
-    # The claim is "the 10th query still pays for the overlay", not a precise
-    # ratio. Anything above 0.4 means no meaningful amortization; a tighter
-    # bound would be measuring run-to-run noise, since these are the same work
-    # done twice and the only difference is scheduling.
+    # Levels the overlay actually handled, versus levels that rebuilt instead.
+    repaired = [m for m in measured if m["delta_first"] > 0.5]
+    rebuilt = [m for m in measured if m["outcome_first"] == "drift_too_large"]
+
+    # Below the bound the overlay still does not amortize: it is discarded and
+    # rebuilt on every query past the TTL, because repair never writes back.
+    # That remains true and remains unfixed — it is simply no longer unbounded.
+    ratios = [m["delta_last"] / max(m["delta_first"], 1e-9) for m in repaired]
     typical = sorted(ratios)[len(ratios) // 2] if ratios else 0.0
-    sess.check("repeated identical queries never amortize", True,
+    sess.check("a repaired query still does not amortize", True,
                {"ratios": [round(r, 2) for r in ratios], "median": round(typical, 2)},
                ok=bool(ratios) and typical > 0.4,
-               note="the overlay is discarded and rebuilt every query past the TTL")
+               note="below the threshold the overlay is still rebuilt every query")
 
-    grows = all(measured[i]["delta_median"] <= measured[i + 1]["delta_median"] + 1.0
-                for i in range(len(measured) - 1))
-    sess.check("repair cost grows with drift", True, grows,
-               note=[f"{m['fraction']}:{m['delta_median']:.1f}ms" for m in measured])
+    grows = all(repaired[i]["delta_median"] <= repaired[i + 1]["delta_median"] + 1.0
+                for i in range(len(repaired) - 1))
+    sess.check("repair cost grows with drift, below the threshold", True, grows,
+               note=[f"{m['fraction']}:{m['delta_median']:.1f}ms" for m in repaired])
 
-    worst = measured[-1]["total_median"]
-    sess.check("at 100% drift a repaired query costs more than a cold pass", True,
-               {"repaired_ms": round(worst, 1), "cold_ms": round(cold_ms, 1)},
-               ok=worst > cold_ms,
-               note="the unimplemented §8 threshold is what would stop this")
+    # The bound itself. Past it the entry is replaced, not patched.
+    sess.check("heavy drift is rebuilt rather than repaired", True, bool(rebuilt),
+               note=[f"{m['fraction']}:{m['outcome_first']}" for m in measured])
+
+    # And that is what buys the amortization the old behavior never had: the
+    # rebuild lands on the first query, and the nine after it are warm. This is
+    # the claim the whole threshold rests on, so it is checked directly.
+    amortized = [
+        {"fraction": m["fraction"],
+         "first_ms": round(m["total_first"], 1),
+         "median_ms": round(m["total_median"], 1),
+         "cold_ms": round(cold_ms, 1)}
+        for m in rebuilt
+    ]
+    sess.check("after a rebuild the following queries are warm", True, amortized,
+               ok=bool(amortized) and all(a["median_ms"] < a["first_ms"] for a in amortized),
+               note="repairing charged full price on every query; rebuilding charges once")
+
+    # The regression this exists to prevent: a query that costs more than simply
+    # throwing the cache away. At 100% drift the old path was 1.56x a cold pass.
+    worst = max((m["total_median"] for m in measured), default=0.0)
+    sess.check("no drift level costs more than a cold pass", True,
+               {"worst_median_ms": round(worst, 1), "cold_ms": round(cold_ms, 1)},
+               ok=cold_ms > 0 and worst <= cold_ms,
+               note="SIMULATION.md §1.3 measured 197ms against a 127ms cold pass at 100% drift")
+
+    # The original finding, inverted. It measured 196.9ms against a 126.6ms cold
+    # pass at 100% drift — a warm query costing 1.56x what throwing the cache
+    # away would have — and predicted it would keep costing that forever. Both
+    # held. The threshold is what stops it, so the check that recorded the
+    # pathology now guards against its return.
+    steady = measured[-1]["total_median"]
+    sess.check("at 100% drift the steady-state query is cheaper than a cold pass", True,
+               {"steady_ms": round(steady, 1), "cold_ms": round(cold_ms, 1),
+                "was": "196.9ms vs 126.6ms cold, on every query"},
+               ok=cold_ms > 0 and steady < cold_ms,
+               note="one rebuild, then warm — rather than paying the delta on every query")
 
 
 # ---------------------------------------------------------------------------
@@ -358,10 +408,14 @@ def s5a(sess, ctx):
 
 
 @scenario("s5b-eviction-failure", tier=1, expect={
-    "healthy_entries_destroyed": True,
+    "healthy_entries_destroyed": False,
     "cache_stays_over_budget": True,
     "error_reported": False,
-}, notes="budget.rs pops the victim before the delete and only decrements on success.")
+}, notes="Pre-registered as a cascade and measured as one: budget.rs popped the "
+         "victim before attempting the delete and decremented only on success, so "
+         "one chmod 0500 entry took every healthy entry behind it — four in, one "
+         "out, exit 0, silent. The loop stops on a failed delete now and reports it "
+         "(FIXES.md #19), so the prediction is retired rather than relaxed.")
 def s5b(sess, ctx):
     roots = ctx["multi_roots"]
     for i, r in enumerate(roots):
@@ -397,16 +451,29 @@ def s5b(sess, ctx):
 
     sess.check("the undeletable entry survives", True, victim.exists(),
                note="its directory could not be removed, so it stays")
-    sess.check("healthy entries were destroyed instead", True,
-               {"before": len(entries), "after": len(after)},
-               ok=len(after) < len(entries))
+    # The cap here is 1 byte, so every entry is over budget and some eviction is
+    # correct. The bug was not that anything was evicted — it was that the loop
+    # could not tell a failed delete from a successful one, so it ran past the
+    # undeletable entry and consumed everything behind it, leaving that entry as
+    # the *sole* survivor. It stops at the first failure now.
+    survivors_besides_victim = [e for e in after if e != victim]
+    sess.check("an undeletable entry does not take every healthy one with it", True,
+               {"before": len(entries), "after": len(after),
+                "survivors_besides_victim": [e.name for e in survivors_besides_victim]},
+               ok=len(survivors_besides_victim) >= 1,
+               note="was 4 in, 1 out, and the survivor was the undeletable one")
     sess.check("no error is surfaced to the caller", 0, r["exit"],
                note="the cache is left over budget silently")
 
 
 @scenario("s5c-dir-bytes-is-not-recursive", tier=1, expect={
-    "subdirectory_bytes_counted": False,
-}, notes="budget.rs::dir_bytes sums one level; entries are flat only by convention.")
+    "subdirectory_bytes_counted": True,
+}, notes="Pre-registered as False: dir_bytes summed one level, correct only because "
+         "entries happen to be flat. It recurses now (FIXES.md #19). This scenario "
+         "ALSO never ran: it invoked `semgrep cache <path>`, which is a usage error, "
+         "and then checked that a size was absent from the empty stdout it got back "
+         "— green, and measuring nothing, for its whole life. The harness now "
+         "distinguishes 'no path given' from 'this verb takes no path'.")
 def s5c(sess, ctx):
     sess.run(["--json", "-k", "5", Q], env={"SEMGREP_CACHE_TTL_SECS": "0"},
              label="build")
@@ -416,6 +483,9 @@ def s5c(sess, ctx):
         return
     e = entries[0]
 
+    before = sess.run(["cache"], path=harness.Session.NO_PATH, label="cache-status-before")
+    size_before = _reported_bytes(before["stdout"])
+
     def plant():
         sub = e / "planted"
         sub.mkdir(exist_ok=True)
@@ -423,14 +493,23 @@ def s5c(sess, ctx):
         return {"planted_bytes": 5_000_000}
     sess.mutate("plant-5MB-subdirectory", fn=plant)
 
-    st = sess.run(["cache"], path=None, label="cache-status")
-    # `semgrep cache` runs with no path; run_bare equivalent is a path of ".".
+    st = sess.run(["cache"], path=harness.Session.NO_PATH, label="cache-status")
     reported = st["stdout"]
-    sess.mutate("cache-status-output", fn=lambda: {"stdout": reported[:2000]})
-    sess.check("the planted 5MB is not counted in the entry's size", True,
-               reported[:500],
-               ok=" 5." not in reported and "5.0 MB" not in reported,
-               note="dir_bytes is non-recursive; correct only because entries are flat")
+    sess.mutate("cache-status-output", fn=lambda: {"stdout": reported[:2000],
+                                                   "exit": st["exit"]})
+    # The precondition, asserted rather than assumed — this check spent its whole
+    # life reading an empty string because the invocation was a usage error.
+    sess.check("cache status actually ran", 0, st["exit"],
+               note="`semgrep cache` takes no path argument")
+    size_after = _reported_bytes(reported)
+    # Growth, not a literal "5.0 MB": the reported figure is the whole entry, so
+    # on a real corpus it is the index plus the planted bytes and matching a
+    # string would only ever work on a corpus that indexed to nothing.
+    grew = size_after - size_before
+    sess.check("the planted 5MB is counted in the entry's size", True,
+               {"before_bytes": size_before, "after_bytes": size_after, "grew_by": grew},
+               ok=grew >= 4_000_000,
+               note="dir_bytes recurses now, so a nested artifact counts against the budget")
 
 
 # ---------------------------------------------------------------------------
@@ -439,9 +518,12 @@ def s5c(sess, ctx):
 
 @scenario("s7-adversarial-corpus", tier=1, expect={
     "no_panic": True, "no_hang": True,
-    "path_line_text_contract_broken_by_newline_filename": True,
+    "path_line_text_contract_broken_by_newline_filename": False,
     "json_survives": True,
-}, notes="out::hits writes a bare println!(\"{}:{}:{}\") with no escaping.")
+}, notes="Pre-registered and measured as broken: six files produced seven stdout "
+         "lines and `od:d.py` mis-parsed silently. `out::hits` quotes ambiguous "
+         "paths now (FIXES.md #20), so the prediction is retired — the contract "
+         "holds, and this scenario is what keeps it holding.")
 def s7(sess, ctx):
     root = ctx["adversarial"]
     modes = ["hybrid", "bm25", "semantic", "keyword"]
@@ -476,7 +558,8 @@ def s7(sess, ctx):
                note="a newline in a filename splits one hit across two lines")
     sess.check("every stdout line parses as path:line:text", [], bad[:8],
                ok=not bad,
-               note="out::hits writes a bare println!(\"{}:{}:{}\") with no escaping")
+               note="ambiguous paths are C-quoted (FIXES.md #20); ordinary ones are "
+                    "byte-identical, so a plain split still works on them")
 
     js = sess.run(["-e", "compute_backoff", "--all", "--json"],
                   path=root / "names", timeout=120, label="json-exact-names")
@@ -488,10 +571,40 @@ def s7(sess, ctx):
                note="if --json survives what plain text does not, the fix is escaping")
 
 
+def _reported_bytes(status_stdout):
+    """Total bytes `semgrep cache` reports, from its `(N entries, X of Y budget)`
+    header. Parsed rather than string-matched so the check works on any corpus."""
+    import re
+    m = re.search(r"\(\d+ entries, ([\d.]+) (B|KB|MB|GB|TB) of ", status_stdout)
+    if not m:
+        return 0
+    scale = {"B": 1, "KB": 1e3, "MB": 1e6, "GB": 1e9, "TB": 1e12}[m.group(2)]
+    return int(float(m.group(1)) * scale)
+
+
 def _looks_like_hit_line(line):
-    """`path:line:text` — the field before the second colon must be an int."""
-    parts = line.split(":", 2)
-    return len(parts) == 3 and parts[1].isdigit()
+    """`path:line:text` — the field before the second colon must be an int.
+
+    A path is C-quoted when it contains a control character, a quote, or a colon
+    (FIXES.md #20), so the split has to skip a quoted path rather than cut inside
+    it. A consumer has to do exactly this, which is the argument for quoting only
+    the names that are genuinely ambiguous: every ordinary line still parses with
+    a plain `split(":", 2)`.
+    """
+    if line.startswith('"'):
+        i, escaped = 1, False
+        while i < len(line):
+            if line[i] == '"' and not escaped:
+                break
+            escaped = line[i] == "\\" and not escaped
+            i += 1
+        else:
+            return False                     # unterminated quote
+        rest = line[i + 1:]
+    else:
+        rest = line[line.find(":"):] if ":" in line else ""
+    parts = rest.split(":", 2)
+    return len(parts) == 3 and parts[0] == "" and parts[1].isdigit()
 
 
 def _is_json(line):
@@ -695,8 +808,15 @@ def s10(sess, ctx):
 # ---------------------------------------------------------------------------
 
 @scenario("s11-narrow-scope", tier=1, expect={
-    "fewer_than_k_hits_for_narrow_scopes": True,
-}, notes="candidates() filters to the subtree before truncating a 256-row list.")
+    "fewer_than_k_hits_for_narrow_scopes": False,
+}, notes="Pre-registered and measured as starvation: candidates() filtered to the "
+         "subtree *after* truncating a 256-row fused list, so a scope holding none "
+         "of the corpus-wide head returned nothing — tokio's docs/ gave 0 hits from "
+         "8,042 chunks. Ranking is scope-aware now (FIXES.md #23), so a scope "
+         "returns everything it has. Note what 'everything it has' means: a scope "
+         "with fewer than k chunks returns fewer than k hits and always did, which "
+         "is not starvation and is why the check compares against what is in scope "
+         "rather than against k.")
 def s11(sess, ctx):
     root = ctx["root"]
     sess.run(["--json", "-k", "10", Q], env={"SEMGREP_CACHE_TTL_SECS": "0"},
@@ -710,9 +830,23 @@ def s11(sess, ctx):
                         "n_considered": s.trace["results"]["n_chunks_considered"]
                         if s.trace else None})
     sess.mutate("scope-results", fn=lambda: {"results": results})
-    short = [r for r in results if r["n_hits"] < 10]
-    sess.check("a narrow scope still returns k hits", [], short,
-               note="filter-then-truncate over a bounded fused list can starve a scope")
+    # The finding, stated as the thing that was actually wrong: a scope with
+    # indexed content returned none of it.
+    empty = [r for r in results if r["n_considered"] and r["n_hits"] == 0]
+    sess.check("no scope with indexed content returns nothing", [], empty,
+               note="the original finding: two tokio scopes returned 0 of 8,042 chunks")
+
+    # And a scope with room to spare fills k. Restricted to scopes holding at
+    # least `candidate_width(k)` = 3k chunks, because below that the count is
+    # decided by span dedupe and MMR rather than by the scope filter — jekyll's
+    # `.devcontainer` holds three chunks and returns two, which is diversity
+    # working, not starvation, and a check that cannot tell those apart would
+    # fail forever on any corpus with a small directory in it.
+    roomy = [r for r in results if (r["n_considered"] or 0) >= 30]
+    short = [r for r in roomy if r["n_hits"] < 10]
+    sess.check("a scope with room to spare returns k hits", [], short,
+               note=f"checked {len(roomy)} of {len(results)} scopes; the rest are "
+                    f"smaller than the candidate pool")
 
 
 # ---------------------------------------------------------------------------
@@ -723,7 +857,9 @@ def s11(sess, ctx):
     "n_envelopes": 2,
     "phases": ["primary", "suggest"],
     "discover_calls": 2,
-}, notes="Pre-registered as 3 resolutions; warn_if_first_search skips keyword mode.")
+}, notes="Pre-registered as 3 resolutions; the CLI's cold-start pre-check never ran "
+         "in keyword mode, so it was always 2. Unchanged by FIXES.md #12 for the same "
+         "reason — this pair is the suggestion path's own.")
 def s12(sess, ctx):
     sess.run(["--json", "-k", "10", Q], env={"SEMGREP_CACHE_TTL_SECS": "0"},
              label="prime")
@@ -737,7 +873,7 @@ def s12(sess, ctx):
                    s.traces[0]["query_id"] == s.traces[1]["query_id"])
         sess.check("index resolutions for one failed -e", 2,
                    s.traces[1]["resolution"]["discover_calls"],
-                   note="PREREGISTERED AS 3 — warn_if_first_search skips keyword mode")
+                   note="PREREGISTERED AS 3 — the cold-start pre-check skipped keyword mode")
         kw = s.traces[0]["timing"]["total_ms"]
         hy = s.traces[1]["timing"]["total_ms"]
         sess.mutate("double-search-cost", fn=lambda: {

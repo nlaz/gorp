@@ -202,8 +202,20 @@ class Session:
         self._write(rec)
         return Step(rec)
 
+    # Sentinel for "this verb takes no path at all", distinct from "no path
+    # given, use the corpus root". `semgrep cache` is the case: passing it a path
+    # is a clap usage error, so a scenario that meant to inspect the cache got
+    # exit 2 and an empty stdout — and then *passed*, because its check was
+    # looking for something to be absent from that stdout. Silently testing
+    # nothing is the failure mode this harness is most prone to (SIMULATION.md
+    # §5), so the two meanings of "no path" are now different values.
+    NO_PATH = object()
+
     def run(self, args, path=None, timeout=300, env=None, label=""):
         """One semgrep invocation, with its trace envelopes attached.
+
+        `path=None` searches the session's corpus root; `path=Session.NO_PATH`
+        appends no path argument at all, for verbs that do not take one.
 
         The trace file is per-step: the driver sets `SEMGREP_TRACE_FILE`, the
         binary appends one object per *engine* invocation, and this reads it
@@ -212,7 +224,8 @@ class Session:
         """
         self.n += 1
         trace_path = self.trace_dir / f"{self.n:03d}.jsonl"
-        target = Path(path) if path is not None else self.corpus_root
+        target = None if path is Session.NO_PATH else (
+            Path(path) if path is not None else self.corpus_root)
 
         e = dict(os.environ)
         e["SEMGREP_CACHE_DIR"] = str(self.cache)
@@ -221,7 +234,9 @@ class Session:
         e.update(self.env)
         e.update(env or {})
 
-        argv = [str(SEMGREP), *args, str(target)]
+        argv = [str(SEMGREP), *args]
+        if target is not None:
+            argv.append(str(target))
         t0 = time.monotonic()
         timed_out = False
         try:
