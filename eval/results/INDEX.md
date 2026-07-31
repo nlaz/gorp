@@ -4,12 +4,14 @@
 The per-query ranks in the JSON files are the source of truth; this
 is a view of them. `--check` fails if the two have diverged.
 
-92 runs, 38,668 per-query ranks recorded.
+94 runs, 39,466 per-query ranks recorded.
 
 ## Runs
 
 | run | query set | corpus | cells | ranks | when | git | provenance |
 |---|---|---|---|---|---|---|---|
+| `sem96-linux` | unknown (fp 46fc2ea43fcb30be) | bench/corpora/linux | 2 | 398 | 2026-07-31 | 956d54d | yes |
+| `sem96-vscode` | unknown (fp 7578782896e9f02e) | bench/corpora/vscode | 2 | 400 | 2026-07-31 | 956d54d | yes |
 | `wikipedia-results-tuned` | — | — | 8 | 0 | — | — | **not recorded** |
 | `wikipedia-results` | — | — | 8 | 0 | — | — | **not recorded** |
 | `vscode-results-v2` | — | — | 6 | 0 | — | — | **not recorded** |
@@ -510,6 +512,10 @@ is a view of them. `--check` fails if the two have diverged.
 | `rerun-wikipedia` | rg-strong | paraphrase | 200 | 0.010 | 0.035 | 0.050 | 0.020 |
 | `rerun-wikipedia` | semantic | direct | 200 | 0.535 | 0.775 | 0.820 | 0.631 |
 | `rerun-wikipedia` | semantic | paraphrase | 200 | 0.090 | 0.240 | 0.290 | 0.148 |
+| `sem96-linux` | semantic | direct | 199 | 0.578 | 0.739 | 0.759 | 0.641 |
+| `sem96-linux` | semantic | paraphrase | 199 | 0.000 | 0.010 | 0.015 | 0.003 |
+| `sem96-vscode` | semantic | direct | 200 | 0.540 | 0.710 | 0.730 | 0.611 |
+| `sem96-vscode` | semantic | paraphrase | 200 | 0.010 | 0.030 | 0.050 | 0.020 |
 | `v2-linux` | bm25 | direct | 199 | 0.698 | 0.920 | 0.945 | 0.797 |
 | `v2-linux` | bm25 | paraphrase | 199 | 0.005 | 0.035 | 0.065 | 0.019 |
 | `v2-linux` | hybrid | direct | 199 | 0.618 | 0.899 | 0.950 | 0.735 |

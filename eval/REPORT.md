@@ -1,6 +1,7 @@
 # Retrieval evaluation: setup, candidates, results
 
-*Generated 2026-07-31. Numbers here come from `eval/results/`, which holds the
+*Generated 2026-07-31; semantic column re-measured after MaxSim became that
+mode's default (§13.10). Numbers here come from `eval/results/`, which holds the
 per-query ranks that produced them. Regenerate the index with
 `python3 eval/results.py`.*
 
@@ -98,7 +99,7 @@ Six conditions, all scored on the same queries, same corpus, same k.
 | condition | what it does | is it a baseline? |
 |---|---|---|
 | **`bm25`** | rarity-weighted lexical ranking over code-aware tokens | semgrep |
-| **`semantic`** | 256-dim static embeddings, cosine | semgrep |
+| **`semantic`** | 256-dim static embeddings, cosine, MaxSim-reranked (default since §13.10) | semgrep |
 | **`hybrid`** | bm25 + semantic fused (the shipped default) | semgrep |
 | **`rg`** | legacy baseline: tokenizer excludes `_`, picks 2 longest words | **weak — kept only for comparability** |
 | **`rg-strong`** | what a competent agent does: grep the identifiers first | **the fair baseline** |
@@ -220,22 +221,22 @@ bm25 top 5:  d11479.py, d20352.py, d7408.py ← GOLD, d17645.py, d15517.py
 
 | corpus | rg | rg-strong | **rg-oracle** | semantic | bm25 | hybrid |
 |---|---|---|---|---|---|---|
-| linux | 0.025 | 0.342 | **0.462** | 0.668 | **0.920** | 0.899 |
-| vscode | 0.155 | 0.360 | — | 0.560 | 0.880 | 0.870 |
-| jekyll | 0.034 | 0.057 | **0.205** | 0.636 | 0.864 | **0.886** |
-| commons-lang | 0.070 | 0.106 | **0.236** | 0.492 | 0.849 | **0.864** |
-| tokio | 0.065 | 0.085 | **0.190** | 0.420 | **0.710** | 0.700 |
-| etcd | 0.090 | 0.090 | **0.165** | 0.340 | **0.705** | 0.695 |
+| linux | 0.025 | 0.342 | **0.462** | 0.739 | **0.920** | 0.899 |
+| vscode | 0.155 | 0.360 | — | 0.710 | 0.880 | 0.870 |
+| jekyll | 0.034 | 0.057 | **0.205** | 0.716 | 0.864 | **0.886** |
+| commons-lang | 0.070 | 0.106 | **0.236** | 0.583 | 0.849 | **0.864** |
+| tokio | 0.065 | 0.085 | **0.190** | 0.530 | **0.710** | 0.700 |
+| etcd | 0.090 | 0.090 | **0.165** | 0.420 | **0.705** | 0.695 |
 
 **`paraphrase` / vocabulary-stripped queries:**
 
 | corpus | rg-strong | **rg-oracle** | semantic | bm25 | hybrid |
 |---|---|---|---|---|---|
-| linux | 0.000 | **0.000** | 0.005 | 0.035 | 0.040 |
-| jekyll | 0.000 | **0.068** | 0.159 | 0.136 | 0.182 |
-| commons-lang | 0.015 | **0.035** | 0.035 | 0.146 | 0.171 |
+| linux | 0.000 | **0.000** | 0.010 | 0.035 | 0.040 |
+| jekyll | 0.000 | **0.068** | 0.102 | 0.136 | 0.182 |
+| commons-lang | 0.015 | **0.035** | 0.121 | 0.146 | 0.171 |
 | tokio | 0.010 | **0.050** | 0.045 | 0.090 | 0.085 |
-| etcd | 0.000 | **0.030** | 0.020 | 0.065 | 0.065 |
+| etcd | 0.000 | **0.030** | 0.060 | 0.065 | 0.065 |
 
 **Real human queries (CoSQA, 1,200):**
 
@@ -350,3 +351,28 @@ python3 -m pytest eval/tests -q           # 174 tests over the scorers
 Long runs are resumable — pass `--checkpoint`. A kernel oracle run is hours;
 `--sort`-free deterministic rg made it 3.6× cheaper, and checkpointing is what
 made it finishable at all.
+
+---
+
+## 9. Changelog
+
+**2026-07-31 — MaxSim became the default for `--mode semantic`.** The semantic
+column above was re-measured; every other column is unchanged, which is the
+point (RESEARCH.md §13.10):
+
+| corpus | semantic before | after | hybrid |
+|---|---|---|---|
+| linux | 0.668 | **0.739** | unchanged |
+| vscode | 0.560 | **0.710** | unchanged |
+| jekyll | 0.636 | **0.716** | unchanged |
+| commons-lang | 0.492 | **0.583** | unchanged |
+| tokio | 0.420 | **0.530** | unchanged |
+| etcd | 0.340 | **0.420** | unchanged |
+
+Reranking the semantic list is worth +0.07 to +0.15 R@5. Fused hybrid does not
+move at all, because BM25 carries it — which is why MaxSim is on for semantic
+and off for hybrid rather than on everywhere.
+
+Rerank head is 96, the value three separate sweeps have now agreed on (§9.6,
+32-vs-96, 42-vs-96). The gain concentrates in the `paraphrase` stratum both
+times it was isolated: a deep head matters where the ranked list is weakest.

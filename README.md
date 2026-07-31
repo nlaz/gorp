@@ -216,67 +216,91 @@ Full design in [DESIGN.md](DESIGN.md); the research log — agent economics,
 CLI-surface collapse, cache design, reranker post-mortems — in
 [RESEARCH.md](RESEARCH.md).
 
-## Retrieval quality
+## What the evaluation shows
 
-The honest version of this section is shorter than it used to be, because an
-adversarial audit of our own benchmark found that the ripgrep baseline was a
-strawman (RESEARCH.md §12): it tokenized without underscores, so an identifier
-in the query was shredded before ripgrep ever saw it. Fixing that improves
-ripgrep 6.4× on the kernel. The numbers below use `rg-strong`, which greps the
-identifier first — what a competent agent does.
+**In one line: ripgrep can only find code you can already name. semgrep does
+not need the name.**
 
-That audit has since been run a second time, harder. `rg-strong` is still a
-*heuristic* — grep the identifiers, longest first. So we added **`rg-oracle`**:
-it consults the answer, tries every query token as its own pattern, and keeps
-whichever scored best. No agent can run it; it is the most ripgrep could
-possibly do. Every claim below is quoted against that ceiling as well as
-against the heuristic.
+That is the whole product thesis, and it is measurable. Searching a codebase
+splits into two situations:
 
-**Real queries** (CoSQA, 1,200 sampled human-written queries over 20,604
-Python functions — nobody who wrote them had seen the code):
+| you are looking for… | example query | ripgrep | semgrep |
+|---|---|---|---|
+| something you can **name** | `blkg_rwstat_add inline function percpu counter` | 0.34 | **0.92** |
+| something you can only **describe** | `helper that increments the right per-cpu statistic by operation type` | **0.00** | 0.04 |
 
-| recall@5 | rg-strong | **rg-oracle** | semgrep | |
-|---|---|---|---|---|
-| real user queries | 0.03 | **0.10** | **0.22** | **2.2× vs the ceiling** (7.4× vs the heuristic) |
+*(recall@5 on the Linux kernel: how often the right code is in the top 5
+results. Both rows are the same 199 target functions, asked for two ways.)*
 
-**Our own generated sets** (400/corpus) split by whether the query contains the
-answer's own identifier. That split turns out to bracket reality rather than
-represent it: real queries contain **0%** identifiers (so `direct` is easier
-than reality) but still share 42% of their tokens with the answer (so
-`paraphrase`, which deliberately strips vocabulary, is harder than reality).
+The first row is a 2–3× difference — useful, not decisive. **The second row is
+the product.** When the query does not contain the answer's name, ripgrep
+finds it **zero times out of 199**. Not rarely. Zero.
 
-| recall@5 | kernel | VS Code |
-|---|---|---|
-| semgrep, direct | **0.92** | **0.87** |
-| rg-oracle, direct | 0.46 | — |
-| rg-strong, direct | 0.34 | 0.36 |
-| semgrep, paraphrase | 0.04 | **0.14** |
-| rg-oracle, paraphrase | **0.00** | — |
-| rg-strong, paraphrase | 0.00 | 0.01 |
+That is not a quirk of one benchmark. It is what regex search *is*: it matches
+strings you supply. If you know the function is called `blkg_rwstat_add`, grep
+is excellent and semgrep is a modest improvement. If you only know it
+"increments a per-CPU counter somewhere in the block layer," grep has nothing
+to match on, and no amount of skill with grep changes that.
 
-So the gap depends entirely on whether you already know what the thing is
-called: **~2× when you do, unbounded when you don't.**
+### We tried hard to beat our own claim
 
-That second row is the one worth staring at. **`rg-oracle` scores exactly
-0.000 on all 199 kernel paraphrase queries** — a ripgrep allowed to read the
-answer and try every token cannot find one of 199 targets once the query stops
-naming them, because there is no shared token to try. Improving the opponent
-closes the identifier gap and does *nothing* to the paraphrase gap, which is
-the clearest evidence available that what remains is a capability difference
-rather than a measurement artifact.
+Benchmarks written by the tool's authors are worth little, so the comparison
+was attacked twice.
 
-The honest corollary: semgrep gets 4% of those, not 40%. It is a real
-difference between 4% and 0%, and 4% is still 4%.
+**First attack (RESEARCH.md §12):** the original ripgrep baseline turned out to
+be a strawman — it tokenized without underscores, so `blkg_rwstat_add` was
+shredded before ripgrep ever saw it. Fixing that improved ripgrep **6.4×** and
+cut our headline claim from "30×" to ~3×. The published number was mostly our
+own bad baseline.
 
-Extended language coverage (Rust, Java, Go, Ruby — 1,374 symbol-anchored
-queries) is in [eval/REPORT.md](eval/REPORT.md), along with worked examples
-showing what each condition actually returns.
+**Second attack (§13.4–13.9):** the fixed baseline was still a *heuristic* —
+"grep the identifiers, longest first." So we built **`rg-oracle`**: it is shown
+the correct answer, tries every word in the query as a separate search, and
+keeps whichever worked best. **No real tool can do this** — choosing the
+winning word requires already knowing where the answer is. It is a ceiling: the
+best ripgrep could conceivably do.
 
-One finding that cuts against our own framing: on real queries, **BM25 alone
-(0.22) matches the hybrid default (0.21)** and nearly triples semantic-only
-(0.08). The advantage over grep is code-aware *lexical* ranking — subtoken
-tokenization, path augmentation, ranked top-k over chunks — more than it is
-embeddings.
+Every number below is quoted against that ceiling, not just against the
+heuristic.
+
+### Real queries, real humans
+
+1,200 questions typed by people into a search engine, matched against 20,604
+Python functions (CoSQA). Nobody who wrote these had seen the code:
+
+| | ripgrep (realistic) | ripgrep (**perfect**) | semgrep |
+|---|---|---|---|
+| recall@5 | 0.03 | **0.10** | **0.22** |
+
+**~2.2× better than the best ripgrep could ever do**, and ~7× better than
+ripgrep as actually used. All three numbers look low because scoring credits
+exactly one correct function out of 20,604 — the ratios are the signal.
+
+Pre-registering that prediction before running it is how we keep ourselves
+honest: we wrote down "if the ceiling reaches 0.85 on identifier queries, our
+claim is wrong and we retract it" and committed it *before* the run. It reached
+0.46.
+
+### Where it does not help
+
+Being clear about this matters more than the wins:
+
+- **4% is still 4%.** On describe-it queries semgrep finds the target 4% of the
+  time against ripgrep's 0%. That is the difference between possible and
+  impossible, not between good and great.
+- **The semantic half barely earns its keep on code.** Plain lexical ranking
+  (BM25) scores 0.22 on real queries; adding embeddings gives 0.21. A *perfect*
+  ripgrep (0.10) even outscores embeddings alone (0.08). The win is code-aware
+  ranking — subtoken splitting, path awareness, ranked top-k — far more than it
+  is "AI search."
+- **It is one number per query set**, and the sets we wrote ourselves leak: our
+  "easy" queries hand over the answer's name 66% of the time, our "hard" ones
+  strip vocabulary users would actually use. Only CoSQA and the replayed agent
+  queries were written by someone other than us.
+
+Full setup, all seven corpora, worked examples showing exactly what each tool
+returns, and the four measurement bugs we found and fixed along the way:
+**[eval/REPORT.md](eval/REPORT.md)**.
 
 ## Does it actually help an agent?
 

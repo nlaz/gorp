@@ -5358,6 +5358,78 @@
     ]
   },
   {
+    "name": "sem96-linux",
+    "n_cells": 2,
+    "n_ranks": 398,
+    "corpus": "bench/corpora/linux",
+    "queries": "eval/queries/linux.jsonl",
+    "queries_fp": "46fc2ea43fcb30be",
+    "query_set": "unknown (fp 46fc2ea43fcb30be)",
+    "corpus_digest": "4dc078c136ba76221741b2159e29c6e5",
+    "at": "2026-07-31T06:12:44Z",
+    "git_head": "956d54d",
+    "binary_mtime": "2026-07-31T06:04:29Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.578,
+        "recall@5": 0.739,
+        "recall@10": 0.759,
+        "mrr@10": 0.641,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.01,
+        "recall@10": 0.015,
+        "mrr@10": 0.003,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "sem96-vscode",
+    "n_cells": 2,
+    "n_ranks": 400,
+    "corpus": "bench/corpora/vscode",
+    "queries": "eval/queries/vscode.jsonl",
+    "queries_fp": "7578782896e9f02e",
+    "query_set": "unknown (fp 7578782896e9f02e)",
+    "corpus_digest": "a3c36fb239aa9aadd40f6c470976d049",
+    "at": "2026-07-31T06:12:30Z",
+    "git_head": "956d54d",
+    "binary_mtime": "2026-07-31T06:04:29Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.54,
+        "recall@5": 0.71,
+        "recall@10": 0.73,
+        "mrr@10": 0.611,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.01,
+        "recall@5": 0.03,
+        "recall@10": 0.05,
+        "mrr@10": 0.02,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
     "name": "v2-linux",
     "n_cells": 8,
     "n_ranks": 1592,
