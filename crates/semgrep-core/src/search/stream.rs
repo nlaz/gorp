@@ -7,27 +7,29 @@
 //! duration of the query, which is the larger cost and is why a big corpus wants
 //! an index.
 
-use super::trace::Trace;
-use super::{SearchOptions, SearchReport, SearchResult, hit};
+use super::{Prelude, SearchOptions, SearchReport, SearchResult, hit};
 use crate::rank::bm25::Bm25Index;
 use crate::rank::{self, Mode, TopK};
+use crate::trace::{SCHEDULE_COLD, Stage, Trace, elapsed_ms};
 use crate::{Chunk, FileMeta, corpus, text};
 use anyhow::Result;
 use std::path::Path;
 use std::time::Instant;
 
-pub fn run(root: &Path, query: &str, opts: &SearchOptions) -> Result<SearchResult> {
+pub fn run(
+    root: &Path,
+    query: &str,
+    opts: &SearchOptions,
+    prelude: &Prelude,
+) -> Result<SearchResult> {
     let pool = super::FUSION_POOL.max(opts.k);
-    let mut trace = Trace::new();
+    let mut trace = Trace::new(SCHEDULE_COLD);
+    trace.replay(prelude);
 
-    let t_walk = Instant::now();
-    let files = corpus::walk(root, &opts.params)?;
-    let walk_ms = t_walk.elapsed().as_millis();
-    trace.record("walk", walk_ms as f64);
+    let files = trace.time(Stage::Walk, || corpus::walk(root, &opts.params))?;
 
-    let t_rank = Instant::now();
     let pass = corpus_pass(root, &files, query, opts, pool, &mut trace);
-    let lexical = trace.time("rank:bm25", || match pass.bm25 {
+    let lexical = trace.time(Stage::RankBm25, || match pass.bm25 {
         Some(mut b) => {
             b.finalize();
             b.query(query, pool)
@@ -40,34 +42,33 @@ pub fn run(root: &Path, query: &str, opts: &SearchOptions) -> Result<SearchResul
     // `cold_and_warm_return_identical_results` exists for. `indexed` reranks
     // here; this mirrors it against the same chunk texts.
     let semantic = rerank_maxsim(root, &files, &pass.chunks, query, semantic, opts, &mut trace);
-    let ranked = trace.time("rank:fuse", || {
+    let ranked = trace.time(Stage::RankFuse, || {
         rank::fuse(opts.mode, lexical, semantic, super::fused_width(pool), opts.sem_weight)
     });
-    let rank_ms = t_rank.elapsed().as_millis();
 
-    let cands = candidates(ranked, &pass.chunks, &files, super::candidate_width(opts.k));
+    let cands = trace.time(Stage::Candidates, || {
+        candidates(ranked, &pass.chunks, &files, super::candidate_width(opts.k))
+    });
     // No embedding matrix here, so candidate vectors are recomputed on demand.
-    // At most a few thousand texts, which is nothing beside the pass just done.
-    let hits = trace.time("finalize", || {
-        hit::finalize(root, query, cands, opts, "", |c| {
-            let fm = &files[c.chunk.file_id as usize];
-            let text = corpus::lines(root, &fm.path, &c.chunk)?;
-            let embedded = text::embed_query(&corpus::doc_text(&fm.path, &text));
-            // Through the index's quantization, so diversity reranking sees the
-            // same vectors it would warm. Without this the two paths diversify
-            // differently and a cached scope answers a query differently from an
-            // uncached one.
-            Some(rank::as_stored(&embedded))
-        })
+    // At most a few thousand texts, which is nothing beside the pass just done —
+    // but it lands in `finalize:vectors`, which is therefore a much larger
+    // number cold than warm under the same name.
+    let hits = hit::finalize(root, query, cands, opts, "", &mut trace, |c| {
+        let fm = &files[c.chunk.file_id as usize];
+        let text = corpus::lines(root, &fm.path, &c.chunk)?;
+        let embedded = text::embed_query(&corpus::doc_text(&fm.path, &text));
+        // Through the index's quantization, so diversity reranking sees the
+        // same vectors it would warm. Without this the two paths diversify
+        // differently and a cached scope answers a query differently from an
+        // uncached one.
+        Some(rank::as_stored(&embedded))
     });
 
     Ok(SearchResult {
         report: SearchReport {
             used_index: false,
             n_chunks_considered: pass.chunks.len(),
-            walk_ms,
-            rank_ms,
-            stages: trace.into_stages(),
+            stages: trace.finish(),
             ..Default::default()
         },
         hits,
@@ -98,7 +99,12 @@ fn corpus_pass(
 
     let mut chunks: Vec<Chunk> = Vec::new();
     let mut bm25 = want_bm25.then(Bm25Index::new);
-    let mut embedder = want_sem.then(|| Embedder::new(text::embed_query(query), pool));
+    // Timed, and under the same name the warm path uses. It sat outside every
+    // span before, which is how a whole `ese::encode` call went unattributed on
+    // a path whose entire job is embedding.
+    let mut embedder = trace.time(Stage::RankEmbedQuery, || {
+        want_sem.then(|| Embedder::new(text::embed_query(query), pool))
+    });
 
     let t_pass = Instant::now();
     corpus::pass(root, files, &opts.params, want_sem, want_bm25, |_, work| {
@@ -124,9 +130,9 @@ fn corpus_pass(
     };
     // Embedding is separated from reading and tokenizing because they scale
     // differently: one is CPU-bound in ese, the other IO-bound in the walk.
-    let total = t_pass.elapsed().as_secs_f64() * 1e3;
-    trace.record("pass:embed", embed_ms);
-    trace.record("pass:read+tokenize", total - embed_ms);
+    let total = elapsed_ms(t_pass);
+    trace.record(Stage::PassEmbed, embed_ms);
+    trace.record(Stage::PassRead, (total - embed_ms).max(0.0));
 
     Pass { chunks, bm25, nearest }
 }
@@ -187,7 +193,7 @@ impl Embedder {
             rank::normalize(v);
             self.nearest.push(*id, rank::dot_distance_i8(&self.query, &rank::quantize_i8(v)));
         }
-        self.embed_ms += start.elapsed().as_secs_f64() * 1e3;
+        self.embed_ms += elapsed_ms(start);
         self.pending.clear();
     }
 }
@@ -239,7 +245,7 @@ fn rerank_maxsim(
     if query_tokens.is_empty() {
         return ranked;
     }
-    trace.time("rank:maxsim", || {
+    trace.time(Stage::RankMaxsim, || {
         use rayon::prelude::*;
         let head = rank::maxsim_head_size(ranked.len(), opts.k, opts.maxsim_pool);
         let scored: Vec<(u32, f32, f32)> = ranked[..head]

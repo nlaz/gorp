@@ -6,14 +6,26 @@
 //! batches are the unit of that too.
 
 use crate::text::{self, SemgrepHnsw, SifStats};
+use crate::trace::elapsed_ms;
 use anyhow::{Context, Result};
 use rayon::prelude::*;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;
+use std::time::Instant;
 
 /// Texts per embedding batch.
 const BATCH: usize = 1024;
+
+/// What the write cost, split by what scales differently: embedding is CPU-bound
+/// in `ese`, graph insertion is CPU-bound in `anny` and grows with the graph, and
+/// what remains is IO. Reported separately because a build that is slow for one
+/// reason wants a different fix than a build that is slow for another.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct EmbedTimings {
+    pub embed_ms: f64,
+    pub hnsw_ms: f64,
+}
 
 pub struct EmbedWriter<'a> {
     out: BufWriter<File>,
@@ -24,6 +36,7 @@ pub struct EmbedWriter<'a> {
     /// Built alongside the matrix when requested, from the same vectors.
     hnsw: Option<SemgrepHnsw>,
     rows: usize,
+    timings: EmbedTimings,
 }
 
 impl<'a> EmbedWriter<'a> {
@@ -35,6 +48,7 @@ impl<'a> EmbedWriter<'a> {
             sif,
             hnsw: hnsw.then(text::new_hnsw),
             rows: 0,
+            timings: EmbedTimings::default(),
         })
     }
 
@@ -49,10 +63,11 @@ impl<'a> EmbedWriter<'a> {
     }
 
     /// Flush the tail and write `hnsw.bin` if a graph was built. Returns the row
-    /// count, which must equal the chunk count.
-    pub fn finish(mut self, dir: &Path) -> Result<usize> {
+    /// count — which must equal the chunk count — and where the time went.
+    pub fn finish(mut self, dir: &Path) -> Result<(usize, EmbedTimings)> {
         self.flush()?;
         self.out.flush()?;
+        let t = Instant::now();
         match self.hnsw {
             Some(graph) => std::fs::write(dir.join("hnsw.bin"), graph.to_bytes())?,
             // Clear a graph left by a previous build that had --hnsw on, or a
@@ -61,17 +76,20 @@ impl<'a> EmbedWriter<'a> {
                 let _ = std::fs::remove_file(dir.join("hnsw.bin"));
             }
         }
-        Ok(self.rows)
+        self.timings.hnsw_ms += elapsed_ms(t);
+        Ok((self.rows, self.timings))
     }
 
     fn flush(&mut self) -> Result<()> {
         if self.pending.is_empty() {
             return Ok(());
         }
+        let t_embed = Instant::now();
         let mut vecs = match self.sif {
             Some(s) => self.pending.par_iter().map(|doc| text::embed_sif(doc, s)).collect(),
             None => ese::encode(self.pending.iter()),
         };
+        self.timings.embed_ms += elapsed_ms(t_embed);
         for v in &mut vecs {
             // Normalize first: the i8 quantization assumes unit vectors, and the
             // query-time scan compares dot products against that assumption.
@@ -84,7 +102,9 @@ impl<'a> EmbedWriter<'a> {
             };
             self.out.write_all(bytes)?;
             if let Some(graph) = &mut self.hnsw {
+                let t = Instant::now();
                 graph.insert(*v);
+                self.timings.hnsw_ms += elapsed_ms(t);
             }
             self.rows += 1;
         }

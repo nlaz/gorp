@@ -42,6 +42,20 @@ pub struct Discovered {
     pub from_cache: bool,
 }
 
+/// How many times anything has resolved an index in this process.
+///
+/// Counted here rather than at the call sites because the call sites are the
+/// problem: one exact-mode miss reaches three — the CLI's "is this the first
+/// search" check, the engine's own resolution, and the CLI's check again before
+/// offering a ranked suggestion — and each one canonicalizes the path and scans
+/// the generation directory. A per-search counter cannot see the two outside
+/// the engine, which are exactly the two nobody remembers are there.
+static DISCOVER_CALLS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+pub fn discover_calls() -> u32 {
+    DISCOVER_CALLS.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 fn rel_prefix(root: &Path, scope: &Path) -> String {
     scope.strip_prefix(root).map(|p| p.to_string_lossy().replace('\\', "/")).unwrap_or_default()
 }
@@ -55,6 +69,7 @@ fn rel_prefix(root: &Path, scope: &Path) -> String {
 /// different question. A repo-local `.semgrep/` is exempt — the user built it
 /// deliberately, and its parameters are the ones they chose.
 pub fn discover(query_root: &Path, params: &ChunkParams) -> Option<Discovered> {
+    DISCOVER_CALLS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let canon = std::fs::canonicalize(query_root).ok()?;
     if !canon.is_dir() {
         return None;
@@ -154,7 +169,7 @@ pub fn write_cache_entry(
     root: &Path,
     opts: &BuildOptions,
     progress: impl FnMut(usize, usize),
-) -> Result<PathBuf> {
+) -> Result<(PathBuf, store::BuildStats)> {
     let dir = cache_entry_dir(root, &opts.params);
     std::fs::create_dir_all(&dir)?;
     // root.txt first, before a single byte of index. It is what makes an entry
@@ -169,7 +184,7 @@ pub fn write_cache_entry(
     // this entry is *for* without parsing meta.json, whose file table can run to
     // megabytes on a large corpus.
     std::fs::write(dir.join("params.txt"), params_tag(&opts.params))?;
-    store::build_at(&dir, root, opts, progress)?;
+    let stats = store::build_at(&dir, root, opts, progress)?;
 
     // Reclaim only after the entry is complete and registered, so the budget
     // enforcer actually sees what was just built. Running it before the write
@@ -188,7 +203,7 @@ pub fn write_cache_entry(
             let _ = std::fs::remove_dir_all(edir);
         }
     }
-    Ok(dir)
+    Ok((dir, stats))
 }
 
 /// The chunking an entry was built with, as it appears in its name and in

@@ -63,6 +63,12 @@ pub struct Cli {
     #[arg(long)]
     pub stats: bool,
 
+    /// Emit the full machine-readable trace envelope (one JSON object per
+    /// engine invocation) to stderr. Set SEMGREP_TRACE_FILE to append it to a
+    /// file instead, which also captures invocations this flag cannot see.
+    #[arg(long)]
+    pub stats_json: bool,
+
     /// Re-walk the corpus after an indexed search to report stale files
     /// (costs a directory walk; independent of --stats)
     #[arg(long)]

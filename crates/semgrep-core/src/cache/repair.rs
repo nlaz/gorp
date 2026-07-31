@@ -11,11 +11,44 @@
 //! mechanism seen from two directions.
 
 use crate::rank::bm25::Bm25Index;
-use crate::search::trace::{Trace, elapsed_ms};
 use crate::text::{self};
+use crate::trace::{Stage, Trace, elapsed_ms};
 use crate::{Chunk, cache, corpus, rank, store};
 use std::collections::HashSet;
 use std::time::Instant;
+
+/// Why a warm query did or did not repair.
+///
+/// Durations cannot answer this. `repair:walk = 0` means the TTL was fresh *or*
+/// the walk failed *or* nothing drifted, and those are three different stories:
+/// the first is a deliberate throttle, the second is silently degraded
+/// correctness, the third is the healthy case. Reporting the category alongside
+/// the timings is what makes the second one visible at all — it was a bare
+/// `.ok()?` that returned `None` exactly like the healthy case.
+#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(tag = "outcome", rename_all = "snake_case")]
+pub enum RepairOutcome {
+    /// This path does not repair: the cold path and exact mode never do.
+    #[default]
+    NotApplicable,
+    /// The last validation was inside `SEMGREP_CACHE_TTL_SECS`, so no drift
+    /// walk ran and the answer may be stale by design.
+    TtlFresh { marker_age_secs: u64 },
+    /// The scope walk failed. The index is served **unrepaired**, and the TTL
+    /// marker has already been written, so the next query inside the window
+    /// will not retry either.
+    WalkFailed,
+    /// The tree matches the index under this scope.
+    NoDrift,
+    Repaired {
+        added: usize,
+        modified: usize,
+        deleted: usize,
+        /// Chunks in the in-memory overlay. Unbounded — see RESEARCH.md §8's
+        /// unimplemented delta-size threshold.
+        delta_chunks: usize,
+    },
+}
 
 /// In-memory index over the files the cache doesn't know correctly: changed,
 /// new, or never-covered. Fused with the warm base at rank time so answers
@@ -78,29 +111,36 @@ pub fn scope(
     d: &cache::Discovered,
     idx: &store::LoadedIndex,
     trace: &mut Trace,
-) -> Option<Repair> {
+) -> (Option<Repair>, RepairOutcome) {
     let marker = check_marker(d);
     let ttl = repair_ttl_secs();
     if ttl > 0 {
-        let fresh = std::fs::metadata(&marker)
+        let age = std::fs::metadata(&marker)
             .and_then(|m| m.modified())
             .ok()
             .and_then(|t| t.elapsed().ok())
-            .is_some_and(|age| age.as_secs() < ttl);
-        if fresh {
-            return None;
+            .map(|age| age.as_secs());
+        if let Some(age) = age.filter(|&age| age < ttl) {
+            return (None, RepairOutcome::TtlFresh { marker_age_secs: age });
         }
     }
     let _ = std::fs::write(&marker, b"");
 
     let t0 = Instant::now();
     let scope_abs = if d.prefix.is_empty() { d.root.clone() } else { d.root.join(&d.prefix) };
-    let live = corpus::walk(&scope_abs, &idx.meta.params).ok()?;
+    let Ok(live) = corpus::walk(&scope_abs, &idx.meta.params) else {
+        // The marker was written above, so this failure also suppresses the
+        // next TTL window's attempt. Reported rather than swallowed.
+        trace.record(Stage::RepairWalk, elapsed_ms(t0));
+        return (None, RepairOutcome::WalkFailed);
+    };
     let drift = corpus::diff(&idx.meta.files, &live, &d.prefix);
-    trace.record("repair:walk", elapsed_ms(t0));
+    trace.record(Stage::RepairWalk, elapsed_ms(t0));
     if drift.is_empty() {
-        return None;
+        return (None, RepairOutcome::NoDrift);
     }
+    let (n_added, n_modified, n_deleted) =
+        (drift.added.len(), drift.modified.len(), drift.deleted.len());
     let tombstones: HashSet<u32> = drift.tombstones().collect();
     let n_dirty = drift.len();
 
@@ -135,6 +175,12 @@ pub fn scope(
             rank::quantize_i8(v)
         })
         .collect();
-    trace.record("repair:delta", elapsed_ms(t0));
-    Some(Repair { tombstones, delta, n_dirty })
+    trace.record(Stage::RepairDelta, elapsed_ms(t0));
+    let outcome = RepairOutcome::Repaired {
+        added: n_added,
+        modified: n_modified,
+        deleted: n_deleted,
+        delta_chunks: delta.chunks.len(),
+    };
+    (Some(Repair { tombstones, delta, n_dirty }), outcome)
 }

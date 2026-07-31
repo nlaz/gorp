@@ -31,6 +31,7 @@ pub struct LoadTimings {
     pub bm25_ms: f64,
     pub mmap_ms: f64,
     pub hnsw_ms: f64,
+    pub sif_ms: f64,
 }
 
 /// A loaded index. The embedding matrix stays mmap'd — resident memory grows
@@ -108,7 +109,10 @@ impl LoadedIndex {
             None
         };
         let sif = if meta.sif {
-            Some(postcard::from_bytes(&std::fs::read(dir.join("sif.bin"))?)?)
+            let t0 = std::time::Instant::now();
+            let s = postcard::from_bytes(&std::fs::read(dir.join("sif.bin"))?)?;
+            t.sif_ms = ms(t0);
+            Some(s)
         } else {
             None
         };

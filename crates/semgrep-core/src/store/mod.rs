@@ -50,6 +50,12 @@ pub struct BuildStats {
     pub n_chunks: usize,
     pub bytes_indexed: u64,
     pub index_bytes: u64,
+    /// Where the build's wall time went. A cold ranked search *is* a build
+    /// (RESEARCH.md §8), so a query that pays for one folds these into its own
+    /// report rather than leaving the dominant cost of a first search
+    /// attributable only to `total_ms`.
+    pub stages: crate::trace::Stages,
+    pub total_ms: f64,
 }
 
 pub struct BuildOptions {

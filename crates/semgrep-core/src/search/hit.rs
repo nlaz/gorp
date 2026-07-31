@@ -4,6 +4,7 @@
 use super::{SearchHit, SearchOptions};
 use crate::rank::mmr;
 use crate::text::token as tokenize;
+use crate::trace::{Stage, Trace};
 use crate::{Chunk, corpus};
 use std::collections::HashSet;
 use std::path::Path;
@@ -21,57 +22,71 @@ pub struct Candidate {
 /// is the query's subtree prefix: candidate paths are index-root-relative
 /// for file access, but hits display relative to the queried scope (the same
 /// contract the streaming path has always had).
+///
+/// Timed in four parts rather than one, because they scale differently and a
+/// single `finalize` number could not say which was hurting: dedupe is
+/// quadratic in the candidate pool, `vec_of` is a dequantize per candidate warm
+/// but a full *embedding* per candidate cold, MMR is O(k·n·dims), and
+/// materialization is a file read per hit.
+#[allow(clippy::too_many_arguments)]
 pub fn finalize(
     root: &Path,
     query: &str,
     mut cands: Vec<Candidate>,
     opts: &SearchOptions,
     strip: &str,
+    trace: &mut Trace,
     vec_of: impl Fn(&Candidate) -> Option<Vec<f32>>,
 ) -> Vec<SearchHit> {
     // Drop candidates whose line span overlaps an already-kept, higher-ranked
     // candidate in the same file — overlapping windows are near-duplicates.
-    let mut kept: Vec<Candidate> = Vec::with_capacity(cands.len());
-    for c in cands.drain(..) {
-        let dup = kept.iter().any(|k| {
-            k.path == c.path
-                && c.chunk.start_line <= k.chunk.end_line
-                && c.chunk.end_line >= k.chunk.start_line
-        });
-        if !dup {
-            kept.push(c);
+    let kept: Vec<Candidate> = trace.time(Stage::FinalizeDedupe, || {
+        let mut kept: Vec<Candidate> = Vec::with_capacity(cands.len());
+        for c in cands.drain(..) {
+            let dup = kept.iter().any(|k| {
+                k.path == c.path
+                    && c.chunk.start_line <= k.chunk.end_line
+                    && c.chunk.end_line >= k.chunk.start_line
+            });
+            if !dup {
+                kept.push(c);
+            }
         }
-    }
+        kept
+    });
 
     // MMR: greedily pick relevant-but-dissimilar candidates so the top-k
     // surfaces different parts of the corpus instead of one hot region.
     let order: Vec<usize> = if opts.diversify && kept.len() > opts.k && opts.k > 1 {
-        let vecs: Vec<Option<Vec<f32>>> = kept.iter().map(&vec_of).collect();
-        {
-            let scores: Vec<f32> = kept.iter().map(|c| c.score).collect();
+        let vecs: Vec<Option<Vec<f32>>> =
+            trace.time(Stage::FinalizeVectors, || kept.iter().map(&vec_of).collect());
+        let scores: Vec<f32> = kept.iter().map(|c| c.score).collect();
+        trace.time(Stage::FinalizeMmr, || {
             mmr::mmr_order(&scores, &vecs, opts.k, opts.mmr_lambda)
-        }
+        })
     } else {
         (0..kept.len().min(opts.k)).collect()
     };
 
-    let query_tokens: HashSet<String> = tokenize::tokens(query).into_iter().collect();
-    let mut hits = Vec::with_capacity(opts.k);
-    for i in order {
-        let c = &kept[i];
-        if let Some(mut hit) = materialize(root, &c.path, c.chunk, c.score, &query_tokens) {
-            if !strip.is_empty()
-                && let Some(rest) = hit.path.strip_prefix(&format!("{strip}/"))
-            {
-                hit.path = rest.to_string();
+    trace.time(Stage::FinalizeMaterialize, || {
+        let query_tokens: HashSet<String> = tokenize::tokens(query).into_iter().collect();
+        let mut hits = Vec::with_capacity(opts.k);
+        for i in order {
+            let c = &kept[i];
+            if let Some(mut hit) = materialize(root, &c.path, c.chunk, c.score, &query_tokens) {
+                if !strip.is_empty()
+                    && let Some(rest) = hit.path.strip_prefix(&format!("{strip}/"))
+                {
+                    hit.path = rest.to_string();
+                }
+                hits.push(hit);
             }
-            hits.push(hit);
+            if hits.len() == opts.k {
+                break;
+            }
         }
-        if hits.len() == opts.k {
-            break;
-        }
-    }
-    hits
+        hits
+    })
 }
 
 /// Turn a ranked chunk into a displayable hit: re-read the file and pick the

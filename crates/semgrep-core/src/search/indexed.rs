@@ -6,48 +6,52 @@
 //! pass their input through when switched off.
 
 use super::rows::Rows;
-use super::trace::{Trace, elapsed_ms};
-use super::{SearchOptions, SearchReport, SearchResult, hit};
+use super::{Prelude, SearchOptions, SearchReport, SearchResult, hit};
 use crate::rank::bm25::Postings;
 use crate::rank::{self, Mode, maxsim, prf};
 use crate::store::{LoadNeeds, LoadedIndex};
+use crate::trace::{SCHEDULE_WARM, Stage, Trace, elapsed_ms};
 use crate::{cache, corpus, text};
 use anyhow::Result;
 use std::time::Instant;
 
-pub fn run(d: &cache::Discovered, query: &str, opts: &SearchOptions) -> Result<SearchResult> {
+pub fn run(
+    d: &cache::Discovered,
+    query: &str,
+    opts: &SearchOptions,
+    prelude: &Prelude,
+) -> Result<SearchResult> {
     let pool = super::FUSION_POOL.max(opts.k);
-    let mut trace = Trace::new();
+    let mut trace = Trace::new(SCHEDULE_WARM);
+    trace.replay(prelude);
 
-    let t_load = Instant::now();
     let idx = LoadedIndex::load_dir(&d.index_dir, &d.root, load_needs(d, opts, pool))?;
-    let load_ms = t_load.elapsed().as_millis();
     for (stage, ms) in [
-        ("load:meta", idx.timings.meta_ms),
-        ("load:chunks", idx.timings.chunks_ms),
-        ("load:bm25", idx.timings.bm25_ms),
-        ("load:mmap", idx.timings.mmap_ms),
-        ("load:hnsw", idx.timings.hnsw_ms),
+        (Stage::LoadMeta, idx.timings.meta_ms),
+        (Stage::LoadChunks, idx.timings.chunks_ms),
+        (Stage::LoadBm25, idx.timings.bm25_ms),
+        (Stage::LoadMmap, idx.timings.mmap_ms),
+        (Stage::LoadHnsw, idx.timings.hnsw_ms),
+        (Stage::LoadSif, idx.timings.sif_ms),
     ] {
         trace.record(stage, ms);
     }
 
-    let repair = cache::repair::scope(d, &idx, &mut trace);
+    let (repair, repair_outcome) = cache::repair::scope(d, &idx, &mut trace);
     let rows = Rows::new(&idx, repair);
 
-    let t_rank = Instant::now();
-    let lexical = trace.time("rank:bm25", || rank_lexical(&idx, &rows, query, opts, pool));
+    let lexical = trace.time(Stage::RankBm25, || rank_lexical(&idx, &rows, query, opts, pool));
     let lexical = expand_query(&idx, &rows, query, lexical, opts, d, pool, &mut trace);
     let (semantic, used_hnsw) = rank_semantic(&idx, &rows, query, opts, d, pool, &mut trace);
-    let ranked = trace.time("rank:fuse", || {
+    let ranked = trace.time(Stage::RankFuse, || {
         rank::fuse(opts.mode, lexical, semantic, super::fused_width(pool), opts.sem_weight)
     });
-    let rank_ms = t_rank.elapsed().as_millis();
 
-    let cands = candidates(&rows, ranked, &d.prefix, super::candidate_width(opts.k));
-    let hits = trace.time("finalize", || {
-        hit::finalize(&d.root, query, cands, opts, &d.prefix, |c| rows.vector(c.id))
+    let cands = trace.time(Stage::Candidates, || {
+        candidates(&rows, ranked, &d.prefix, super::candidate_width(opts.k))
     });
+    let hits =
+        hit::finalize(&d.root, query, cands, opts, &d.prefix, &mut trace, |c| rows.vector(c.id));
 
     Ok(SearchResult {
         report: SearchReport {
@@ -59,9 +63,8 @@ pub fn run(d: &cache::Discovered, query: &str, opts: &SearchOptions) -> Result<S
                 rows.n_dirty()
             },
             n_chunks_considered: rows.len(),
-            walk_ms: load_ms,
-            rank_ms,
-            stages: trace.into_stages(),
+            repair: repair_outcome,
+            stages: trace.finish(),
             ..Default::default()
         },
         hits,
@@ -139,7 +142,7 @@ fn expand_query(
     }
     let Some(store) = &idx.bm25 else { return lexical };
 
-    trace.time("rank:prf", || {
+    trace.time(Stage::RankPrf, || {
         // Feedback comes from the head of the first pass; ten is what the eval
         // used, and reading more costs a file read each for less signal.
         let texts: Vec<String> = lexical
@@ -175,7 +178,7 @@ fn rank_semantic(
 
     // A SIF index pools chunks by rarity weight, so the query has to be pooled
     // with the same corpus statistics or the distances mean nothing.
-    let q = trace.time("rank:embed-query", || {
+    let q = trace.time(Stage::RankEmbedQuery, || {
         let mut q = match &idx.sif {
             Some(s) => text::embed_sif(query, s),
             None => text::embed_query(query),
@@ -202,7 +205,9 @@ fn rank_semantic(
         .map(|(j, v)| (j as u32, rank::dot_distance_i8(&quantized, v)))
         .collect();
     let ranked = rows.merge(base, delta, pool, false);
-    trace.record(if use_graph { "rank:ann" } else { "rank:brute" }, elapsed_ms(start));
+    // Both stages are on the schedule and one of them is always zero, so the
+    // report has the same keys whether or not the graph answered.
+    trace.record(if use_graph { Stage::RankAnn } else { Stage::RankBrute }, elapsed_ms(start));
 
     let ranked = rerank_maxsim(rows, query, ranked, opts, d, idx, trace);
     (ranked, use_graph)
@@ -228,7 +233,7 @@ fn rerank_maxsim(
         return ranked;
     }
 
-    trace.time("rank:maxsim", || {
+    trace.time(Stage::RankMaxsim, || {
         use rayon::prelude::*;
         let head = maxsim::head_size(ranked.len(), opts.k, opts.maxsim_pool);
         let scored: Vec<(u32, f32, f32)> = ranked[..head]

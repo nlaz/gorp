@@ -19,6 +19,11 @@ pub mod search;
 pub mod store;
 pub mod text;
 
+// A leaf every layer may use. It lived under `search/` and was reached upward
+// into from `cache::repair` and needed downward by `store::build` — which is
+// what a leaf module is for.
+pub mod trace;
+
 pub const EMBED_DIM: usize = ese::DIMENSIONS;
 
 /// Chunking parameters shared by index build and cold search.

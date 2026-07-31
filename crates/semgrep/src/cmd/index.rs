@@ -1,5 +1,6 @@
 //! `semgrep index` — build a repo-local index, or report its freshness.
 
+use crate::telemetry;
 use anyhow::Result;
 use semgrep_core::ChunkParams;
 use semgrep_core::store::{self, BuildOptions};
@@ -15,6 +16,7 @@ pub struct Args {
     pub status: bool,
     pub window: u32,
     pub overlap: u32,
+    pub stats_json: bool,
 }
 
 pub fn run(args: Args) -> Result<i32> {
@@ -33,7 +35,6 @@ pub fn run(args: Args) -> Result<i32> {
         sif_a: args.sif_a,
         sif_center: args.sif_center,
     };
-    let start = std::time::Instant::now();
     let stats = store::build(&root, &opts, |done, total| {
         // Every 500 files: often enough to look alive on a big corpus, rare
         // enough not to spend the build writing to a terminal.
@@ -47,8 +48,12 @@ pub fn run(args: Args) -> Result<i32> {
         stats.n_chunks,
         stats.bytes_indexed as f64 / 1e6,
         store::index_dir(&root).display(),
-        start.elapsed().as_secs_f64(),
+        stats.total_ms / 1e3,
         stats.index_bytes as f64 / 1e6,
+    );
+    telemetry::emit(
+        &telemetry::index_envelope(&root, &opts, &stats, crate::EXIT_FOUND),
+        args.stats_json,
     );
     Ok(crate::EXIT_FOUND)
 }

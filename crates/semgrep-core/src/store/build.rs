@@ -4,9 +4,11 @@
 use super::{BuildOptions, BuildStats, FORMAT_VERSION, IndexMeta, index_dir};
 use crate::rank::bm25::Bm25Index;
 use crate::text::SifStats;
+use crate::trace::{SCHEDULE_BUILD, Stage, Trace, elapsed_ms};
 use crate::{Chunk, EMBED_DIM, corpus};
 use anyhow::{Context, Result};
 use std::path::Path;
+use std::time::Instant;
 
 mod embed;
 mod sif;
@@ -35,13 +37,16 @@ pub fn build_at(
     opts: &BuildOptions,
     progress: impl FnMut(usize, usize),
 ) -> Result<BuildStats> {
-    let files = corpus::walk(root, &opts.params)?;
+    let t_total = Instant::now();
+    let mut trace = Trace::new(SCHEDULE_BUILD);
+
+    let files = trace.time(Stage::BuildWalk, || corpus::walk(root, &opts.params))?;
     std::fs::create_dir_all(dir)?;
     unpublish(dir);
 
-    let sif = opts.sif.then(|| sif::count(root, &files, opts));
+    let sif = trace.time(Stage::BuildSif, || opts.sif.then(|| sif::count(root, &files, opts)));
     let IndexPass { chunks, bm25, emb_rows, mut stats } =
-        index_pass(dir, root, &files, opts, sif.as_ref(), progress)?;
+        index_pass(dir, root, &files, opts, sif.as_ref(), progress, &mut trace)?;
     // The three tables must describe the same chunks in the same order. This is
     // the invariant the whole format rests on, and it is cheap to assert.
     debug_assert_eq!(chunks.len(), emb_rows, "chunk table and emb.bin disagree");
@@ -56,7 +61,7 @@ pub fn build_at(
         sif: sif.is_some(),
         files,
     };
-    publish(dir, &meta, &chunks, &bm25, sif.as_ref())?;
+    trace.time(Stage::BuildWrite, || publish(dir, &meta, &chunks, &bm25, sif.as_ref()))?;
 
     stats.n_chunks = chunks.len();
     stats.index_bytes = ARTIFACTS
@@ -64,6 +69,8 @@ pub fn build_at(
         .filter_map(|name| std::fs::metadata(dir.join(name)).ok())
         .map(|m| m.len())
         .sum();
+    stats.stages = trace.finish();
+    stats.total_ms = elapsed_ms(t_total);
     Ok(stats)
 }
 
@@ -87,6 +94,7 @@ struct IndexPass {
 }
 
 /// The corpus pass: read, chunk, tokenize, embed.
+#[allow(clippy::too_many_arguments)]
 fn index_pass(
     dir: &Path,
     root: &Path,
@@ -94,7 +102,9 @@ fn index_pass(
     opts: &BuildOptions,
     sif: Option<&SifStats>,
     mut progress: impl FnMut(usize, usize),
+    trace: &mut Trace,
 ) -> Result<IndexPass> {
+    let t_pass = Instant::now();
     let mut writer = EmbedWriter::create(dir, opts.hnsw, sif)?;
     let mut bm25 = Bm25Index::new();
     let mut chunks: Vec<Chunk> = Vec::new();
@@ -124,8 +134,25 @@ fn index_pass(
         return Err(e);
     }
 
-    let emb_rows = writer.finish(dir)?;
+    let (emb_rows, embed) = writer.finish(dir)?;
+    // Reading, chunking and tokenizing is what is left of the pass once the two
+    // things that dominate it — embedding and graph insertion — are taken out.
+    // Derived rather than measured because the pass is a parallel fold: the work
+    // interleaves across rayon workers and there is no single span to wrap.
+    trace.record(Stage::BuildEmbed, embed.embed_ms);
+    trace.record(Stage::BuildHnsw, embed.hnsw_ms);
+    trace.record(
+        Stage::BuildRead,
+        (elapsed_ms(t_pass) - embed.embed_ms - embed.hnsw_ms).max(0.0),
+    );
+
+    // Term renumbering is part of producing bm25.flat, not part of the pass, so
+    // it lands in the same bucket as writing it. `finish` sums repeats, so this
+    // and `publish` add up under one name.
+    let t_fin = Instant::now();
     bm25.finalize();
+    trace.record(Stage::BuildWrite, elapsed_ms(t_fin));
+
     Ok(IndexPass { chunks, bm25, emb_rows, stats })
 }
 

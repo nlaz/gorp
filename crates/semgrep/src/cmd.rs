@@ -20,6 +20,7 @@ pub fn dispatch(cli: Cli) -> Result<i32> {
                 status: *status,
                 window: *window,
                 overlap: *overlap,
+                stats_json: cli.stats_json,
             })
         }
         None => {

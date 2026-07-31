@@ -2,6 +2,7 @@
 
 use crate::cli::Cli;
 use crate::out;
+use crate::telemetry::{self, Phase};
 use anyhow::Result;
 use semgrep_core::ChunkParams;
 use semgrep_core::cache;
@@ -12,11 +13,30 @@ use std::path::{Path, PathBuf};
 
 pub fn run(cli: &Cli, query: &str) -> Result<i32> {
     let root = cli.path.clone().unwrap_or_else(|| PathBuf::from("."));
-    let mode = resolve_mode(cli)?;
+    let (mode, mode_reason) = resolve_mode(cli)?;
     let opts = options(cli, mode);
 
     warn_if_first_search(&root, &opts);
     let result = search(&root, query, &opts)?;
+    let exit = if result.hits.is_empty() { crate::EXIT_NONE } else { crate::EXIT_FOUND };
+
+    // Emitted here, not at the end of the function: an exact miss runs a second
+    // full search below, and an envelope should describe its own invocation.
+    // Emitting last would order the records suggestion-first and fold the
+    // suggestion's memory into the primary's RSS high-water mark.
+    telemetry::emit(
+        &telemetry::search_envelope(
+            Phase::Primary,
+            mode,
+            mode_reason,
+            &root,
+            query,
+            &opts,
+            &result,
+            exit,
+        ),
+        cli.stats_json,
+    );
 
     // Exact mode caps its output but never its count: the footer reports the
     // true total, so `-e` stays a trustworthy answer to "how many".
@@ -32,25 +52,28 @@ pub fn run(cli: &Cli, query: &str) -> Result<i32> {
     // stderr, so stdout stays empty and the exit code still means "no match".
     let suggested = mode == Mode::Keyword
         && result.hits.is_empty()
-        && suggest_ranked_alternatives(&root, query, &opts);
+        && suggest_ranked_alternatives(cli, &root, query, &opts);
 
     out::footer(query, mode, &result, shown, suggested);
     if cli.stats {
         out::stats(mode, &result);
     }
-    Ok(if result.hits.is_empty() { crate::EXIT_NONE } else { crate::EXIT_FOUND })
+    Ok(exit)
 }
 
 /// `-e` wins over `--mode`: the explicit contract beats the harness knob.
-fn resolve_mode(cli: &Cli) -> Result<Mode> {
+/// Returns why, because "hybrid" in a trace is ambiguous between asked-for and
+/// defaulted-to, and the two are different experiments.
+fn resolve_mode(cli: &Cli) -> Result<(Mode, &'static str)> {
     if cli.exact {
-        return Ok(Mode::Keyword);
+        return Ok((Mode::Keyword, "exact-flag"));
     }
     match cli.tuning.mode.as_deref() {
-        None | Some("hybrid") => Ok(Mode::Hybrid),
-        Some("keyword") => Ok(Mode::Keyword),
-        Some("bm25") => Ok(Mode::Bm25),
-        Some("semantic") => Ok(Mode::Semantic),
+        None => Ok((Mode::Hybrid, "default")),
+        Some("hybrid") => Ok((Mode::Hybrid, "mode-flag")),
+        Some("keyword") => Ok((Mode::Keyword, "mode-flag")),
+        Some("bm25") => Ok((Mode::Bm25, "mode-flag")),
+        Some("semantic") => Ok((Mode::Semantic, "mode-flag")),
         Some(other) => anyhow::bail!("unknown mode {other:?} (hybrid|keyword|bm25|semantic)"),
     }
 }
@@ -104,12 +127,33 @@ fn warn_if_first_search(root: &Path, opts: &SearchOptions) {
 /// Only when an index already covers this scope — via discovery, so subdirectory
 /// scopes and ancestor or cache entries count. The fallback must never turn a
 /// fast miss into a corpus pass or a surprise cache build.
-fn suggest_ranked_alternatives(root: &Path, query: &str, opts: &SearchOptions) -> bool {
+fn suggest_ranked_alternatives(
+    cli: &Cli,
+    root: &Path,
+    query: &str,
+    opts: &SearchOptions,
+) -> bool {
     if opts.no_index || cache::discover(root, &opts.params).is_none() {
         return false;
     }
     let ranked_opts = SearchOptions { mode: Mode::Hybrid, k: 3, ..opts.clone() };
     let Ok(ranked) = search(root, query, &ranked_opts) else { return false };
+    // A whole second engine invocation, and until now it appeared in no report
+    // at all: `--stats` describes the primary search only, so an exact miss
+    // looked like a keyword scan and cost a keyword scan plus a hybrid query.
+    telemetry::emit(
+        &telemetry::search_envelope(
+            Phase::Suggest,
+            Mode::Hybrid,
+            "exact-miss-suggestion",
+            root,
+            query,
+            &ranked_opts,
+            &ranked,
+            crate::EXIT_NONE,
+        ),
+        cli.stats_json,
+    );
     if ranked.hits.is_empty() {
         return false;
     }

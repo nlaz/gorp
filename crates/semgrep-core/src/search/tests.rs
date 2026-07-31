@@ -63,7 +63,8 @@ fn overlapping_spans_dedupe_keeps_higher_rank() {
         },
     ];
     let opts = SearchOptions { k: 2, ..Default::default() };
-    let hits = finalize(dir.path(), "alpha", cands, &opts, "", |_| None);
+    let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
+    let hits = finalize(dir.path(), "alpha", cands, &opts, "", &mut trace, |_| None);
     assert_eq!(hits.len(), 1, "overlapping same-file spans should collapse");
     assert_eq!(hits[0].start_line, 1);
 }

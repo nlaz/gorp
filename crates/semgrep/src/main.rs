@@ -17,6 +17,7 @@
 mod cli;
 mod cmd;
 mod out;
+mod telemetry;
 
 use clap::Parser;
 

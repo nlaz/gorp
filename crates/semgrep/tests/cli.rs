@@ -64,13 +64,22 @@ impl Sg {
 
     /// Run against an arbitrary path (appended last, as the CLI expects).
     fn run_in(&self, args: &[&str], path: &Path) -> Run {
-        let out = Command::new(bin())
-            .args(args)
+        self.run_in_env(args, path, &[])
+    }
+
+    /// As `run_in`, with extra environment. `SEMGREP_TRACE_FILE` is the reason
+    /// this exists: the trace surface is deliberately reachable without an
+    /// argv change, so it has to be testable without one.
+    fn run_in_env(&self, args: &[&str], path: &Path, env: &[(&str, &str)]) -> Run {
+        let mut cmd = Command::new(bin());
+        cmd.args(args)
             .arg(path)
             .env("SEMGREP_CACHE_DIR", &self.cache)
-            .env("SEMGREP_CACHE_TTL_SECS", "0")
-            .output()
-            .expect("run semgrep");
+            .env("SEMGREP_CACHE_TTL_SECS", "0");
+        for (k, v) in env {
+            cmd.env(k, v);
+        }
+        let out = cmd.output().expect("run semgrep");
         Run {
             code: out.status.code().unwrap_or(-1),
             stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
@@ -230,7 +239,146 @@ fn stats_report_goes_to_stderr_with_stage_provenance() {
     assert_eq!(r.code, 0);
     assert!(r.stderr.contains("mode="), "expected a stats line");
     assert!(r.stderr.contains("provenance:"), "expected per-stage timings");
+    assert!(r.stderr.contains("unattributed="), "expected the residual");
     assert!(!r.stdout.contains("mode="), "stats must not reach stdout");
+}
+
+#[test]
+fn stats_json_stays_off_stdout_and_composes_with_json() {
+    // `--json` owns stdout. If the envelope leaked there, every consumer that
+    // parses hits would break on a line that is not a hit.
+    let sg = Sg::new();
+    let r = sg.run(&["--json", "--stats-json", "validate a session token", "-k", "3"]);
+    assert_eq!(r.code, 0, "stderr: {}", r.stderr);
+
+    for line in r.lines() {
+        let v: serde_json::Value = serde_json::from_str(line).expect("stdout stays hit JSONL");
+        assert!(v.get("path").is_some(), "stdout carried a non-hit object: {line}");
+        assert!(v.get("schema").is_none(), "the trace envelope reached stdout");
+    }
+
+    let envelope: serde_json::Value = r
+        .stderr
+        .lines()
+        .find_map(|l| serde_json::from_str(l).ok())
+        .expect("the envelope is on stderr");
+    assert_eq!(envelope["schema"], "semgrep.trace/1");
+    assert_eq!(envelope["kind"], "search");
+    assert!(envelope["timing"]["stages"].as_array().is_some_and(|a| !a.is_empty()));
+}
+
+#[test]
+fn the_trace_file_records_every_engine_invocation_including_the_hidden_one() {
+    // An exact-mode miss over an indexed scope runs a *second*, complete
+    // `search()` to build its suggestion. `--stats` never showed it — it
+    // describes the primary result only — so the cost of a failed `-e` looked
+    // like a keyword scan when it was a keyword scan plus a hybrid query.
+    let sg = Sg::new();
+    let trace = sg.cache.join("trace.jsonl");
+    let trace_s = trace.to_string_lossy().into_owned();
+
+    // Warm an index for this scope, or the suggestion path declines to run.
+    sg.run(&["retry backoff jitter", "-k", "3"]);
+    let r = sg.run_in_env(
+        &["-e", "zzz_no_such_symbol_anywhere"],
+        &corpus(),
+        &[("SEMGREP_TRACE_FILE", &trace_s)],
+    );
+    assert_eq!(r.code, 1, "an exact miss still exits 1");
+
+    let text = std::fs::read_to_string(&trace).expect("trace file written");
+    let records: Vec<serde_json::Value> =
+        text.lines().map(|l| serde_json::from_str(l).expect("one object per line")).collect();
+    assert_eq!(records.len(), 2, "one primary and one suggestion: {text}");
+
+    let phases: Vec<&str> = records.iter().map(|r| r["phase"].as_str().unwrap()).collect();
+    assert_eq!(phases, vec!["primary", "suggest"]);
+    assert_eq!(
+        records[0]["query_id"], records[1]["query_id"],
+        "both invocations belong to one command"
+    );
+    assert_eq!(records[0]["input"]["mode"], "keyword");
+    assert_eq!(records[1]["input"]["mode"], "hybrid");
+    assert_eq!(records[1]["input"]["mode_reason"], "exact-miss-suggestion");
+
+    // Two index resolutions for one failed `-e`, neither of them the user's:
+    // `suggest_ranked_alternatives` resolves to decide whether it is cheap to
+    // suggest, then the nested `search()` resolves again to actually do it.
+    // (`warn_if_first_search` skips keyword mode, which is why this is two and
+    // not three — a ranked cold miss is the three-resolution case.)
+    assert_eq!(
+        records[0]["resolution"]["discover_calls"], 0,
+        "the keyword scan itself resolves nothing"
+    );
+    assert_eq!(
+        records[1]["resolution"]["discover_calls"], 2,
+        "the suggestion path resolves the index twice"
+    );
+}
+
+#[test]
+fn a_warm_ranked_query_resolves_the_index_twice_for_one_answer() {
+    // `warn_if_first_search` calls `cache::discover` on *every* ranked search,
+    // not only the first, purely to decide whether to print one line — and the
+    // engine then resolves the same scope again. Each resolution canonicalizes
+    // the path and scans the generation directory. Asserted so the duplication
+    // is a recorded property rather than something to rediscover.
+    let sg = Sg::new();
+    let trace = sg.cache.join("warm-trace.jsonl");
+    let trace_s = trace.to_string_lossy().into_owned();
+
+    sg.run(&["retry backoff jitter", "-k", "3"]); // build the entry
+    let r = sg.run_in_env(
+        &["retry backoff jitter", "-k", "3"],
+        &corpus(),
+        &[("SEMGREP_TRACE_FILE", &trace_s)],
+    );
+    assert_eq!(r.code, 0, "stderr: {}", r.stderr);
+
+    let text = std::fs::read_to_string(&trace).unwrap();
+    let v: serde_json::Value = serde_json::from_str(text.trim()).unwrap();
+    assert_eq!(v["resolution"]["path_taken"], "warm");
+    assert_eq!(v["resolution"]["discover_calls_engine"], 1);
+    assert_eq!(v["resolution"]["discover_calls"], 2);
+}
+
+#[test]
+fn the_trace_file_is_opt_in_and_its_failure_is_silent() {
+    // Telemetry must never turn a working query into a failed one.
+    let sg = Sg::new();
+    let r = sg.run_in_env(
+        &["retry backoff jitter", "-k", "3"],
+        &corpus(),
+        &[("SEMGREP_TRACE_FILE", "/nonexistent-dir/nope/trace.jsonl")],
+    );
+    assert_eq!(r.code, 0, "an unwritable trace file must not fail the search");
+    assert!(!r.stdout.is_empty(), "and must not suppress results");
+}
+
+#[test]
+fn indexing_reports_its_own_stage_schedule() {
+    // `BuildStats` carried counts and no timings, so where a 45-second kernel
+    // build spent its time was unrecoverable.
+    let sg = Sg::new();
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("a.rs"), "fn retry_with_backoff() {}\n".repeat(40)).unwrap();
+    let trace = sg.cache.join("index-trace.jsonl");
+    let trace_s = trace.to_string_lossy().into_owned();
+
+    let r = sg.run_in_env(&["index"], dir.path(), &[("SEMGREP_TRACE_FILE", &trace_s)]);
+    assert_eq!(r.code, 0, "stderr: {}", r.stderr);
+
+    let text = std::fs::read_to_string(&trace).expect("trace file written");
+    let v: serde_json::Value = serde_json::from_str(text.trim()).unwrap();
+    assert_eq!(v["kind"], "index");
+    let names: Vec<&str> = v["timing"]["stages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["stage"].as_str().unwrap())
+        .collect();
+    assert!(names.contains(&"build:embed"), "got {names:?}");
+    assert!(names.contains(&"build:write"), "got {names:?}");
 }
 
 // ---------------------------------------------------------------------------

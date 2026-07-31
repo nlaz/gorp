@@ -86,25 +86,38 @@ pub fn footer(query: &str, mode: Mode, result: &SearchResult, shown: usize, sugg
 pub fn stats(mode: Mode, result: &SearchResult) {
     let r = &result.report;
     eprintln!(
-        "semgrep: mode={:?} hits={} index={} hnsw={} chunks={} walk/load={}ms rank={}ms total={}ms{}",
+        "semgrep: mode={:?} hits={} index={} hnsw={} chunks={} walk/load={:.1}ms rank={:.1}ms total={:.1}ms{}",
         mode,
         result.hits.len(),
         r.used_index,
         r.used_hnsw,
         r.n_chunks_considered,
-        r.walk_ms,
-        r.rank_ms,
+        r.walk_ms() + r.load_ms(),
+        r.rank_ms(),
         r.total_ms,
         peak_rss_mb().map(|m| format!(" peak_rss={m:.0}MB")).unwrap_or_default(),
     );
-    if !r.stages.is_empty() {
-        let line = r
-            .stages
-            .iter()
-            .map(|(name, ms)| format!("{name}={ms:.1}ms"))
-            .collect::<Vec<_>>()
-            .join(" ");
+    // Zero-valued stages are filtered here and only here: the report carries the
+    // whole schedule so machine consumers see a fixed shape, while a human
+    // reading a line does not want fifteen `=0.0ms` entries to scan past.
+    let line = r
+        .stages
+        .iter()
+        .filter(|s| s.ms > 0.0)
+        .map(|s| format!("{}={:.1}ms", s.stage.name(), s.ms))
+        .collect::<Vec<_>>()
+        .join(" ");
+    if !line.is_empty() {
         eprintln!("semgrep: provenance: {line}");
+        // The residual. Printed always, including when it is small, because a
+        // number that only appears when it is bad teaches nobody what normal
+        // looks like.
+        eprintln!(
+            "semgrep: accounted={:.1}ms unattributed={:.1}ms ({:.0}%)",
+            r.accounted_ms(),
+            r.unattributed_ms(),
+            100.0 * r.unattributed_ms() / r.total_ms.max(f64::EPSILON),
+        );
     }
     if r.stale_files > 0 {
         eprintln!(
@@ -130,7 +143,13 @@ pub fn context(root: &Path, hit: &SearchHit, n: usize) {
     println!("--");
 }
 
-fn peak_rss_mb() -> Option<f64> {
+/// One JSON object on stderr. Stderr, not stdout: `--json` owns stdout and the
+/// two must compose without corrupting the hit stream.
+pub fn stats_json(line: &str) {
+    eprintln!("{line}");
+}
+
+pub fn peak_rss_mb() -> Option<f64> {
     let mut ru = std::mem::MaybeUninit::<libc::rusage>::uninit();
     let ok = unsafe { libc::getrusage(libc::RUSAGE_SELF, ru.as_mut_ptr()) } == 0;
     if !ok {
