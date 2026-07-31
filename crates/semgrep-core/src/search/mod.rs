@@ -72,6 +72,11 @@ pub struct SearchOptions {
     /// Blend of MaxSim vs original embedding order within the reranked
     /// head: 1.0 = pure MaxSim (default), 0.0 = original order.
     pub maxsim_blend: f32,
+    /// Rerank AFTER RRF instead of before it, so MaxSim reorders the fused
+    /// list rather than only the semantic branch (§13.11). Experimental:
+    /// §9.4 rejected post-fusion reranking, but did so at blend 1.0 (pure
+    /// override) and with the NaN bug of FIXES.md #9 still live.
+    pub maxsim_post: bool,
     pub params: ChunkParams,
     pub keyword: KeywordOptions,
 }
@@ -91,6 +96,7 @@ impl Default for SearchOptions {
             rerank_maxsim: false,
             maxsim_pool: 0,
             maxsim_blend: 1.0,
+            maxsim_post: false,
             params: ChunkParams::default(),
             keyword: KeywordOptions::default(),
         }

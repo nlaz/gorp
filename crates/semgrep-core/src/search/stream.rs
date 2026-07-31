@@ -41,10 +41,26 @@ pub fn run(
     // cold and warm answer the same question differently — the invariant
     // `cold_and_warm_return_identical_results` exists for. `indexed` reranks
     // here; this mirrors it against the same chunk texts.
-    let semantic = rerank_maxsim(root, &files, &pass.chunks, query, semantic, opts, &mut trace);
+    let semantic = if opts.maxsim_post {
+        semantic
+    } else {
+        rerank_maxsim(root, &files, &pass.chunks, query, semantic, opts, &mut trace)
+    };
     let ranked = trace.time(Stage::RankFuse, || {
         rank::fuse(opts.mode, lexical, semantic, super::fused_width(pool), opts.sem_weight)
     });
+    // Post-fusion placement, mirroring `indexed`. Both paths must rerank at the
+    // same point or a cached scope answers differently from an uncached one.
+    // Same sign conversion as `indexed::rerank_fused`: fuse emits
+    // higher-is-better, blend_head speaks lower-is-better.
+    let ranked = if opts.maxsim_post && opts.rerank_maxsim {
+        let as_dist: Vec<(u32, f32)> = ranked.iter().map(|&(id, s)| (id, -s)).collect();
+        let o = SearchOptions { maxsim_post: false, ..opts.clone() };
+        rerank_maxsim(root, &files, &pass.chunks, query, as_dist, &o, &mut trace)
+            .into_iter().map(|(id, pd)| (id, -pd)).collect()
+    } else {
+        ranked
+    };
 
     let cands = trace.time(Stage::Candidates, || {
         candidates(ranked, &pass.chunks, &files, super::candidate_width(opts.k))

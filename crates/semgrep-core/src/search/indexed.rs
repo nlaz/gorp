@@ -46,6 +46,14 @@ pub fn run(
     let ranked = trace.time(Stage::RankFuse, || {
         rank::fuse(opts.mode, lexical, semantic, super::fused_width(pool), opts.sem_weight)
     });
+    // Post-fusion variant: MaxSim reorders the FUSED list. The pre-fusion call
+    // inside rank_semantic is skipped in this mode, so the rerank happens once
+    // either way.
+    let ranked = if opts.maxsim_post && opts.rerank_maxsim {
+        rerank_fused(&rows, query, ranked, opts, d, &idx, &mut trace)
+    } else {
+        ranked
+    };
 
     let cands = trace.time(Stage::Candidates, || {
         candidates(&rows, ranked, &d.prefix, super::candidate_width(opts.k))
@@ -216,6 +224,29 @@ fn rank_semantic(
 /// MaxSim rerank over the head of the semantic list. Passes through when
 /// disabled, when the list is empty, or when the query has no token vectors.
 #[allow(clippy::too_many_arguments)]
+/// Post-fusion rerank, with the sign conversion the two contracts require.
+///
+/// `fuse` emits **higher-is-better** scores; `blend_head` consumes and emits
+/// **lower-is-better** pseudo-distances. Feeding one to the other directly
+/// inverts the fused order — measured, before this conversion existed, as
+/// hybrid R@5 0.770 -> 0.058. The giveaway was that blend 0.3, which should
+/// mostly preserve the original order, scored *worse* than blend 1.0: the
+/// order it was preserving was upside down.
+fn rerank_fused(
+    rows: &Rows,
+    query: &str,
+    ranked: Vec<(u32, f32)>,
+    opts: &SearchOptions,
+    d: &cache::Discovered,
+    idx: &LoadedIndex,
+    trace: &mut Trace,
+) -> Vec<(u32, f32)> {
+    let as_dist: Vec<(u32, f32)> = ranked.iter().map(|&(id, s)| (id, -s)).collect();
+    let o = SearchOptions { maxsim_post: false, ..opts.clone() };
+    let out = rerank_maxsim(rows, query, as_dist, &o, d, idx, trace);
+    out.into_iter().map(|(id, pd)| (id, -pd)).collect()
+}
+
 fn rerank_maxsim(
     rows: &Rows,
     query: &str,
@@ -225,7 +256,7 @@ fn rerank_maxsim(
     idx: &LoadedIndex,
     trace: &mut Trace,
 ) -> Vec<(u32, f32)> {
-    if !opts.rerank_maxsim || ranked.is_empty() {
+    if !opts.rerank_maxsim || opts.maxsim_post || ranked.is_empty() {
         return ranked;
     }
     let query_tokens = text::token_vectors(query, idx.sif.as_ref());

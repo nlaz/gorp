@@ -137,6 +137,10 @@ pub struct Tuning {
     #[arg(long, hide = true, default_value_t = 0)]
     pub maxsim_pool: usize,
 
+    /// Rerank AFTER fusion instead of before (experimental, §13.11)
+    #[arg(long, hide = true)]
+    pub maxsim_post: bool,
+
     /// MaxSim vs original-order blend within the head (1.0 = pure MaxSim)
     #[arg(long, hide = true, default_value_t = 1.0)]
     pub maxsim_blend: f32,

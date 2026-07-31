@@ -845,3 +845,60 @@ fn a_deeper_maxsim_head_is_a_superset_of_a_shallower_one() {
     // return fewer, which would mean the pool truncation dropped candidates.
     assert_eq!(head(8).len(), head(96).len());
 }
+
+/// Post-fusion reranking at blend 0.0 must reproduce the fused order exactly.
+///
+/// This is the sign-convention guard. `fuse` emits higher-is-better scores and
+/// `blend_head` speaks lower-is-better pseudo-distances; wiring them together
+/// without converting inverts the ranking. That bug measured as hybrid R@5
+/// 0.770 -> 0.058, and it was only obvious because blend 0.3 — which should
+/// mostly preserve the original order — scored worse than blend 1.0. At alpha
+/// 0 the rerank is the identity function, so this test fails loudly if either
+/// end of the conversion is dropped.
+#[test]
+fn post_fusion_rerank_at_zero_blend_is_the_identity() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+
+    for query in ["close connections that have gone idle", "compute the backoff delay"] {
+        let base = search(dir.path(), query, &opts(Mode::Hybrid)).unwrap();
+        let post = search(
+            dir.path(),
+            query,
+            &SearchOptions {
+                rerank_maxsim: true,
+                maxsim_post: true,
+                maxsim_blend: 0.0,
+                ..opts(Mode::Hybrid)
+            },
+        )
+        .unwrap();
+        let b: Vec<_> = base.hits.iter().map(|h| (&h.path, h.start_line)).collect();
+        let p: Vec<_> = post.hits.iter().map(|h| (&h.path, h.start_line)).collect();
+        assert_eq!(b, p, "blend 0.0 changed the order for {query:?}");
+    }
+}
+
+/// Cold and warm must agree under post-fusion reranking too — the rerank has
+/// to sit at the same point in both pipelines.
+#[test]
+fn cold_and_warm_agree_under_post_fusion_reranking() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+
+    let cfg = |o: SearchOptions| SearchOptions {
+        rerank_maxsim: true,
+        maxsim_post: true,
+        maxsim_blend: 0.5,
+        ..o
+    };
+    for query in ["close connections that have gone idle", "validate a session token"] {
+        let cold = search(dir.path(), query, &cfg(stream_opts(Mode::Hybrid))).unwrap();
+        let warm = search(dir.path(), query, &cfg(opts(Mode::Hybrid))).unwrap();
+        let c: Vec<_> = cold.hits.iter().map(|h| (&h.path, h.start_line)).collect();
+        let w: Vec<_> = warm.hits.iter().map(|h| (&h.path, h.start_line)).collect();
+        assert_eq!(c, w, "cold != warm under post-fusion for {query:?}");
+    }
+}

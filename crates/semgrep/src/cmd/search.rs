@@ -99,6 +99,7 @@ fn options(cli: &Cli, mode: Mode) -> SearchOptions {
         rerank_maxsim: (t.maxsim || mode == Mode::Semantic) && !t.no_maxsim,
         maxsim_pool: t.maxsim_pool,
         maxsim_blend: t.maxsim_blend,
+        maxsim_post: t.maxsim_post,
         params: ChunkParams { window: t.window, overlap: t.overlap, ..Default::default() },
         keyword: KeywordOptions {
             case_insensitive: cli.ignore_case,

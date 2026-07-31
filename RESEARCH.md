@@ -2377,3 +2377,69 @@ so there is no length variance for the bias to act on. The absent IDF is real
 and remains a reason to distrust MaxSim on prose-heavy queries; it is not what
 is happening here.
 
+### 13.11 Post-fusion reranking, re-tested
+
+`maxsim.rs` has carried a one-line justification since §9.5: *"This runs before
+RRF, not after. Post-fusion reranking let MaxSim override BM25's exact-match
+signal instead of being fused with it, which measurably hurt hybrid on code."*
+
+That claim was worth re-testing, because the measurement behind it (§9.4,
+2026-07-28) has three known problems: it was produced under the contaminated
+cache (FIXES.md #10 — "every §9 lever number in RESEARCH.md was produced under
+it"), before ripgrep determinism, and **before the NaN fix of FIXES.md #9** — a
+bug "reachable only via `--maxsim`, which is why no eval run caught it," which
+could scramble the reranked head outright.
+
+It also tested one configuration. `blend_head` takes an alpha: 1.0 is pure
+MaxSim, 0.0 keeps the incoming order. §9.4 ran at the default 1.0 — a full
+override — so "overriding BM25's signal" was assumed rather than tuned. A
+partial blend post-fusion had never been measured.
+
+`--maxsim-post` now implements it, in both the warm and cold paths. Swept over
+four corpora, 1,374 queries, paired against unmodified hybrid:
+
+| blend | direct R@5 | Δ | paraphrase R@5 | Δ |
+|---|---|---|---|---|
+| base (no rerank) | 0.770 | — | 0.116 | — |
+| 1.00 (pure MaxSim) | 0.514 | **−0.256** | 0.049 | **−0.067** |
+| 0.50 | 0.719 | **−0.051** | 0.105 | −0.012 |
+| 0.25 | 0.769 | −0.002 | 0.102 | **−0.015** |
+
+**§9.4's verdict is confirmed, now on a measurement that can be trusted, and
+with a mechanism.** The loss is monotone in alpha: the more MaxSim is allowed
+to override the fused order, the worse the result. There is no blend where it
+wins. At 0.25 it reaches "indistinguishable from doing nothing" on direct
+queries — and gets there by turning itself almost off, while still losing on
+paraphrase.
+
+That shape is the same finding as §13.10 seen from the other side. MaxSim's
+per-token similarity over static embeddings is a *weaker ranking signal than
+BM25 fused with RRF*. Pre-fusion it improves the semantic branch (+0.08 R@5)
+because that branch is weaker still. Post-fusion it is asked to improve on the
+strongest list the engine produces, and it cannot. The lever is not where it
+is applied; it is the quality of the signal being applied.
+
+#### The bug this experiment produced, and what caught it
+
+The first run of the sweep reported hybrid R@5 collapsing 0.770 → **0.058**.
+That is not a bad result, it is a broken one, and the giveaway was the *shape*:
+**blend 0.3 scored worse than blend 1.0.** Blend 0.3 should mostly preserve the
+incoming order, so preserving it harder cannot be worse — unless the order
+being preserved is upside down.
+
+It was. `fuse` emits **higher-is-better** scores; `blend_head` consumes and
+emits **lower-is-better** pseudo-distances. Pre-fusion this never mattered,
+because `fuse` reads only rank *position* from the semantic list and ignores
+its scores. Post-fusion, feeding one contract straight into the other inverts
+the ranking. Fixed by converting at both ends (`indexed::rerank_fused`).
+
+Two guards now exist that would have caught it immediately:
+`post_fusion_rerank_at_zero_blend_is_the_identity` — at alpha 0 the rerank must
+be a no-op, which is false the moment either conversion is dropped — and
+`cold_and_warm_agree_under_post_fusion_reranking`.
+
+`--maxsim-post` is kept, hidden and off. The question "would this work better
+after fusion?" is a reasonable one that will be asked again; it is now one
+command to answer instead of a re-implementation, and the answer is in this
+table.
+
