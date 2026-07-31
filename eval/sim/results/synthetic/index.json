@@ -1,0 +1,188 @@
+{
+  "run_id": "synthetic",
+  "tier": 2,
+  "corpus": "/Users/nlaz/Development/Flower-Computer/semgrep/eval/data/sim/synthetic/corpus",
+  "corpus_kind": "synthetic",
+  "adversarial": {
+    "made": [
+      "binary_nul",
+      "colon_name",
+      "dash_name",
+      "deep_nesting",
+      "emoji_name",
+      "empty",
+      "fake_semgrep_dir",
+      "fifo",
+      "gitignored_subtree",
+      "invalid_utf8",
+      "many_lines",
+      "newline_name",
+      "one_long_line",
+      "oversized",
+      "plain_control",
+      "quote_name",
+      "space_name",
+      "symlink_dangling",
+      "symlink_escape",
+      "symlink_loop",
+      "unreadable",
+      "utf16_bom",
+      "whitespace_only"
+    ],
+    "skipped": {}
+  },
+  "scenarios": [
+    {
+      "scenario": "s1-cold-start",
+      "tier": 1,
+      "wall_s": 0.04,
+      "n_checks": 4,
+      "n_failed": 0,
+      "error": false
+    },
+    {
+      "scenario": "s2-warm-amortization",
+      "tier": 1,
+      "wall_s": 0.05,
+      "n_checks": 3,
+      "n_failed": 1,
+      "error": false
+    },
+    {
+      "scenario": "s3a-ttl-fresh-serves-stale",
+      "tier": 1,
+      "wall_s": 0.01,
+      "n_checks": 3,
+      "n_failed": 0,
+      "error": false
+    },
+    {
+      "scenario": "s3b-no-drift",
+      "tier": 1,
+      "wall_s": 0.01,
+      "n_checks": 3,
+      "n_failed": 0,
+      "error": false
+    },
+    {
+      "scenario": "s3c-repair-never-writes-back",
+      "tier": 1,
+      "wall_s": 0.02,
+      "n_checks": 4,
+      "n_failed": 0,
+      "error": false
+    },
+    {
+      "scenario": "s3d-same-second-same-size-edit",
+      "tier": 1,
+      "wall_s": 1.14,
+      "n_checks": 3,
+      "n_failed": 0,
+      "error": false
+    },
+    {
+      "scenario": "s4-delta-cliff",
+      "tier": 2,
+      "wall_s": 7.13,
+      "n_checks": 3,
+      "n_failed": 2,
+      "error": false
+    },
+    {
+      "scenario": "s5a-budget-thrash",
+      "tier": 1,
+      "wall_s": 0.07,
+      "n_checks": 1,
+      "n_failed": 1,
+      "error": false
+    },
+    {
+      "scenario": "s5b-eviction-failure",
+      "tier": 1,
+      "wall_s": 0.04,
+      "n_checks": 3,
+      "n_failed": 0,
+      "error": false
+    },
+    {
+      "scenario": "s5c-dir-bytes-is-not-recursive",
+      "tier": 1,
+      "wall_s": 0.02,
+      "n_checks": 1,
+      "n_failed": 0,
+      "error": false
+    },
+    {
+      "scenario": "s7-adversarial-corpus",
+      "tier": 1,
+      "wall_s": 1.44,
+      "n_checks": 6,
+      "n_failed": 2,
+      "error": false
+    },
+    {
+      "scenario": "s8-fault-injection",
+      "tier": 1,
+      "wall_s": 0.44,
+      "n_checks": 30,
+      "n_failed": 0,
+      "error": false
+    },
+    {
+      "scenario": "s8h-repo-local-index-faults",
+      "tier": 1,
+      "wall_s": 0.04,
+      "n_checks": 3,
+      "n_failed": 0,
+      "error": false
+    },
+    {
+      "scenario": "s9-concurrent-first-search",
+      "tier": 1,
+      "wall_s": 0.55,
+      "n_checks": 1,
+      "n_failed": 1,
+      "error": false
+    },
+    {
+      "scenario": "s10-cold-warm-parity",
+      "tier": 1,
+      "wall_s": 0.34,
+      "n_checks": 3,
+      "n_failed": 0,
+      "error": false
+    },
+    {
+      "scenario": "s11-narrow-scope",
+      "tier": 1,
+      "wall_s": 0.03,
+      "n_checks": 1,
+      "n_failed": 0,
+      "error": false
+    },
+    {
+      "scenario": "s12-exact-miss-double-search",
+      "tier": 1,
+      "wall_s": 0.02,
+      "n_checks": 4,
+      "n_failed": 0,
+      "error": false
+    },
+    {
+      "scenario": "s13-keyword-at-scale",
+      "tier": 1,
+      "wall_s": 0.02,
+      "n_checks": 2,
+      "n_failed": 0,
+      "error": false
+    },
+    {
+      "scenario": "s14-nonexistent-path",
+      "tier": 1,
+      "wall_s": 0.01,
+      "n_checks": 2,
+      "n_failed": 2,
+      "error": false
+    }
+  ]
+}

@@ -399,16 +399,6 @@ def provenance(args, queries_fp, n_rows):
         except (json.JSONDecodeError, OSError):
             return None
 
-    def _git_head():
-        try:
-            r = subprocess.run(["git", "rev-parse", "--short", "HEAD"],
-                               cwd=Path(__file__).parent, capture_output=True,
-                               text=True, timeout=10)
-            return r.stdout.strip() or None
-        except (OSError, subprocess.SubprocessError):
-            return None
-
-    binst = SEMGREP.stat() if SEMGREP.exists() else None
     return {
         "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "queries": str(args.queries),
@@ -423,6 +413,29 @@ def provenance(args, queries_fp, n_rows):
         "stratify": args.stratify or None,
         "extra": args.extra or None,
         "no_index": args.no_index,
+        **binary_provenance(),
+    }
+
+
+def binary_provenance():
+    """Which binary, and which commit. Split out because every harness needs it.
+
+    `eval/sim/` records the same block, and two implementations of "which
+    binary produced this" is exactly one too many — the failure it guards
+    against (§13.7) is a number whose provenance turns out to be wrong, and a
+    second copy that drifts is a new way to be wrong about it.
+    """
+    def _git_head():
+        try:
+            r = subprocess.run(["git", "rev-parse", "--short", "HEAD"],
+                               cwd=Path(__file__).parent, capture_output=True,
+                               text=True, timeout=10)
+            return r.stdout.strip() or None
+        except (OSError, subprocess.SubprocessError):
+            return None
+
+    binst = SEMGREP.stat() if SEMGREP.exists() else None
+    return {
         "binary": str(SEMGREP),
         "binary_mtime": time.strftime("%Y-%m-%dT%H:%M:%SZ",
                                       time.gmtime(binst.st_mtime)) if binst else None,

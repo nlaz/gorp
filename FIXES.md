@@ -228,6 +228,39 @@ The pattern in 2–4: I twice diagnosed a numeric divergence from the top of the
 stack down, and was wrong both times. Measuring after each individual change —
 rather than after a batch — is what caught it.
 
+### 15. A corrupt `bm25.flat` panicked instead of erroring, permanently — P0
+`FlatBm25::open` validated `map.len() >= 64` and an 8-byte magic, then read five
+section offsets out of the header and used them as *unchecked* slice indices in
+`term_at`, `u32_le`, `postings_at` and `doc_len_at`.
+
+64 is exactly the header's own length (8 magic + 4 + 4 + 8 + 40 offset slots), so
+a file truncated to precisely its header **passed validation** and handed out
+five offsets pointing past the end of the file.
+
+The panic is the bug, not the corruption. `search::search` treats any failure to
+read a cache entry as a miss — it deletes the entry and answers from the
+streaming path — but only on `Err`. A panic bypasses that, so the entry was never
+evicted and *every subsequent invocation panicked on the same bytes*. A cache
+that only `semgrep cache --clear` could recover.
+
+Found by simulation testing (SIMULATION.md §1.1), which was pre-registered to
+predict exactly this and measured it as three consecutive runs at exit 101 with
+zero hits, on all three corpora, for three different corruptions. It was the only
+crash class in 660 invocations, and accounted for all 30 of them.
+
+Fixed by validating in `open` that every section named by the header lies inside
+the file, returning `Err`. Deliberately O(1): the three fixed-size tables are
+bounds-checked directly and the two byte blobs against the last entry of their own
+table. Checking that every offset *within* those tables is monotonic would mean
+reading tens of megabytes at kernel scale and undo the reason the flat layout
+exists — so the accessors are bounds-safe instead, and an in-bounds but
+internally inconsistent table yields empty results rather than a crash.
+
+`tests.rs` now truncates a real index at every byte offset from 0 to its length
+and asserts each prefix either errors or answers, never panics. A spot check
+would have missed this: the bug lived at one specific length.
+
+
 ---
 
 ## Open, and deliberately not fixed
@@ -273,3 +306,60 @@ rather than after a batch — is what caught it.
    Still outstanding, and separate: #10 means the published §9 lever numbers were
    measured through a cache a `--window` sweep could contaminate. Those want a
    re-run on their own terms; this A/B does not substitute for it.
+
+6. **Concurrent first-searches SIGBUS, not merely return zero hits.** #3 above
+   describes the race as producing "an occasional zero-hit run". Simulation
+   testing measured it: 20 trials x 8 parallel first-searches of one fresh scope
+   produced **exit -10 (SIGBUS) in 5-8 of 20 trials** on a small corpus, and
+   occasionally on tokio. SIGBUS on a mapped file is an `mmap` whose backing file
+   was replaced underneath it, which is what `store::build` does when it rewrites
+   `emb.bin` in place. `unpublish()` stops a *new* reader starting; it cannot
+   recall a mapping that already exists. The staging-dir-and-rename fix in #2
+   closes this and makes `unpublish` unnecessary. Rate measured in
+   SIMULATION.md §1.2; nobody had one before.
+
+7. **Read-repair has no delta-size bound.** RESEARCH.md §8 mechanism 2 specifies
+   treating drift above ~5% of files as a full miss; `repair.rs` never bounds
+   `drift.len()`. Measured on tokio: at 50% drift a repaired query costs 131 ms
+   against a 127 ms full cold pass, and at 100% drift 197 ms — and it never
+   amortizes, because the overlay is discarded and rebuilt on every query past
+   the TTL. The walk that finds the drift is flat at ~7 ms; all the growth is
+   re-embedding, which the threshold would skip. After a branch switch this is
+   the steady state. SIMULATION.md §1.3.
+
+8. **A corpus that cannot fit the budget is built and then immediately evicted.**
+   `write_cache_entry` calls `enforce_budget()` before returning, so with a
+   budget below one entry the query builds a complete index, has it reclaimed,
+   misses on re-discovery, and falls through to a full streaming pass — paying
+   for both and keeping neither. Observed on 5 of 8 queries under budget
+   pressure. #5 moved reclamation after registration so the enforcer could see
+   the new entry; it can now see it, and evicts it. SIMULATION.md §1.4.
+
+9. **LRU eviction destroys healthy entries when a delete fails.**
+   `budget.rs:115-122` pops the victim before attempting `remove_dir_all` and
+   decrements the running total only on success, so a failure neither stops the
+   loop nor accounts for itself. With one entry `chmod 0500`: four entries
+   before, one after, and the survivor is the undeletable one. Exit 0, no
+   warning. Also `dir_bytes` is non-recursive, correct only because entries
+   happen to be flat.
+
+10. **`out::hits` does not escape paths.** `println!("{}:{}:{}")` means a
+    filename containing a newline splits one hit across two stdout lines, and one
+    containing `:` mis-parses. Six files on disk produced seven output lines.
+    `--json` is unaffected. This breaks the `path:line:text` contract that
+    "stdout is data" rests on. SIMULATION.md §1.5.
+
+11. **A nonexistent search path exits 1, not 2.** "No results" is what an agent
+    reads as "the code is not there", when the path was simply wrong. Ranked mode
+    additionally announces it is caching a scope that does not exist.
+
+12. **Every warm ranked query resolves the index twice.**
+    `warn_if_first_search` calls `cache::discover` on every ranked search, not
+    only the first, to decide whether to print one line — then the engine
+    resolves the same scope again. Each resolution canonicalizes the path and
+    scans the generation directory. The engine already reports `wrote_cache`.
+
+13. **A narrow scope can return zero hits.** `candidates()` filters to the
+    query's subtree before truncating, but the fused list is only
+    `FUSION_POOL * 2 = 256` rows wide. On tokio, `.github` and `docs` returned 0
+    hits from 8,042 indexed chunks. SIMULATION.md §1.7.

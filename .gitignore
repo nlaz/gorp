@@ -4,3 +4,4 @@ bench/corpora/
 bench/results/
 eval/data/
 __pycache__/
+eval/sim/results/*/*/cache/

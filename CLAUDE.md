@@ -14,6 +14,11 @@ downward and not upward.** That is the rule to check a change against, and it is
 what keeps the tree navigable: `rank` never touches the filesystem, `store` never
 ranks, `cache` never scores, `search` orchestrates rather than computes.
 
+- `trace.rs` — stage timing. A leaf every layer may use, and the one module
+  outside the stack: `Stage` is a closed enum, each path declares a
+  `SCHEDULE_*`, and every stage belongs to exactly one `Bucket` so
+  `walk`/`load`/`rank` are *derived* sums and `unattributed_ms` means "work
+  nothing is timing". `crates/semgrep-core/tests/trace.rs` bounds that residual.
 - `corpus/` — directory into files into chunks. `mod` walks, `chunk` cuts and
   re-reads, `pass` drives the parallel read, `diff` compares a tree against an
   index.
@@ -27,7 +32,7 @@ ranks, `cache` never scores, `search` orchestrates rather than computes.
 - `cache/` — which index answers, and keeping it honest. `mod` (discovery,
   fill), `compat` (generations), `budget`, `repair` (the read-repair overlay).
 - `search/` — orchestration and materialization. `indexed` (warm), `stream`
-  (cold), `rows` (the union id space), `hit`, `trace`.
+  (cold), `rows` (the union id space), `hit`.
 - `keyword.rs` — the exact-match escape hatch, independent of all of it.
 
 `crates/semgrep` is the CLI: `cli` (flags), `cmd/` (one file per verb), `out`
@@ -53,6 +58,16 @@ ranks, `cache` never scores, `search` orchestrates rather than computes.
   Report all three. `levers.sh` runs the §9 lever campaign and `diff.py`
   compares any two conditions. `pytest eval/tests` covers the scorers, which
   decide every published number.
+- `eval/sim/` — simulation testing: behavior over a *sequence* of steps against
+  evolving cache state, which neither of the above can see. A session is
+  `mutate` / `invoke` / `check` steps under one isolated `SEMGREP_CACHE_DIR`;
+  `eval/sim/scenarios.py` holds the catalog with machine-readable expectations
+  and `eval/sim/PREREGISTER.md` the prose, **committed before the first run** so
+  a contradicted prediction is a finding rather than a rewrite.
+  `eval/sim/run.py` drives it, `eval/sim/report.py --check` regenerates
+  `eval/sim/results/INDEX.md`. Sessions are checked in; scratch corpora go to
+  the gitignored `eval/data/sim/`. Findings and their patch sites:
+  `SIMULATION.md`.
 - Guards that run beside the numbers: `eval/leakage.py` (how much of the
   answer a query already contains — §12.5 made structural),
   `eval/validate_queries.py` (`run_eval` refuses to score a query set that has

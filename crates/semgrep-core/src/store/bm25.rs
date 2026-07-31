@@ -78,11 +78,22 @@ pub struct FlatBm25 {
     off: [u64; 5],
 }
 
+/// 8 magic + 4 n_docs + 4 n_terms + 8 total_len + 5×8 section offsets.
+///
+/// Exactly the length the old `map.len() >= 64` check accepted, which is what
+/// made the check useless: a file truncated to precisely its own header passed
+/// validation and then handed out five section offsets pointing far past the
+/// end of the file.
+const HEADER_BYTES: usize = 64;
+
 impl FlatBm25 {
     pub fn open(path: &std::path::Path) -> anyhow::Result<Self> {
         let file = std::fs::File::open(path)?;
         let map = unsafe { memmap2::Mmap::map(&file)? };
-        anyhow::ensure!(map.len() >= 64 && &map[..8] == FLAT_MAGIC, "bad bm25.flat header");
+        anyhow::ensure!(
+            map.len() >= HEADER_BYTES && &map[..8] == FLAT_MAGIC,
+            "bad bm25.flat header"
+        );
         let u32_at = |o: usize| u32::from_le_bytes(map[o..o + 4].try_into().unwrap());
         let u64_at = |o: usize| u64::from_le_bytes(map[o..o + 8].try_into().unwrap());
         let n_docs = u32_at(8);
@@ -92,7 +103,77 @@ impl FlatBm25 {
         for (i, o) in off.iter_mut().enumerate() {
             *o = u64_at(24 + i * 8);
         }
-        Ok(Self { map, n_docs, n_terms, total_len, off })
+        let this = Self { map, n_docs, n_terms, total_len, off };
+        this.validate()?;
+        Ok(this)
+    }
+
+    /// Check that every section named by the header actually lies inside the
+    /// file, before anything indexes into one.
+    ///
+    /// This has to return `Err`, not panic, and the distinction is the whole
+    /// point. `search::search` treats *any* failure to read a cache entry as a
+    /// miss: it deletes the entry and answers from the streaming path. A panic
+    /// is not a failure it can catch, so a corrupt `bm25.flat` used to abort the
+    /// process, leave the entry in place, and abort the next invocation too —
+    /// a permanently unusable cache that only `semgrep cache --clear` could
+    /// recover. Observed on three separate corruptions, three runs each, all
+    /// exit 101 (SIMULATION.md §1.1).
+    ///
+    /// Deliberately O(1): the three fixed-size tables are bounds-checked here,
+    /// and the two variable-length sections are checked against the last entry
+    /// of their own table. Validating that every offset in those tables is
+    /// monotonic would mean reading them end to end, which would page in tens of
+    /// megabytes on a kernel-scale index and undo the reason this layout exists.
+    /// The accessors stay bounds-safe instead, so a table that is in-bounds but
+    /// internally inconsistent yields empty results rather than a crash.
+    fn validate(&self) -> anyhow::Result<()> {
+        let len = self.map.len() as u64;
+        let n_terms = self.n_terms as u64;
+        let n_docs = self.n_docs as u64;
+
+        // term_offs and post_offs are (n_terms + 1) entries; doc_lens is n_docs.
+        for (i, size, what) in [
+            (0usize, (n_terms + 1) * 4, "term offset table"),
+            (2, (n_terms + 1) * 8, "posting offset table"),
+            (4, n_docs * 4, "document length table"),
+        ] {
+            let end = self.off[i].checked_add(size).ok_or_else(|| {
+                anyhow::anyhow!("bm25.flat {what} offset overflows; index is corrupt")
+            })?;
+            anyhow::ensure!(
+                end <= len,
+                "bm25.flat {what} ends at {end} but the file is {len} bytes; \
+                 index is corrupt — re-run `semgrep index`"
+            );
+        }
+
+        // The two byte blobs are as long as the last entry of their table says,
+        // which is only safe to read now that the tables are known to fit.
+        let term_bytes = self.u32_le(self.off[0] as usize + n_terms as usize * 4) as u64;
+        let post_bytes = {
+            let o = self.off[2] as usize + n_terms as usize * 8;
+            u64::from_le_bytes(self.map[o..o + 8].try_into().unwrap())
+        };
+        for (i, size, what) in [
+            (1usize, term_bytes, "term text"),
+            (3, post_bytes, "postings"),
+        ] {
+            let end = self.off[i].checked_add(size).ok_or_else(|| {
+                anyhow::anyhow!("bm25.flat {what} offset overflows; index is corrupt")
+            })?;
+            anyhow::ensure!(
+                end <= len,
+                "bm25.flat {what} section ends at {end} but the file is {len} bytes; \
+                 index is corrupt — re-run `semgrep index`"
+            );
+        }
+        anyhow::ensure!(
+            post_bytes % 6 == 0,
+            "bm25.flat postings section is {post_bytes} bytes, not a multiple of \
+             the 6-byte record; index is corrupt — re-run `semgrep index`"
+        );
+        Ok(())
     }
 
     pub fn n_docs(&self) -> usize {
@@ -101,7 +182,25 @@ impl FlatBm25 {
 
     #[inline]
     fn u32_le(&self, byte_off: usize) -> u32 {
-        u32::from_le_bytes(self.map[byte_off..byte_off + 4].try_into().unwrap())
+        self.map
+            .get(byte_off..byte_off + 4)
+            .map(|b| u32::from_le_bytes(b.try_into().unwrap()))
+            .unwrap_or(0)
+    }
+
+    /// A byte range of the map, or empty if it does not lie inside it.
+    ///
+    /// `validate` bounds the *sections*; this bounds an individual entry, whose
+    /// start and end come out of a table that a corrupt file can make
+    /// non-monotonic or out of range. Returning empty rather than panicking
+    /// keeps the "a bad cache entry is a miss" contract intact for the cases
+    /// an O(1) header check cannot reach.
+    #[inline]
+    fn slice(&self, start: usize, end: usize) -> &[u8] {
+        if end < start {
+            return &[];
+        }
+        self.map.get(start..end).unwrap_or(&[])
     }
 
     #[inline]
@@ -110,7 +209,7 @@ impl FlatBm25 {
         let lo = self.u32_le(base + i * 4) as usize;
         let hi = self.u32_le(base + (i + 1) * 4) as usize;
         let tb = self.off[1] as usize;
-        &self.map[tb + lo..tb + hi]
+        self.slice(tb.saturating_add(lo), tb.saturating_add(hi))
     }
 
     fn find_term(&self, term: &str) -> Option<usize> {
@@ -129,11 +228,16 @@ impl FlatBm25 {
     /// (chunk_id, tf) postings for the i-th sorted term.
     fn postings_at(&self, i: usize) -> impl Iterator<Item = (u32, u16)> + '_ {
         let base = self.off[2] as usize;
-        let u64_at = |o: usize| u64::from_le_bytes(self.map[o..o + 8].try_into().unwrap());
+        let u64_at = |o: usize| {
+            self.map
+                .get(o..o + 8)
+                .map(|b| u64::from_le_bytes(b.try_into().unwrap()))
+                .unwrap_or(0)
+        };
         let lo = u64_at(base + i * 8) as usize;
         let hi = u64_at(base + (i + 1) * 8) as usize;
         let pb = self.off[3] as usize;
-        self.map[pb + lo..pb + hi].chunks_exact(6).map(|rec| {
+        self.slice(pb.saturating_add(lo), pb.saturating_add(hi)).chunks_exact(6).map(|rec| {
             (
                 u32::from_le_bytes(rec[..4].try_into().unwrap()),
                 u16::from_le_bytes(rec[4..6].try_into().unwrap()),
@@ -141,6 +245,9 @@ impl FlatBm25 {
         })
     }
 
+    /// Length of one document. `chunk_id` comes out of a postings record, so a
+    /// corrupt file can make it arbitrary; `u32_le` returns 0 for anything
+    /// outside the map, which scores that chunk as empty rather than crashing.
     #[inline]
     fn doc_len_at(&self, chunk_id: u32) -> u32 {
         self.u32_le(self.off[4] as usize + chunk_id as usize * 4)
