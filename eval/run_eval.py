@@ -377,6 +377,60 @@ def correct(hit, truth, slack):
 # which is what the path-leakage question needs.
 # ---------------------------------------------------------------------------
 
+def provenance(args, queries_fp, n_rows):
+    """What produced this number, recorded with it.
+
+    Result files used to carry a mode, a kind, four metrics and the per-query
+    ranks — and nothing about the run. Six months later "kernel direct R@5 =
+    0.92" cannot be checked, because which binary, which corpus tree and which
+    query file produced it are all unrecoverable. §13.7 is the cost of that:
+    a number that would not reproduce, with no way to tell whether the engine,
+    the corpus or the harness had moved.
+
+    Everything here is cheap and none of it is guessed. A field that cannot be
+    determined is recorded as None rather than filled in.
+    """
+    def _digest(corpus):
+        mf = Path(__file__).resolve().parents[1] / "bench" / "corpora" / "MANIFEST.json"
+        if not mf.exists():
+            return None
+        try:
+            return json.loads(mf.read_text()).get(Path(corpus).name, {}).get("tree_digest")
+        except (json.JSONDecodeError, OSError):
+            return None
+
+    def _git_head():
+        try:
+            r = subprocess.run(["git", "rev-parse", "--short", "HEAD"],
+                               cwd=Path(__file__).parent, capture_output=True,
+                               text=True, timeout=10)
+            return r.stdout.strip() or None
+        except (OSError, subprocess.SubprocessError):
+            return None
+
+    binst = SEMGREP.stat() if SEMGREP.exists() else None
+    return {
+        "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "queries": str(args.queries),
+        "queries_fp": queries_fp,
+        "n_queries": n_rows,
+        "corpus": str(args.corpus),
+        "corpus_digest": _digest(args.corpus),
+        "modes": args.modes,
+        "k": args.k,
+        "slack": args.slack,
+        "where": args.where or None,
+        "stratify": args.stratify or None,
+        "extra": args.extra or None,
+        "no_index": args.no_index,
+        "binary": str(SEMGREP),
+        "binary_mtime": time.strftime("%Y-%m-%dT%H:%M:%SZ",
+                                      time.gmtime(binst.st_mtime)) if binst else None,
+        "binary_bytes": binst.st_size if binst else None,
+        "git_head": _git_head(),
+    }
+
+
 def check_index_freshness(corpus, modes, no_index, allow_stale):
     """Refuse to score semgrep modes against an index older than the binary.
 
@@ -549,6 +603,7 @@ def main():
     queries_fp = hashlib.sha256(
         (raw + "\0" + args.where + "\0" + args.stratify).encode()).hexdigest()[:16]
 
+    run_meta = provenance(args, queries_fp, len(rows))
     lk = leakage.summarize(rows, args.corpus)
     print()
     print(leakage.format_summary(lk, f"({args.queries.name})"))
@@ -607,7 +662,12 @@ def main():
                         # for paired statistics; aggregates alone cannot say
                         # whether a 0.01 delta is signal.
                         "ranks": rs,
-                        "queries_fp": queries_fp})
+                        "queries_fp": queries_fp,
+                        # Embedded per row rather than kept in a sidecar: a
+                        # sidecar gets separated from its data, which is the
+                        # failure this is fixing. Consumers key on
+                        # (mode, kind) and ignore extra fields.
+                        "run": run_meta})
     if any(m == "rg-oracle" for m in modes):
         print("\n* rg-oracle is a CEILING, not a baseline: it tries every query\n"
               "  token as its own pattern and keeps whichever scored best, which\n"
@@ -622,6 +682,8 @@ def main():
 
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
+        for r in results:
+            r["leakage"] = lk.get(r["kind"].split("|")[0])
         args.out.write_text(json.dumps(results, indent=2))
         print(f"wrote {args.out}")
 

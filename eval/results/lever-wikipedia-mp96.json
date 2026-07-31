@@ -1,0 +1,38 @@
+[
+  {
+    "mode": "hybrid",
+    "kind": "direct",
+    "n": 200,
+    "recall@1": 0.905,
+    "recall@5": 0.985,
+    "recall@10": 0.995,
+    "mrr@10": 0.935
+  },
+  {
+    "mode": "hybrid",
+    "kind": "paraphrase",
+    "n": 200,
+    "recall@1": 0.215,
+    "recall@5": 0.415,
+    "recall@10": 0.51,
+    "mrr@10": 0.294
+  },
+  {
+    "mode": "semantic",
+    "kind": "direct",
+    "n": 200,
+    "recall@1": 0.855,
+    "recall@5": 0.925,
+    "recall@10": 0.93,
+    "mrr@10": 0.885
+  },
+  {
+    "mode": "semantic",
+    "kind": "paraphrase",
+    "n": 200,
+    "recall@1": 0.185,
+    "recall@5": 0.3,
+    "recall@10": 0.365,
+    "mrr@10": 0.241
+  }
+]

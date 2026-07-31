@@ -1,0 +1,20 @@
+[
+  {
+    "mode": "hybrid",
+    "kind": "direct",
+    "n": 200,
+    "recall@1": 0.855,
+    "recall@5": 0.92,
+    "recall@10": 0.965,
+    "mrr@10": 0.888
+  },
+  {
+    "mode": "hybrid",
+    "kind": "paraphrase",
+    "n": 200,
+    "recall@1": 0.195,
+    "recall@5": 0.345,
+    "recall@10": 0.45,
+    "mrr@10": 0.266
+  }
+]

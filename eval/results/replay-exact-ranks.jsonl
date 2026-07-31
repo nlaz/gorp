@@ -1,0 +1,726 @@
+{"instance_id": "Agenta-AI__agenta-1639", "query": "get_config", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 3, "ranks": {"exact": 1}}
+{"instance_id": "Agenta-AI__agenta-1639", "query": "def fetch_base_by_id", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 3, "ranks": {"exact": 1}}
+{"instance_id": "Agenta-AI__agenta-1639", "query": "def list_environments", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 3, "ranks": {"exact": 2}}
+{"instance_id": "Agenta-AI__agenta-1639", "query": "def list_variants_for_base", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 3, "ranks": {"exact": 1}}
+{"instance_id": "Agenta-AI__agenta-1639", "query": "def check_action_access", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "Agenta-AI__agenta-1639", "query": "async def list_environments", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 3, "ranks": {"exact": 2}}
+{"instance_id": "Agenta-AI__agenta-1639", "query": "async def fetch_base_by_id", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 3, "ranks": {"exact": 1}}
+{"instance_id": "Agenta-AI__agenta-1639", "query": "async def list_variants_for_base", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 3, "ranks": {"exact": 1}}
+{"instance_id": "Agenta-AI__agenta-1639", "query": "config_name ==", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 3, "ranks": {"exact": 1}}
+{"instance_id": "Agenta-AI__agenta-1639", "query": "AppEnvironmentDB.find_one", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 3, "ranks": {"exact": 1}}
+{"instance_id": "Agenta-AI__agenta-1639", "query": "\"/get_config", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "Agenta-AI__agenta-1639", "query": "async def fetch_app_by_id", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 3, "ranks": {"exact": 1}}
+{"instance_id": "Agenta-AI__agenta-1639", "query": "async def list_environments\\(", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 3, "ranks": {"exact": 2}}
+{"instance_id": "Agenta-AI__agenta-1639", "query": "class AppEnvironmentDB", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "Agenta-AI__agenta-1639", "query": "class VariantBaseDB", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "Agenta-AI__agenta-1639", "query": "async def fetch_base_by_id\\|async def list_environments\\|async def list_variants_for_base", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "Agenta-AI__agenta-1639", "query": "async def fetch_base_by_id|async def list_environments|async def list_variants_for_base", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 3, "ranks": {"exact": 2}}
+{"instance_id": "Agenta-AI__agenta-1639", "query": "AppVariantDB.find_one", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 3, "ranks": {"exact": 2}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-407", "query": "Authority\\(", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-407", "query": "instance_discovery", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-407", "query": "Authority(", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-407", "query": "Authority", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-407", "query": "individual_cache|_IndividualCache|_ExpiringMapping", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-407", "query": "ThrottledHttpClient|http_cache|self.http_client", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-407", "query": "def __init__", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "^import requests", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 2}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "^import jwt", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "jwt", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "jwt\\.", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "import requests", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 2}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "import jwt", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "class JwtAssertionCreator", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "requests\\.", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "def __init__", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 3}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "class BaseClient", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "class ClientApplication", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "^import requests|^import jwt|^from jwt|^from requests", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": 2}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "^import jwt|^from jwt", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "assertion", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "import assertion", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "from .assertion|from \\.\\.assertion|assertion", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "_requests\\.", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "def create_normal_assertion|class JwtAssertionCreator", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "requests", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 23}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "^import|^from", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 27}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "class Client|def __init__", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 4}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "requests\\.|_requests\\.", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "from oauth2cli", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "^import", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 12}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "JwtAssertionCreator", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "Client(", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "^import jwt|^import requests|^from jwt|^from requests", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": 2}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "class |def __init__", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": 10}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "^import (requests|jwt)", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": 2}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "requests\\.Session", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "lazy", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "^import (requests|jwt)|^from (requests|jwt)", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 2}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "class ClientApplication|def __init__", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": 4}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "requests\\.|_requests", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": 6}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "^import requests|^import jwt", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": 2}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "^import requests|^import jwt|^from jwt", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": 2}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "_requests", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "AzureAD__microsoft-authentication-library-for-python-454", "query": "^class ", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": 5}}
+{"instance_id": "Bears-R-Us__arkouda-1969", "query": "ccp_appendColumnToParquet", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "Bears-R-Us__arkouda-1969", "query": "appendColumnToParquet", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "Bears-R-Us__arkouda-1969", "query": "writeParquet", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "Bears-R-Us__arkouda-1969", "query": "to_parquet", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 2, "ranks": {"exact": 4}}
+{"instance_id": "Bears-R-Us__arkouda-1969", "query": "cpp_appendColumnToParquet", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "Bears-R-Us__arkouda-1969", "query": "def to_parquet", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 2, "ranks": {"exact": 2}}
+{"instance_id": "Bears-R-Us__arkouda-1969", "query": "appendColumnToParquet|AppendColumnToParquet", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "Bears-R-Us__arkouda-1969", "query": "^def to_parquet", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 2, "ranks": {"exact": 1}}
+{"instance_id": "Bears-R-Us__arkouda-1969", "query": "proc writeParquetMsg\\|proc parquetMsg\\|writeParquet", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "Bears-R-Us__arkouda-1969", "query": "proc.*[Mm]sg\\(", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "Bears-R-Us__arkouda-1969", "query": "toparquetMsg", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "BerriAI__litellm-6563", "query": "deepcopy", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 3}}
+{"instance_id": "BerriAI__litellm-6563", "query": "def _log_langfuse_v2", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "BerriAI__litellm-6563", "query": "def .*safe.*copy", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "BerriAI__litellm-6563", "query": "deepcopy|_log_langfuse_v2|def ", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": 1006}}
+{"instance_id": "BerriAI__litellm-6563", "query": "safe_deep_copy\\|safe_dumps\\|def .*deepcopy", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "BerriAI__litellm-6563", "query": "def safe_deep_copy\\|RLock", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "BerriAI__litellm-6563", "query": "def safe_deep_copy", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "BerriAI__litellm-6563", "query": "RLock", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "BerriAI__litellm-6563", "query": "^class ", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 224}}
+{"instance_id": "BerriAI__litellm-6563", "query": "litellm_parent_otel_span", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "BerriAI__litellm-6563", "query": "optional_params.pop\\(\"metadata\"\\)|metadata.pop\\(", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "BerriAI__litellm-6563", "query": "def safe_deepcopy", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "BerriAI__litellm-6563", "query": "safe_deepcopy", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "BerriAI__litellm-6563", "query": "def redact_message_input_output_from_logging\\|PR #3384\\|3384", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "BerriAI__litellm-6915", "query": "fireworks", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 51}}
+{"instance_id": "CWorthy-ocean__roms-tools-227", "query": "correct_radiation", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 3, "ranks": {"exact": 22}}
+{"instance_id": "CWorthy-ocean__roms-tools-227", "query": "^class ", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 3, "ranks": {"exact": 5}}
+{"instance_id": "CWorthy-ocean__roms-tools-227", "query": "chunk", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 3, "ranks": {"exact": 1238}}
+{"instance_id": "CWorthy-ocean__roms-tools-227", "query": "chunks=", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "CWorthy-ocean__roms-tools-227", "query": "correct_radiation|interpolate_from_climatology|isnan", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 3, "ranks": {"exact": 23}}
+{"instance_id": "CWorthy-ocean__roms-tools-227", "query": "_apply_correction|_validate|def process_fields|def _write_into_dataset", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 3, "ranks": {"exact": 17}}
+{"instance_id": "CWorthy-ocean__roms-tools-227", "query": "def nan_check", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 3, "ranks": {"exact": 2}}
+{"instance_id": "CWorthy-ocean__roms-tools-227", "query": "correct_radiation|interpolate_from_climatology|nan_check|use_dask", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 3, "ranks": {"exact": 99}}
+{"instance_id": "CWorthy-ocean__roms-tools-227", "query": "correct_radiation|interpolate_from_climatology|_validate|nan_check", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 3, "ranks": {"exact": 36}}
+{"instance_id": "CWorthy-ocean__roms-tools-227", "query": "correct_radiation|swrad_corr|interpolate_from_climatology", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 3, "ranks": {"exact": 22}}
+{"instance_id": "CWorthy-ocean__roms-tools-227", "query": "correct_radiation|interpolate_from_climatology|_validate|\\.chunk\\(", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 3, "ranks": {"exact": 32}}
+{"instance_id": "CWorthy-ocean__roms-tools-227", "query": "interpolate_from_climatology", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 3, "ranks": {"exact": 1}}
+{"instance_id": "CWorthy-ocean__roms-tools-227", "query": "interpolate_from_climatology|correct_radiation", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 3, "ranks": {"exact": 22}}
+{"instance_id": "Chainlit__chainlit-1441", "query": "project/file", "exact": true, "tool": "semgrep", "condition_seen": "both", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "Chainlit__chainlit-1441", "query": "\"/project/file", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "Chainlit__chainlit-1575", "query": "allow_origins|CORSMiddleware", "exact": true, "tool": "semgrep", "condition_seen": "both", "n_gold": 2, "ranks": {"exact": 3}}
+{"instance_id": "Chainlit__chainlit-1575", "query": "allow_origins", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 2, "ranks": {"exact": 3}}
+{"instance_id": "Chainlit__chainlit-1575", "query": "^def |^class |^app = ", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 2, "ranks": {"exact": 145}}
+{"instance_id": "Chainlit__chainlit-1575", "query": "CORSMiddleware", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 2, "ranks": {"exact": 1}}
+{"instance_id": "Chainlit__chainlit-1575", "query": "def load_settings", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "Chainlit__chainlit-1575", "query": "def load_", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 2, "ranks": {"exact": 6}}
+{"instance_id": "Chainlit__chainlit-1575", "query": "CORS|allow_origins|Access-Control", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 2, "ranks": {"exact": 3}}
+{"instance_id": "Chainlit__chainlit-1575", "query": "allow_origins|CORSMiddleware|Access-Control-Allow-Origin", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 2, "ranks": {"exact": 3}}
+{"instance_id": "DS4SD__docling-302", "query": "add_code", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "DS4SD__docling-302", "query": "CodeBlock\\|FencedCode\\|DocItemLabel.CODE", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "DS4SD__docling-302", "query": "CODE", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "DS4SD__docling-302", "query": "add_code|CODE", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "DS4SD__docling-307", "query": "MSO_SHAPE_TYPE", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "DS4SD__docling-322", "query": "deepsearch", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 4}}
+{"instance_id": "DS4SD__docling-322", "query": "artifacts_path", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "DS4SD__docling-322", "query": "deepsearch-glm", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "DS4SD__docling-322", "query": "deepsearch_glm", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 2}}
+{"instance_id": "DS4SD__docling-322", "query": "GLM_MODELS_PATH|HF_HOME|glm.*cache|DOCLING_ARTIFACTS_PATH|model_names", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 2}}
+{"instance_id": "DS4SD__docling-322", "query": "permission|PermissionError|writable|site-packages", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "DS4SD__docling-322", "query": "download_models_hf|artifacts_path is None", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "DS4SD__docling-322", "query": "cache", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "DS4SD__docling-322", "query": "load_pretrained_nlp_models|artifacts_path", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": 6}}
+{"instance_id": "DS4SD__docling-322", "query": "deepsearch-glm|deepsearch_glm", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": 2}}
+{"instance_id": "DS4SD__docling-322", "query": "cache_dir", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "DS4SD__docling-322", "query": "GLM", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "DS4SD__docling-322", "query": "download_models_hf|artifacts_path", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "DS4SD__docling-322", "query": "GlmModel", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "DS4SD__docling-322", "query": "HF_HOME|snapshot_download|local_dir", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "DS4SD__docling-442", "query": "drawing_blip", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "DS4SD__docling-442", "query": "self\\.level", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 31}}
+{"instance_id": "DS4SD__docling-442", "query": "add_picture", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 8}}
+{"instance_id": "DS4SD__docling-442", "query": "drawing_blip|xpath.*blip|handle_pictures|self.level|self.parents", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": 49}}
+{"instance_id": "DS4SD__docling-442", "query": "self\\.level = ", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": 5}}
+{"instance_id": "DS4SD__docling-442", "query": "self\\.parents\\[", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 31}}
+{"instance_id": "DS4SD__docling-442", "query": "def get_level|self\\.level =|self\\.level:", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 7}}
+{"instance_id": "DS4SD__docling-442", "query": "def handle_pictures", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 2}}
+{"instance_id": "DS4SD__docling-442", "query": "self.level", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 31}}
+{"instance_id": "DS4SD__docling-442", "query": "def add_picture", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "DS4SD__docling-528", "query": "missing-text", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "DS4SD__docling-528", "query": "missing_text", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "DS4SD__docling-528", "query": "missing-", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "DS4SD__docling-528", "query": "MISSING", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "DS4SD__docling-528", "query": "missing", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "DS4SD__docling-528", "query": "hyperlink", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "DS4SD__docling-528", "query": "missing_text\\|MISSING_TEXT\\|missing-text", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Delgan__loguru-1239", "query": "repeated", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Delgan__loguru-1239", "query": "recursion", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Delgan__loguru-1239", "query": "cutoff|RECURSIVE|maximum recursion", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Delgan__loguru-1239", "query": "StackSummary|extract_tb|format_tb", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Delgan__loguru-1239", "query": "recursive", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Delgan__loguru-1239", "query": "others/", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Delgan__loguru-1239", "query": "RecursionError", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Deltares__imod-python-1159", "query": "scalar_None", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 3, "ranks": {"exact": 1}}
+{"instance_id": "Deltares__imod-python-1159", "query": "mask_all_models", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 3, "ranks": {"exact": 2}}
+{"instance_id": "Deltares__imod-python-1159", "query": "from_structured", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 3, "ranks": {"exact": 19}}
+{"instance_id": "Deltares__imod-python-1159", "query": "def snap_to_grid", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "Deltares__imod-python-1159", "query": "def ", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 3, "ranks": {"exact": 777}}
+{"instance_id": "Deltares__imod-python-1159", "query": "def merge_hfb_packages", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "Deltares__imod-python-1159", "query": "def from_imod5_data", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 3, "ranks": {"exact": 11}}
+{"instance_id": "Deltares__imod-python-1159", "query": "imod5", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 3, "ranks": {"exact": 127}}
+{"instance_id": "Deltares__imod-python-1159", "query": "from_structured|UgridDataArray|to_ugrid2d", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 3, "ranks": {"exact": 73}}
+{"instance_id": "Deltares__imod-python-1159", "query": "def to_mf6_pkg|def _to_connected_cells_dataset|def write|def dataset\\(|_derive_connected_cells|snap_to_grid|def _prepare", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 3, "ranks": {"exact": 35}}
+{"instance_id": "Deltares__imod-python-1159", "query": "to_mf6_pkg", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "Deltares__imod-python-1159", "query": "_mask_all_models|mask_all_models", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 3, "ranks": {"exact": 2}}
+{"instance_id": "Deltares__imod-python-1159", "query": "from_imod5_dataset", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "Deltares__imod-python-1159", "query": "def as_ugrid_dataarray", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 3, "ranks": {"exact": 1}}
+{"instance_id": "Deltares__imod-python-1159", "query": "_snap_to_grid", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "Deltares__imod-python-1159", "query": "def to_connected_cells_dataset", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "Deltares__imod-python-1159", "query": "from_structured\\|Ugrid2d", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "Deltares__imod-python-1159", "query": "as_ugrid_dataarray", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 3, "ranks": {"exact": 4}}
+{"instance_id": "Deltares__imod-python-1159", "query": "hfb", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "Deltares__imod-python-1159", "query": "_mask_all_models", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 3, "ranks": {"exact": 1}}
+{"instance_id": "Deltares__imod-python-1159", "query": "def scalar_None", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 3, "ranks": {"exact": 1}}
+{"instance_id": "Deltares__imod-python-1159", "query": "class DTypeSchema", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 3, "ranks": {"exact": 1}}
+{"instance_id": "Deltares__imod-python-1159", "query": "_mask_all_models\\|mask_all_models", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "Deltares__imod-python-1159", "query": "from_imod5_dataset\\|from_structured\\|to_ugrid\\|enforce_ugrid", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "Deltares__imod-python-1159", "query": "_to_connected_cells_dataset\\|to_mf6_pkg", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "Deltares__imod-python-1159", "query": "def to_mf6_pkg", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "Deltares__imod-python-1159", "query": "mask_all_models\\|_mask_all_models", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "Deltares__imod-python-1159", "query": "regrid_like\\|from_imod5", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "Deltares__imod-python-1159", "query": "def is_empty\\|class HorizontalFlowBarrierBase", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "Deltares__imod-python-1159", "query": "UgridDataArray.from_structured", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 3, "ranks": {"exact": 15}}
+{"instance_id": "Deltares__imod-python-1159", "query": "_to_connected_cells_dataset", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "Deltares__imod-python-1159", "query": "HorizontalFlowBarrier", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "Deltares__imod-python-1159", "query": "merge_hfb_packages", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "Deltares__imod-python-1159", "query": "def import_from_imod5\\|def _mask_all_models\\|def open_imod5", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "Deltares__imod-python-1159", "query": "from_imod5", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 3, "ranks": {"exact": 30}}
+{"instance_id": "Deltares__imod-python-1159", "query": "def notnull\\|def scalar_None", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "Deltares__imod-python-1159", "query": "\\.mask_all_models(", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "Deltares__imod-python-1159", "query": "_regrid_like", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 3, "ranks": {"exact": 5}}
+{"instance_id": "Deltares__imod-python-1159", "query": "^class ", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 3, "ranks": {"exact": 131}}
+{"instance_id": "Deltares__imod-python-1159", "query": "mask_all_models|from_imod5", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 3, "ranks": {"exact": 31}}
+{"instance_id": "Deltares__imod-python-1159", "query": "def from_imod5_data|def from_imod5", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 3, "ranks": {"exact": 12}}
+{"instance_id": "Deltares__imod-python-1159", "query": "from_structured|def snap_to_grid|def to_mf6_pkg|def _prepare_barrier_dataset_for_mf6|xu\\.snap", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 3, "ranks": {"exact": 24}}
+{"instance_id": "Deltares__imod-python-1159", "query": "_to_connected_cells_dataset|def snap_to_grid|xu\\.snap_to_grid|def _snap_to_grid", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "Deltares__imod-python-1159", "query": "to_mf6_pkg\\(", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 3, "ranks": {"exact": null}}
+{"instance_id": "Deltares__imod-python-1159", "query": "to_mf6_pkg|HorizontalFlowBarrier|_write\\b|def write", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 3, "ranks": {"exact": 107}}
+{"instance_id": "Happy-Algorithms-League__hal-cgp-180", "query": "def mutate", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 2, "ranks": {"exact": 1}}
+{"instance_id": "Happy-Algorithms-League__hal-cgp-180", "query": "import warnings", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "Happy-Algorithms-League__hal-cgp-180", "query": "n_mutations|def mutate|mutation_rate", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 2, "ranks": {"exact": 2}}
+{"instance_id": "Happy-Algorithms-League__hal-cgp-180", "query": "n_primitives|_n_hidden|len(self._primitives)|import warnings", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 2, "ranks": {"exact": 1}}
+{"instance_id": "Happy-Algorithms-League__hal-cgp-180", "query": "def __init__", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 2, "ranks": {"exact": 4}}
+{"instance_id": "Happy-Algorithms-League__hal-cgp-180", "query": "n_mutations|mutation_rate|def mutate", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 2, "ranks": {"exact": 2}}
+{"instance_id": "Innopoints__backend-124", "query": "csrf", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "Innopoints__backend-124", "query": "CORS Access-Control-Allow-Origin credentials header", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "Innopoints__backend-124", "query": "after_request", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "Innopoints__backend-124", "query": "CSRF", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "Innopoints__backend-124", "query": "SECRET_KEY", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "Innopoints__backend-124", "query": "methods=", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 2, "ranks": {"exact": 1}}
+{"instance_id": "Innopoints__backend-124", "query": "wtf|seasurf|CSRFProtect|csrf_token|X-CSRF", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "JackPlowman__repo_standards_validator-137", "query": "get_vulnerability_alert", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 2, "ranks": {"exact": 1}}
+{"instance_id": "JackPlowman__repo_standards_validator-137", "query": "private_vulnerability", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 2, "ranks": {"exact": 4}}
+{"instance_id": "JackPlowman__repo_standards_validator-137", "query": "vulnerability", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 2, "ranks": {"exact": 8}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "def transaction_monitor", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 2, "ranks": {"exact": 1}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "get_transaction", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 2, "ranks": {"exact": 4}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "register_callbacks|add_tx_notify", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 2, "ranks": {"exact": 8}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "active_txids", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 2, "ranks": {"exact": 1}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "register_callbacks", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 2, "ranks": {"exact": 8}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "def confirm_callback\\|def unconfirm_callback", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "finalized_offers", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "gettransaction", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 2, "ranks": {"exact": 8}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "check_callback_called", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 2, "ranks": {"exact": 5}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "confirm_callback", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "active_txids|excessive CPU|gettransaction", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 2, "ranks": {"exact": 8}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "def check_callback_called|def transaction_monitor|def check_for_reannounce", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 2, "ranks": {"exact": 1}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "transaction_monitor", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 2, "ranks": {"exact": 2}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "processed_txids", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 2, "ranks": {"exact": 1}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "LoopingCall", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 2, "ranks": {"exact": 1}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "txid", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 2, "ranks": {"exact": 34}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "on_tx_unconfirmed", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "Cache RPC", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "CPU", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "obsessively", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "monitor_loop", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 2, "ranks": {"exact": 5}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "def register_callbacks", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 2, "ranks": {"exact": 1}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "def add_tx_notify", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "callLater|LoopingCall", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 2, "ranks": {"exact": 2}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "def monitor", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "get_transaction\\(", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 2, "ranks": {"exact": 2}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "register_callbacks|def register_tx|active_txids", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 2, "ranks": {"exact": 8}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "confirm_callback|unconfirm_callback", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "active_txids|excessive CPU|CPU usage", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 2, "ranks": {"exact": 1}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "class .*Protocol|finalized_offers", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "listtransactions|getblockcount", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 2, "ranks": {"exact": 2}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "register_callbacks|callbacks\\[.confirmed.\\]|active_txids", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 2, "ranks": {"exact": 8}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "def confirm_callback|def unconfirm_callback", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "def confirm_callback", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "def unconfirm_callback", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "def tx_match", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "LoopingCall|transaction_monitor", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 2, "ranks": {"exact": 1}}
+{"instance_id": "JoinMarket-Org__joinmarket-clientserver-1180", "query": "confirm_timeout|check_callback_called", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 2, "ranks": {"exact": 18}}
+{"instance_id": "Lightning-AI__pytorch-lightning-20401", "query": "before_instantiate_classes", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "Lightning-AI__pytorch-lightning-20401", "query": "before_instantiate_classes|instantiate_classes", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "Lightning-AI__pytorch-lightning-20401", "query": "before_instantiate_classes|def instantiate_classes|def __init__", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": 294}}
+{"instance_id": "Lightning-AI__pytorch-lightning-20401", "query": "instantiate_classes", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "Lightning-AI__pytorch-lightning-20403", "query": "def restore_callbacks", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "Lightning-AI__pytorch-lightning-20403", "query": "restore_callbacks", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "Lightning-AI__pytorch-lightning-20403", "query": "_restore_modules_and_callbacks", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "Lightning-AI__pytorch-lightning-20420", "query": "OptimizerLRScheduler", "exact": true, "tool": "semgrep", "condition_seen": "both", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Lightning-AI__pytorch-lightning-20420", "query": "_init_optimizers_and_lr_schedulers\\|_configure_optimizers\\b", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Lightning-AI__pytorch-lightning-20420", "query": "def configure_optimizers", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": 33}}
+{"instance_id": "Lightning-AI__pytorch-lightning-20420", "query": "Optimizable", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Lightning-AI__pytorch-lightning-20420", "query": "configure_optimizers", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 58}}
+{"instance_id": "Lightning-AI__pytorch-lightning-20420", "query": "def _init_optimizers_and_lr_schedulers", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Lightning-AI__pytorch-lightning-20420", "query": "configure_optimizers()", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": 58}}
+{"instance_id": "Lightning-AI__pytorch-lightning-20420", "query": "OptimizerLRScheduler|LRSchedulerConfigType|LRSchedulerTypeUnion", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Lightning-AI__pytorch-lightning-20420", "query": "LRSchedulerConfigType", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Lightning-AI__pytorch-lightning-20420", "query": "OptimizerLRScheduler|configure_optimizers", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": 59}}
+{"instance_id": "Lightning-AI__pytorch-lightning-20420", "query": "OptimizerLRSchedulerConfig|LRSchedulerConfigType", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "NCSU-High-Powered-Rocketry-Club__AirbrakesV2-151", "query": "LoggerDataPacket", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 4, "ranks": {"exact": 1}}
+{"instance_id": "NCSU-High-Powered-Rocketry-Club__AirbrakesV2-151", "query": "to_builtins", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 4, "ranks": {"exact": 1}}
+{"instance_id": "NCSU-High-Powered-Rocketry-Club__AirbrakesV2-151", "query": "logger\\.log\\(", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 4, "ranks": {"exact": 1}}
+{"instance_id": "NCSU-High-Powered-Rocketry-Club__AirbrakesV2-151", "query": "logger", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 4, "ranks": {"exact": 2}}
+{"instance_id": "NCSU-High-Powered-Rocketry-Club__AirbrakesV2-151", "query": "\\.log\\(", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 4, "ranks": {"exact": 1}}
+{"instance_id": "NCSU-High-Powered-Rocketry-Club__AirbrakesV2-151", "query": "context\\.logger\\.log", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 4, "ranks": {"exact": null}}
+{"instance_id": "NCSU-High-Powered-Rocketry-Club__AirbrakesV2-151", "query": "logger.log\\(", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 4, "ranks": {"exact": 1}}
+{"instance_id": "NVIDIA__NeMo-9100", "query": "def ", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 2575}}
+{"instance_id": "Netflix__metaflow-2141", "query": "No completed attempts", "exact": true, "tool": "semgrep", "condition_seen": "both", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "_parameters", "exact": true, "tool": "semgrep", "condition_seen": "both", "n_gold": 1, "ranks": {"exact": 57}}
+{"instance_id": "Netflix__metaflow-2141", "query": "class IncludeFile", "exact": true, "tool": "semgrep", "condition_seen": "both", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "def init", "exact": true, "tool": "semgrep", "condition_seen": "both", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "Netflix__metaflow-2141", "query": "def dump", "exact": true, "tool": "semgrep", "condition_seen": "both", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "Netflix__metaflow-2141", "query": "Data store error", "exact": true, "tool": "semgrep", "condition_seen": "both", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "def persist", "exact": true, "tool": "semgrep", "condition_seen": "both", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "class Task", "exact": true, "tool": "semgrep", "condition_seen": "both", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "def has_metadata", "exact": true, "tool": "semgrep", "condition_seen": "both", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "def load_metadata", "exact": true, "tool": "semgrep", "condition_seen": "both", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "def save_metadata", "exact": true, "tool": "semgrep", "condition_seen": "both", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "def done", "exact": true, "tool": "semgrep", "condition_seen": "both", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "def save_artifacts", "exact": true, "tool": "semgrep", "condition_seen": "both", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "_datastore", "exact": true, "tool": "semgrep", "condition_seen": "both", "n_gold": 1, "ranks": {"exact": 2}}
+{"instance_id": "Netflix__metaflow-2141", "query": "def get_task_datastores", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "get_task_datastores", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "TaskDataStoreSet", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "Netflix__metaflow-2141", "query": "_set_constants", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "Netflix__metaflow-2141", "query": "2\\.12\\.29|2\\.12\\.28", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "def persist_constants", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "class TaskDataStoreSet", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "input_paths", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "Netflix__metaflow-2141", "query": "_included_file_type", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "def echo", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": 3}}
+{"instance_id": "Netflix__metaflow-2141", "query": "\\.done\\(\\)", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "get_task_datastore", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "allow_not_done", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "persist_constants", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 3}}
+{"instance_id": "Netflix__metaflow-2141", "query": "IncludeFile", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "params", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 171}}
+{"instance_id": "Netflix__metaflow-2141", "query": "METAFLOW_DEFAULT_PARAMETERS", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "_process_parameters", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "load_parameter", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "task_id_params\\|init.*_parameters\\|_parameters.*init", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "def dump\\|def init", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "def persist\\|has_metadata\\|save_metadata\\|done(", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "def persist\\b", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "class Task\\b", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "class IncludeFile\\|class DeployTimeField\\|def load_parameter\\|class Parameter", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "^def init", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "Netflix__metaflow-2141", "query": "version", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": 717}}
+{"instance_id": "Netflix__metaflow-2141", "query": "METAFLOW_INIT", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "auto_envvar_prefix", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": 15}}
+{"instance_id": "Netflix__metaflow-2141", "query": "2.12.28", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "\\-params", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "def step", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "Netflix__metaflow-2141", "query": "step-functions-internal", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "def persist|def done|def init_task", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "2.12.29|2.12.28", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "def load_parameter|class IncludedFile|is_file_handle|def convert", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "deploy_time_eval|def deploy_time_eval|required", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 125}}
+{"instance_id": "Netflix__metaflow-2141", "query": "get_task_datastore\\(", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "\"init\"", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "init_task", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "^def dump", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "Netflix__metaflow-2141", "query": "2.12.29\\|2.12.28", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "_metadata_name_for_attempt", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "_parameters\\|allow_not_done", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "get_task_datastore\\b", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "get_datastore_for_task", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "def _init_parameters", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "def init_normal_task\\b", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "_init_parameters", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "def load_parameter", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "def init\\b", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "Netflix__metaflow-2141", "query": "def done\\b", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "\\.size", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "Netflix__metaflow-2141", "query": "IncludedFile", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-12045", "query": "docker_client|DockerException|from_env", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 58}}
+{"instance_id": "PrefectHQ__prefect-12045", "query": "docker_client\\(\\)", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 6}}
+{"instance_id": "PrefectHQ__prefect-12045", "query": "docker_client|from_env|DockerException", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 58}}
+{"instance_id": "PrefectHQ__prefect-12045", "query": "def docker_client", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-12410", "query": "job-variable", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-12410", "query": "\\-\\-variable|\"-v\"|variables:", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 18}}
+{"instance_id": "PrefectHQ__prefect-12410", "query": "variables", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 219}}
+{"instance_id": "PrefectHQ__prefect-12410", "query": "job.variable|--jv", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 61}}
+{"instance_id": "PrefectHQ__prefect-12410", "query": "async def deploy|def _run_single_deploy|def _extract_variable|def _apply_cli_options_to_deploy_config", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-12410", "query": "^async def |^def ", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": 856}}
+{"instance_id": "PrefectHQ__prefect-12410", "query": "def deploy", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-12410", "query": "^def |^async def ", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 856}}
+{"instance_id": "PrefectHQ__prefect-12410", "query": "^async def deploy", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-12410", "query": "variable", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 316}}
+{"instance_id": "PrefectHQ__prefect-12410", "query": "job-variable|job_variable", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 45}}
+{"instance_id": "PrefectHQ__prefect-12410", "query": "\\-\\-variable|variables:.*typer\\.Option|variable_overrides", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-12410", "query": "^def deploy|^async def deploy|_apply_cli_options_to_deploy_config", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-12410", "query": "^async def|^def ", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": 856}}
+{"instance_id": "PrefectHQ__prefect-12410", "query": "job.variable|job_variable|--jv", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": 61}}
+{"instance_id": "PrefectHQ__prefect-12410", "query": "\"variables\"", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": 2}}
+{"instance_id": "PrefectHQ__prefect-12410", "query": "job.variable", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 61}}
+{"instance_id": "PrefectHQ__prefect-12410", "query": "\\-\\-variable", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-12410", "query": "job.variable\\|job_variable", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-12410", "query": "job-variable\\|job_variable", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-12410", "query": "variable_overrides|deploy_config\\[.variables.\\]|\"variables\"", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": 2}}
+{"instance_id": "PrefectHQ__prefect-12410", "query": "_extract_variable|def _apply_cli_options", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-12410", "query": "async def deploy", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13259", "query": "update_deployment_schedule", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 3}}
+{"instance_id": "PrefectHQ__prefect-13259", "query": "def update_deployment_schedule", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13259", "query": "async def update_deployment_schedule", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "def build", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 8}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "^def _|^async def _", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 99}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "create_work_queue_and_set_concurrency_limit", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "check_work_pool_exists", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "_print_deployment_work_pool_instructions", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "Deployment.build_from_flow|def build_from_flow", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 25}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "deployment build", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 45}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "'build'", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "builtin_infrastructure_types", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "get_registry_for_type", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 27}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "^async def |^def ", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": 2342}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "_load_json_key_values|create_work_queue_and_set_concurrency_limit|check_work_pool_exists|builtin_infrastructure_types", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "build_from_flow", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": 27}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "deployment_app.command\\(\\)", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "\\.build\\b", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "get_registry_for_type|from prefect.blocks", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": 133}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "async def build", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "create_work_queue_and_set_concurrency_limit|check_work_pool_exists|_print_deployment_work_pool_instructions|create_default_ignore_file", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "create_default_ignore_file", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "load_flow_from_entrypoint", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 5}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "from prefect.cli.deployment import build|deployment_app.command.*build", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "invoke_and_assert.*build|\"deployment\", \"build\"|'deployment', 'build'", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "^def build", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "^async def build", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "deployment_app\\.command", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "^async def \\|^def ", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "_load_json_key_values", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "from prefect.deployments import", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 26}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "load_deployments_from_yaml", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "Deployment\\.load\\|Deployment\\.build_from_flow\\|Deployment(\\|: Deployment\\b", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "_load_deployments\\(", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "Deployment\\.build_from_flow", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 25}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "Deployment\\.load\\(", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "\"deployment build\"\\|'deployment build'\\|deployment_app\\.build\\|cli deployment build", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "Deployment\\.", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 33}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "^def |^async def ", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": 2342}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "builtin_infrastructure_types|create_work_queue_and_set_concurrency_limit|check_work_pool_exists|_print_deployment_work_pool_instructions", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "deployment_app.command\\(", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "def build_from_flow", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "listrepr", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": 10}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "create_work_queue_and_set_concurrency_limit\\|check_work_pool_exists\\|_print_deployment_work_pool_instructions\\|_load_json_key_values\\|assert_deployment_name_format", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "assert_deployment_name_format", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "from prefect.cli.deployment import\\|cli.deployment.build\\|deployment_build\\|\\.build\\b", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "from prefect.cli.deployment import", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "import build\\b|deployment\\.build\\b|cli\\.deployment\\.build", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "@deployment_app.command", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "\"build\"", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "build(", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "cli.deployment.build", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "^async def ", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 825}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "^def ", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1518}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "create_work_queue_and_set_concurrency_limit|check_work_pool_exists|_print_deployment_work_pool_instructions|_load_deployments|_load_json_key_values|str_presenter", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "_load_deployments", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "\\.build\\b|import build\\b|deployment\\.build", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "deployment_app\\.command\\(name=.build.\\)|deployment build|\"build\"", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 56}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "get_registry_for_type|from prefect", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 2542}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "deployment.build|cli.deployment import build|from prefect.cli.deployment import", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 45}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "def create_default_ignore_file", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "deployment_app.command", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "^from prefect.cli.deployment import", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "^async def build|^def build", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": 4}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "def check_work_pool_exists|def create_work_queue_and_set_concurrency_limit|def _print_deployment_work_pool_instructions|def create_default_ignore_file", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "\\bDeployment\\b", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": 171}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "deployment_app.command\\(\\s*name=\"build\"|def build\\b", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "cli\\.deployment import build|from prefect.cli.deployment import.*build", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "\"build\"|'build'|deployment_app.*build", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "def test.*build", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "def create_work_queue_and_set_concurrency_limit", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "def check_work_pool_exists", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "def _print_deployment_work_pool_instructions", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "create_work_queue_and_set_concurrency_limit|check_work_pool_exists|_print_deployment_work_pool_instructions", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "def load_flow_from_entrypoint", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "from prefect.cli.deployment import|deployment_app.command\\(name=.build.\\)|cli.deployment.build", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13366", "query": "get_registry_for_type\\(Block\\)", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": 14}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "def apply", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 3}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "create_work_queue_and_set_concurrency_limit|check_work_pool_exists|_print_deployment_work_pool_instructions", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "check_work_pool_exists|_print_deployment_work_pool_instructions|create_work_queue_and_set_concurrency_limit", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "load_from_yaml", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 2}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "deployment_app.command\\(name=.apply|\"apply\"", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "load_deployments_from_yaml|deployment_specification_from_path|_load_deployments_from_path|load_yaml_deployments", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "_load_deployments\\b", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "_load_deployments", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "create_work_queue_and_set_concurrency_limit", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "check_work_pool_exists", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "_print_deployment_work_pool_instructions", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "Deployment.load_from_yaml|load_from_yaml", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 2}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "load_deployments_from_yaml", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "@deployment_app.command", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "deployment.apply|cli.deployment import apply|from prefect.cli.deployment", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 22}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "deployment apply", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 14}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "class TestDeploymentApply", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "def test_", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "registry_from_script", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "apply", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 137}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "from prefect.cli.deployment import\\|cli.deployment\\.", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "^def \\|^async def \\|^class ", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "^async def apply", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": 3}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "check_work_pool_exists|create_work_queue_and_set_concurrency_limit|_print_deployment_work_pool_instructions|load_deployments_from_yaml|registry_from_script", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "_load_deployments_from_file|def _load_deployments", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "work_pool_name", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": 270}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "upload_to_storage", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "\\.apply\\(\\)", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": 9}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "cli.deployment.apply|deployment_app.*apply", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "check_work_pool_exists|create_work_queue_and_set_concurrency_limit|_print_deployment_work_pool_instructions", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "_load_deployments|def _load_deployments|load_deployments_from_yaml|registry_from_script", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "_load_deployments\\(", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "def build|@deployment_app.command", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": 8}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "deployment apply|cli.deployment.apply|deployment_apply", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": 14}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "load_deployments_from_yaml|registry_from_script", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "from prefect.cli.deployment import", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "create_work_queue_and_set_concurrency_limit|check_work_pool_exists|_print_deployment_work_pool_instructions|load_from_yaml|upload_to_storage", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 2}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "load_from_yaml|upload_to_storage", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 2}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "deployment_app.command\\(name=\"apply\"\\)|\"deployment apply\"|cli.deployment.apply|deployment apply", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 14}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "deployment apply|Deployment.load_from_yaml", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 15}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "\"apply\"", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "deployment apply|deployment_apply|\"apply\"|'apply'", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": 14}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "Deployment.load_from_yaml|load_deployments_from_yaml", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": 2}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "deployment_app, \\[.apply.\\]\\|invoke(\\[.deployment., .apply.\\]\\|CliRunner.*apply", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13367", "query": "cli.deployment.apply\\|deployment apply", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13756", "query": "def map", "exact": true, "tool": "semgrep", "condition_seen": "both", "n_gold": 1, "ranks": {"exact": 10}}
+{"instance_id": "PrefectHQ__prefect-13756", "query": "expand_mapping_parameters|deferred", "exact": true, "tool": "semgrep", "condition_seen": "both", "n_gold": 1, "ranks": {"exact": 12}}
+{"instance_id": "PrefectHQ__prefect-13756", "query": "def create_run", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-13756", "query": "def expand_mapping_parameters", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-13756", "query": "deferred", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 12}}
+{"instance_id": "PrefectHQ__prefect-13756", "query": "class Task", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 51}}
+{"instance_id": "PrefectHQ__prefect-13756", "query": "\\.map(", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-14259", "query": "execute_many", "exact": true, "tool": "semgrep", "condition_seen": "both", "n_gold": 1, "ranks": {"exact": 37}}
+{"instance_id": "PrefectHQ__prefect-14259", "query": "_async_sync_execute", "exact": true, "tool": "semgrep", "condition_seen": "both", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-14608", "query": "resolve_futures_to_states", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 4}}
+{"instance_id": "PrefectHQ__prefect-14608", "query": "from prefect.futures import", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-14608", "query": "class PrefectFuture", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-14608", "query": "class Prefect", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 23}}
+{"instance_id": "PrefectHQ__prefect-14693", "query": "class DockerWorkerJobConfiguration", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-14693", "query": "mem_limit=self\\|privileged=self\\|_create_and_start_container\\|containers.create", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-14693", "query": "def _create_and_start_container", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-14693", "query": "def _build_container_settings", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-14693", "query": "mem_limit", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": 2}}
+{"instance_id": "PrefectHQ__prefect-14693", "query": "_build_container_settings", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-14693", "query": "DockerWorkerJobConfiguration", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-14693", "query": "privileged=", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-14693", "query": "ipc_mode|shm_size", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-14693", "query": "mem_limit|memswap_limit|privileged", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 7}}
+{"instance_id": "PrefectHQ__prefect-14693", "query": "containers.create", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": 3}}
+{"instance_id": "PrefectHQ__prefect-14693", "query": "JobConfiguration", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": 56}}
+{"instance_id": "PrefectHQ__prefect-15468", "query": "concurrency_limit", "exact": true, "tool": "semgrep", "condition_seen": "both", "n_gold": 1, "ranks": {"exact": 117}}
+{"instance_id": "PrefectHQ__prefect-15468", "query": "^async def _create_deployment", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-15468", "query": "^async def ", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 755}}
+{"instance_id": "PrefectHQ__prefect-15468", "query": "^async def |^def ", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": 1906}}
+{"instance_id": "PrefectHQ__prefect-15468", "query": "class ConcurrencyLimitStrategy", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-15468", "query": "ConcurrencyOptions ConcurrencyLimitStrategy", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-15468", "query": "class ConcurrencyOptions|class ConcurrencyLimitStrategy", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-15468", "query": "class ConcurrencyOptions|class ConcurrencyLimitStrategy|CollisionStrategy", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-15468", "query": "ConcurrencyOptions|CollisionStrategy|concurrency_options", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 9}}
+{"instance_id": "PrefectHQ__prefect-15468", "query": "^def |^async def ", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 1906}}
+{"instance_id": "PrefectHQ__prefect-15468", "query": "class ConcurrencyOptions|class CollisionStrategy|collision_strategy", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 3}}
+{"instance_id": "PrefectHQ__prefect-15468", "query": "class ConcurrencyOptions", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-15468", "query": "def deploy", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": 2}}
+{"instance_id": "PrefectHQ__prefect-15468", "query": "^def _apply_cli_options_to_deploy_config|^async def deploy", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-15468", "query": "ConcurrencyOptions|collision_strategy", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": 8}}
+{"instance_id": "PrefectHQ__prefect-15468", "query": "ConcurrencyOptions", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-15468", "query": "collision_strategy", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 3}}
+{"instance_id": "PrefectHQ__prefect-15468", "query": "options\\[", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 3}}
+{"instance_id": "PrefectHQ__prefect-15468", "query": "^async def deploy", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "PrefectHQ__prefect-15468", "query": "concurrency_limit|concurrency_options|collision_strategy", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 122}}
+{"instance_id": "PrefectHQ__prefect-15468", "query": "concurrency_limit|-cl\"|ConcurrencyOptions|concurrency-options|collision", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": 133}}
+{"instance_id": "PrefectHQ__prefect-15468", "query": "^async def |^def |CollisionStrategy", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": 1906}}
+{"instance_id": "PrefectHQ__prefect-15468", "query": "CollisionStrategy|concurrency_options|ConcurrencyOptions", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": 9}}
+{"instance_id": "PrefectHQ__prefect-15468", "query": "class ConcurrencyOptions|CollisionStrategy", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-15468", "query": "CollisionStrategy", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "PrefectHQ__prefect-15468", "query": "concurrency_options", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": 4}}
+{"instance_id": "airbnb__knowledge-repo-558", "query": "safe", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "airbnb__knowledge-repo-558", "query": "class Comment", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "airbnb__knowledge-repo-558", "query": "def render_comment", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "airbnb__knowledge-repo-558", "query": "render_comment", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "airbnb__knowledge-repo-558", "query": "\\|safe", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "airbnb__knowledge-repo-558", "query": "comment", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": 18}}
+{"instance_id": "airbnb__knowledge-repo-558", "query": "Comment", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": 8}}
+{"instance_id": "django__django-13134", "query": "def admin_view", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "django__django-13134", "query": "def has_permission", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "django__django-13134", "query": "catch_all_view", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "django__django-13134", "query": "def _changeform_view", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "django__django-13134", "query": "def changelist_view", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "django__django-13134", "query": "enumeration", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "django__django-13134", "query": "def get_urls", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 2}}
+{"instance_id": "django__django-13134", "query": "def test_.*(en|nonexist)", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "django__django-13134", "query": "app_label", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 62}}
+{"instance_id": "django__django-13134", "query": "admin", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 1420}}
+{"instance_id": "django__django-13134", "query": "catch_all|catch-all|trailing slash", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "django__django-13134", "query": "404", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": 10}}
+{"instance_id": "django__django-13134", "query": "def app_index", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "django__django-13134", "query": "enumerat", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "django__django-13134", "query": "valid_app_labels", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "django__django-13134", "query": "def catch_all_view", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "django__django-13134", "query": "catch_all", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "django__django-13134", "query": "def app_index|def _build_app_dict|has_module_permission|def index|def get_urls|def catch_all_view|redirect", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 25}}
+{"instance_id": "django__django-13134", "query": "class AdminSite", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 2}}
+{"instance_id": "django__django-13134", "query": "does not exist", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": 194}}
+{"instance_id": "django__django-13134", "query": "has_view_or_change_permission", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "django__django-13134", "query": "model enumeration", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "django__django-13134", "query": "app_label.*model_name.*404\\|does not exist", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "django__django-13134", "query": "APPEND_SLASH\\|Resolver404\\|resolve(", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "django__django-13134", "query": "catch_all_view|model enumeration|admin model", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "django__django-13134", "query": "final_catch_all_view|catch_all_view", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "django__django-5605", "query": "csrf_token", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 11}}
+{"instance_id": "django__django-5605", "query": "get_token", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "django__django-5605", "query": "csrf_input|csrfmiddlewaretoken|get_token", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "django__django-5605", "query": "class CsrfTokenNode", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "django__django-5605", "query": "CsrfTokenNode|csrf_token", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": 11}}
+{"instance_id": "duncanscanga__VDRS-Solutions-73", "query": "def alphanumeric_check", "exact": true, "tool": "semgrep", "condition_seen": "both", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "duncanscanga__VDRS-Solutions-73", "query": "def (alphanumeric_check|email_check|not_empty|length_check)", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "duncanscanga__VDRS-Solutions-73", "query": "def register", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 3}}
+{"instance_id": "duncanscanga__VDRS-Solutions-73", "query": "def alphanumeric_check|def email_check|def not_empty|def length_check", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "duncanscanga__VDRS-Solutions-73", "query": "def email_check|def alphanumeric_check|def not_empty|def length_check", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "duncanscanga__VDRS-Solutions-73", "query": "def test_R1|register\\(", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 2}}
+{"instance_id": "duncanscanga__VDRS-Solutions-73", "query": "def email_check", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "duncanscanga__VDRS-Solutions-73", "query": "execute\\(|text\\(|%s.*email|format\\(.*email", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "duncanscanga__VDRS-Solutions-73", "query": "execute\\(|cursor\\(|raw\\(|text\\(", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "duncanscanga__VDRS-Solutions-73", "query": "def alphanumeric_check|def email_check|def not_empty|def length_check|def real_name_check", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "fortra__impacket-1636", "query": "SOCKS\\(", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 2, "ranks": {"exact": 1}}
+{"instance_id": "fortra__impacket-1636", "query": "socks", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 2, "ranks": {"exact": 2}}
+{"instance_id": "fortra__impacket-1636", "query": "0\\.0\\.0\\.0", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 2, "ranks": {"exact": 10}}
+{"instance_id": "fortra__impacket-1636", "query": "socks-address|socks.*port|add_argument.*socks", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 2, "ranks": {"exact": 1}}
+{"instance_id": "fortra__impacket-1636", "query": "SOCKS", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 2, "ranks": {"exact": 3}}
+{"instance_id": "fortra__impacket-1636", "query": "socks-address\\|--socks-address\\|socksAddress", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 2, "ranks": {"exact": null}}
+{"instance_id": "fortra__impacket-1636", "query": "1080|activateSocksServer|server_address|bind|SOCKS_PORT|def __init__|class SOCKS", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 2, "ranks": {"exact": 119}}
+{"instance_id": "fortra__impacket-1636", "query": "SOCKS\\(\\)|socksServer|socks_address|socks-address|add_argument.*socks|socksPort", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 2, "ranks": {"exact": 1}}
+{"instance_id": "fortra__impacket-1636", "query": "1080", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 2, "ranks": {"exact": 1}}
+{"instance_id": "fortra__impacket-1636", "query": "socksServer", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 2, "ranks": {"exact": 1}}
+{"instance_id": "fortra__impacket-1636", "query": "add_argument", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 2, "ranks": {"exact": 400}}
+{"instance_id": "fortra__impacket-1636", "query": "0.0.0.0", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 2, "ranks": {"exact": 1154}}
+{"instance_id": "fortra__impacket-1636", "query": "1080|def run|def __init__|listenPort|listenAddress|SOCKSSERVER", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 2, "ranks": {"exact": 84}}
+{"instance_id": "fortra__impacket-1636", "query": "SOCKS\\(|socks_address|socks-address|--socks", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 2, "ranks": {"exact": 1}}
+{"instance_id": "fortra__impacket-1636", "query": "socks|--socks-port|socksServer", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 2, "ranks": {"exact": 2}}
+{"instance_id": "fortra__impacket-1636", "query": "^def |^    def ", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 2, "ranks": {"exact": 435}}
+{"instance_id": "fortra__impacket-1636", "query": "if __name__", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 2, "ranks": {"exact": 33}}
+{"instance_id": "fortra__impacket-1636", "query": "class NTLMRelayxConfig|setRunSocks|setInterfaceIp", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 2, "ranks": {"exact": 1}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "cygpath", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "is_cygwin_git", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "def refresh", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 2}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "GIT_PYTHON_GIT_EXECUTABLE", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 6}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "search path", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "def py_where", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "def execute", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "git_exec_name", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "refresh", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": 5}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "USE_SHELL", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": 2}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "GHSA", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "shutil.which", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "py_where", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "windows", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 7}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "Popen\\(", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "__version__", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "3.1.3", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "which", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 57}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "shell=True", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "GIT_PYTHON_GIT_EXECUTABLE|refresh\\(", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": 10}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "py_where|shutil.which|which\\(", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "CVE|security|untrusted", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "GIT_PYTHON_GIT_EXECUTABLE|def refresh|which\\(|py_where|os.environ\\[.PATH.\\]", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 7}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "40590|GHSA-wfm5|untrusted search path|safe_decode|creationflags|CREATE_NO_WINDOW", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "40590|GHSA-wfm5|untrusted search path", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "Popen", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "shutil.which\\|find_executable\\|GIT_PYTHON_GIT_EXECUTABLE\\|py_where\\|_get_git_command_status\\|cygpath", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "PROC_CREATIONFLAGS\\|USE_SHELL\\|safer_popen\\|shell=True\\|os.name", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "PROC_CREATIONFLAGS", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "creationflags", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "def cygpath", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "security\\|CVE\\|untrusted", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "shell=True|creationflags|STARTUPINFO|refresh\\(|GIT_PYTHON_GIT_EXECUTABLE|PATH", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": 14}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "CVE|security|GHSA|untrusted", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "shutil.which|which(", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "safer_popen|_safer|CREATE_NO_WINDOW|STARTUPINFO", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "gitpython-developers__GitPython-1636", "query": "STARTUPINFO|CREATE_NO_WINDOW", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "canonical_url readable_path og:url link rel canonical", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "readable_path", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 8}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "def urlsafe", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "canonical_url", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 3}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "def add_metatag", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "def websafe", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "'\\$", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "onclick=", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "urlsafe", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "ctx.T", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "\\$:title", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "XSS", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "\\$:", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "def format", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "def sanitize", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "^def format\\|@public\\ndef format\\|'format'", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "def get_markdown", "exact": true, "tool": "semgrep", "condition_seen": "sg-code", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "def url\\(", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "def get_url", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "request.path", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "def with.*property", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "add_metatag", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": 7}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "<title>", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "render_template.*neck\\|neck(", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "site.neck\\|render.site.neck\\|neck(title", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "neck\\(", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "var title", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx96", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "canonical_url|ctx\\.path|readable_path", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 77}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "title", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": 1836}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "def ungettext", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "found in the catalog", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "work.title|work_title|book_title", "exact": true, "tool": "semgrep", "condition_seen": "sg-mx48", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "\\$:.*ctx\\.path", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "\\$:.*fullpath", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "\\$:.*canonical_url", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "<script", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": 8}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "book_title\\|work_title\\|page.title", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "sent_neck", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "render_template\\(\"site\"", "exact": true, "tool": "semgrep", "condition_seen": "sg-plain", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "class edition", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "def url", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": 18}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "class redirect", "exact": true, "tool": "semgrep", "condition_seen": "sg-sif", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "get_authors_byline", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "\\$:.*readable_path", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "\\$:.*request.path", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "onclick=\"", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "^def sanitize", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "^def format", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "\\$:format\\(", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "'format'", "exact": true, "tool": "semgrep", "condition_seen": "sg-p256", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "canonical_url|get_url|self\\.url\\(", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 34}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "def set_share_links|macro set_share_links", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "def canonical_url", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "def Metatags", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "ungettext\\(", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "class books", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "/books/", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 274}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "\\$:ctx\\.path", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "ctx\\.path", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 71}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "canonical", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 14}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "metatags", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": 1}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "neck(", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "\\.neck", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "render_template.neck\\|neck\\.html\\|render\\.site\\.neck\\|neck(", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "render_template\\(\"site/neck", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "def display_value\\|def thingrepr", "exact": true, "tool": "semgrep", "condition_seen": "semgrep", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "class.*book_redirect|redirect.*self.op|def redirect_work_page|books/(OL|url_suffix", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "urlsafe|url_suffix|class books_json|OL[0-9]+M", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "url_suffix|urlsafe", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "request\\.path", "exact": true, "tool": "search", "condition_seen": "search", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "readable_url", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "$:changequery", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "$:", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": null}}
+{"instance_id": "internetarchive__openlibrary-3196", "query": "ungettext", "exact": true, "tool": "semgrep", "condition_seen": "sg-fnchunk", "n_gold": 1, "ranks": {"exact": null}}

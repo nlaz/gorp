@@ -68,7 +68,7 @@ for corpus in $CORPORA; do
   while IFS='|' read -r tag index_flags modes search_flags; do
     [ -z "$tag" ] && continue
     wanted "$tag" "$@" || continue
-    out=eval/data/lever-$corpus-$tag.json
+    out=eval/results/lever-$corpus-$tag.json
     if [ -f "$out" ]; then
       echo "== $corpus/$tag (skip, exists)"
       continue

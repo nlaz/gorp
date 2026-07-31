@@ -1,0 +1,6168 @@
+[
+  {
+    "name": "adv-linux",
+    "n_cells": 6,
+    "n_ranks": 450,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": "d93eb8a8589cc313",
+    "query_set": "linux-150.jsonl",
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 75,
+        "recall@1": 0.627,
+        "recall@5": 0.92,
+        "recall@10": 0.987,
+        "mrr@10": 0.738,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 75,
+        "recall@1": 0.0,
+        "recall@5": 0.027,
+        "recall@10": 0.067,
+        "mrr@10": 0.016,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg",
+        "kind": "direct",
+        "n": 75,
+        "recall@1": 0.013,
+        "recall@5": 0.053,
+        "recall@10": 0.067,
+        "mrr@10": 0.029,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg",
+        "kind": "paraphrase",
+        "n": 75,
+        "recall@1": 0.0,
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "mrr@10": 0.0,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-strong",
+        "kind": "direct",
+        "n": 75,
+        "recall@1": 0.12,
+        "recall@5": 0.32,
+        "recall@10": 0.387,
+        "mrr@10": 0.199,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-strong",
+        "kind": "paraphrase",
+        "n": 75,
+        "recall@1": 0.0,
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "mrr@10": 0.0,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "adv-vscode",
+    "n_cells": 6,
+    "n_ranks": 1200,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": "2e8d6905434c8b01",
+    "query_set": "vscode.jsonl",
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.655,
+        "recall@5": 0.87,
+        "recall@10": 0.885,
+        "mrr@10": 0.745,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.04,
+        "recall@5": 0.14,
+        "recall@10": 0.185,
+        "mrr@10": 0.081,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.05,
+        "recall@5": 0.15,
+        "recall@10": 0.22,
+        "mrr@10": 0.093,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.0,
+        "recall@5": 0.005,
+        "recall@10": 0.005,
+        "mrr@10": 0.003,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-strong",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.09,
+        "recall@5": 0.355,
+        "recall@10": 0.445,
+        "mrr@10": 0.195,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-strong",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.0,
+        "recall@5": 0.005,
+        "recall@10": 0.005,
+        "mrr@10": 0.003,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "codemodel-linux",
+    "n_cells": 6,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.698,
+        "recall@5": 0.92,
+        "recall@10": 0.95,
+        "mrr@10": 0.795,
+        "has_ranks": false
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.005,
+        "recall@5": 0.035,
+        "recall@10": 0.065,
+        "mrr@10": 0.02,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.683,
+        "recall@5": 0.915,
+        "recall@10": 0.96,
+        "mrr@10": 0.778,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.015,
+        "recall@5": 0.04,
+        "recall@10": 0.05,
+        "mrr@10": 0.023,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.472,
+        "recall@5": 0.719,
+        "recall@10": 0.794,
+        "mrr@10": 0.571,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.015,
+        "recall@10": 0.025,
+        "mrr@10": 0.006,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "codemodel-vscode",
+    "n_cells": 6,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.745,
+        "recall@5": 0.88,
+        "recall@10": 0.885,
+        "mrr@10": 0.803,
+        "has_ranks": false
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.04,
+        "recall@5": 0.14,
+        "recall@10": 0.185,
+        "mrr@10": 0.081,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.725,
+        "recall@5": 0.875,
+        "recall@10": 0.89,
+        "mrr@10": 0.787,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.075,
+        "recall@5": 0.145,
+        "recall@10": 0.18,
+        "mrr@10": 0.104,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.505,
+        "recall@5": 0.74,
+        "recall@10": 0.795,
+        "mrr@10": 0.606,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.06,
+        "recall@5": 0.125,
+        "recall@10": 0.15,
+        "mrr@10": 0.087,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "codemodel-wikipedia",
+    "n_cells": 6,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.95,
+        "recall@5": 0.995,
+        "recall@10": 0.995,
+        "mrr@10": 0.971,
+        "has_ranks": false
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.25,
+        "recall@5": 0.42,
+        "recall@10": 0.49,
+        "mrr@10": 0.326,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.74,
+        "recall@5": 0.965,
+        "recall@10": 0.995,
+        "mrr@10": 0.829,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.175,
+        "recall@5": 0.43,
+        "recall@10": 0.51,
+        "mrr@10": 0.273,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.395,
+        "recall@5": 0.605,
+        "recall@10": 0.65,
+        "mrr@10": 0.487,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.04,
+        "recall@5": 0.12,
+        "recall@10": 0.19,
+        "mrr@10": 0.079,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "cosqa-results",
+    "n_cells": 5,
+    "n_ranks": 6000,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": "b0fe982c083a825e",
+    "query_set": "cosqa-1200.jsonl",
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "real",
+        "n": 1200,
+        "recall@1": 0.074,
+        "recall@5": 0.222,
+        "recall@10": 0.325,
+        "mrr@10": 0.138,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "real",
+        "n": 1200,
+        "recall@1": 0.068,
+        "recall@5": 0.208,
+        "recall@10": 0.33,
+        "mrr@10": 0.133,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg",
+        "kind": "real",
+        "n": 1200,
+        "recall@1": 0.005,
+        "recall@5": 0.025,
+        "recall@10": 0.037,
+        "mrr@10": 0.013,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-strong",
+        "kind": "real",
+        "n": 1200,
+        "recall@1": 0.005,
+        "recall@5": 0.025,
+        "recall@10": 0.037,
+        "mrr@10": 0.013,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "real",
+        "n": 1200,
+        "recall@1": 0.022,
+        "recall@5": 0.083,
+        "recall@10": 0.122,
+        "mrr@10": 0.048,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "fnchunk-linux",
+    "n_cells": 6,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.698,
+        "recall@5": 0.92,
+        "recall@10": 0.95,
+        "mrr@10": 0.791,
+        "has_ranks": false
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.005,
+        "recall@5": 0.035,
+        "recall@10": 0.06,
+        "mrr@10": 0.019,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.588,
+        "recall@5": 0.879,
+        "recall@10": 0.94,
+        "mrr@10": 0.7,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.03,
+        "recall@10": 0.06,
+        "mrr@10": 0.013,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.337,
+        "recall@5": 0.583,
+        "recall@10": 0.663,
+        "mrr@10": 0.443,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "mrr@10": 0.0,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "fnchunk-vscode",
+    "n_cells": 6,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.69,
+        "recall@5": 0.865,
+        "recall@10": 0.895,
+        "mrr@10": 0.772,
+        "has_ranks": false
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.04,
+        "recall@5": 0.135,
+        "recall@10": 0.175,
+        "mrr@10": 0.077,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.605,
+        "recall@5": 0.86,
+        "recall@10": 0.9,
+        "mrr@10": 0.713,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.03,
+        "recall@5": 0.12,
+        "recall@10": 0.175,
+        "mrr@10": 0.069,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.295,
+        "recall@5": 0.545,
+        "recall@10": 0.635,
+        "mrr@10": 0.4,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.0,
+        "recall@5": 0.01,
+        "recall@10": 0.02,
+        "mrr@10": 0.006,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-linux-base",
+    "n_cells": 6,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.698,
+        "recall@5": 0.92,
+        "recall@10": 0.95,
+        "mrr@10": 0.796,
+        "has_ranks": false
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.005,
+        "recall@5": 0.035,
+        "recall@10": 0.065,
+        "mrr@10": 0.019,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.633,
+        "recall@5": 0.905,
+        "recall@10": 0.955,
+        "mrr@10": 0.745,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.045,
+        "recall@10": 0.06,
+        "mrr@10": 0.017,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.452,
+        "recall@5": 0.678,
+        "recall@10": 0.739,
+        "mrr@10": 0.548,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.005,
+        "recall@10": 0.01,
+        "mrr@10": 0.002,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-linux-bl50",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.638,
+        "recall@5": 0.91,
+        "recall@10": 0.955,
+        "mrr@10": 0.746,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.045,
+        "recall@10": 0.06,
+        "mrr@10": 0.016,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.563,
+        "recall@5": 0.754,
+        "recall@10": 0.774,
+        "mrr@10": 0.645,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.005,
+        "recall@10": 0.01,
+        "mrr@10": 0.002,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-linux-bl75",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.633,
+        "recall@5": 0.91,
+        "recall@10": 0.95,
+        "mrr@10": 0.742,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.045,
+        "recall@10": 0.06,
+        "mrr@10": 0.016,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.623,
+        "recall@5": 0.749,
+        "recall@10": 0.774,
+        "mrr@10": 0.678,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.005,
+        "recall@10": 0.005,
+        "mrr@10": 0.002,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-linux-maxsim",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.658,
+        "recall@5": 0.879,
+        "recall@10": 0.925,
+        "mrr@10": 0.752,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.035,
+        "recall@5": 0.05,
+        "recall@10": 0.06,
+        "mrr@10": 0.042,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.618,
+        "recall@5": 0.729,
+        "recall@10": 0.769,
+        "mrr@10": 0.668,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.005,
+        "recall@10": 0.005,
+        "mrr@10": 0.001,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-linux-maxsim2-w0.4",
+    "n_cells": 2,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.633,
+        "recall@5": 0.859,
+        "recall@10": 0.945,
+        "mrr@10": 0.728,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.035,
+        "recall@10": 0.05,
+        "mrr@10": 0.013,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-linux-maxsim2-w0.6",
+    "n_cells": 2,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.628,
+        "recall@5": 0.839,
+        "recall@10": 0.92,
+        "mrr@10": 0.716,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.03,
+        "recall@10": 0.045,
+        "mrr@10": 0.011,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-linux-maxsim2",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.643,
+        "recall@5": 0.91,
+        "recall@10": 0.95,
+        "mrr@10": 0.747,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.04,
+        "recall@10": 0.055,
+        "mrr@10": 0.016,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.618,
+        "recall@5": 0.729,
+        "recall@10": 0.769,
+        "mrr@10": 0.668,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.005,
+        "recall@10": 0.005,
+        "mrr@10": 0.001,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-linux-mp128",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.658,
+        "recall@5": 0.884,
+        "recall@10": 0.95,
+        "mrr@10": 0.758,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.005,
+        "recall@5": 0.04,
+        "recall@10": 0.06,
+        "mrr@10": 0.02,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.608,
+        "recall@5": 0.784,
+        "recall@10": 0.804,
+        "mrr@10": 0.681,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.005,
+        "recall@5": 0.02,
+        "recall@10": 0.02,
+        "mrr@10": 0.008,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-linux-mp32",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.643,
+        "recall@5": 0.91,
+        "recall@10": 0.95,
+        "mrr@10": 0.748,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.04,
+        "recall@10": 0.055,
+        "mrr@10": 0.016,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.623,
+        "recall@5": 0.739,
+        "recall@10": 0.784,
+        "mrr@10": 0.674,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.005,
+        "recall@10": 0.005,
+        "mrr@10": 0.001,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-linux-mp48",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.643,
+        "recall@5": 0.899,
+        "recall@10": 0.95,
+        "mrr@10": 0.747,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.04,
+        "recall@10": 0.06,
+        "mrr@10": 0.018,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.603,
+        "recall@5": 0.739,
+        "recall@10": 0.774,
+        "mrr@10": 0.661,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.01,
+        "recall@10": 0.01,
+        "mrr@10": 0.004,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-linux-mp64",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.633,
+        "recall@5": 0.894,
+        "recall@10": 0.955,
+        "mrr@10": 0.742,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.04,
+        "recall@10": 0.06,
+        "mrr@10": 0.016,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.588,
+        "recall@5": 0.739,
+        "recall@10": 0.769,
+        "mrr@10": 0.654,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.01,
+        "recall@10": 0.01,
+        "mrr@10": 0.004,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-linux-mp96",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.643,
+        "recall@5": 0.899,
+        "recall@10": 0.955,
+        "mrr@10": 0.75,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.005,
+        "recall@5": 0.04,
+        "recall@10": 0.06,
+        "mrr@10": 0.02,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.593,
+        "recall@5": 0.759,
+        "recall@10": 0.779,
+        "mrr@10": 0.665,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.005,
+        "recall@5": 0.02,
+        "recall@10": 0.02,
+        "mrr@10": 0.01,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-linux-prf",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.236,
+        "recall@5": 0.653,
+        "recall@10": 0.774,
+        "mrr@10": 0.411,
+        "has_ranks": false
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.02,
+        "recall@5": 0.04,
+        "recall@10": 0.07,
+        "mrr@10": 0.03,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.377,
+        "recall@5": 0.734,
+        "recall@10": 0.814,
+        "mrr@10": 0.523,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.01,
+        "recall@5": 0.045,
+        "recall@10": 0.06,
+        "mrr@10": 0.025,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-linux-sif-maxsim",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.698,
+        "recall@5": 0.889,
+        "recall@10": 0.93,
+        "mrr@10": 0.776,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.035,
+        "recall@5": 0.05,
+        "recall@10": 0.065,
+        "mrr@10": 0.044,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.578,
+        "recall@5": 0.658,
+        "recall@10": 0.683,
+        "mrr@10": 0.614,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.01,
+        "recall@5": 0.025,
+        "recall@10": 0.03,
+        "mrr@10": 0.016,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-linux-sif-maxsim2",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.643,
+        "recall@5": 0.905,
+        "recall@10": 0.945,
+        "mrr@10": 0.754,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.005,
+        "recall@5": 0.045,
+        "recall@10": 0.055,
+        "mrr@10": 0.019,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.578,
+        "recall@5": 0.658,
+        "recall@10": 0.683,
+        "mrr@10": 0.614,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.01,
+        "recall@5": 0.025,
+        "recall@10": 0.03,
+        "mrr@10": 0.016,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-linux-sif",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.638,
+        "recall@5": 0.899,
+        "recall@10": 0.945,
+        "mrr@10": 0.75,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.005,
+        "recall@5": 0.045,
+        "recall@10": 0.055,
+        "mrr@10": 0.018,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.317,
+        "recall@5": 0.533,
+        "recall@10": 0.608,
+        "mrr@10": 0.415,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.01,
+        "recall@10": 0.025,
+        "mrr@10": 0.005,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-linux-sifa2",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.623,
+        "recall@5": 0.91,
+        "recall@10": 0.945,
+        "mrr@10": 0.745,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.005,
+        "recall@5": 0.035,
+        "recall@10": 0.06,
+        "mrr@10": 0.02,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.518,
+        "recall@5": 0.613,
+        "recall@10": 0.633,
+        "mrr@10": 0.559,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.005,
+        "recall@5": 0.015,
+        "recall@10": 0.03,
+        "mrr@10": 0.011,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-linux-sifa4",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.613,
+        "recall@5": 0.899,
+        "recall@10": 0.95,
+        "mrr@10": 0.737,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.005,
+        "recall@5": 0.04,
+        "recall@10": 0.055,
+        "mrr@10": 0.018,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.588,
+        "recall@5": 0.709,
+        "recall@10": 0.719,
+        "mrr@10": 0.639,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.01,
+        "recall@5": 0.03,
+        "recall@10": 0.03,
+        "mrr@10": 0.018,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-linux-sifc",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.653,
+        "recall@5": 0.92,
+        "recall@10": 0.94,
+        "mrr@10": 0.756,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.005,
+        "recall@5": 0.035,
+        "recall@10": 0.055,
+        "mrr@10": 0.018,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.573,
+        "recall@5": 0.658,
+        "recall@10": 0.678,
+        "mrr@10": 0.61,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.01,
+        "recall@5": 0.02,
+        "recall@10": 0.025,
+        "mrr@10": 0.014,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-vscode-base",
+    "n_cells": 6,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.745,
+        "recall@5": 0.88,
+        "recall@10": 0.885,
+        "mrr@10": 0.803,
+        "has_ranks": false
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.04,
+        "recall@5": 0.135,
+        "recall@10": 0.18,
+        "mrr@10": 0.08,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.655,
+        "recall@5": 0.865,
+        "recall@10": 0.885,
+        "mrr@10": 0.749,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.045,
+        "recall@5": 0.145,
+        "recall@10": 0.175,
+        "mrr@10": 0.081,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.35,
+        "recall@5": 0.57,
+        "recall@10": 0.655,
+        "mrr@10": 0.451,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.005,
+        "recall@5": 0.01,
+        "recall@10": 0.025,
+        "mrr@10": 0.01,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-vscode-bl50",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.685,
+        "recall@5": 0.865,
+        "recall@10": 0.885,
+        "mrr@10": 0.765,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.04,
+        "recall@5": 0.135,
+        "recall@10": 0.175,
+        "mrr@10": 0.078,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.525,
+        "recall@5": 0.675,
+        "recall@10": 0.705,
+        "mrr@10": 0.585,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.005,
+        "recall@5": 0.025,
+        "recall@10": 0.035,
+        "mrr@10": 0.014,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-vscode-bl75",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.685,
+        "recall@5": 0.865,
+        "recall@10": 0.885,
+        "mrr@10": 0.765,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.04,
+        "recall@5": 0.135,
+        "recall@10": 0.175,
+        "mrr@10": 0.079,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.57,
+        "recall@5": 0.69,
+        "recall@10": 0.705,
+        "mrr@10": 0.621,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.02,
+        "recall@5": 0.035,
+        "recall@10": 0.035,
+        "mrr@10": 0.023,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-vscode-maxsim",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.62,
+        "recall@5": 0.815,
+        "recall@10": 0.86,
+        "mrr@10": 0.702,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.03,
+        "recall@5": 0.085,
+        "recall@10": 0.105,
+        "mrr@10": 0.054,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.56,
+        "recall@5": 0.68,
+        "recall@10": 0.7,
+        "mrr@10": 0.614,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.015,
+        "recall@5": 0.03,
+        "recall@10": 0.035,
+        "mrr@10": 0.021,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-vscode-maxsim2-w0.4",
+    "n_cells": 2,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.66,
+        "recall@5": 0.87,
+        "recall@10": 0.875,
+        "mrr@10": 0.742,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.035,
+        "recall@5": 0.11,
+        "recall@10": 0.16,
+        "mrr@10": 0.068,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-vscode-maxsim2-w0.6",
+    "n_cells": 2,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.64,
+        "recall@5": 0.845,
+        "recall@10": 0.88,
+        "mrr@10": 0.727,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.04,
+        "recall@5": 0.1,
+        "recall@10": 0.145,
+        "mrr@10": 0.064,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-vscode-maxsim2",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.695,
+        "recall@5": 0.865,
+        "recall@10": 0.885,
+        "mrr@10": 0.769,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.035,
+        "recall@5": 0.14,
+        "recall@10": 0.175,
+        "mrr@10": 0.077,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.56,
+        "recall@5": 0.68,
+        "recall@10": 0.7,
+        "mrr@10": 0.614,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.015,
+        "recall@5": 0.03,
+        "recall@10": 0.035,
+        "mrr@10": 0.021,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-vscode-mp128",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.72,
+        "recall@5": 0.855,
+        "recall@10": 0.89,
+        "mrr@10": 0.779,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.035,
+        "recall@5": 0.14,
+        "recall@10": 0.175,
+        "mrr@10": 0.076,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.575,
+        "recall@5": 0.74,
+        "recall@10": 0.78,
+        "mrr@10": 0.646,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.005,
+        "recall@5": 0.02,
+        "recall@10": 0.035,
+        "mrr@10": 0.013,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-vscode-mp32",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.69,
+        "recall@5": 0.865,
+        "recall@10": 0.885,
+        "mrr@10": 0.766,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.035,
+        "recall@5": 0.14,
+        "recall@10": 0.175,
+        "mrr@10": 0.077,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.56,
+        "recall@5": 0.685,
+        "recall@10": 0.705,
+        "mrr@10": 0.615,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.015,
+        "recall@5": 0.03,
+        "recall@10": 0.035,
+        "mrr@10": 0.021,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-vscode-mp48",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.71,
+        "recall@5": 0.865,
+        "recall@10": 0.885,
+        "mrr@10": 0.778,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.04,
+        "recall@5": 0.14,
+        "recall@10": 0.175,
+        "mrr@10": 0.08,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.585,
+        "recall@5": 0.72,
+        "recall@10": 0.73,
+        "mrr@10": 0.642,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.02,
+        "recall@5": 0.035,
+        "recall@10": 0.045,
+        "mrr@10": 0.025,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-vscode-mp64",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.72,
+        "recall@5": 0.865,
+        "recall@10": 0.885,
+        "mrr@10": 0.783,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.04,
+        "recall@5": 0.145,
+        "recall@10": 0.175,
+        "mrr@10": 0.079,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.58,
+        "recall@5": 0.725,
+        "recall@10": 0.735,
+        "mrr@10": 0.64,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.01,
+        "recall@5": 0.035,
+        "recall@10": 0.035,
+        "mrr@10": 0.017,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-vscode-mp96",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.725,
+        "recall@5": 0.865,
+        "recall@10": 0.89,
+        "mrr@10": 0.784,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.04,
+        "recall@5": 0.14,
+        "recall@10": 0.175,
+        "mrr@10": 0.079,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.58,
+        "recall@5": 0.745,
+        "recall@10": 0.765,
+        "mrr@10": 0.647,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.01,
+        "recall@5": 0.025,
+        "recall@10": 0.03,
+        "mrr@10": 0.016,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-vscode-prf",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.435,
+        "recall@5": 0.795,
+        "recall@10": 0.84,
+        "mrr@10": 0.569,
+        "has_ranks": false
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.04,
+        "recall@5": 0.11,
+        "recall@10": 0.145,
+        "mrr@10": 0.069,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.51,
+        "recall@5": 0.825,
+        "recall@10": 0.855,
+        "mrr@10": 0.645,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.035,
+        "recall@5": 0.1,
+        "recall@10": 0.14,
+        "mrr@10": 0.064,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-vscode-sif-maxsim",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.655,
+        "recall@5": 0.83,
+        "recall@10": 0.87,
+        "mrr@10": 0.731,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.035,
+        "recall@5": 0.1,
+        "recall@10": 0.135,
+        "mrr@10": 0.063,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.585,
+        "recall@5": 0.695,
+        "recall@10": 0.7,
+        "mrr@10": 0.631,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.035,
+        "recall@5": 0.065,
+        "recall@10": 0.07,
+        "mrr@10": 0.047,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-vscode-sif-maxsim2",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.68,
+        "recall@5": 0.855,
+        "recall@10": 0.89,
+        "mrr@10": 0.752,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.05,
+        "recall@5": 0.14,
+        "recall@10": 0.175,
+        "mrr@10": 0.085,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.585,
+        "recall@5": 0.695,
+        "recall@10": 0.7,
+        "mrr@10": 0.631,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.035,
+        "recall@5": 0.065,
+        "recall@10": 0.07,
+        "mrr@10": 0.047,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-vscode-sif",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.64,
+        "recall@5": 0.855,
+        "recall@10": 0.89,
+        "mrr@10": 0.735,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.045,
+        "recall@5": 0.13,
+        "recall@10": 0.175,
+        "mrr@10": 0.083,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.315,
+        "recall@5": 0.515,
+        "recall@10": 0.6,
+        "mrr@10": 0.408,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.02,
+        "recall@5": 0.03,
+        "recall@10": 0.05,
+        "mrr@10": 0.027,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-vscode-sifa2",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.62,
+        "recall@5": 0.845,
+        "recall@10": 0.885,
+        "mrr@10": 0.715,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.045,
+        "recall@5": 0.145,
+        "recall@10": 0.175,
+        "mrr@10": 0.084,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.47,
+        "recall@5": 0.575,
+        "recall@10": 0.585,
+        "mrr@10": 0.514,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.02,
+        "recall@5": 0.05,
+        "recall@10": 0.07,
+        "mrr@10": 0.036,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-vscode-sifa4",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.7,
+        "recall@5": 0.865,
+        "recall@10": 0.89,
+        "mrr@10": 0.772,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.03,
+        "recall@5": 0.15,
+        "recall@10": 0.175,
+        "mrr@10": 0.073,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.605,
+        "recall@5": 0.715,
+        "recall@10": 0.72,
+        "mrr@10": 0.654,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.04,
+        "recall@5": 0.08,
+        "recall@10": 0.09,
+        "mrr@10": 0.057,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-vscode-sifc",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.665,
+        "recall@5": 0.85,
+        "recall@10": 0.89,
+        "mrr@10": 0.745,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.05,
+        "recall@5": 0.14,
+        "recall@10": 0.175,
+        "mrr@10": 0.084,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.585,
+        "recall@5": 0.69,
+        "recall@10": 0.695,
+        "mrr@10": 0.63,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.03,
+        "recall@5": 0.065,
+        "recall@10": 0.07,
+        "mrr@10": 0.044,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-wikipedia-base",
+    "n_cells": 6,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.95,
+        "recall@5": 0.995,
+        "recall@10": 0.995,
+        "mrr@10": 0.971,
+        "has_ranks": false
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.25,
+        "recall@5": 0.41,
+        "recall@10": 0.48,
+        "mrr@10": 0.322,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.795,
+        "recall@5": 0.975,
+        "recall@10": 0.995,
+        "mrr@10": 0.877,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.19,
+        "recall@5": 0.42,
+        "recall@10": 0.525,
+        "mrr@10": 0.283,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.58,
+        "recall@5": 0.785,
+        "recall@10": 0.825,
+        "mrr@10": 0.666,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.105,
+        "recall@5": 0.25,
+        "recall@10": 0.32,
+        "mrr@10": 0.165,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-wikipedia-bl50",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.865,
+        "recall@5": 0.975,
+        "recall@10": 0.995,
+        "mrr@10": 0.913,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.2,
+        "recall@5": 0.41,
+        "recall@10": 0.525,
+        "mrr@10": 0.287,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.73,
+        "recall@5": 0.87,
+        "recall@10": 0.89,
+        "mrr@10": 0.788,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.135,
+        "recall@5": 0.29,
+        "recall@10": 0.34,
+        "mrr@10": 0.202,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-wikipedia-bl75",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.87,
+        "recall@5": 0.975,
+        "recall@10": 0.995,
+        "mrr@10": 0.914,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.195,
+        "recall@5": 0.395,
+        "recall@10": 0.52,
+        "mrr@10": 0.282,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.81,
+        "recall@5": 0.89,
+        "recall@10": 0.89,
+        "mrr@10": 0.845,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.16,
+        "recall@5": 0.29,
+        "recall@10": 0.335,
+        "mrr@10": 0.218,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-wikipedia-maxsim",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.92,
+        "recall@5": 0.985,
+        "recall@10": 0.995,
+        "mrr@10": 0.949,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.2,
+        "recall@5": 0.39,
+        "recall@10": 0.485,
+        "mrr@10": 0.286,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.82,
+        "recall@5": 0.885,
+        "recall@10": 0.89,
+        "mrr@10": 0.85,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.185,
+        "recall@5": 0.295,
+        "recall@10": 0.33,
+        "mrr@10": 0.231,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-wikipedia-maxsim2-w0.4",
+    "n_cells": 2,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.865,
+        "recall@5": 0.95,
+        "recall@10": 0.985,
+        "mrr@10": 0.902,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.2,
+        "recall@5": 0.365,
+        "recall@10": 0.48,
+        "mrr@10": 0.276,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-wikipedia-maxsim2-w0.6",
+    "n_cells": 2,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.855,
+        "recall@5": 0.92,
+        "recall@10": 0.965,
+        "mrr@10": 0.888,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.195,
+        "recall@5": 0.345,
+        "recall@10": 0.45,
+        "mrr@10": 0.266,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-wikipedia-maxsim2",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.87,
+        "recall@5": 0.985,
+        "recall@10": 0.995,
+        "mrr@10": 0.914,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.21,
+        "recall@5": 0.39,
+        "recall@10": 0.515,
+        "mrr@10": 0.289,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.82,
+        "recall@5": 0.885,
+        "recall@10": 0.89,
+        "mrr@10": 0.85,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.185,
+        "recall@5": 0.295,
+        "recall@10": 0.33,
+        "mrr@10": 0.231,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-wikipedia-mp128",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.905,
+        "recall@5": 0.985,
+        "recall@10": 0.995,
+        "mrr@10": 0.934,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.215,
+        "recall@5": 0.405,
+        "recall@10": 0.515,
+        "mrr@10": 0.295,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.85,
+        "recall@5": 0.925,
+        "recall@10": 0.925,
+        "mrr@10": 0.882,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.19,
+        "recall@5": 0.3,
+        "recall@10": 0.36,
+        "mrr@10": 0.246,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-wikipedia-mp32",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.87,
+        "recall@5": 0.985,
+        "recall@10": 0.995,
+        "mrr@10": 0.914,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.21,
+        "recall@5": 0.395,
+        "recall@10": 0.515,
+        "mrr@10": 0.288,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.82,
+        "recall@5": 0.885,
+        "recall@10": 0.89,
+        "mrr@10": 0.849,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.185,
+        "recall@5": 0.29,
+        "recall@10": 0.325,
+        "mrr@10": 0.23,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-wikipedia-mp48",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.89,
+        "recall@5": 0.985,
+        "recall@10": 0.995,
+        "mrr@10": 0.926,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.21,
+        "recall@5": 0.405,
+        "recall@10": 0.515,
+        "mrr@10": 0.288,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.845,
+        "recall@5": 0.91,
+        "recall@10": 0.915,
+        "mrr@10": 0.874,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.18,
+        "recall@5": 0.285,
+        "recall@10": 0.345,
+        "mrr@10": 0.231,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-wikipedia-mp64",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.905,
+        "recall@5": 0.98,
+        "recall@10": 0.995,
+        "mrr@10": 0.936,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.205,
+        "recall@5": 0.415,
+        "recall@10": 0.52,
+        "mrr@10": 0.29,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.855,
+        "recall@5": 0.92,
+        "recall@10": 0.925,
+        "mrr@10": 0.883,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.18,
+        "recall@5": 0.305,
+        "recall@10": 0.345,
+        "mrr@10": 0.235,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-wikipedia-mp96",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.905,
+        "recall@5": 0.985,
+        "recall@10": 0.995,
+        "mrr@10": 0.935,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.215,
+        "recall@5": 0.415,
+        "recall@10": 0.51,
+        "mrr@10": 0.294,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.855,
+        "recall@5": 0.925,
+        "recall@10": 0.93,
+        "mrr@10": 0.885,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.185,
+        "recall@5": 0.3,
+        "recall@10": 0.365,
+        "mrr@10": 0.241,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-wikipedia-prf",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.59,
+        "recall@5": 0.94,
+        "recall@10": 0.965,
+        "mrr@10": 0.739,
+        "has_ranks": false
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.09,
+        "recall@5": 0.265,
+        "recall@10": 0.4,
+        "mrr@10": 0.166,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.665,
+        "recall@5": 0.945,
+        "recall@10": 0.97,
+        "mrr@10": 0.784,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.125,
+        "recall@5": 0.315,
+        "recall@10": 0.445,
+        "mrr@10": 0.21,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-wikipedia-sif-maxsim",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.925,
+        "recall@5": 0.99,
+        "recall@10": 0.995,
+        "mrr@10": 0.954,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.24,
+        "recall@5": 0.435,
+        "recall@10": 0.505,
+        "mrr@10": 0.319,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.795,
+        "recall@5": 0.85,
+        "recall@10": 0.85,
+        "mrr@10": 0.821,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.18,
+        "recall@5": 0.32,
+        "recall@10": 0.395,
+        "mrr@10": 0.248,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-wikipedia-sif-maxsim2",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.83,
+        "recall@5": 0.98,
+        "recall@10": 1.0,
+        "mrr@10": 0.888,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.215,
+        "recall@5": 0.435,
+        "recall@10": 0.515,
+        "mrr@10": 0.306,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.795,
+        "recall@5": 0.85,
+        "recall@10": 0.85,
+        "mrr@10": 0.821,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.18,
+        "recall@5": 0.32,
+        "recall@10": 0.395,
+        "mrr@10": 0.248,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-wikipedia-sif",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.795,
+        "recall@5": 0.985,
+        "recall@10": 1.0,
+        "mrr@10": 0.869,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.215,
+        "recall@5": 0.43,
+        "recall@10": 0.51,
+        "mrr@10": 0.305,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.6,
+        "recall@5": 0.765,
+        "recall@10": 0.81,
+        "mrr@10": 0.673,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.135,
+        "recall@5": 0.28,
+        "recall@10": 0.36,
+        "mrr@10": 0.202,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-wikipedia-sifa2",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.805,
+        "recall@5": 0.975,
+        "recall@10": 1.0,
+        "mrr@10": 0.867,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.2,
+        "recall@5": 0.405,
+        "recall@10": 0.52,
+        "mrr@10": 0.287,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.77,
+        "recall@5": 0.825,
+        "recall@10": 0.83,
+        "mrr@10": 0.796,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.175,
+        "recall@5": 0.315,
+        "recall@10": 0.375,
+        "mrr@10": 0.233,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-wikipedia-sifa4",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.84,
+        "recall@5": 0.985,
+        "recall@10": 1.0,
+        "mrr@10": 0.898,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.205,
+        "recall@5": 0.41,
+        "recall@10": 0.5,
+        "mrr@10": 0.295,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.81,
+        "recall@5": 0.875,
+        "recall@10": 0.875,
+        "mrr@10": 0.84,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.19,
+        "recall@5": 0.295,
+        "recall@10": 0.325,
+        "mrr@10": 0.236,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-wikipedia-sifc",
+    "n_cells": 4,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.83,
+        "recall@5": 0.975,
+        "recall@10": 1.0,
+        "mrr@10": 0.886,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.21,
+        "recall@5": 0.43,
+        "recall@10": 0.52,
+        "mrr@10": 0.302,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.805,
+        "recall@5": 0.86,
+        "recall@10": 0.86,
+        "mrr@10": 0.831,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.185,
+        "recall@5": 0.31,
+        "recall@10": 0.375,
+        "mrr@10": 0.244,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "linux-results-tuned",
+    "n_cells": 8,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.698,
+        "recall@5": 0.92,
+        "recall@10": 0.95,
+        "mrr@10": 0.797,
+        "has_ranks": false
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.005,
+        "recall@5": 0.035,
+        "recall@10": 0.065,
+        "mrr@10": 0.019,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.633,
+        "recall@5": 0.905,
+        "recall@10": 0.955,
+        "mrr@10": 0.746,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.045,
+        "recall@10": 0.06,
+        "mrr@10": 0.017,
+        "has_ranks": false
+      },
+      {
+        "mode": "rg",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.01,
+        "recall@5": 0.03,
+        "recall@10": 0.04,
+        "mrr@10": 0.018,
+        "has_ranks": false
+      },
+      {
+        "mode": "rg",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "mrr@10": 0.0,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.447,
+        "recall@5": 0.683,
+        "recall@10": 0.744,
+        "mrr@10": 0.55,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.005,
+        "recall@10": 0.01,
+        "mrr@10": 0.002,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "newcorp-commons-lang",
+    "n_cells": 12,
+    "n_ranks": 2388,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": "8953ed53f346749a",
+    "query_set": "unknown (fp 8953ed53f346749a)",
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.563,
+        "recall@5": 0.849,
+        "recall@10": 0.92,
+        "mrr@10": 0.684,
+        "has_ranks": true
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.055,
+        "recall@5": 0.146,
+        "recall@10": 0.186,
+        "mrr@10": 0.092,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.503,
+        "recall@5": 0.864,
+        "recall@10": 0.93,
+        "mrr@10": 0.645,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.045,
+        "recall@5": 0.171,
+        "recall@10": 0.201,
+        "mrr@10": 0.089,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.035,
+        "recall@5": 0.07,
+        "recall@10": 0.111,
+        "mrr@10": 0.054,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.005,
+        "recall@5": 0.015,
+        "recall@10": 0.015,
+        "mrr@10": 0.008,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-oracle",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.08,
+        "recall@5": 0.236,
+        "recall@10": 0.337,
+        "mrr@10": 0.15,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-oracle",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.015,
+        "recall@5": 0.035,
+        "recall@10": 0.09,
+        "mrr@10": 0.027,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-strong",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.025,
+        "recall@5": 0.106,
+        "recall@10": 0.136,
+        "mrr@10": 0.059,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-strong",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.005,
+        "recall@5": 0.015,
+        "recall@10": 0.015,
+        "mrr@10": 0.008,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.261,
+        "recall@5": 0.492,
+        "recall@10": 0.598,
+        "mrr@10": 0.36,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.015,
+        "recall@5": 0.035,
+        "recall@10": 0.06,
+        "mrr@10": 0.024,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "newcorp-etcd",
+    "n_cells": 12,
+    "n_ranks": 2400,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": "c5ff8f3b1e947e2e",
+    "query_set": "unknown (fp c5ff8f3b1e947e2e)",
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.435,
+        "recall@5": 0.705,
+        "recall@10": 0.79,
+        "mrr@10": 0.548,
+        "has_ranks": true
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.02,
+        "recall@5": 0.065,
+        "recall@10": 0.095,
+        "mrr@10": 0.041,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.385,
+        "recall@5": 0.695,
+        "recall@10": 0.775,
+        "mrr@10": 0.515,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.02,
+        "recall@5": 0.065,
+        "recall@10": 0.095,
+        "mrr@10": 0.037,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.045,
+        "recall@5": 0.09,
+        "recall@10": 0.115,
+        "mrr@10": 0.063,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.0,
+        "recall@5": 0.0,
+        "recall@10": 0.005,
+        "mrr@10": 0.001,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-oracle",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.085,
+        "recall@5": 0.165,
+        "recall@10": 0.255,
+        "mrr@10": 0.124,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-oracle",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.005,
+        "recall@5": 0.03,
+        "recall@10": 0.05,
+        "mrr@10": 0.013,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-strong",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.045,
+        "recall@5": 0.09,
+        "recall@10": 0.135,
+        "mrr@10": 0.066,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-strong",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.0,
+        "recall@5": 0.0,
+        "recall@10": 0.005,
+        "mrr@10": 0.001,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.13,
+        "recall@5": 0.34,
+        "recall@10": 0.42,
+        "mrr@10": 0.217,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.005,
+        "recall@5": 0.02,
+        "recall@10": 0.025,
+        "mrr@10": 0.012,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "newcorp-jekyll",
+    "n_cells": 12,
+    "n_ranks": 1056,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": "94476d160ca47908",
+    "query_set": "unknown (fp 94476d160ca47908)",
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 88,
+        "recall@1": 0.682,
+        "recall@5": 0.864,
+        "recall@10": 0.932,
+        "mrr@10": 0.771,
+        "has_ranks": true
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 88,
+        "recall@1": 0.068,
+        "recall@5": 0.136,
+        "recall@10": 0.182,
+        "mrr@10": 0.097,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 88,
+        "recall@1": 0.614,
+        "recall@5": 0.886,
+        "recall@10": 0.932,
+        "mrr@10": 0.728,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 88,
+        "recall@1": 0.045,
+        "recall@5": 0.182,
+        "recall@10": 0.261,
+        "mrr@10": 0.098,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg",
+        "kind": "direct",
+        "n": 88,
+        "recall@1": 0.023,
+        "recall@5": 0.034,
+        "recall@10": 0.091,
+        "mrr@10": 0.034,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg",
+        "kind": "paraphrase",
+        "n": 88,
+        "recall@1": 0.0,
+        "recall@5": 0.0,
+        "recall@10": 0.011,
+        "mrr@10": 0.001,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-oracle",
+        "kind": "direct",
+        "n": 88,
+        "recall@1": 0.068,
+        "recall@5": 0.205,
+        "recall@10": 0.33,
+        "mrr@10": 0.139,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-oracle",
+        "kind": "paraphrase",
+        "n": 88,
+        "recall@1": 0.011,
+        "recall@5": 0.068,
+        "recall@10": 0.068,
+        "mrr@10": 0.025,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-strong",
+        "kind": "direct",
+        "n": 88,
+        "recall@1": 0.034,
+        "recall@5": 0.057,
+        "recall@10": 0.136,
+        "mrr@10": 0.052,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-strong",
+        "kind": "paraphrase",
+        "n": 88,
+        "recall@1": 0.0,
+        "recall@5": 0.0,
+        "recall@10": 0.011,
+        "mrr@10": 0.001,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 88,
+        "recall@1": 0.409,
+        "recall@5": 0.636,
+        "recall@10": 0.739,
+        "mrr@10": 0.509,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 88,
+        "recall@1": 0.045,
+        "recall@5": 0.159,
+        "recall@10": 0.239,
+        "mrr@10": 0.094,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "newcorp-tokio",
+    "n_cells": 12,
+    "n_ranks": 2400,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": "cfaeed9fe176d1a4",
+    "query_set": "unknown (fp cfaeed9fe176d1a4)",
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.42,
+        "recall@5": 0.71,
+        "recall@10": 0.785,
+        "mrr@10": 0.534,
+        "has_ranks": true
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.035,
+        "recall@5": 0.09,
+        "recall@10": 0.125,
+        "mrr@10": 0.062,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.39,
+        "recall@5": 0.7,
+        "recall@10": 0.8,
+        "mrr@10": 0.516,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.025,
+        "recall@5": 0.085,
+        "recall@10": 0.14,
+        "mrr@10": 0.053,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.025,
+        "recall@5": 0.065,
+        "recall@10": 0.085,
+        "mrr@10": 0.041,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.0,
+        "recall@5": 0.005,
+        "recall@10": 0.005,
+        "mrr@10": 0.002,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-oracle",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.04,
+        "recall@5": 0.19,
+        "recall@10": 0.305,
+        "mrr@10": 0.104,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-oracle",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.02,
+        "recall@5": 0.05,
+        "recall@10": 0.075,
+        "mrr@10": 0.032,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-strong",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.025,
+        "recall@5": 0.085,
+        "recall@10": 0.125,
+        "mrr@10": 0.051,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-strong",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.0,
+        "recall@5": 0.01,
+        "recall@10": 0.01,
+        "mrr@10": 0.003,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.21,
+        "recall@5": 0.42,
+        "recall@10": 0.51,
+        "mrr@10": 0.298,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.015,
+        "recall@5": 0.045,
+        "recall@10": 0.075,
+        "mrr@10": 0.03,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "oracle-cosqa",
+    "n_cells": 6,
+    "n_ranks": 7200,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": "a9006a29f625c5b9",
+    "query_set": "unknown (fp a9006a29f625c5b9)",
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "real",
+        "n": 1200,
+        "recall@1": 0.074,
+        "recall@5": 0.222,
+        "recall@10": 0.325,
+        "mrr@10": 0.138,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "real",
+        "n": 1200,
+        "recall@1": 0.068,
+        "recall@5": 0.208,
+        "recall@10": 0.33,
+        "mrr@10": 0.133,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg",
+        "kind": "real",
+        "n": 1200,
+        "recall@1": 0.012,
+        "recall@5": 0.03,
+        "recall@10": 0.051,
+        "mrr@10": 0.021,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-oracle",
+        "kind": "real",
+        "n": 1200,
+        "recall@1": 0.043,
+        "recall@5": 0.101,
+        "recall@10": 0.158,
+        "mrr@10": 0.069,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-strong",
+        "kind": "real",
+        "n": 1200,
+        "recall@1": 0.012,
+        "recall@5": 0.03,
+        "recall@10": 0.051,
+        "mrr@10": 0.021,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "real",
+        "n": 1200,
+        "recall@1": 0.022,
+        "recall@5": 0.083,
+        "recall@10": 0.122,
+        "mrr@10": 0.048,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "prose256-linux",
+    "n_cells": 6,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.698,
+        "recall@5": 0.92,
+        "recall@10": 0.945,
+        "mrr@10": 0.797,
+        "has_ranks": false
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.005,
+        "recall@5": 0.035,
+        "recall@10": 0.065,
+        "mrr@10": 0.019,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.618,
+        "recall@5": 0.899,
+        "recall@10": 0.95,
+        "mrr@10": 0.735,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.04,
+        "recall@10": 0.06,
+        "mrr@10": 0.014,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.392,
+        "recall@5": 0.668,
+        "recall@10": 0.714,
+        "mrr@10": 0.51,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.005,
+        "recall@10": 0.005,
+        "mrr@10": 0.002,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "prose256-vscode",
+    "n_cells": 6,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.745,
+        "recall@5": 0.88,
+        "recall@10": 0.885,
+        "mrr@10": 0.803,
+        "has_ranks": false
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.04,
+        "recall@5": 0.135,
+        "recall@10": 0.175,
+        "mrr@10": 0.078,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.655,
+        "recall@5": 0.87,
+        "recall@10": 0.885,
+        "mrr@10": 0.745,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.04,
+        "recall@5": 0.14,
+        "recall@10": 0.185,
+        "mrr@10": 0.081,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.335,
+        "recall@5": 0.56,
+        "recall@10": 0.615,
+        "mrr@10": 0.426,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.0,
+        "recall@5": 0.005,
+        "recall@10": 0.02,
+        "mrr@10": 0.003,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "prose256-wikipedia",
+    "n_cells": 6,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.95,
+        "recall@5": 0.995,
+        "recall@10": 0.995,
+        "mrr@10": 0.971,
+        "has_ranks": false
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.25,
+        "recall@5": 0.41,
+        "recall@10": 0.48,
+        "mrr@10": 0.323,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.815,
+        "recall@5": 0.98,
+        "recall@10": 0.995,
+        "mrr@10": 0.888,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.185,
+        "recall@5": 0.425,
+        "recall@10": 0.51,
+        "mrr@10": 0.282,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.535,
+        "recall@5": 0.775,
+        "recall@10": 0.82,
+        "mrr@10": 0.631,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.09,
+        "recall@5": 0.24,
+        "recall@10": 0.29,
+        "mrr@10": 0.148,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "refactor-ab-coldsem-base",
+    "n_cells": 2,
+    "n_ranks": 400,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": "2e8d6905434c8b01",
+    "query_set": "vscode.jsonl",
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.33,
+        "recall@5": 0.555,
+        "recall@10": 0.615,
+        "mrr@10": 0.422,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.0,
+        "recall@5": 0.005,
+        "recall@10": 0.02,
+        "mrr@10": 0.003,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "refactor-ab-coldsem-new",
+    "n_cells": 2,
+    "n_ranks": 400,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": "2e8d6905434c8b01",
+    "query_set": "vscode.jsonl",
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.335,
+        "recall@5": 0.56,
+        "recall@10": 0.615,
+        "mrr@10": 0.426,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.0,
+        "recall@5": 0.005,
+        "recall@10": 0.02,
+        "mrr@10": 0.003,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "refactor-ab-warm-base",
+    "n_cells": 6,
+    "n_ranks": 1200,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": "2e8d6905434c8b01",
+    "query_set": "vscode.jsonl",
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.745,
+        "recall@5": 0.88,
+        "recall@10": 0.885,
+        "mrr@10": 0.803,
+        "has_ranks": true
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.04,
+        "recall@5": 0.135,
+        "recall@10": 0.175,
+        "mrr@10": 0.078,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.655,
+        "recall@5": 0.87,
+        "recall@10": 0.885,
+        "mrr@10": 0.745,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.04,
+        "recall@5": 0.14,
+        "recall@10": 0.185,
+        "mrr@10": 0.081,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.335,
+        "recall@5": 0.56,
+        "recall@10": 0.615,
+        "mrr@10": 0.426,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.0,
+        "recall@5": 0.005,
+        "recall@10": 0.02,
+        "mrr@10": 0.003,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "refactor-ab-warm-new",
+    "n_cells": 6,
+    "n_ranks": 1200,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": "2e8d6905434c8b01",
+    "query_set": "vscode.jsonl",
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.745,
+        "recall@5": 0.88,
+        "recall@10": 0.885,
+        "mrr@10": 0.803,
+        "has_ranks": true
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.04,
+        "recall@5": 0.135,
+        "recall@10": 0.175,
+        "mrr@10": 0.078,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.655,
+        "recall@5": 0.87,
+        "recall@10": 0.885,
+        "mrr@10": 0.745,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.04,
+        "recall@5": 0.14,
+        "recall@10": 0.185,
+        "mrr@10": 0.081,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.335,
+        "recall@5": 0.56,
+        "recall@10": 0.615,
+        "mrr@10": 0.426,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.0,
+        "recall@5": 0.005,
+        "recall@10": 0.02,
+        "mrr@10": 0.003,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "rerun-linux-sem",
+    "n_cells": 6,
+    "n_ranks": 1194,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": "46fc2ea43fcb30be",
+    "query_set": "unknown (fp 46fc2ea43fcb30be)",
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.698,
+        "recall@5": 0.92,
+        "recall@10": 0.945,
+        "mrr@10": 0.797,
+        "has_ranks": true
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.005,
+        "recall@5": 0.035,
+        "recall@10": 0.065,
+        "mrr@10": 0.019,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.618,
+        "recall@5": 0.899,
+        "recall@10": 0.95,
+        "mrr@10": 0.735,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.04,
+        "recall@10": 0.06,
+        "mrr@10": 0.014,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.392,
+        "recall@5": 0.668,
+        "recall@10": 0.714,
+        "mrr@10": 0.51,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.005,
+        "recall@10": 0.005,
+        "mrr@10": 0.002,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "rerun-linux",
+    "n_cells": 10,
+    "n_ranks": 1990,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": "46fc2ea43fcb30be",
+    "query_set": "unknown (fp 46fc2ea43fcb30be)",
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.698,
+        "recall@5": 0.92,
+        "recall@10": 0.945,
+        "mrr@10": 0.797,
+        "has_ranks": true
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.005,
+        "recall@5": 0.035,
+        "recall@10": 0.065,
+        "mrr@10": 0.019,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.618,
+        "recall@5": 0.899,
+        "recall@10": 0.95,
+        "mrr@10": 0.735,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.04,
+        "recall@10": 0.06,
+        "mrr@10": 0.014,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.01,
+        "recall@5": 0.025,
+        "recall@10": 0.035,
+        "mrr@10": 0.018,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "mrr@10": 0.0,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-strong",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.171,
+        "recall@5": 0.342,
+        "recall@10": 0.392,
+        "mrr@10": 0.241,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-strong",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "mrr@10": 0.0,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.392,
+        "recall@5": 0.668,
+        "recall@10": 0.714,
+        "mrr@10": 0.51,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.005,
+        "recall@10": 0.005,
+        "mrr@10": 0.002,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "rerun-vscode",
+    "n_cells": 10,
+    "n_ranks": 2000,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": "7578782896e9f02e",
+    "query_set": "unknown (fp 7578782896e9f02e)",
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.745,
+        "recall@5": 0.88,
+        "recall@10": 0.885,
+        "mrr@10": 0.803,
+        "has_ranks": true
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.04,
+        "recall@5": 0.135,
+        "recall@10": 0.175,
+        "mrr@10": 0.078,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.655,
+        "recall@5": 0.87,
+        "recall@10": 0.885,
+        "mrr@10": 0.745,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.04,
+        "recall@5": 0.14,
+        "recall@10": 0.185,
+        "mrr@10": 0.081,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.065,
+        "recall@5": 0.155,
+        "recall@10": 0.24,
+        "mrr@10": 0.107,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.005,
+        "recall@5": 0.01,
+        "recall@10": 0.01,
+        "mrr@10": 0.007,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-strong",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.11,
+        "recall@5": 0.36,
+        "recall@10": 0.44,
+        "mrr@10": 0.202,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-strong",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.005,
+        "recall@5": 0.01,
+        "recall@10": 0.01,
+        "mrr@10": 0.007,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.335,
+        "recall@5": 0.56,
+        "recall@10": 0.615,
+        "mrr@10": 0.426,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.0,
+        "recall@5": 0.005,
+        "recall@10": 0.02,
+        "mrr@10": 0.003,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "rerun-wikipedia",
+    "n_cells": 10,
+    "n_ranks": 2000,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": "093a1dd8d553c7fc",
+    "query_set": "unknown (fp 093a1dd8d553c7fc)",
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.95,
+        "recall@5": 0.995,
+        "recall@10": 0.995,
+        "mrr@10": 0.971,
+        "has_ranks": true
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.25,
+        "recall@5": 0.41,
+        "recall@10": 0.48,
+        "mrr@10": 0.323,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.815,
+        "recall@5": 0.98,
+        "recall@10": 0.995,
+        "mrr@10": 0.888,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.185,
+        "recall@5": 0.425,
+        "recall@10": 0.51,
+        "mrr@10": 0.282,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.19,
+        "recall@5": 0.275,
+        "recall@10": 0.32,
+        "mrr@10": 0.227,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.01,
+        "recall@5": 0.035,
+        "recall@10": 0.05,
+        "mrr@10": 0.02,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-strong",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.19,
+        "recall@5": 0.275,
+        "recall@10": 0.32,
+        "mrr@10": 0.227,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-strong",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.01,
+        "recall@5": 0.035,
+        "recall@10": 0.05,
+        "mrr@10": 0.02,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.535,
+        "recall@5": 0.775,
+        "recall@10": 0.82,
+        "mrr@10": 0.631,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.09,
+        "recall@5": 0.24,
+        "recall@10": 0.29,
+        "mrr@10": 0.148,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "v2-linux",
+    "n_cells": 8,
+    "n_ranks": 1592,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": "a4ce3818c9610b9b",
+    "query_set": "linux.jsonl",
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.698,
+        "recall@5": 0.92,
+        "recall@10": 0.945,
+        "mrr@10": 0.797,
+        "has_ranks": true
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.005,
+        "recall@5": 0.035,
+        "recall@10": 0.065,
+        "mrr@10": 0.019,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.618,
+        "recall@5": 0.899,
+        "recall@10": 0.95,
+        "mrr@10": 0.735,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.04,
+        "recall@10": 0.06,
+        "mrr@10": 0.014,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.015,
+        "recall@5": 0.03,
+        "recall@10": 0.035,
+        "mrr@10": 0.022,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "mrr@10": 0.0,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.392,
+        "recall@5": 0.668,
+        "recall@10": 0.714,
+        "mrr@10": 0.51,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.005,
+        "recall@10": 0.005,
+        "mrr@10": 0.002,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "v2-vscode",
+    "n_cells": 8,
+    "n_ranks": 1600,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": "2e8d6905434c8b01",
+    "query_set": "vscode.jsonl",
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.745,
+        "recall@5": 0.88,
+        "recall@10": 0.885,
+        "mrr@10": 0.803,
+        "has_ranks": true
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.04,
+        "recall@5": 0.135,
+        "recall@10": 0.175,
+        "mrr@10": 0.078,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.655,
+        "recall@5": 0.87,
+        "recall@10": 0.885,
+        "mrr@10": 0.745,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.04,
+        "recall@5": 0.14,
+        "recall@10": 0.185,
+        "mrr@10": 0.081,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.055,
+        "recall@5": 0.155,
+        "recall@10": 0.235,
+        "mrr@10": 0.101,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.0,
+        "recall@5": 0.01,
+        "recall@10": 0.01,
+        "mrr@10": 0.004,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.335,
+        "recall@5": 0.56,
+        "recall@10": 0.615,
+        "mrr@10": 0.426,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.0,
+        "recall@5": 0.005,
+        "recall@10": 0.02,
+        "mrr@10": 0.003,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "v2-wikipedia",
+    "n_cells": 8,
+    "n_ranks": 1600,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": "eb65b3afa159577a",
+    "query_set": "wikipedia.jsonl",
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.95,
+        "recall@5": 0.995,
+        "recall@10": 0.995,
+        "mrr@10": 0.971,
+        "has_ranks": true
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.25,
+        "recall@5": 0.41,
+        "recall@10": 0.48,
+        "mrr@10": 0.323,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.815,
+        "recall@5": 0.98,
+        "recall@10": 0.995,
+        "mrr@10": 0.888,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.185,
+        "recall@5": 0.425,
+        "recall@10": 0.51,
+        "mrr@10": 0.282,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.2,
+        "recall@5": 0.28,
+        "recall@10": 0.305,
+        "mrr@10": 0.232,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.015,
+        "recall@5": 0.03,
+        "recall@10": 0.035,
+        "mrr@10": 0.021,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.535,
+        "recall@5": 0.775,
+        "recall@10": 0.82,
+        "mrr@10": 0.631,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.09,
+        "recall@5": 0.24,
+        "recall@10": 0.29,
+        "mrr@10": 0.148,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "vscode-pilot-results",
+    "n_cells": 8,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 10,
+        "recall@1": 0.6,
+        "recall@5": 0.9,
+        "recall@10": 0.9,
+        "mrr@10": 0.75,
+        "has_ranks": false
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 10,
+        "recall@1": 0.1,
+        "recall@5": 0.2,
+        "recall@10": 0.2,
+        "mrr@10": 0.156,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 10,
+        "recall@1": 0.4,
+        "recall@5": 0.6,
+        "recall@10": 0.8,
+        "mrr@10": 0.517,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 10,
+        "recall@1": 0.1,
+        "recall@5": 0.1,
+        "recall@10": 0.3,
+        "mrr@10": 0.125,
+        "has_ranks": false
+      },
+      {
+        "mode": "rg",
+        "kind": "direct",
+        "n": 10,
+        "recall@1": 0.1,
+        "recall@5": 0.3,
+        "recall@10": 0.4,
+        "mrr@10": 0.17,
+        "has_ranks": false
+      },
+      {
+        "mode": "rg",
+        "kind": "paraphrase",
+        "n": 10,
+        "recall@1": 0.0,
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "mrr@10": 0.0,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 10,
+        "recall@1": 0.4,
+        "recall@5": 0.5,
+        "recall@10": 0.6,
+        "mrr@10": 0.46,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 10,
+        "recall@1": 0.1,
+        "recall@5": 0.2,
+        "recall@10": 0.2,
+        "mrr@10": 0.12,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "vscode-results-tuned",
+    "n_cells": 8,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.745,
+        "recall@5": 0.88,
+        "recall@10": 0.885,
+        "mrr@10": 0.803,
+        "has_ranks": false
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.04,
+        "recall@5": 0.135,
+        "recall@10": 0.18,
+        "mrr@10": 0.08,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.665,
+        "recall@5": 0.865,
+        "recall@10": 0.885,
+        "mrr@10": 0.753,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.05,
+        "recall@5": 0.145,
+        "recall@10": 0.175,
+        "mrr@10": 0.084,
+        "has_ranks": false
+      },
+      {
+        "mode": "rg",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.06,
+        "recall@5": 0.165,
+        "recall@10": 0.23,
+        "mrr@10": 0.103,
+        "has_ranks": false
+      },
+      {
+        "mode": "rg",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.0,
+        "recall@5": 0.01,
+        "recall@10": 0.01,
+        "mrr@10": 0.004,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.345,
+        "recall@5": 0.575,
+        "recall@10": 0.65,
+        "mrr@10": 0.448,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.005,
+        "recall@5": 0.01,
+        "recall@10": 0.025,
+        "mrr@10": 0.008,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "vscode-results-v2",
+    "n_cells": 6,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.745,
+        "recall@5": 0.88,
+        "recall@10": 0.885,
+        "mrr@10": 0.803,
+        "has_ranks": false
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.04,
+        "recall@5": 0.135,
+        "recall@10": 0.18,
+        "mrr@10": 0.08,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.655,
+        "recall@5": 0.865,
+        "recall@10": 0.885,
+        "mrr@10": 0.749,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.045,
+        "recall@5": 0.145,
+        "recall@10": 0.175,
+        "mrr@10": 0.081,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.35,
+        "recall@5": 0.57,
+        "recall@10": 0.655,
+        "mrr@10": 0.451,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.005,
+        "recall@5": 0.01,
+        "recall@10": 0.025,
+        "mrr@10": 0.01,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "vscode-results",
+    "n_cells": 8,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.72,
+        "recall@5": 0.865,
+        "recall@10": 0.88,
+        "mrr@10": 0.785,
+        "has_ranks": false
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.04,
+        "recall@5": 0.12,
+        "recall@10": 0.165,
+        "mrr@10": 0.079,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.49,
+        "recall@5": 0.755,
+        "recall@10": 0.83,
+        "mrr@10": 0.595,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.03,
+        "recall@5": 0.06,
+        "recall@10": 0.085,
+        "mrr@10": 0.049,
+        "has_ranks": false
+      },
+      {
+        "mode": "rg",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.06,
+        "recall@5": 0.175,
+        "recall@10": 0.245,
+        "mrr@10": 0.11,
+        "has_ranks": false
+      },
+      {
+        "mode": "rg",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.0,
+        "recall@5": 0.01,
+        "recall@10": 0.01,
+        "mrr@10": 0.004,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.335,
+        "recall@5": 0.53,
+        "recall@10": 0.595,
+        "mrr@10": 0.422,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.005,
+        "recall@5": 0.01,
+        "recall@10": 0.03,
+        "mrr@10": 0.01,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "wikipedia-results-tuned",
+    "n_cells": 8,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.95,
+        "recall@5": 0.995,
+        "recall@10": 0.995,
+        "mrr@10": 0.971,
+        "has_ranks": false
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.25,
+        "recall@5": 0.41,
+        "recall@10": 0.475,
+        "mrr@10": 0.321,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.8,
+        "recall@5": 0.975,
+        "recall@10": 0.995,
+        "mrr@10": 0.88,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.195,
+        "recall@5": 0.415,
+        "recall@10": 0.52,
+        "mrr@10": 0.28,
+        "has_ranks": false
+      },
+      {
+        "mode": "rg",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.19,
+        "recall@5": 0.27,
+        "recall@10": 0.3,
+        "mrr@10": 0.229,
+        "has_ranks": false
+      },
+      {
+        "mode": "rg",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.015,
+        "recall@5": 0.03,
+        "recall@10": 0.035,
+        "mrr@10": 0.022,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.585,
+        "recall@5": 0.785,
+        "recall@10": 0.835,
+        "mrr@10": 0.669,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.095,
+        "recall@5": 0.24,
+        "recall@10": 0.32,
+        "mrr@10": 0.162,
+        "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "wikipedia-results",
+    "n_cells": 8,
+    "n_ranks": 0,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.95,
+        "recall@5": 0.99,
+        "recall@10": 0.995,
+        "mrr@10": 0.968,
+        "has_ranks": false
+      },
+      {
+        "mode": "bm25",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.25,
+        "recall@5": 0.42,
+        "recall@10": 0.485,
+        "mrr@10": 0.332,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.715,
+        "recall@5": 0.89,
+        "recall@10": 0.95,
+        "mrr@10": 0.789,
+        "has_ranks": false
+      },
+      {
+        "mode": "hybrid",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.165,
+        "recall@5": 0.32,
+        "recall@10": 0.385,
+        "mrr@10": 0.242,
+        "has_ranks": false
+      },
+      {
+        "mode": "rg",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.195,
+        "recall@5": 0.28,
+        "recall@10": 0.31,
+        "mrr@10": 0.231,
+        "has_ranks": false
+      },
+      {
+        "mode": "rg",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.02,
+        "recall@5": 0.03,
+        "recall@10": 0.03,
+        "mrr@10": 0.024,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.585,
+        "recall@5": 0.765,
+        "recall@10": 0.8,
+        "mrr@10": 0.668,
+        "has_ranks": false
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.1,
+        "recall@5": 0.235,
+        "recall@10": 0.29,
+        "mrr@10": 0.162,
+        "has_ranks": false
+      }
+    ]
+  }
+]

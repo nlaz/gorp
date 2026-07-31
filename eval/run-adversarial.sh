@@ -21,6 +21,6 @@ for corpus in vscode linux wikipedia; do
   python3 eval/run_eval.py "$q" "$d" \
       --modes hybrid,rg,rg-strong \
       --compare-modes hybrid,rg-strong \
-      --out eval/data/adv-$corpus.json
+      --out eval/results/adv-$corpus.json
 done
 echo "adversarial pass complete"

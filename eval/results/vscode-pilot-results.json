@@ -1,0 +1,74 @@
+[
+  {
+    "mode": "bm25",
+    "kind": "direct",
+    "n": 10,
+    "recall@1": 0.6,
+    "recall@5": 0.9,
+    "recall@10": 0.9,
+    "mrr@10": 0.75
+  },
+  {
+    "mode": "bm25",
+    "kind": "paraphrase",
+    "n": 10,
+    "recall@1": 0.1,
+    "recall@5": 0.2,
+    "recall@10": 0.2,
+    "mrr@10": 0.156
+  },
+  {
+    "mode": "hybrid",
+    "kind": "direct",
+    "n": 10,
+    "recall@1": 0.4,
+    "recall@5": 0.6,
+    "recall@10": 0.8,
+    "mrr@10": 0.517
+  },
+  {
+    "mode": "hybrid",
+    "kind": "paraphrase",
+    "n": 10,
+    "recall@1": 0.1,
+    "recall@5": 0.1,
+    "recall@10": 0.3,
+    "mrr@10": 0.125
+  },
+  {
+    "mode": "rg",
+    "kind": "direct",
+    "n": 10,
+    "recall@1": 0.1,
+    "recall@5": 0.3,
+    "recall@10": 0.4,
+    "mrr@10": 0.17
+  },
+  {
+    "mode": "rg",
+    "kind": "paraphrase",
+    "n": 10,
+    "recall@1": 0.0,
+    "recall@5": 0.0,
+    "recall@10": 0.0,
+    "mrr@10": 0.0
+  },
+  {
+    "mode": "semantic",
+    "kind": "direct",
+    "n": 10,
+    "recall@1": 0.4,
+    "recall@5": 0.5,
+    "recall@10": 0.6,
+    "mrr@10": 0.46
+  },
+  {
+    "mode": "semantic",
+    "kind": "paraphrase",
+    "n": 10,
+    "recall@1": 0.1,
+    "recall@5": 0.2,
+    "recall@10": 0.2,
+    "mrr@10": 0.12
+  }
+]

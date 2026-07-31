@@ -20,7 +20,8 @@ import json
 import re
 from pathlib import Path
 
-DATA = Path(__file__).parent / "data"
+DATA = Path(__file__).parent / "results"   # results moved here and are tracked
+LEGACY = Path(__file__).parent / "data"    # older/uncommitted runs still land here
 METRICS = ["recall@1", "recall@5", "recall@10", "mrr@10"]
 
 # The corpus list used to be hardcoded to the original three, so a result file
@@ -44,9 +45,12 @@ def discover_corpora():
     if CORPORA_DIR.is_dir():
         found |= {p.name for p in CORPORA_DIR.iterdir() if p.is_dir()}
     # Corpora that live beside their query set rather than in bench/ — cosqa
-    # ships as eval/data/cosqa/{corpus,queries.jsonl}.
-    if DATA.is_dir():
-        found |= {p.name for p in DATA.iterdir() if (p / "corpus").is_dir()}
+    # ships as eval/data/cosqa/{corpus,queries.jsonl}. Checked in both dirs:
+    # result files moved to eval/results, downloaded corpora did not.
+    for d in (DATA, LEGACY):
+        if d.is_dir():
+            found |= {p.name for p in d.iterdir()
+                      if p.is_dir() and (p / "corpus").is_dir()}
     ordered = [c for c in _KNOWN_FIRST if c in found]
     return ordered + sorted(found - set(ordered))
 
@@ -56,10 +60,11 @@ CORPORA = discover_corpora() or list(_KNOWN_FIRST)
 
 def path_for(tag, corpus):
     """Both naming conventions, so one tool reads every campaign's output."""
-    for name in (f"lever-{corpus}-{tag}.json", f"{tag}-{corpus}.json"):
-        p = DATA / name
-        if p.exists():
-            return p
+    for d in (DATA, LEGACY):
+        for name in (f"lever-{corpus}-{tag}.json", f"{tag}-{corpus}.json"):
+            p = d / name
+            if p.exists():
+                return p
     return None
 
 
@@ -73,7 +78,7 @@ def load(tag, corpus):
 
 def available_tags():
     tags = set()
-    for p in DATA.glob("*.json"):
+    for p in [*DATA.glob("*.json"), *LEGACY.glob("*.json")]:
         m = re.fullmatch(r"lever-(\w+)-(.+)", p.stem)
         if m and m.group(1) in CORPORA:
             tags.add(m.group(2))
@@ -142,7 +147,7 @@ def main():
 
     if args.list:
         tags = available_tags()
-        print("conditions in eval/data:")
+        print("conditions in eval/results:")
         for t in tags:
             have = [c for c in CORPORA if path_for(t, c)]
             print(f"  {t:<16} {' '.join(have)}")

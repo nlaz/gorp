@@ -1,0 +1,74 @@
+[
+  {
+    "mode": "bm25",
+    "kind": "direct",
+    "n": 199,
+    "recall@1": 0.698,
+    "recall@5": 0.92,
+    "recall@10": 0.95,
+    "mrr@10": 0.797
+  },
+  {
+    "mode": "bm25",
+    "kind": "paraphrase",
+    "n": 199,
+    "recall@1": 0.005,
+    "recall@5": 0.035,
+    "recall@10": 0.065,
+    "mrr@10": 0.019
+  },
+  {
+    "mode": "hybrid",
+    "kind": "direct",
+    "n": 199,
+    "recall@1": 0.633,
+    "recall@5": 0.905,
+    "recall@10": 0.955,
+    "mrr@10": 0.746
+  },
+  {
+    "mode": "hybrid",
+    "kind": "paraphrase",
+    "n": 199,
+    "recall@1": 0.0,
+    "recall@5": 0.045,
+    "recall@10": 0.06,
+    "mrr@10": 0.017
+  },
+  {
+    "mode": "rg",
+    "kind": "direct",
+    "n": 199,
+    "recall@1": 0.01,
+    "recall@5": 0.03,
+    "recall@10": 0.04,
+    "mrr@10": 0.018
+  },
+  {
+    "mode": "rg",
+    "kind": "paraphrase",
+    "n": 199,
+    "recall@1": 0.0,
+    "recall@5": 0.0,
+    "recall@10": 0.0,
+    "mrr@10": 0.0
+  },
+  {
+    "mode": "semantic",
+    "kind": "direct",
+    "n": 199,
+    "recall@1": 0.447,
+    "recall@5": 0.683,
+    "recall@10": 0.744,
+    "mrr@10": 0.55
+  },
+  {
+    "mode": "semantic",
+    "kind": "paraphrase",
+    "n": 199,
+    "recall@1": 0.0,
+    "recall@5": 0.005,
+    "recall@10": 0.01,
+    "mrr@10": 0.002
+  }
+]
