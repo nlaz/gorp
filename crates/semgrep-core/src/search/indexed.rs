@@ -37,8 +37,15 @@ pub fn run(
         trace.record(stage, ms);
     }
 
-    let (repair, repair_outcome) = cache::repair::scope(d, &idx, &mut trace);
-    let rows = Rows::new(&idx, repair);
+    let (repair, repair_outcome) =
+        cache::repair::scope(d, &idx, opts.repair_max_drift, &mut trace);
+    // Handed back up rather than decided here: this path can see that the entry
+    // is too stale to patch, but replacing it is `search`'s job — it owns the
+    // write-through build and the re-discovery that follows it.
+    if let cache::repair::RepairOutcome::DriftTooLarge { dirty, total, .. } = repair_outcome {
+        return Err(anyhow::Error::new(super::DriftTooLarge { dirty, total }));
+    }
+    let rows = Rows::new(&idx, repair, &d.prefix);
 
     let lexical = trace.time(Stage::RankBm25, || rank_lexical(&idx, &rows, query, opts, pool));
     let lexical = expand_query(&idx, &rows, query, lexical, opts, d, pool, &mut trace);
@@ -124,7 +131,18 @@ fn rank_lexical(
         .delta_bm25()
         .map(|b| rank::top_k_within(b, query, pool, Some(&rest)))
         .unwrap_or_default();
-    rows.merge(base.query(query, pool), delta, pool, true)
+    // Base ids are row ids here, so the scope predicate applies directly. The
+    // overlay is already scoped — `repair::scope` only walks the query's subtree
+    // — and `merge` re-checks both anyway.
+    let in_scope = |id: u32| rows.serves(id);
+    let base_hits = rank::top_k_scoped(
+        base,
+        query,
+        pool,
+        None,
+        (!rows.whole_corpus()).then_some(&in_scope as &dyn Fn(u32) -> bool),
+    );
+    rows.merge(base_hits, delta, pool, true)
 }
 
 fn lexical_mode(mode: Mode) -> bool {
@@ -195,14 +213,26 @@ fn rank_semantic(
         q
     });
 
-    let use_graph = idx.hnsw.is_some() && opts.use_hnsw && pool <= 128;
+    // A scoped query cannot use the graph. HNSW returns its own bounded
+    // neighbour list and there is no way to tell it to skip rows, so filtering
+    // its output is the filter-after-truncate mistake again — the brute-force
+    // scan takes the predicate instead, and under a scope it is *cheaper*
+    // because most rows never reach the kernel.
+    let use_graph = idx.hnsw.is_some() && opts.use_hnsw && pool <= 128 && rows.whole_corpus();
     let start = Instant::now();
     let quantized = rank::quantize_i8(&q);
+    let in_scope = |id: u32| rows.serves(id);
     let base = match (&idx.hnsw, use_graph) {
         (Some(graph), true) => {
             graph.search(&q).into_iter().map(|(dist, id)| (id, dist)).take(pool).collect()
         }
-        _ => rank::brute_force_top_k_i8(&quantized, idx.emb_matrix_i8(), pool),
+        _ => rank::brute_force_top_k_i8_where(
+            &quantized,
+            idx.emb_matrix_i8(),
+            pool,
+            (!rows.whole_corpus())
+                .then_some(&in_scope as &(dyn Fn(u32) -> bool + Sync)),
+        ),
     };
     // The same kernel and the same quantized query the base was scored with, so
     // the two lists being merged are on one scale.

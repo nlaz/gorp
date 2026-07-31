@@ -11,12 +11,52 @@
 use semgrep_core::corpus;
 use semgrep_core::rank::Mode;
 use semgrep_core::search::{SearchHit, SearchResult};
+use std::borrow::Cow;
 use std::collections::HashSet;
 use std::path::Path;
 
 /// Exact mode prints at most this many matches unless --all is given; the footer
 /// reports the true total, so enumeration is never silently lossy.
 pub const EXACT_PRINT_CAP: usize = 250;
+
+/// A path as it can safely appear in the `path:line:text` contract.
+///
+/// Returned untouched unless the name would break that contract, which two
+/// kinds of character do: a control character ends the record early — a
+/// filename containing a newline turned one hit into two output lines, so six
+/// files on disk produced seven lines — and a `:` makes the field split
+/// ambiguous, so `od:d.py` parses as path `od`, line `d.py`. Both are quoted
+/// in git's `core.quotePath` style, and a leading `"` is the consumer's signal
+/// to unquote.
+///
+/// Ordinary paths pass through byte for byte, deliberately. This must not move
+/// `tools/snapshot.sh`, and the common case should not get noisier to read to
+/// pay for a case almost nobody has. `--json` never arrives here: serde escapes
+/// what `println!` does not, which is why it was the one output mode that came
+/// through the simulation intact (SIMULATION.md §1.5).
+pub fn quote_path(path: &str) -> Cow<'_, str> {
+    if !path.chars().any(|c| c.is_control() || c == '"' || c == ':') {
+        return Cow::Borrowed(path);
+    }
+    let mut out = String::with_capacity(path.len() + 2);
+    out.push('"');
+    for c in path.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            // Only meaningful once we are quoting: an unquoted backslash is
+            // unambiguous, but inside quotes it has to escape itself or the
+            // unquoting is not reversible.
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if c.is_control() => out.push_str(&format!("\\{:03o}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    Cow::Owned(out)
+}
 
 /// Bytes as a short human string. Decimal units, because that is what disk
 /// tooling reports and the numbers are compared against `du`.
@@ -39,7 +79,7 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, json: bool, context_l
             // to serialize.
             println!("{}", serde_json::to_string(hit).expect("SearchHit serializes"));
         } else {
-            println!("{}:{}:{}", hit.path, hit.line, hit.text);
+            println!("{}:{}:{}", quote_path(&hit.path), hit.line, hit.text);
             if context_lines > 0 {
                 context(root, hit, context_lines);
             }
@@ -137,7 +177,7 @@ pub fn context(root: &Path, hit: &SearchHit, n: usize) {
     let hi = (center + n).min(lines.len());
     for i in lo..=hi {
         if i != center {
-            println!("{}-{}-{}", hit.path, i, lines[i - 1]);
+            println!("{}-{}-{}", quote_path(&hit.path), i, lines[i - 1]);
         }
     }
     println!("--");
@@ -147,6 +187,55 @@ pub fn context(root: &Path, hit: &SearchHit, n: usize) {
 /// two must compose without corrupting the hit stream.
 pub fn stats_json(line: &str) {
     eprintln!("{line}");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::quote_path;
+
+    /// The six names the simulation put on disk (SIMULATION.md §1.5). Six files
+    /// produced seven stdout lines, and one of the six mis-parsed silently.
+    #[test]
+    fn only_ambiguous_names_are_quoted() {
+        // Untouched — and this is the load-bearing half. A quoting scheme that
+        // fires on ordinary paths would move `tools/snapshot.sh` and make every
+        // consumer unquote every line.
+        for plain in [
+            "ordinary.py",
+            "with space.py",
+            "-dash.py",
+            "src/rank/bm25.rs",
+            "qu'ote.py",
+            "über/naïve.py",
+        ] {
+            assert_eq!(quote_path(plain), plain, "{plain:?} must pass through");
+        }
+
+        assert_eq!(quote_path("we\nird.py"), r#""we\nird.py""#);
+        assert_eq!(quote_path("od:d.py"), r#""od:d.py""#);
+        assert_eq!(quote_path("qu\"ote.py"), r#""qu\"ote.py""#);
+        assert_eq!(quote_path("tab\there.py"), r#""tab\there.py""#);
+    }
+
+    /// A quoted path must stay on one line, because that is the entire point:
+    /// the break this fixes was one hit arriving as two records.
+    #[test]
+    fn a_quoted_path_never_contains_a_raw_control_character() {
+        for hostile in ["a\nb", "a\rb", "a\tb", "a\u{0}b", "a\u{1b}b", "a:b\nc"] {
+            let q = quote_path(hostile);
+            assert!(!q.chars().any(char::is_control), "{hostile:?} -> {q:?} still has a control");
+            assert!(q.starts_with('"') && q.ends_with('"'), "{hostile:?} -> {q:?} is not quoted");
+        }
+    }
+
+    /// Backslash is not a trigger — an unquoted one is unambiguous — but once
+    /// something else forces quoting it has to escape itself, or unquoting a
+    /// name like `a\nb` (literal backslash, letter n) gives back a newline.
+    #[test]
+    fn backslash_escapes_itself_only_inside_quotes() {
+        assert_eq!(quote_path(r"back\slash.py"), r"back\slash.py");
+        assert_eq!(quote_path("back\\slash:x.py"), r#""back\\slash:x.py""#);
+    }
 }
 
 pub fn peak_rss_mb() -> Option<f64> {

@@ -19,7 +19,7 @@ pub mod bm25;
 mod build;
 mod load;
 
-pub use build::{build, build_at};
+pub use build::{build, build_at, build_staged, is_transient, staging_path};
 pub use load::{LoadNeeds, LoadTimings, LoadedIndex};
 
 use crate::{ChunkParams, FileMeta};

@@ -47,8 +47,28 @@ fn defined_sections(markdown: &str) -> BTreeSet<String> {
     out
 }
 
-/// Every `RESEARCH.md §N` cited from Rust source.
-fn cited_sections(root: &Path) -> BTreeSet<(String, String)> {
+/// Documents a `§` citation may point at, and the default when none is named.
+///
+/// A bare `§9.1` means RESEARCH.md — that is the convention the codebase was
+/// written in and most citations still use it. Anything else has to say so.
+const DEFAULT_DOC: &str = "RESEARCH.md";
+const KNOWN_DOCS: [&str; 5] =
+    ["RESEARCH.md", "SIMULATION.md", "FIXES.md", "AUDIT.md", "FOLD.md"];
+
+/// How far back of a `§` to look for the document it belongs to. Long enough to
+/// cross a comment-line wrap (`SIMULATION.md\n/// §1.5`), short enough that an
+/// unrelated filename in the previous sentence cannot claim the citation.
+const DOC_LOOKBEHIND: usize = 64;
+
+/// Every `<doc> §N` cited from Rust source, as (document, section, file).
+///
+/// The document matters, and used to be assumed. Every citation was checked
+/// against RESEARCH.md whatever it named, so `SIMULATION.md §1.1` passed only
+/// because RESEARCH.md happens to have a §1.1 of its own, and a correct
+/// citation of a section RESEARCH.md lacks would have failed. Both directions
+/// were wrong — the guard was passing for the wrong reason, which is the
+/// failure mode SIMULATION.md §5 is about.
+fn cited_sections(root: &Path) -> BTreeSet<(String, String, String)> {
     let mut sources = Vec::new();
     rust_sources(&root.join("crates"), &mut sources);
 
@@ -61,9 +81,20 @@ fn cited_sections(root: &Path) -> BTreeSet<(String, String)> {
             let number: String =
                 after.chars().take_while(|c| c.is_ascii_digit() || *c == '.').collect();
             let number = number.trim_end_matches('.');
-            if !number.is_empty() {
-                cites.insert((number.to_string(), rel.clone()));
+            if number.is_empty() {
+                continue;
             }
+            // The nearest document named just before the §, if any: the last
+            // one to start within the lookbehind window wins, so
+            // "RESEARCH.md §8 ... SIMULATION.md §1.3" attributes each correctly.
+            let window = &text[i.saturating_sub(DOC_LOOKBEHIND)..i];
+            let doc = KNOWN_DOCS
+                .iter()
+                .filter_map(|d| window.rfind(d).map(|at| (at, *d)))
+                .max_by_key(|&(at, _)| at)
+                .map(|(_, d)| d)
+                .unwrap_or(DEFAULT_DOC);
+            cites.insert((doc.to_string(), number.to_string(), rel.clone()));
         }
     }
     cites
@@ -74,23 +105,31 @@ fn cited_sections(root: &Path) -> BTreeSet<(String, String)> {
 #[test]
 fn research_citations_resolve() {
     let root = repo_root();
-    let research = std::fs::read_to_string(root.join("RESEARCH.md"))
-        .expect("RESEARCH.md should exist at the repo root");
-    let defined = defined_sections(&research);
-    assert!(!defined.is_empty(), "parsed no section headings out of RESEARCH.md");
+    let defined: std::collections::BTreeMap<&str, BTreeSet<String>> = KNOWN_DOCS
+        .iter()
+        .map(|doc| {
+            let text = std::fs::read_to_string(root.join(doc))
+                .unwrap_or_else(|_| panic!("{doc} should exist at the repo root"));
+            let sections = defined_sections(&text);
+            assert!(!sections.is_empty(), "parsed no section headings out of {doc}");
+            (*doc, sections)
+        })
+        .collect();
 
     let mut dangling: Vec<String> = cited_sections(&root)
         .into_iter()
-        .filter(|(number, _)| !defined.contains(number))
-        .map(|(number, file)| format!("§{number} (cited in {file})"))
+        .filter(|(doc, number, _)| !defined[doc.as_str()].contains(number))
+        .map(|(doc, number, file)| format!("{doc} §{number} (cited in {file})"))
         .collect();
     dangling.sort();
     dangling.dedup();
 
     assert!(
         dangling.is_empty(),
-        "source comments cite RESEARCH.md sections that do not exist:\n  {}\n\
-         Either the section was renumbered or the citation was a guess.",
+        "source comments cite sections that do not exist:\n  {}\n\
+         Either the section was renumbered or the citation was a guess.\n\
+         (A § with no document named within {DOC_LOOKBEHIND} bytes before it is \
+         read as {DEFAULT_DOC}.)",
         dangling.join("\n  ")
     );
 }

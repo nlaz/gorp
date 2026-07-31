@@ -241,3 +241,100 @@ fn diff_handles_empty_sides() {
     assert_eq!(diff(&files, &[], "").deleted, [0], "everything is gone");
     assert!(diff(&[], &[], "").is_empty());
 }
+
+// ---------------------------------------------------------------------------
+// The walk is parallel; the sort is what keeps it usable as an id assignment.
+// ---------------------------------------------------------------------------
+
+/// A tree wide and deep enough that several walker threads are genuinely
+/// interleaving, with gitignored and hidden entries mixed in.
+fn walk_fixture(root: &std::path::Path) {
+    // `.ignore`, not `.gitignore`: the `ignore` crate only honours gitignore
+    // rules inside an actual git repository, so a `.gitignore` in a bare
+    // tempdir does nothing. `.ignore` is always respected.
+    std::fs::write(root.join(".ignore"), "ignored/\n*.log\n").unwrap();
+    std::fs::create_dir_all(root.join("ignored")).unwrap();
+    std::fs::write(root.join("ignored/nope.rs"), "fn ignored() {}\n").unwrap();
+    std::fs::write(root.join("build.log"), "noise\n").unwrap();
+    std::fs::create_dir_all(root.join(".hidden")).unwrap();
+    std::fs::write(root.join(".hidden/secret.rs"), "fn hidden() {}\n").unwrap();
+    // A repo-local index and the two transient directories a build swaps
+    // through: none of them are corpus.
+    for d in [".semgrep", ".semgrep.building-1234", ".semgrep.trash-1234"] {
+        std::fs::create_dir_all(root.join(d)).unwrap();
+        std::fs::write(root.join(d).join("meta.json"), "{}").unwrap();
+    }
+    for a in 0..8 {
+        for b in 0..8 {
+            let dir = root.join(format!("m{a}/s{b}"));
+            std::fs::create_dir_all(&dir).unwrap();
+            for c in 0..4 {
+                std::fs::write(
+                    dir.join(format!("f{c}.rs")),
+                    format!("pub fn symbol_{a}_{b}_{c}() -> u32 {{ {a}{b}{c} }}\n"),
+                )
+                .unwrap();
+            }
+        }
+    }
+}
+
+/// Walk order *is* chunk-id order, and chunk ids must agree across the chunk
+/// table, the BM25 add order and the `emb.bin` rows. Traversal is concurrent, so
+/// nothing about the order in which directories are read is stable — the sort at
+/// the end is the entire guarantee. Twenty walks, byte-identical.
+#[test]
+fn the_walk_is_deterministic_however_the_threads_interleave() {
+    let dir = tempfile::tempdir().unwrap();
+    walk_fixture(dir.path());
+    let params = ChunkParams::default();
+
+    let first = walk(dir.path(), &params).unwrap();
+    assert_eq!(first.len(), 8 * 8 * 4, "the fixture's real files, and only those");
+    for i in 1..20 {
+        assert_eq!(walk(dir.path(), &params).unwrap(), first, "walk {i} disagreed with walk 0");
+    }
+}
+
+#[test]
+fn the_walk_returns_a_totally_ordered_unique_list() {
+    let dir = tempfile::tempdir().unwrap();
+    walk_fixture(dir.path());
+    let files = walk(dir.path(), &ChunkParams::default()).unwrap();
+
+    let paths: Vec<&str> = files.iter().map(|f| f.path.as_str()).collect();
+    let mut sorted = paths.clone();
+    sorted.sort_unstable();
+    assert_eq!(paths, sorted, "walk order must be sorted by path");
+    let unique: std::collections::HashSet<&&str> = paths.iter().collect();
+    assert_eq!(unique.len(), paths.len(), "a file must be visited exactly once");
+}
+
+/// What the walk must not pick up: gitignored paths, hidden directories, the
+/// repo-local index, and the staging/trash siblings a publish swaps through.
+#[test]
+fn the_walk_skips_ignored_hidden_and_index_directories() {
+    let dir = tempfile::tempdir().unwrap();
+    walk_fixture(dir.path());
+    let files = walk(dir.path(), &ChunkParams::default()).unwrap();
+
+    for unwanted in ["ignored/", "build.log", ".hidden", ".semgrep"] {
+        assert!(
+            !files.iter().any(|f| f.path.starts_with(unwanted)),
+            "{unwanted:?} should not be corpus: {:?}",
+            files.iter().map(|f| &f.path).take(5).collect::<Vec<_>>()
+        );
+    }
+}
+
+/// The size cap still applies, and applies per file rather than to the tree.
+#[test]
+fn the_walk_honours_the_size_cap() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("small.rs"), "fn a() {}\n").unwrap();
+    std::fs::write(dir.path().join("big.rs"), "x".repeat(4096)).unwrap();
+    let params = ChunkParams { max_file_bytes: 1024, ..Default::default() };
+    let files = walk(dir.path(), &params).unwrap();
+    assert_eq!(files.len(), 1);
+    assert_eq!(files[0].path, "small.rs");
+}

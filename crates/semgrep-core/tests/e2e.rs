@@ -5,6 +5,7 @@
 
 use semgrep_core::ChunkParams;
 use semgrep_core::cache;
+use semgrep_core::cache::repair::RepairOutcome;
 use semgrep_core::search::{Mode, SearchOptions, search};
 use semgrep_core::store::{self, BuildOptions};
 use std::fs;
@@ -342,6 +343,12 @@ fn read_repair_serves_current_tree() {
     let dir = tempfile::tempdir().unwrap();
     fixture(dir.path());
 
+    // The overlay, specifically — so the drift bound is off. Two files of six is
+    // 33% drift, which on a real corpus means "rebuild, do not patch"; this test
+    // is about what patching does, and `repair_serves_a_small_drift_and_rebuilds_a_large_one`
+    // covers which of the two is chosen.
+    let opts = |m| SearchOptions { repair_max_drift: 0.0, ..opts(m) };
+
     // Warm the cache, then drift the tree: one new file, one rewritten.
     search(dir.path(), "retry backoff", &opts(Mode::Hybrid)).unwrap();
     fs::write(
@@ -504,8 +511,9 @@ fn cache_prunes_dead_entries_and_enforces_a_budget() {
 
     // The repo goes away; its entry can never be useful again.
     drop(doomed);
-    let (n, _freed) = semgrep_core::cache::enforce_budget();
-    assert!(n >= 1, "expected the dead entry to be reclaimed");
+    let r = semgrep_core::cache::enforce_budget();
+    assert!(r.removed >= 1, "expected the dead entry to be reclaimed");
+    assert!(r.stuck.is_empty(), "nothing should have resisted deletion: {:?}", r.stuck);
     let after = semgrep_core::cache::cache_status();
     assert!(!after.iter().any(|e| e.root == doomed_root), "dead entry survived");
     assert!(after.iter().any(|e| e.root == keep_root), "live entry was evicted");
@@ -548,8 +556,8 @@ fn interrupted_build_leaves_a_reclaimable_entry() {
 
     // And a prune frees it. `0` for the abandonment threshold: a real prune
     // waits ABANDONED_AFTER_SECS so it cannot delete a build in flight.
-    let (n, freed) = cache::enforce_budget_with_cap(cache::cache_max_bytes(), 0);
-    assert!(n >= 1 && freed >= 4096, "prune should reclaim the orphan");
+    let r = cache::enforce_budget_with_cap(cache::cache_max_bytes(), 0);
+    assert!(r.removed >= 1 && r.freed >= 4096, "prune should reclaim the orphan");
     assert!(!orphan.exists(), "orphan survived the prune");
 }
 
@@ -901,4 +909,412 @@ fn cold_and_warm_agree_under_post_fusion_reranking() {
         let w: Vec<_> = warm.hits.iter().map(|h| (&h.path, h.start_line)).collect();
         assert_eq!(c, w, "cold != warm under post-fusion for {query:?}");
     }
+}
+
+// ---------------------------------------------------------------------------
+// Publication is a swap, not a rewrite (SIMULATION.md §1.2, FIXES.md #6)
+// ---------------------------------------------------------------------------
+
+/// The SIGBUS, reduced to its mechanism.
+///
+/// A rebuild used to write `emb.bin` straight into the live entry, truncating a
+/// file another process had already mapped — and a mapping whose backing file is
+/// truncated faults on access. Measured at 5-8 bad trials in 20 on a small
+/// corpus, and it is a signal, not an error, so nothing could catch it.
+///
+/// A mapping is an inode, and the swap only ever replaces a *name*. So a reader
+/// that mapped the old `emb.bin` must still be able to read every byte of it
+/// after a full rebuild has published a different one.
+#[test]
+fn a_rebuild_does_not_disturb_an_already_mapped_index() {
+    let _cache = isolate_cache();
+    let repo = tempfile::tempdir().unwrap();
+    fixture(repo.path());
+    let dir = semgrep_core::store::index_dir(repo.path());
+
+    let build = |opts: &semgrep_core::store::BuildOptions| {
+        semgrep_core::store::build(repo.path(), opts, |_, _| {}).expect("build")
+    };
+    let opts = semgrep_core::store::BuildOptions::default();
+    build(&opts);
+
+    let emb = dir.join("emb.bin");
+    let file = fs::File::open(&emb).expect("emb.bin exists");
+    let before: u64 = file.metadata().unwrap().len();
+    assert!(before > 0, "a built index has embeddings");
+    let map = unsafe { memmap2::Mmap::map(&file) }.expect("map emb.bin");
+    let first_bytes = map[..map.len().min(64)].to_vec();
+
+    // Grow the corpus so the rebuild genuinely produces a different, larger
+    // emb.bin — an identical rewrite would not prove anything.
+    for i in 0..12 {
+        fs::write(
+            repo.path().join(format!("src/extra{i}.rs")),
+            format!("fn generated_symbol_{i}() {{ /* padding to move the row count */ }}\n"),
+        )
+        .unwrap();
+    }
+    build(&opts);
+
+    assert!(
+        fs::metadata(&emb).unwrap().len() > before,
+        "the rebuild should have produced a larger emb.bin"
+    );
+    // The load-bearing assertion: touching every page of the old mapping. If
+    // publication truncated the file this reader had open, this is where the
+    // process would die of SIGBUS rather than fail an assertion.
+    let checksum: u64 = map.iter().map(|&b| b as u64).sum();
+    assert_eq!(map.len() as u64, before, "the old mapping changed size underneath us");
+    assert_eq!(&map[..map.len().min(64)], &first_bytes[..], "the old mapping's bytes changed");
+    let _ = checksum;
+}
+
+/// The staging directory must not be visible as an index while it is being
+/// filled — including at the moment it is complete but not yet swapped, when it
+/// holds a perfectly valid `meta.json`.
+#[test]
+fn a_staging_directory_is_never_discoverable_but_is_always_reclaimable() {
+    let _cache = isolate_cache();
+    let repo = tempfile::tempdir().unwrap();
+    fixture(repo.path());
+    let root = fs::canonicalize(repo.path()).unwrap();
+
+    let entry = cache::cache_generation().join("pretend-entry");
+    let staging = semgrep_core::store::staging_path(&entry);
+    fs::create_dir_all(&staging).unwrap();
+    fs::write(staging.join("root.txt"), root.to_string_lossy().as_bytes()).unwrap();
+    fs::write(staging.join("params.txt"), "w40o10").unwrap();
+    // A *complete* build, awaiting only its rename.
+    fs::write(staging.join("meta.json"), "{}").unwrap();
+    fs::write(staging.join("emb.bin"), vec![0u8; 8192]).unwrap();
+
+    assert!(
+        !cache::cache_entries().iter().any(|(d, _)| *d == staging),
+        "a directory mid-swap must never be discoverable, even when complete"
+    );
+
+    let seen = cache::cache_status();
+    let mine = seen.iter().find(|e| e.dir == staging).expect("still counted against the budget");
+    assert!(mine.incomplete, "a meta.json inside a staging dir does not make it an entry");
+    assert!(mine.bytes >= 8192, "its bytes must count");
+
+    let r = cache::enforce_budget_with_cap(cache::cache_max_bytes(), 0);
+    assert!(r.removed >= 1, "an abandoned staging dir must be reclaimable");
+    assert!(!staging.exists(), "staging dir survived the prune");
+}
+
+/// Reclamation runs after registration so the enforcer can see what triggered
+/// it (FIXES.md #5). Seeing it, it evicted it: the query had just paid for a
+/// complete index build, missed on re-discovery, and streamed the corpus as
+/// well — paying twice and keeping nothing, on 5 of 8 queries under budget
+/// pressure (SIMULATION.md §1.4).
+#[test]
+fn a_write_does_not_evict_the_entry_it_just_wrote() {
+    let _cache = isolate_cache();
+    let repo = tempfile::tempdir().unwrap();
+    fixture(repo.path());
+    let root = fs::canonicalize(repo.path()).unwrap();
+
+    let opts = semgrep_core::store::BuildOptions::default();
+    let (dir, stats) = cache::write_cache_entry(&root, &opts, |_, _| {}).expect("write entry");
+    assert!(dir.exists(), "the entry was written");
+
+    // A cap below one entry: every candidate is over budget, so an unprotected
+    // enforcer evicts the only thing there is — the entry just built.
+    let cap = (stats.index_bytes / 2).max(1);
+    let r = cache::enforce_budget_protecting(&dir);
+    assert!(dir.exists(), "the freshly written entry must survive its own enforcement");
+    assert!(r.stuck.is_empty(), "nothing resisted deletion: {:?}", r.stuck);
+
+    // And it is still discoverable, which is the property that actually matters:
+    // the query that paid for it can now be answered warm.
+    let params = semgrep_core::ChunkParams::default();
+    assert!(
+        cache::discover(&root, &params).is_some(),
+        "the entry it built must serve the query that built it"
+    );
+
+    // Unprotected, the same cap does evict it — the protection is doing the work,
+    // not a budget that happened to be large enough.
+    cache::enforce_budget_with_cap(cap, 600);
+    assert!(!dir.exists(), "without protection an over-cap entry is evicted as before");
+}
+
+/// One undeletable directory used to take the whole cache with it: the victim
+/// was popped whether or not it went and the running total only fell on success,
+/// so the loop chewed through every healthy entry behind it and stopped with the
+/// undeletable one as the sole survivor, at exit 0 with no warning.
+#[cfg(unix)]
+#[test]
+fn an_undeletable_entry_does_not_take_the_healthy_ones_with_it() {
+    use std::os::unix::fs::PermissionsExt;
+    let _cache = isolate_cache();
+
+    // Four entries, all live, oldest last in eviction order.
+    let mut repos = Vec::new();
+    let mut dirs = Vec::new();
+    for i in 0..4 {
+        let repo = tempfile::tempdir().unwrap();
+        fs::write(repo.path().join("a.rs"), format!("fn symbol_{i}() {{}}\n")).unwrap();
+        let d = cache::cache_generation().join(format!("entry-{i}"));
+        fs::create_dir_all(&d).unwrap();
+        fs::write(d.join("root.txt"), repo.path().to_string_lossy().as_bytes()).unwrap();
+        fs::write(d.join("meta.json"), "{}").unwrap();
+        fs::write(d.join("emb.bin"), vec![0u8; 4096]).unwrap();
+        dirs.push(d);
+        repos.push(repo);
+    }
+
+    // Make the least-recently-used one refuse to be removed. `remove_dir_all`
+    // needs write+execute on the directory to unlink what is inside it.
+    let stuck = &dirs[0];
+    let original = fs::metadata(stuck).unwrap().permissions();
+    fs::set_permissions(stuck, fs::Permissions::from_mode(0o500)).unwrap();
+
+    // Count only the four this test made. Every test in this binary shares one
+    // cache directory, so a global count is whatever else has run.
+    let mine = |v: &[cache::CacheEntryInfo]| {
+        v.iter().filter(|e| dirs.contains(&e.dir)).count()
+    };
+    let before = mine(&cache::cache_status());
+    let r = cache::enforce_budget_with_cap(0, 600);
+    let after = mine(&cache::cache_status());
+
+    // Restore before asserting, or a failure leaves an undeletable tempdir.
+    fs::set_permissions(stuck, original).unwrap();
+
+    assert_eq!(before, 4, "four entries to begin with");
+    assert_eq!(r.stuck.len(), 1, "the undeletable entry must be reported, not silently skipped");
+    assert!(
+        after >= 2,
+        "one stuck entry must not cascade into the healthy ones: {after} of {before} survived"
+    );
+    assert!(stuck.exists(), "the undeletable entry is still there — that is the point");
+}
+
+/// The drift bound (FIXES.md #7, RESEARCH.md §8 mechanism 2).
+///
+/// A small drift is patched in memory — cheap, and it keeps the entry. A large
+/// one replaces the entry instead, because repairing charges the same price on
+/// every query past the TTL and never amortizes: on tokio a 50%-drifted scope
+/// cost 131 ms a query against a 127 ms cold pass, forever (SIMULATION.md §1.3).
+/// Both branches must answer with the *current* tree; only the cost differs.
+#[test]
+fn repair_serves_a_small_drift_and_rebuilds_a_large_one() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("src")).unwrap();
+    // 40 files, so one file is 2.5% — under the 5% default — and twenty is 50%.
+    for i in 0..40 {
+        fs::write(
+            dir.path().join(format!("src/mod{i}.rs")),
+            format!("//! Module {i}.\npub fn stable_symbol_{i}() -> u32 {{ {i} }}\n"),
+        )
+        .unwrap();
+    }
+    let base = SearchOptions { k: 5, params: ChunkParams { window: 8, overlap: 2, ..Default::default() }, ..Default::default() };
+    search(dir.path(), "stable symbol", &base).unwrap();
+
+    // One file of forty: under the bound, so the overlay handles it and the
+    // entry is kept rather than rewritten.
+    fs::write(
+        dir.path().join("src/mod0.rs"),
+        "//! Rewritten.\npub fn exponential_backoff_with_jitter(n: u32) -> u32 { 1 << n }\n",
+    )
+    .unwrap();
+    let r = search(dir.path(), "exponential backoff jitter", &base).unwrap();
+    assert!(r.report.used_index, "a small drift stays on the warm path");
+    assert!(!r.report.wrote_cache, "a small drift must not trigger a rebuild");
+    assert_eq!(r.hits[0].path, "src/mod0.rs", "the overlay serves the new text");
+    assert!(
+        matches!(r.report.repair, RepairOutcome::Repaired { .. }),
+        "expected an overlay, got {:?}",
+        r.report.repair
+    );
+
+    // Twenty of forty: over the bound, so the entry is replaced. The answer must
+    // still be the current tree — that is not negotiable, only the route is.
+    for i in 10..30 {
+        fs::write(
+            dir.path().join(format!("src/mod{i}.rs")),
+            format!("//! Rewritten {i}.\npub fn circuit_breaker_trips_{i}() -> bool {{ true }}\n"),
+        )
+        .unwrap();
+    }
+    let r = search(dir.path(), "circuit breaker trips", &base).unwrap();
+    assert!(r.report.wrote_cache, "a large drift must rebuild the entry");
+    assert!(r.report.used_index, "and must answer warm from the rebuilt entry");
+    assert!(
+        r.hits[0].path.starts_with("src/mod1") || r.hits[0].path.starts_with("src/mod2"),
+        "the rebuild must serve the rewritten files, got {}",
+        r.hits[0].path
+    );
+
+    // The rebuilt entry is clean, so the next identical query is an ordinary
+    // warm hit. This is the point of rebuilding rather than streaming: repairing
+    // would have charged the same price again here.
+    let r = search(dir.path(), "circuit breaker trips", &base).unwrap();
+    assert!(r.report.used_index && !r.report.wrote_cache, "the rebuilt entry is reused");
+    assert_eq!(r.report.repair, RepairOutcome::NoDrift, "a fresh entry has nothing to repair");
+}
+
+/// The bound is off for a repo-local `.semgrep/`. It is the user's artifact, and
+/// silently replacing it — or serving around it — is not the engine's call, so
+/// it repairs however far it has drifted and reports the staleness.
+#[test]
+fn a_repo_local_index_is_repaired_however_far_it_has_drifted() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    semgrep_core::store::build(
+        dir.path(),
+        &semgrep_core::store::BuildOptions { params: ChunkParams { window: 8, overlap: 2, ..Default::default() }, ..Default::default() },
+        |_, _| {},
+    )
+    .unwrap();
+
+    // Rewrite most of the corpus — far past any threshold.
+    for name in ["src/auth.rs", "src/retry.rs", "docs/ops.md"] {
+        if dir.path().join(name).exists() {
+            fs::write(
+                dir.path().join(name),
+                "//! Rewritten.\npub fn circuit_breaker_trip(n: u32) -> bool { n > 3 }\n",
+            )
+            .unwrap();
+        }
+    }
+
+    let o = SearchOptions { k: 5, params: ChunkParams { window: 8, overlap: 2, ..Default::default() }, ..Default::default() };
+    let r = search(dir.path(), "circuit breaker tripping", &o).unwrap();
+    assert!(r.report.used_index, "a repo-local index still answers");
+    assert!(!r.report.wrote_cache, "and is never rebuilt behind the user's back");
+    assert!(
+        matches!(r.report.repair, RepairOutcome::Repaired { .. }),
+        "a repo-local index repairs at any drift, got {:?}",
+        r.report.repair
+    );
+    assert!(r.report.stale_files > 0, "the staleness is reported rather than hidden");
+}
+
+/// A narrow scope must not starve (FIXES.md #13, SIMULATION.md §1.7).
+///
+/// The fused list is `FUSION_POOL * 2` = 256 rows wide. The scope filter used to
+/// run *after* that truncation, so a subtree holding none of the corpus-wide top
+/// 256 got nothing — on tokio, `docs/` returned zero hits from a fully indexed
+/// 8,042-chunk corpus. The condition is built here rather than hoped for: 400
+/// noise files that all answer the query better than the one file in the scope.
+#[test]
+fn a_narrow_scope_returns_hits_even_when_the_corpus_head_excludes_it() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("noise")).unwrap();
+    fs::create_dir_all(dir.path().join("target")).unwrap();
+
+    // Enough noise to fill the fused window several times over, all of it a
+    // stronger lexical match than the target.
+    for i in 0..400 {
+        fs::write(
+            dir.path().join(format!("noise/n{i}.rs")),
+            "//! exponential backoff retry policy\n\
+             pub fn exponential_backoff_retry_policy_{i}() {{ /* backoff retry policy */ }}\n"
+                .replace("{i}", &i.to_string()),
+        )
+        .unwrap();
+    }
+    // One weak match, in its own subtree.
+    fs::write(
+        dir.path().join("target/only.rs"),
+        "//! Scheduling.\npub fn retry_after(delay: u64) -> u64 { delay }\n",
+    )
+    .unwrap();
+
+    let o = SearchOptions {
+        k: 5,
+        params: ChunkParams { window: 8, overlap: 2, ..Default::default() },
+        ..Default::default()
+    };
+
+    // Warm an index covering the whole tree, then query only the subtree.
+    let all = search(dir.path(), "exponential backoff retry policy", &o).unwrap();
+    assert!(all.hits.iter().all(|h| h.path.starts_with("noise/")),
+            "the corpus head should be all noise, or this proves nothing");
+
+    let scoped =
+        search(&dir.path().join("target"), "exponential backoff retry policy", &o).unwrap();
+    assert!(scoped.report.used_index, "the subtree query is served warm");
+    assert!(
+        !scoped.hits.is_empty(),
+        "a scope outside the corpus-wide head must still return its own rows"
+    );
+    assert!(
+        scoped.hits.iter().all(|h| h.path.starts_with("target/") || !h.path.contains('/')),
+        "out-of-scope rows leaked in: {:?}",
+        scoped.hits.iter().map(|h| &h.path).collect::<Vec<_>>()
+    );
+
+    // And the whole-corpus answer is untouched by the mask existing.
+    let again = search(dir.path(), "exponential backoff retry policy", &o).unwrap();
+    assert_eq!(
+        again.hits.iter().map(|h| h.path.clone()).collect::<Vec<_>>(),
+        all.hits.iter().map(|h| h.path.clone()).collect::<Vec<_>>(),
+        "an unscoped query must rank exactly as it did before"
+    );
+}
+
+/// A hidden subtree is absent from its parent's index, and that is a different
+/// finding from the starvation above with a different cause and a different fix.
+///
+/// SIMULATION.md §1.7 reported `.github` and `docs` on tokio together, as one
+/// finding: two scopes returning zero hits from a fully indexed corpus. Only
+/// `docs` was that finding. `corpus::walk` runs `ignore::WalkBuilder` at its
+/// default `hidden(true)`, so tokio's index holds **no** dot-prefixed path at
+/// all — there was never anything under `.github` to starve. The scope mask
+/// cannot fix that and should not pretend to.
+///
+/// What happens instead is worth pinning, because it is not obvious and it is
+/// the reason the drift bound needs its retry escape (see `search::search`):
+/// asking for the hidden scope by name builds it an index of its own, because a
+/// walk rooted *at* `.github` does not consider its contents hidden.
+#[test]
+fn a_hidden_subtree_is_absent_from_its_parents_index_but_searchable_on_its_own() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    fs::create_dir_all(dir.path().join(".github")).unwrap();
+    fs::write(
+        dir.path().join(".github/workflow.yml"),
+        "name: exponential backoff retry policy\njobs:\n  retry:\n    backoff: exponential\n",
+    )
+    .unwrap();
+
+    let params = ChunkParams { window: 8, overlap: 2, ..Default::default() };
+    let from_root = semgrep_core::corpus::walk(dir.path(), &params).unwrap();
+    assert!(
+        !from_root.iter().any(|f| f.path.starts_with(".github")),
+        "a walk from the parent skips hidden directories: {:?}",
+        from_root.iter().map(|f| &f.path).collect::<Vec<_>>()
+    );
+    let from_itself = semgrep_core::corpus::walk(&dir.path().join(".github"), &params).unwrap();
+    assert_eq!(
+        from_itself.len(),
+        1,
+        "but a walk rooted at it does not: {:?}",
+        from_itself.iter().map(|f| &f.path).collect::<Vec<_>>()
+    );
+
+    let o = SearchOptions { k: 5, params, ..Default::default() };
+    search(dir.path(), "retry backoff", &o).unwrap();
+
+    // First ask: the parent entry covers the path but holds nothing under it, so
+    // the scope gets an index of its own.
+    let first = search(&dir.path().join(".github"), "exponential backoff", &o).unwrap();
+    assert!(first.report.wrote_cache, "the hidden scope is indexed on demand");
+    assert!(!first.hits.is_empty(), "and then answers");
+
+    // Second ask: warm, and — the part that matters — *not* another rebuild.
+    // Re-raising the drift bound here would charge a build and a stream on every
+    // query for as long as the scope stayed hidden from its parent's walk.
+    let second = search(&dir.path().join(".github"), "exponential backoff", &o).unwrap();
+    assert!(second.report.used_index, "served from the entry just built");
+    assert!(!second.report.wrote_cache, "a hidden scope must not rebuild on every query");
 }

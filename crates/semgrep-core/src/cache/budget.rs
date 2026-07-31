@@ -37,11 +37,14 @@ pub struct CacheEntryInfo {
     pub incomplete: bool,
 }
 
+/// Bytes an entry occupies. Recursive: entries happen to be flat today, which
+/// made the non-recursive version accidentally correct, but "accidentally
+/// correct" is how a budget silently stops counting half the cache.
 fn dir_bytes(dir: &Path) -> u64 {
     let Ok(rd) = std::fs::read_dir(dir) else { return 0 };
     rd.flatten()
-        .filter_map(|e| e.metadata().ok())
-        .map(|m| if m.is_dir() { 0 } else { m.len() })
+        .filter_map(|e| Some((e.path(), e.metadata().ok()?)))
+        .map(|(path, m)| if m.is_dir() { dir_bytes(&path) } else { m.len() })
         .sum()
 }
 
@@ -68,7 +71,12 @@ pub fn cache_status() -> Vec<CacheEntryInfo> {
         out.push(CacheEntryInfo {
             bytes: dir_bytes(&dir),
             root_exists: root.is_dir(),
-            incomplete: !dir.join("meta.json").is_file(),
+            // A `.building-`/`.trash-` directory is counted — it occupies real
+            // space and must be reclaimable if the build that made it died —
+            // but never treated as a usable entry, whatever it contains. A
+            // finished-but-unswapped staging dir has a complete meta.json and
+            // would otherwise read as healthy and sit there forever.
+            incomplete: crate::store::is_transient(&dir) || !dir.join("meta.json").is_file(),
             dir,
             root,
             age_secs: age,
@@ -78,18 +86,51 @@ pub fn cache_status() -> Vec<CacheEntryInfo> {
     out
 }
 
+/// What one reclamation pass did.
+///
+/// `stuck` is the reason this is a struct rather than the pair it used to be:
+/// a delete that fails is not a detail the caller can be left to not know
+/// about, and `semgrep-core` does not print — every word the user sees is
+/// written by the CLI's `out` module, which is what keeps "stdout is data,
+/// stderr is commentary" checkable in one place.
+#[derive(Debug, Default, Clone)]
+pub struct Reclaimed {
+    pub removed: usize,
+    pub freed: u64,
+    /// Entries the enforcer chose but could not delete. Non-empty means the
+    /// cache is still over budget and no further eviction was attempted.
+    pub stuck: Vec<PathBuf>,
+}
+
 /// Drop dead entries, then evict least-recently-used until under budget.
-/// Returns (entries removed, bytes reclaimed). Called after a write, so the
-/// cost lands on the path that already pays for a full corpus pass.
-pub fn enforce_budget() -> (usize, u64) {
+/// Called after a write, so the cost lands on the path that already pays for a
+/// full corpus pass.
+pub fn enforce_budget() -> Reclaimed {
     enforce_budget_with_cap(cache_max_bytes(), ABANDONED_AFTER_SECS)
+}
+
+/// [`enforce_budget`], sparing one entry from LRU eviction.
+///
+/// For the entry a write just produced. Reclamation runs after registration so
+/// the enforcer can see what triggered it (FIXES.md #5) — but seeing it, it
+/// evicted it, and the query that had just paid for a full index build missed on
+/// re-discovery and streamed the corpus as well. Protecting the new entry makes
+/// that "pay once, keep it"; if it alone exceeds the cap it survives this call
+/// and is evicted by the next write like anything else.
+pub fn enforce_budget_protecting(keep: &Path) -> Reclaimed {
+    enforce_budget_inner(cache_max_bytes(), ABANDONED_AFTER_SECS, Some(keep))
 }
 
 /// [`enforce_budget`] with explicit thresholds. Separated so a caller — a test,
 /// or a future `--max-bytes` flag — can exercise reclamation without mutating
 /// the process environment that `cache_max_bytes` reads.
-pub fn enforce_budget_with_cap(cap: u64, abandoned_after_secs: u64) -> (usize, u64) {
+pub fn enforce_budget_with_cap(cap: u64, abandoned_after_secs: u64) -> Reclaimed {
+    enforce_budget_inner(cap, abandoned_after_secs, None)
+}
+
+fn enforce_budget_inner(cap: u64, abandoned_after_secs: u64, keep: Option<&Path>) -> Reclaimed {
     let mut entries = cache_status();
+    let mut out = Reclaimed::default();
     let (mut n, mut freed) = (0usize, 0u64);
 
     // 1. Entries that can never serve a query, in either of the two ways:
@@ -111,16 +152,37 @@ pub fn enforce_budget_with_cap(cap: u64, abandoned_after_secs: u64) -> (usize, u
 
     // 2. LRU until under the cap. Oldest first; `cache_status` sorts by
     //    recency ascending, so walk from the back.
+    //
+    //    A failed delete used to be silent and non-terminal: the victim was
+    //    popped whether or not it went, and `total` fell only on success, so one
+    //    undeletable directory made the loop chew through every healthy entry
+    //    behind it — four entries in, one out, and the survivor was the
+    //    undeletable one, at exit 0 with no warning (SIMULATION.md §1.7). It
+    //    stops now. An entry that will not delete is a permissions anomaly, not
+    //    ordinary pressure, and pressing on converts it into the loss of the
+    //    whole cache while freeing nothing.
     let mut total: u64 = entries.iter().map(|e| e.bytes).sum();
     while total > cap {
         let Some(victim) = entries.pop() else { break };
+        // The entry the caller just built is not a candidate — but skipping it
+        // is not a reason to stop, since something older may still be
+        // evictable. Its bytes stay in `total`, so a cache over cap solely
+        // because of it simply runs the list out and exits.
+        if keep.is_some_and(|k| k == victim.dir) {
+            continue;
+        }
         if std::fs::remove_dir_all(&victim.dir).is_ok() {
             total = total.saturating_sub(victim.bytes);
             n += 1;
             freed += victim.bytes;
+        } else {
+            out.stuck.push(victim.dir);
+            break;
         }
     }
-    (n, freed)
+    out.removed = n;
+    out.freed = freed;
+    out
 }
 
 /// Delete every entry in every generation. `semgrep cache --clear`.

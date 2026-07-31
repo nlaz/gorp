@@ -12,6 +12,19 @@ use semgrep_core::ChunkParams;
 use semgrep_core::search::SearchOptions;
 use std::path::PathBuf;
 
+/// The drift bound's default, taking `SEMGREP_REPAIR_MAX_DRIFT` when it is set.
+///
+/// Read here, in the CLI, rather than inside the engine: the engine takes it as
+/// an ordinary option so a test can cross the threshold without mutating the
+/// environment of every other test in the process.
+fn default_max_drift() -> f32 {
+    std::env::var("SEMGREP_REPAIR_MAX_DRIFT")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .filter(|r: &f32| r.is_finite() && *r >= 0.0)
+        .unwrap_or(SearchOptions::default().repair_max_drift)
+}
+
 #[derive(Parser)]
 #[command(
     name = "semgrep",
@@ -95,6 +108,13 @@ pub struct Tuning {
     /// Use exact brute-force ranking even if the index has HNSW
     #[arg(long, hide = true)]
     pub brute_force: bool,
+
+    /// Share of a scope that may drift before a cache entry is rebuilt instead
+    /// of patched; 0 repairs any amount. Defaults from
+    /// `SEMGREP_REPAIR_MAX_DRIFT` when set, which is how the simulation harness
+    /// sweeps it without an argv change.
+    #[arg(long, hide = true, default_value_t = default_max_drift())]
+    pub repair_max_drift: f32,
 
     /// Weight of the semantic list in hybrid fusion (BM25 = 1.0)
     #[arg(long, hide = true, default_value_t = SearchOptions::default().sem_weight)]

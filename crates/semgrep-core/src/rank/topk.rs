@@ -8,6 +8,22 @@ use rayon::prelude::*;
 /// Exact top-k over an i8-quantized embedding matrix (`n × EMBED_DIM` bytes,
 /// mmap'd `emb.bin` in index format v2). Returns (chunk_id, distance) ascending.
 pub fn brute_force_top_k_i8(query: &[i8], matrix: &[i8], k: usize) -> Vec<(u32, f32)> {
+    brute_force_top_k_i8_where(query, matrix, k, None)
+}
+
+/// [`brute_force_top_k_i8`] over a subset of rows.
+///
+/// `allow` decides membership *before* the top-k heap sees a row, which is the
+/// whole point: filtering the result afterwards can only return what a
+/// corpus-wide top-k happened to include, and for a narrow scope that is
+/// routinely nothing (SIMULATION.md §1.7). Skipping also makes a scoped query
+/// faster — the dot product is never computed for a row that cannot be returned.
+pub fn brute_force_top_k_i8_where(
+    query: &[i8],
+    matrix: &[i8],
+    k: usize,
+    allow: Option<&(dyn Fn(u32) -> bool + Sync)>,
+) -> Vec<(u32, f32)> {
     let n = matrix.len() / EMBED_DIM;
     if n == 0 || k == 0 {
         return Vec::new();
@@ -20,6 +36,9 @@ pub fn brute_force_top_k_i8(query: &[i8], matrix: &[i8], k: usize) -> Vec<(u32, 
             let end = (start + chunk_rows).min(n);
             let mut local = TopK::new(k);
             for row in start..end {
+                if allow.is_some_and(|f| !f(row as u32)) {
+                    continue;
+                }
                 let v = &matrix[row * EMBED_DIM..(row + 1) * EMBED_DIM];
                 local.push(row as u32, dot_distance_i8(query, v));
             }

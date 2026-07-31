@@ -52,7 +52,7 @@ pub struct Rest<'a> {
 /// Okapi BM25 over any [`Postings`] store. Returns (chunk_id, score), best
 /// first, ties broken by chunk id so the order is total.
 pub fn top_k<P: Postings>(store: &P, query: &str, k: usize) -> Vec<(u32, f32)> {
-    top_k_within(store, query, k, None)
+    top_k_scoped(store, query, k, None, None)
 }
 
 /// [`top_k`] where `store` holds only part of a corpus. See [`Rest`].
@@ -61,6 +61,25 @@ pub fn top_k_within<P: Postings>(
     query: &str,
     k: usize,
     rest: Option<&Rest>,
+) -> Vec<(u32, f32)> {
+    top_k_scoped(store, query, k, rest, None)
+}
+
+/// [`top_k_within`] restricted to the documents `allow` accepts.
+///
+/// The filter is applied while scores accumulate, not to the finished list: a
+/// list truncated to `k` corpus-wide and *then* filtered to a subtree is empty
+/// whenever the subtree is not already winning, which is how two directories of
+/// tokio returned nothing at all from a fully indexed corpus (SIMULATION.md
+/// §1.7). Corpus statistics stay global — idf is a property of the corpus, and
+/// rescoping it would make a hit in a small directory mean something different
+/// from the same hit at the root.
+pub fn top_k_scoped<P: Postings>(
+    store: &P,
+    query: &str,
+    k: usize,
+    rest: Option<&Rest>,
+    allow: Option<&dyn Fn(u32) -> bool>,
 ) -> Vec<(u32, f32)> {
     let (rest_docs, rest_len) = rest.map_or((0, 0), |r| (r.n_docs, r.total_len));
     let n = (store.n_docs() + rest_docs) as f32;
@@ -91,6 +110,9 @@ pub fn top_k_within<P: Postings>(
         let df = (store.postings(term).count() + rest.map_or(0, |r| (r.df)(&token))) as f32;
         let idf = ((n - df + 0.5) / (df + 0.5) + 1.0).ln();
         for (chunk_id, tf) in store.postings(term) {
+            if allow.is_some_and(|f| !f(chunk_id)) {
+                continue;
+            }
             let tf = tf as f32;
             let dl = store.doc_len(chunk_id) as f32;
             let denom = tf + K1 * (1.0 - B + B * dl / avgdl);

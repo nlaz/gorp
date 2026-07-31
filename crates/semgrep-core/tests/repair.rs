@@ -34,8 +34,17 @@ fn isolate_cache() -> std::sync::MutexGuard<'static, ()> {
 const PARAMS: ChunkParams =
     ChunkParams { window: 8, overlap: 2, max_file_bytes: 4 * 1024 * 1024 };
 
+/// Every test here is about what the overlay *does*, so the drift bound that
+/// decides whether to use one is off throughout.
+///
+/// It has to be. The seed corpus is a handful of files, so a single added file
+/// is far past the 5% default and every one of these would silently become a
+/// test of the rebuild path instead — still passing, in several cases, while
+/// measuring nothing it claims to. Which of the two paths a given drift takes is
+/// `repair_serves_a_small_drift_and_rebuilds_a_large_one` in `e2e.rs`, on a
+/// corpus big enough for the ratio to mean something.
 fn opts(mode: Mode) -> SearchOptions {
-    SearchOptions { mode, k: 5, params: PARAMS, ..Default::default() }
+    SearchOptions { mode, k: 5, params: PARAMS, repair_max_drift: 0.0, ..Default::default() }
 }
 
 /// A corpus with enough distinct topics that a ranking has something to be wrong

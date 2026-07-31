@@ -7,7 +7,7 @@ use crate::text::SifStats;
 use crate::trace::{SCHEDULE_BUILD, Stage, Trace, elapsed_ms};
 use crate::{Chunk, EMBED_DIM, corpus};
 use anyhow::{Context, Result};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 mod embed;
@@ -19,6 +19,35 @@ use embed::EmbedWriter;
 /// `publish`.
 const ARTIFACTS: [&str; 6] =
     ["meta.json", "chunks.bin", "bm25.flat", "emb.bin", "hnsw.bin", "sif.bin"];
+
+/// Suffixes for the two directories that exist only during a swap. Both are
+/// siblings of the entry they belong to, so the renames stay on one filesystem,
+/// and both carry the pid so concurrent builds cannot collide on a name.
+///
+/// `cache` has to recognize these: they must not be discovered as entries, and
+/// they must still be reclaimable if a build dies between the two renames.
+pub const STAGING_SUFFIX: &str = ".building-";
+pub const TRASH_SUFFIX: &str = ".trash-";
+
+fn sibling(dir: &Path, suffix: &str) -> PathBuf {
+    let name = dir.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    dir.with_file_name(format!("{name}{suffix}{}", std::process::id()))
+}
+
+/// Where a build for `dir` assembles itself before being published.
+pub fn staging_path(dir: &Path) -> PathBuf {
+    sibling(dir, STAGING_SUFFIX)
+}
+
+/// True for a directory that is mid-swap rather than an index in its own right.
+pub fn is_transient(dir: &Path) -> bool {
+    let Some(name) = dir.file_name().and_then(|n| n.to_str()) else { return false };
+    [STAGING_SUFFIX, TRASH_SUFFIX].iter().any(|s| {
+        name.rsplit_once(s).is_some_and(|(stem, pid)| {
+            !stem.is_empty() && !pid.is_empty() && pid.chars().all(|c| c.is_ascii_digit())
+        })
+    })
+}
 
 /// Build (or fully rebuild) the repo-local `.semgrep/` index for `root`.
 pub fn build(
@@ -37,12 +66,91 @@ pub fn build_at(
     opts: &BuildOptions,
     progress: impl FnMut(usize, usize),
 ) -> Result<BuildStats> {
+    build_staged(&staging_path(dir), dir, root, opts, progress)
+}
+
+/// Build into `staging`, then swap it into place at `dir` with two renames.
+///
+/// The staging directory is the whole point, and it is what closes the SIGBUS.
+/// A build used to write `emb.bin` straight into the live entry, truncating a
+/// file another process had already `mmap`ed — and a mapping whose backing file
+/// is truncated faults on access, which is a signal, not an error anyone can
+/// catch. Measured at 5–8 bad trials in 20 on a small corpus (SIMULATION.md
+/// §1.2). Removing `meta.json` first stopped a *new* reader from starting but
+/// could not recall a mapping that already existed.
+///
+/// Nothing here ever mutates a published file. The swap replaces a directory
+/// *entry*, so a reader mid-query keeps the inodes it already opened and
+/// finishes against a complete, consistent index — the old one. That also makes
+/// the old `unpublish` unnecessary: there is no window in which a live entry is
+/// half-written, so there is nothing to hide from a reader.
+///
+/// The caller may seed `staging` with extra files first (`cache` writes
+/// `root.txt` and `params.txt` there, so an interrupted build is still
+/// enumerable and reclaimable).
+pub fn build_staged(
+    staging: &Path,
+    dir: &Path,
+    root: &Path,
+    opts: &BuildOptions,
+    progress: impl FnMut(usize, usize),
+) -> Result<BuildStats> {
+    let result = build_unswapped(staging, root, opts, progress)
+        .and_then(|stats| swap_into_place(staging, dir).map(|()| stats));
+    if result.is_err() {
+        // A failed build must not leave a directory behind that the budget
+        // enforcer will count against the cap for ten minutes.
+        let _ = std::fs::remove_dir_all(staging);
+    }
+    result
+}
+
+/// Replace `dir` with `staging`. Two renames, both atomic, neither of which
+/// touches a byte of a file anyone may have mapped.
+///
+/// `rename(2)` will not replace a non-empty directory, so the old entry is
+/// moved aside first rather than deleted — if the second rename fails, that is
+/// what allows the old index to be put back instead of leaving the scope with
+/// no index at all.
+fn swap_into_place(staging: &Path, dir: &Path) -> Result<()> {
+    if let Some(parent) = dir.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let trash = sibling(dir, TRASH_SUFFIX);
+    let had_old = dir.exists();
+    if had_old {
+        let _ = std::fs::remove_dir_all(&trash); // a previous crash's leftovers
+        std::fs::rename(dir, &trash)
+            .with_context(|| format!("move aside {}", dir.display()))?;
+    }
+    match std::fs::rename(staging, dir) {
+        Ok(()) => {
+            // Readers that hold the old inodes keep them; only the name is gone.
+            let _ = std::fs::remove_dir_all(&trash);
+            Ok(())
+        }
+        Err(e) => {
+            if had_old {
+                let _ = std::fs::rename(&trash, dir);
+            }
+            Err(anyhow::Error::new(e)
+                .context(format!("publish index into {}", dir.display())))
+        }
+    }
+}
+
+/// The build itself, entirely inside `staging`.
+fn build_unswapped(
+    dir: &Path,
+    root: &Path,
+    opts: &BuildOptions,
+    progress: impl FnMut(usize, usize),
+) -> Result<BuildStats> {
     let t_total = Instant::now();
     let mut trace = Trace::new(SCHEDULE_BUILD);
 
     let files = trace.time(Stage::BuildWalk, || corpus::walk(root, &opts.params))?;
     std::fs::create_dir_all(dir)?;
-    unpublish(dir);
 
     let sif = trace.time(Stage::BuildSif, || opts.sif.then(|| sif::count(root, &files, opts)));
     let IndexPass { chunks, bm25, emb_rows, mut stats } =
@@ -72,16 +180,6 @@ pub fn build_at(
     stats.stages = trace.finish();
     stats.total_ms = elapsed_ms(t_total);
     Ok(stats)
-}
-
-/// Make the index unfindable before modifying it.
-///
-/// A rebuild overwrites `emb.bin` in place, so leaving the old `meta.json`
-/// readable would let a concurrent query pair a stale file table with a
-/// half-rewritten matrix. Absent costs that query a streaming pass; mixed gives
-/// it a wrong answer.
-fn unpublish(dir: &Path) {
-    let _ = std::fs::remove_file(dir.join("meta.json"));
 }
 
 /// What one corpus pass produced. `emb.bin` and `hnsw.bin` are already on disk;
@@ -158,10 +256,13 @@ fn index_pass(
 
 /// Write every artifact, `meta.json` last.
 ///
-/// Writing `meta.json` is what publishes an index: `cache::discover` keys on it
-/// and nothing else. When it went first, a concurrent reader could find the
-/// entry, fail on the `chunks.bin` that did not exist yet, and — a cache load
-/// failure being a miss — delete the directory this build was still writing.
+/// Writing `meta.json` is what makes an index loadable: `cache::discover` keys
+/// on it and nothing else. Now that a build assembles itself in a staging
+/// directory nobody can discover, the ordering no longer guards a race — but it
+/// stays, because it is what makes the *staging* directory self-describing:
+/// a `meta.json` in a `.building-` dir means the build finished and only the
+/// swap is outstanding, which is exactly what `cache_status` needs to tell an
+/// interrupted build from one in flight.
 fn publish(
     dir: &Path,
     meta: &IndexMeta,

@@ -72,6 +72,14 @@ pub fn cache_entries() -> Vec<(PathBuf, PathBuf)> {
     let Ok(rd) = std::fs::read_dir(cache_generation()) else { return out };
     for e in rd.flatten() {
         let dir = e.path();
+        // A build in flight, or the entry a finished build is about to delete.
+        // Both carry a root.txt and the second even carries a complete
+        // meta.json, so without this they would be discoverable — and a query
+        // answered from a `.trash-` directory is a query answered from an index
+        // that is about to be removed underneath it.
+        if crate::store::is_transient(&dir) {
+            continue;
+        }
         let Ok(root) = std::fs::read_to_string(dir.join("root.txt")) else { continue };
         let root = PathBuf::from(root.trim());
         if root.is_dir() {

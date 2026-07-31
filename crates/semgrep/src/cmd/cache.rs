@@ -15,8 +15,18 @@ pub fn run(prune: bool, clear: bool) -> Result<i32> {
         // current generation: automatic GC only runs on a cold write, so a
         // user who only queries warm scopes would never reclaim anything.
         cache::gc_old_generations();
-        let (n, freed) = cache::enforce_budget();
-        println!("pruned {n} entries, reclaimed {}", human(freed));
+        let r = cache::enforce_budget();
+        println!("pruned {} entries, reclaimed {}", r.removed, human(r.freed));
+        // Stderr, because it is commentary on a stdout report — and it has to
+        // be said at all: an entry the enforcer cannot delete stops reclamation
+        // and leaves the cache over budget, which used to happen at exit 0 with
+        // nothing printed anywhere.
+        for dir in &r.stuck {
+            eprintln!(
+                "semgrep: warning: cannot remove {} — cache is still over budget",
+                dir.display()
+            );
+        }
     }
     let entries = cache::cache_status();
     let total: u64 = entries.iter().map(|e| e.bytes).sum();

@@ -19,7 +19,7 @@ pub mod repair;
 
 pub use budget::{
     CacheEntryInfo, cache_clear, cache_max_bytes, cache_status, enforce_budget,
-    enforce_budget_with_cap,
+    enforce_budget_protecting, enforce_budget_with_cap,
 };
 pub use compat::{cache_base, cache_entries, cache_generation, compat_key, gc_old_generations};
 
@@ -171,27 +171,39 @@ pub fn write_cache_entry(
     progress: impl FnMut(usize, usize),
 ) -> Result<(PathBuf, store::BuildStats)> {
     let dir = cache_entry_dir(root, &opts.params);
-    std::fs::create_dir_all(&dir)?;
+    // The build assembles itself in a staging sibling and is swapped in by
+    // rename, so no reader can ever see a partly written entry and no mapped
+    // file is ever rewritten underneath one (`store::build_staged`).
+    let staging = store::staging_path(&dir);
+    std::fs::create_dir_all(&staging)?;
     // root.txt first, before a single byte of index. It is what makes an entry
     // *enumerable*, and only enumerable entries can be counted or reclaimed —
     // written afterwards, a build interrupted partway (Ctrl-C during the first
     // search of a large repo, which is exactly when people interrupt) left a
     // directory that `cache --status` could not see and `cache --prune` could
-    // not free. It does not make the entry discoverable: that needs meta.json,
-    // which `build_at` writes last.
-    std::fs::write(dir.join("root.txt"), root.to_string_lossy().as_bytes())?;
+    // not free. Writing it into the staging directory keeps that property: the
+    // staging directory lives inside the generation directory, so `cache_status`
+    // still counts it, while `cache_entries` skips it so it can never be
+    // discovered or promoted over.
+    std::fs::write(staging.join("root.txt"), root.to_string_lossy().as_bytes())?;
     // Alongside root.txt, and for the same reason: discovery has to know what
     // this entry is *for* without parsing meta.json, whose file table can run to
     // megabytes on a large corpus.
-    std::fs::write(dir.join("params.txt"), params_tag(&opts.params))?;
-    let stats = store::build_at(&dir, root, opts, progress)?;
+    std::fs::write(staging.join("params.txt"), params_tag(&opts.params))?;
+    let stats = store::build_staged(&staging, &dir, root, opts, progress)?;
 
     // Reclaim only after the entry is complete and registered, so the budget
     // enforcer actually sees what was just built. Running it before the write
     // meant a corpus larger than the whole budget evicted every *other* entry
     // and then sat over the cap until some later write noticed.
+    //
+    // Protecting the new entry is the other half. Without it the enforcer saw
+    // the entry it had just been given and evicted it — the query then missed on
+    // re-discovery and streamed anyway, paying for a complete build *and* a
+    // complete cold search and keeping neither (5 of 8 queries under budget
+    // pressure, SIMULATION.md §1.4).
     gc_old_generations();
-    enforce_budget();
+    enforce_budget_protecting(&dir);
 
     // Scope promotion: a wider entry serves every descendant through the
     // prefix filter, so narrower ones are now dead weight.

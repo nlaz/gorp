@@ -40,12 +40,22 @@ pub enum RepairOutcome {
     WalkFailed,
     /// The tree matches the index under this scope.
     NoDrift,
+    /// Too much of the scope drifted to be worth patching: the entry is stale
+    /// enough that rebuilding it is cheaper than repairing it, once. Only ever
+    /// reported for a central-cache entry, which the engine can rebuild behind
+    /// the caller's back; a repo-local `.semgrep/` keeps repairing however far
+    /// it has drifted, because it belongs to the user and serving them stale
+    /// text to save time is not a trade the engine gets to make.
+    /// `dirty / total` is the ratio that crossed the threshold. Carried as the
+    /// two counts rather than the quotient so the record stays integer-exact and
+    /// the outcome keeps `Eq` — a float here would be compared for equality by
+    /// every test that matches on this enum.
+    DriftTooLarge { dirty: usize, total: usize },
     Repaired {
         added: usize,
         modified: usize,
         deleted: usize,
-        /// Chunks in the in-memory overlay. Unbounded — see RESEARCH.md §8's
-        /// unimplemented delta-size threshold.
+        /// Chunks in the in-memory overlay, bounded by [`max_drift_ratio`].
         delta_chunks: usize,
     },
 }
@@ -80,6 +90,26 @@ pub struct Repair {
     pub n_dirty: usize,
 }
 
+/// The share of a scope that may drift before repairing it stops being worth it.
+///
+/// RESEARCH.md §8 mechanism 2 specified this — "if the delta exceeds a threshold
+/// (say >5% of files — branch switch), treat the whole query as a miss" — and it
+/// was never implemented, so `repair` re-read, re-chunked and **re-embedded**
+/// every drifted file on every query past the TTL, forever. Measured on tokio:
+/// 131 ms at 50% drift against a 127 ms full cold pass, 197 ms at 100%, and it
+/// never amortizes, because the overlay is discarded and rebuilt each time
+/// (SIMULATION.md §1.3).
+///
+/// 5% is well clear of the loop this must not disturb — editing three files of
+/// 865 is 0.35% — and the curve past it is steep enough that the exact number
+/// barely matters: at 5% a rebuild pays for itself in about five queries.
+///
+/// A plain constant, reached through `SearchOptions`, rather than something read
+/// from the environment behind a `OnceLock`. Latching a tunable per process is
+/// what makes `cache_base` untestable (FIXES.md, open item 3), and a threshold
+/// with no test that crosses it is not a threshold.
+pub const DEFAULT_MAX_DRIFT: f32 = 0.05;
+
 fn repair_ttl_secs() -> u64 {
     static TTL: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
     *TTL.get_or_init(|| {
@@ -107,9 +137,13 @@ fn check_marker(d: &cache::Discovered) -> std::path::PathBuf {
 
 /// Throttled scoped validation: diff the live tree under the query scope
 /// against the index's file table; build the overlay if anything drifted.
+/// `max_drift` is the share of the scope above which the entry is reported as
+/// [`RepairOutcome::DriftTooLarge`] instead of being patched; 0 disables the
+/// bound. See [`DEFAULT_MAX_DRIFT`].
 pub fn scope(
     d: &cache::Discovered,
     idx: &store::LoadedIndex,
+    max_drift: f32,
     trace: &mut Trace,
 ) -> (Option<Repair>, RepairOutcome) {
     let marker = check_marker(d);
@@ -143,6 +177,32 @@ pub fn scope(
         (drift.added.len(), drift.modified.len(), drift.deleted.len());
     let tombstones: HashSet<u32> = drift.tombstones().collect();
     let n_dirty = drift.len();
+
+    // How much of this scope moved. The denominator is the larger of what is
+    // there now and what the index has under the prefix, so a mass deletion —
+    // where `live` is nearly empty — reads as near-total drift rather than as a
+    // ratio above one.
+    let indexed_here = if d.prefix.is_empty() {
+        idx.meta.files.len()
+    } else {
+        idx.meta
+            .files
+            .iter()
+            .filter(|f| {
+                f.path.strip_prefix(&d.prefix).is_some_and(|r| r.starts_with('/'))
+            })
+            .count()
+    };
+    let total = live.len().max(indexed_here);
+    let ratio = n_dirty as f32 / total.max(1) as f32;
+    let threshold = max_drift;
+    // Only for a cache entry: `search` answers this by rebuilding, which it may
+    // only do to something it owns. A repo-local `.semgrep/` is the user's
+    // artifact, so it repairs however far it has drifted and reports the
+    // staleness rather than quietly serving around it.
+    if d.from_cache && threshold > 0.0 && ratio > threshold {
+        return (None, RepairOutcome::DriftTooLarge { dirty: n_dirty, total });
+    }
 
     let t0 = Instant::now();
     let mut delta = Delta {

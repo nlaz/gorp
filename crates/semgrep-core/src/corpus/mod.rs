@@ -22,42 +22,80 @@ use std::time::UNIX_EPOCH;
 
 /// Walk `root` respecting .gitignore/.ignore, skipping hidden files, binaries,
 /// and files over the size cap. Returns files in sorted (deterministic) order.
+///
+/// Traversal is parallel, and **the sort at the end is what makes that safe**.
+/// Chunk ids are assigned in walk order and must stay in lockstep across the
+/// chunk table, the BM25 add order and the `emb.bin` rows — but "walk order" is
+/// defined by this sort, not by the order directories happen to be read in. So
+/// visiting them concurrently changes nothing downstream, as long as the sort
+/// stays. Anything that removes it silently breaks the index format.
+///
+/// This is worth parallelizing because it is not only a build cost. Read-repair
+/// walks the query's scope on every warm query past the TTL, where it was the
+/// larger half of a small query (6.7 ms of 8.7 ms on tokio) and 1.7 s on the
+/// 84k-file kernel.
 pub fn walk(root: &Path, params: &ChunkParams) -> Result<Vec<FileMeta>> {
-    let mut files = Vec::new();
-    for entry in ignore::WalkBuilder::new(root).build() {
-        let entry = match entry {
-            Ok(e) => e,
-            Err(_) => continue,
-        };
-        if !entry.file_type().is_some_and(|t| t.is_file()) {
-            continue;
-        }
-        let meta = match entry.metadata() {
-            Ok(m) => m,
-            Err(_) => continue,
-        };
-        if meta.len() > params.max_file_bytes {
-            continue;
-        }
-        let rel = entry
-            .path()
-            .strip_prefix(root)
-            .unwrap_or(entry.path())
-            .to_string_lossy()
-            .replace('\\', "/");
-        if rel.starts_with(".semgrep/") || rel == ".semgrep" {
-            continue;
-        }
-        let mtime = meta
-            .modified()
-            .ok()
-            .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
-            .map(|d| d.as_secs())
-            .unwrap_or(0);
-        files.push(FileMeta { path: rel, size: meta.len(), mtime });
-    }
-    files.sort_by(|a, b| a.path.cmp(&b.path));
+    let files = std::sync::Mutex::new(Vec::new());
+    let max_bytes = params.max_file_bytes;
+
+    ignore::WalkBuilder::new(root)
+        // Match the pool the rest of the pass uses rather than spawning a
+        // second, differently-sized one alongside it.
+        .threads(rayon::current_num_threads().max(1))
+        // Depth 1 only, which is where a repo-local index lives — the same
+        // top-level-only test the serial version applied to the relative path.
+        // Doing it here rather than per entry also stops the walker descending
+        // into an index directory at all.
+        .filter_entry(|e| e.depth() != 1 || !is_index_dir(&e.file_name().to_string_lossy()))
+        .build_parallel()
+        .run(|| {
+            Box::new(|entry| {
+                let Ok(entry) = entry else { return ignore::WalkState::Continue };
+                if !entry.file_type().is_some_and(|t| t.is_file()) {
+                    return ignore::WalkState::Continue;
+                }
+                let Ok(meta) = entry.metadata() else { return ignore::WalkState::Continue };
+                if meta.len() > max_bytes {
+                    return ignore::WalkState::Continue;
+                }
+                let rel = entry
+                    .path()
+                    .strip_prefix(root)
+                    .unwrap_or(entry.path())
+                    .to_string_lossy()
+                    .replace('\\', "/");
+                let mtime = meta
+                    .modified()
+                    .ok()
+                    .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+                    .map(|d| d.as_secs())
+                    .unwrap_or(0);
+                // The lock covers a `Vec::push`; the `stat` above, which is the
+                // actual cost, happens outside it.
+                if let Ok(mut out) = files.lock() {
+                    out.push(FileMeta { path: rel, size: meta.len(), mtime });
+                }
+                ignore::WalkState::Continue
+            })
+        });
+
+    let mut files = files.into_inner().unwrap_or_else(|e| e.into_inner());
+    // Unstable is fine and is the point: paths are unique, so the order is total
+    // and does not depend on which thread found what.
+    files.sort_unstable_by(|a, b| a.path.cmp(&b.path));
     Ok(files)
+}
+
+/// A repo-local index directory, or one of the transient siblings a build swaps
+/// through (`.semgrep.building-<pid>`, `.semgrep.trash-<pid>`). None of them are
+/// corpus: indexing an index is circular, and a staging directory would also
+/// churn the file table on every rebuild.
+///
+/// Spelled out here rather than asked of `store`, which owns the naming, because
+/// `corpus` is the bottom layer and may not call upward. The trailing dot is
+/// what keeps this from swallowing a user's `.semgreprc`.
+fn is_index_dir(component: &str) -> bool {
+    component == ".semgrep" || component.starts_with(".semgrep.")
 }
 
 pub fn abs_path(root: &Path, file: &FileMeta) -> PathBuf {

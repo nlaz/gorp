@@ -78,6 +78,20 @@ pub struct SearchOptions {
     /// override) and with the NaN bug of FIXES.md #9 still live.
     pub maxsim_post: bool,
     pub params: ChunkParams,
+    /// Share of a scope that may drift before a cache entry is rebuilt rather
+    /// than repaired. 0 disables the bound and repairs any amount of drift,
+    /// which is what the engine did before it had one
+    /// ([`cache::repair::DEFAULT_MAX_DRIFT`]).
+    pub repair_max_drift: f32,
+    /// Called once, before a write-through build begins, when this query is the
+    /// first ranked search of its scope and is therefore about to pay for an
+    /// index. The engine owns this because the engine is what resolves the
+    /// index: a caller that wants to print "caching this scope" otherwise has
+    /// to re-derive the answer with its own `cache::discover`, which is a
+    /// second canonicalization and generation scan per query (SIMULATION.md
+    /// §4). A plain `fn` rather than a boxed closure so `SearchOptions` stays
+    /// `Clone` and `Debug`.
+    pub on_first_search: Option<fn()>,
     pub keyword: KeywordOptions,
 }
 
@@ -98,6 +112,8 @@ impl Default for SearchOptions {
             maxsim_blend: 1.0,
             maxsim_post: false,
             params: ChunkParams::default(),
+            repair_max_drift: cache::repair::DEFAULT_MAX_DRIFT,
+            on_first_search: None,
             keyword: KeywordOptions::default(),
         }
     }
@@ -180,6 +196,27 @@ pub struct SearchResult {
     pub report: SearchReport,
 }
 
+/// A cache entry so far out of date that patching it costs more than replacing
+/// it. Raised by the warm path and answered by [`search`] with a rebuild.
+///
+/// A distinct type rather than a message because the arm that catches it has to
+/// be told apart from the "this entry is unreadable" arm sitting right next to
+/// it: both discard the entry, but one streams and the other rebuilds, and
+/// matching on a string would make that distinction a typo away from wrong.
+#[derive(Debug, Clone, Copy)]
+pub struct DriftTooLarge {
+    pub dirty: usize,
+    pub total: usize,
+}
+
+impl std::fmt::Display for DriftTooLarge {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} of {} files drifted; rebuilding is cheaper", self.dirty, self.total)
+    }
+}
+
+impl std::error::Error for DriftTooLarge {}
+
 /// Stages measured before a path is chosen — discovery, and the write-through
 /// build — replayed into whichever path ends up answering. Both schedules carry
 /// these stages, so the cost of getting to a query lands in the same report as
@@ -231,6 +268,48 @@ pub fn search(root: &Path, query: &str, opts: &SearchOptions) -> Result<SearchRe
     let mut result = match discovered {
         Some(d) => match indexed::run(&d, query, opts, &prelude) {
             Ok(r) => r,
+            // Too stale to patch. Replace the entry rather than stream around
+            // it: streaming answers this one query and keeps nothing, while a
+            // rebuild makes every query after it warm again. That is the whole
+            // case for the threshold — at 5% drift a rebuild pays for itself in
+            // about five queries, and repairing charges full price forever
+            // (SIMULATION.md §1.3).
+            Err(e) if e.is::<DriftTooLarge>() => {
+                let why = *e.downcast_ref::<DriftTooLarge>().expect("just matched");
+                let mut rebuilt = None;
+                if !opts.no_index && build_through(root, opts, &mut prelude) {
+                    wrote_cache = true;
+                    if let Some(fresh) = discover(&mut discover_ms, &mut discover_calls) {
+                        // The bound is off for the retry, which is what makes
+                        // "rebuild once" true rather than hopeful. A freshly
+                        // built entry normally has no drift at all — but a scope
+                        // the root walk excludes does not gain rows by rebuilding
+                        // the root (a hidden directory is the case that found
+                        // this), and re-raising here would cost a build *and* a
+                        // stream on every single query. Patch whatever is left.
+                        let patch = SearchOptions { repair_max_drift: 0.0, ..opts.clone() };
+                        rebuilt = indexed::run(&fresh, query, &patch, &prelude).ok();
+                    }
+                }
+                match rebuilt {
+                    Some(mut r) => {
+                        // The rebuilt entry reports `no_drift`, which is true of
+                        // it and useless as an explanation: it would describe
+                        // this query — a 170 ms one on tokio — exactly as it
+                        // describes an 9 ms warm hit. What happened here is that
+                        // the entry was too stale to patch, so say that, and let
+                        // `wrote_cache` say what was done about it.
+                        r.report.repair = cache::repair::RepairOutcome::DriftTooLarge {
+                            dirty: why.dirty,
+                            total: why.total,
+                        };
+                        r
+                    }
+                    // The rebuild failed or produced something unreadable. Fall
+                    // through rather than retry: a query must still be answered.
+                    None => stream::run(root, query, opts, &prelude)?,
+                }
+            }
             Err(_) if d.from_cache => {
                 let _ = std::fs::remove_dir_all(&d.index_dir);
                 stream::run(root, query, opts, &prelude)?
@@ -250,6 +329,14 @@ pub fn search(root: &Path, query: &str, opts: &SearchOptions) -> Result<SearchRe
 /// failed partway still spent the time.
 fn build_through(root: &Path, opts: &SearchOptions, prelude: &mut Prelude) -> bool {
     let Ok(canon) = std::fs::canonicalize(root) else { return false };
+    // Here and not at the call site: this is the first point at which a build is
+    // certain, so the notice cannot fire for a scope that turns out to be
+    // unresolvable. Keyword mode returns before any of this and `no_index` never
+    // reaches it, which is the same pair of exemptions the CLI used to apply for
+    // itself with a second `cache::discover`.
+    if let Some(notify) = opts.on_first_search {
+        notify();
+    }
     let build = store::BuildOptions { params: opts.params, ..Default::default() };
     match cache::write_cache_entry(&canon, &build, |_, _| {}) {
         Ok((_, stats)) => {

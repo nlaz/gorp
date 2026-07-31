@@ -13,10 +13,18 @@ use std::path::{Path, PathBuf};
 
 pub fn run(cli: &Cli, query: &str) -> Result<i32> {
     let root = cli.path.clone().unwrap_or_else(|| PathBuf::from("."));
+    // Before anything else, and before the "caching this scope" notice in
+    // particular, which used to announce that it was indexing a directory that
+    // did not exist. A missing path is an error (exit 2), not an empty result
+    // (exit 1): an agent reads "no results" as *the code is not there*, when in
+    // fact the path was simply wrong. `exists`, not `is_dir`, because a single
+    // file is a legitimate scope that the streaming path handles.
+    if !root.exists() {
+        anyhow::bail!("{}: no such file or directory", root.display());
+    }
     let (mode, mode_reason) = resolve_mode(cli)?;
     let opts = options(cli, mode);
 
-    warn_if_first_search(&root, &opts);
     let result = search(&root, query, &opts)?;
     let exit = if result.hits.is_empty() { crate::EXIT_NONE } else { crate::EXIT_FOUND };
 
@@ -101,6 +109,8 @@ fn options(cli: &Cli, mode: Mode) -> SearchOptions {
         maxsim_blend: t.maxsim_blend,
         maxsim_post: t.maxsim_post,
         params: ChunkParams { window: t.window, overlap: t.overlap, ..Default::default() },
+        repair_max_drift: t.repair_max_drift,
+        on_first_search: Some(announce_first_search),
         keyword: KeywordOptions {
             case_insensitive: cli.ignore_case,
             fixed_string: cli.fixed_string,
@@ -111,15 +121,15 @@ fn options(cli: &Cli, mode: Mode) -> SearchOptions {
 
 /// A cold ranked search is also a cache build, and on a large scope that is
 /// visibly slow. Say so before it happens rather than looking hung.
-fn warn_if_first_search(root: &Path, opts: &SearchOptions) {
-    if opts.mode != Mode::Keyword
-        && !opts.no_index
-        && cache::discover(root, &opts.params).is_none()
-    {
-        eprintln!(
-            "semgrep: first ranked search of this scope — caching it (later searches are fast)"
-        );
-    }
+///
+/// Handed to the engine rather than decided here. The CLI used to answer "is
+/// this the first search?" by calling `cache::discover` itself — a full path
+/// canonicalization and generation-directory scan, on *every* ranked query, to
+/// decide whether to print one line — and then the engine resolved the same
+/// scope again. The engine already knows; it just had no way to say so before
+/// the fact (SIMULATION.md §4).
+fn announce_first_search() {
+    eprintln!("semgrep: first ranked search of this scope — caching it (later searches are fast)");
 }
 
 /// On an exact-mode miss, print the top ranked hits for the same terms to stderr.
@@ -137,7 +147,10 @@ fn suggest_ranked_alternatives(
     if opts.no_index || cache::discover(root, &opts.params).is_none() {
         return false;
     }
-    let ranked_opts = SearchOptions { mode: Mode::Hybrid, k: 3, ..opts.clone() };
+    // No cold-start notice: this path already refused to run unless an index
+    // exists, so it can never be the search that builds one.
+    let ranked_opts =
+        SearchOptions { mode: Mode::Hybrid, k: 3, on_first_search: None, ..opts.clone() };
     let Ok(ranked) = search(root, query, &ranked_opts) else { return false };
     // A whole second engine invocation, and until now it appeared in no report
     // at all: `--stats` describes the primary search only, so an exact miss
@@ -160,7 +173,12 @@ fn suggest_ranked_alternatives(
     }
     eprintln!("semgrep: -e found 0 exact matches · ranked search for the same terms finds:");
     for hit in &ranked.hits {
-        eprintln!("semgrep:   {}:{}:{}", hit.path, hit.line, truncate(hit.text.trim(), 100));
+        eprintln!(
+            "semgrep:   {}:{}:{}",
+            out::quote_path(&hit.path),
+            hit.line,
+            truncate(hit.text.trim(), 100)
+        );
     }
     eprintln!(
         "semgrep: (wrong path? broaden it · drop -e to run this ranked search on stdout)"
