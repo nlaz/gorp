@@ -4,7 +4,7 @@
 The per-query ranks in the JSON files are the source of truth; this
 is a view of them. `--check` fails if the two have diverged.
 
-91 runs, 38,270 per-query ranks recorded.
+92 runs, 38,668 per-query ranks recorded.
 
 ## Runs
 
@@ -30,6 +30,7 @@ is a view of them. `--check` fails if the two have diverged.
 | `prose256-wikipedia` | — | — | 6 | 0 | — | — | **not recorded** |
 | `prose256-vscode` | — | — | 6 | 0 | — | — | **not recorded** |
 | `prose256-linux` | — | — | 6 | 0 | — | — | **not recorded** |
+| `oracle-linux` | unknown (fp 46fc2ea43fcb30be) | — | 2 | 398 | — | — | **not recorded** |
 | `oracle-cosqa` | unknown (fp a9006a29f625c5b9) | — | 6 | 7,200 | — | — | **not recorded** |
 | `newcorp-tokio` | unknown (fp cfaeed9fe176d1a4) | — | 12 | 2,400 | — | — | **not recorded** |
 | `newcorp-jekyll` | unknown (fp 94476d160ca47908) | — | 12 | 1,056 | — | — | **not recorded** |
@@ -437,6 +438,8 @@ is a view of them. `--check` fails if the two have diverged.
 | `oracle-cosqa` | rg-oracle | real | 1200 | 0.043 | 0.101 | 0.158 | 0.069 |
 | `oracle-cosqa` | rg-strong | real | 1200 | 0.012 | 0.030 | 0.051 | 0.021 |
 | `oracle-cosqa` | semantic | real | 1200 | 0.022 | 0.083 | 0.122 | 0.048 |
+| `oracle-linux` | rg-oracle | direct | 199 | 0.231 | 0.462 | 0.497 | 0.324 |
+| `oracle-linux` | rg-oracle | paraphrase | 199 | 0.000 | 0.000 | 0.000 | 0.000 |
 | `prose256-linux` | bm25 | direct | 199 | 0.698 | 0.920 | 0.945 | 0.797 |
 | `prose256-linux` | bm25 | paraphrase | 199 | 0.005 | 0.035 | 0.065 | 0.019 |
 | `prose256-linux` | hybrid | direct | 199 | 0.618 | 0.899 | 0.950 | 0.735 |
@@ -655,6 +658,7 @@ and is not guessed at. Treat them as historical.
 - `newcorp-jekyll`
 - `newcorp-tokio`
 - `oracle-cosqa`
+- `oracle-linux`
 - `prose256-linux`
 - `prose256-vscode`
 - `prose256-wikipedia`

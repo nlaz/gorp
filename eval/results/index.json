@@ -4446,6 +4446,42 @@
     ]
   },
   {
+    "name": "oracle-linux",
+    "n_cells": 2,
+    "n_ranks": 398,
+    "corpus": null,
+    "queries": null,
+    "queries_fp": "46fc2ea43fcb30be",
+    "query_set": "unknown (fp 46fc2ea43fcb30be)",
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": false,
+    "cells": [
+      {
+        "mode": "rg-oracle",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.231,
+        "recall@5": 0.462,
+        "recall@10": 0.497,
+        "mrr@10": 0.324,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-oracle",
+        "kind": "paraphrase",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "mrr@10": 0.0,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
     "name": "prose256-linux",
     "n_cells": 6,
     "n_ranks": 0,

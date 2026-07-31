@@ -2194,3 +2194,64 @@ one query set nobody on this project wrote. Ranked lexical retrieval earns its
 keep on real queries; the semantic half does not; and the honest multiplier is
 2.2×, not 8.3×.
 
+### 13.9 The kernel ceiling: the falsification test resolves
+
+This is the run §13.4 pre-registered a retraction against. Result, 199 `direct`
+and 199 `paraphrase` queries over the kernel:
+
+| condition | direct R@5 | paraphrase R@5 |
+|---|---|---|
+| rg (legacy) | 0.025 | 0.000 |
+| rg-strong | 0.342 | 0.000 |
+| **rg-oracle** (ceiling) | **0.462** | **0.000** |
+| hybrid | 0.899 | 0.040 |
+| bm25 | 0.920 | 0.035 |
+
+**The claim survives.** The retraction condition was oracle `direct` R@5 ≥ 0.85.
+Measured: **0.462**. §12.2's identifier-query finding stands, now against a
+ripgrep permitted to read the answer before choosing its pattern.
+
+**The prediction was wrong, and low.** §13.4 predicted 0.60–0.80 and the ceiling
+came in at 0.462 — outside the band, in the direction of having *overestimated*
+ripgrep. Two-thirds of these queries contain the gold identifier, and the
+reasoning was that a perfect token chooser should therefore do well. It does
+not, for the reason §13.8 makes concrete: picking the right token is not the
+hard part on a corpus this size. `blkg_rwstat_add` is rare, but plenty of
+identifiers in kernel queries appear in hundreds of files, and ripgrep returns
+those in path order with no way to rank the gold one up. Recorded as a miss
+rather than reframed.
+
+**The kernel is where `rg-strong` was already nearly optimal.** The ceiling is
+only **1.4×** the heuristic here, against **3.4×** on CoSQA (§13.8). That is
+the expected shape and worth stating: when the query contains a rare
+identifier, "grep the longest identifier" is close to the best available
+strategy, so there is little headroom for an oracle to find. When the query is
+ordinary English (CoSQA), token choice matters much more. The two corpora
+bracket the effect.
+
+**Against the ceiling, the fair gap is 2.0×** (0.920 vs 0.462), against 2.7×
+versus `rg-strong` and §12.2's published 2.9×. The three numbers tell a
+consistent story and the direction never moves.
+
+#### The paraphrase result is the strongest evidence in this document
+
+`rg-oracle` scores **exactly 0.000** on all 199 paraphrase queries. Not 0.005.
+Zero.
+
+A ripgrep that is allowed to inspect the answer, try every content token in the
+query, and keep whichever scores best, cannot locate a single one of 199
+targets once the query stops naming them. semgrep finds 4%.
+
+§12.2 argued this asymmetry was "the strongest evidence available that the
+remaining advantage is a real capability difference and not an artifact:
+improving the opponent closes the gap exactly where theory says it should, and
+nowhere else." That argument was made against a *heuristic* opponent. It now
+holds against a *perfect* one, which is the strongest form the argument can
+take: the paraphrase stratum contains no token to grep for, so no amount of
+grep skill helps, and the only thing that can close it is retrieval that does
+not depend on shared vocabulary.
+
+The corollary is equally worth stating: semgrep's own paraphrase number is
+0.04. Both things are true — the capability difference is real, and it is a
+difference between 4% and 0%, not between good and bad. §9.4's wall stands.
+
