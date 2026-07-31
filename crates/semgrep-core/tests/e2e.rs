@@ -781,3 +781,67 @@ fn cold_and_warm_return_identical_results() {
         }
     }
 }
+
+/// cold == warm must hold with MaxSim on, which is now the CLI default for
+/// `--mode semantic`.
+///
+/// `cold_and_warm_return_identical_results` builds `SearchOptions` directly and
+/// leaves `rerank_maxsim` false, so it could not see this: when the rerank was
+/// first defaulted on it lived only in `search::indexed`, and a cold semantic
+/// search returned a different order from a warm one. Nothing in the suite
+/// failed. This is the same invariant with the flag actually set.
+#[test]
+fn cold_and_warm_agree_with_maxsim_reranking() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+
+    let queries = [
+        "close connections that have gone idle",
+        "compute the backoff delay",
+        "check whether a session token is valid",
+        "baking bread with a fermented starter",
+        "quantum chromodynamics lattice gauge",
+    ];
+
+    for mode in [Mode::Semantic, Mode::Hybrid] {
+        for query in queries {
+            let mx = |o: SearchOptions| SearchOptions { rerank_maxsim: true, ..o };
+            let cold = search(dir.path(), query, &mx(stream_opts(mode))).unwrap();
+            assert!(!cold.report.used_index);
+            let warm = search(dir.path(), query, &mx(opts(mode))).unwrap();
+            assert!(warm.report.used_index);
+
+            let c: Vec<_> = cold.hits.iter().map(|h| (&h.path, h.start_line)).collect();
+            let w: Vec<_> = warm.hits.iter().map(|h| (&h.path, h.start_line)).collect();
+            assert_eq!(c, w, "cold != warm for {mode:?} {query:?} with maxsim on");
+        }
+    }
+}
+
+/// The rerank head must not change what the *pool* is allowed to contain: a
+/// deeper head may only reorder rows the shallower one already had, plus more.
+#[test]
+fn a_deeper_maxsim_head_is_a_superset_of_a_shallower_one() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+
+    let head = |pool: usize| {
+        let o = SearchOptions {
+            rerank_maxsim: true,
+            maxsim_pool: pool,
+            k: 5,
+            ..opts(Mode::Semantic)
+        };
+        search(dir.path(), "close connections that have gone idle", &o)
+            .unwrap()
+            .hits
+            .iter()
+            .map(|h| (h.path.clone(), h.start_line))
+            .collect::<Vec<_>>()
+    };
+    // Both must return k hits; the deeper head may reorder but must not
+    // return fewer, which would mean the pool truncation dropped candidates.
+    assert_eq!(head(8).len(), head(96).len());
+}

@@ -67,7 +67,13 @@ fn options(cli: &Cli, mode: Mode) -> SearchOptions {
         diversify: !t.no_diversify,
         mmr_lambda: t.mmr_lambda,
         prf_terms: t.prf,
-        rerank_maxsim: t.maxsim,
+        // MaxSim reranks the semantic candidate list before fusion, so it can
+        // only pay off where that list decides the answer. In `--mode semantic`
+        // it does, and the rerank is worth +0.080 R@5 (etcd, CI [+0.010,+0.155],
+        // p=0.040); in hybrid, BM25 carries the fused result and 97% of queries
+        // come back unchanged (RESEARCH.md §13.10). So: on for semantic,
+        // opt-in elsewhere, and `--no-maxsim` to turn it off.
+        rerank_maxsim: (t.maxsim || mode == Mode::Semantic) && !t.no_maxsim,
         maxsim_pool: t.maxsim_pool,
         maxsim_blend: t.maxsim_blend,
         params: ChunkParams { window: t.window, overlap: t.overlap, ..Default::default() },

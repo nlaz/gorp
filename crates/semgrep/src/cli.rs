@@ -115,11 +115,19 @@ pub struct Tuning {
     #[arg(long, hide = true, default_value_t = 0)]
     pub prf: usize,
 
-    /// Rerank candidates by MaxSim late interaction (experimental, §9.2)
+    /// Rerank candidates by MaxSim late interaction (§9.2). ON by default in
+    /// `--mode semantic`, where it is a measured win (+0.080 R@5 on etcd, CI
+    /// [+0.010,+0.155]); off in hybrid, where the fused result does not move
+    /// because the semantic channel carries little of it (§13.10 root cause).
     #[arg(long, hide = true)]
     pub maxsim: bool,
 
-    /// MaxSim rerank head size (0 = auto: k*3, min 24)
+    /// Turn MaxSim off where it is on by default (semantic mode).
+    #[arg(long, hide = true, conflicts_with = "maxsim")]
+    pub no_maxsim: bool,
+
+    /// MaxSim rerank head size (0 = auto: k*3, min 32). 96 buys recall for
+    /// ~45% more rerank time on small corpora — see rank::maxsim::AUTO_HEAD.
     #[arg(long, hide = true, default_value_t = 0)]
     pub maxsim_pool: usize,
 

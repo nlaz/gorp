@@ -35,6 +35,11 @@ pub fn run(root: &Path, query: &str, opts: &SearchOptions) -> Result<SearchResul
         None => Vec::new(),
     });
     let semantic = pass.nearest.map(TopK::into_sorted).unwrap_or_default();
+    // The MaxSim rerank has to happen on this path too, and before fusion, or
+    // cold and warm answer the same question differently — the invariant
+    // `cold_and_warm_return_identical_results` exists for. `indexed` reranks
+    // here; this mirrors it against the same chunk texts.
+    let semantic = rerank_maxsim(root, &files, &pass.chunks, query, semantic, opts, &mut trace);
     let ranked = trace.time("rank:fuse", || {
         rank::fuse(opts.mode, lexical, semantic, super::fused_width(pool), opts.sem_weight)
     });
@@ -208,4 +213,51 @@ fn candidates(
         })
         .take(limit)
         .collect()
+}
+
+/// MaxSim rerank for the cold path, mirroring `indexed::rerank_maxsim`.
+///
+/// Both paths must apply it, and apply it at the same point (before fusion),
+/// or the same query answers differently depending on whether a scope happens
+/// to be indexed — which is exactly what `cold_and_warm_return_identical_results`
+/// forbids. The chunk text is re-read here rather than held from the pass: the
+/// streaming pass deliberately keeps only the answer, not the corpus.
+fn rerank_maxsim(
+    root: &Path,
+    files: &[FileMeta],
+    chunks: &[Chunk],
+    query: &str,
+    ranked: Vec<(u32, f32)>,
+    opts: &SearchOptions,
+    trace: &mut Trace,
+) -> Vec<(u32, f32)> {
+    if !opts.rerank_maxsim || ranked.is_empty() {
+        return ranked;
+    }
+    // No SIF stats on the cold path, matching a default-built index.
+    let query_tokens = text::token_vectors(query, None);
+    if query_tokens.is_empty() {
+        return ranked;
+    }
+    trace.time("rank:maxsim", || {
+        use rayon::prelude::*;
+        let head = rank::maxsim_head_size(ranked.len(), opts.k, opts.maxsim_pool);
+        let scored: Vec<(u32, f32, f32)> = ranked[..head]
+            .par_iter()
+            .map(|&(id, dist)| {
+                let chunk = &chunks[id as usize];
+                let fm = &files[chunk.file_id as usize];
+                let sim = corpus::lines(root, &fm.path, chunk)
+                    .map(|text| {
+                        let doc = text::token_vectors(&corpus::doc_text(&fm.path, &text), None);
+                        rank::maxsim(&query_tokens, &doc)
+                    })
+                    .unwrap_or(f32::NEG_INFINITY);
+                (id, sim, dist)
+            })
+            .collect();
+        let mut out = rank::maxsim_blend_head(&scored, opts.maxsim_blend);
+        out.extend_from_slice(&ranked[head..]);
+        out
+    })
 }
