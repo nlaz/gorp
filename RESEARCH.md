@@ -2315,3 +2315,65 @@ It stays available behind `--maxsim` for anyone who wants to explore the
 rerank, and the numbers above are in `eval/results/` if someone wants to argue
 with them.
 
+#### Root cause: MaxSim works, on the channel that does not matter
+
+§13.10 reported no effect and stopped there, which was not an explanation. The
+mechanism, traced through `search/indexed.rs:214` and `rank/maxsim.rs`:
+
+**MaxSim reranks the *semantic* candidate list, before RRF fusion.** That
+placement is deliberate — `maxsim.rs:28` records that post-fusion reranking
+"let MaxSim override BM25's exact-match signal instead of being fused with it,
+which measurably hurt hybrid on code (§9.4)."
+
+So the question is not "does the reranker work" but "does the list it reranks
+decide the answer." Measured separately:
+
+| corpus / mode | base R@5 | +maxsim | delta | verdict |
+|---|---|---|---|---|
+| etcd / **semantic** | 0.340 | **0.420** | **+0.080** | **WIN** (CI [+0.010,+0.155], p=0.040) |
+| jekyll / **semantic** | 0.636 | **0.716** | **+0.080** | inconclusive (n=88) |
+| etcd / hybrid | 0.695 | 0.675 | −0.020 | inconclusive |
+| jekyll / hybrid | 0.886 | 0.875 | −0.011 | inconclusive |
+
+**The reranker is not broken. It is a real +8pp on the list it touches** — a 24%
+relative gain on etcd, and half the queries move (97/200). On the shipped
+hybrid mode, 97% of queries come back completely unchanged (1,335/1,374 across
+four corpora).
+
+The causal chain is now complete, and every link is separately measured:
+
+1. **§9.9** — on code, ese's static vectors act as a fuzzy lexical matcher, not
+   a semantic model (`def~function` 0.037, `mutex~lock` 0.045).
+2. **§12.3, §13.8** — so the semantic channel contributes almost nothing to the
+   fused result: bm25 0.222 ≥ hybrid 0.208 on real queries, and bm25 ≥ hybrid on
+   three of four code corpora. A ripgrep *oracle* (0.101) outscores semantic
+   (0.083).
+3. **Here** — MaxSim improves the semantic list by +8pp, and the fused output
+   does not move, because the improved list was contributing little to begin
+   with.
+
+**Which means the honest verdict is narrower than §13.10's.** MaxSim is not a
+bad reranker and the theory behind it is sound: one strong identifier match
+should not be averaged away by boilerplate, and it isn't. The reason it cannot
+earn default status is that **the bottleneck is upstream of it.** Reranking a
+weak signal more cleverly does not make it a strong one.
+
+Two things follow:
+
+- **`--maxsim` should be the default for `--mode semantic`**, where it is a
+  measured win. It is not, today.
+- **The lever that would make MaxSim matter is a better code embedding**, not a
+  better rerank. §10 already tried swapping the table and §9.9 explains why the
+  current one is weak on code. Until that changes, work on the semantic channel
+  has a low ceiling on the shipped default no matter how good the reranking is.
+
+One prediction this investigation got wrong, recorded because it was cheap to
+check and would have been a tidy story: MaxSim sums per-token similarities with
+**no length normalization** (and, in a default build with no SIF stats, no IDF
+either — `token_vectors(doc, None)` gives every token weight 1.0), so it should
+favour longer chunks. Measured over 600 top-5 hits: mean chunk length 30.8 base
+vs 30.9 with maxsim, a ratio of 1.00. The chunker emits fixed 32-line windows,
+so there is no length variance for the bias to act on. The absent IDF is real
+and remains a reason to distrust MaxSim on prose-heavy queries; it is not what
+is happening here.
+
