@@ -38,8 +38,14 @@ guess, another tool call, more tokens, more latency.
 Measured on 1,200 **real** search queries (CoSQA — human-written Bing queries
 labelled against 20,604 Python functions), ripgrep finds the target in the top
 5 **3%** of the time; semgrep finds it **21%** of the time. Both numbers are
-low because scoring credits one gold function out of 20,604 — the 7× gap is
-the signal, and it holds at p < 0.0001.
+low because scoring credits one gold function out of 20,604.
+
+That 7× is the wrong number to quote, and we know because we tried to break it.
+Give ripgrep an *oracle* — let it read the answer, try every query token, and
+keep whichever ranked best, which no real agent can do — and it reaches **10%**.
+So the honest headline is **~2.2× against the best ripgrep could ever do**, and
+7× against the best it can actually do unaided. Details in
+[eval/REPORT.md](eval/REPORT.md).
 
 The bet: for an agent, the quality of the *first* result matters more than the
 speed of the scan, because every miss is a full round-trip that never needed
@@ -219,12 +225,19 @@ in the query was shredded before ripgrep ever saw it. Fixing that improves
 ripgrep 6.4× on the kernel. The numbers below use `rg-strong`, which greps the
 identifier first — what a competent agent does.
 
+That audit has since been run a second time, harder. `rg-strong` is still a
+*heuristic* — grep the identifiers, longest first. So we added **`rg-oracle`**:
+it consults the answer, tries every query token as its own pattern, and keeps
+whichever scored best. No agent can run it; it is the most ripgrep could
+possibly do. Every claim below is quoted against that ceiling as well as
+against the heuristic.
+
 **Real queries** (CoSQA, 1,200 sampled human-written queries over 20,604
 Python functions — nobody who wrote them had seen the code):
 
-| recall@5 | rg | semgrep | |
-|---|---|---|---|
-| real user queries | 0.03 | **0.21** | 7×, p < 0.0001 |
+| recall@5 | rg-strong | **rg-oracle** | semgrep | |
+|---|---|---|---|---|
+| real user queries | 0.03 | **0.10** | **0.22** | **2.2× vs the ceiling** (7.4× vs the heuristic) |
 
 **Our own generated sets** (400/corpus) split by whether the query contains the
 answer's own identifier. That split turns out to bracket reality rather than
@@ -235,15 +248,29 @@ than reality) but still share 42% of their tokens with the answer (so
 | recall@5 | kernel | VS Code |
 |---|---|---|
 | semgrep, direct | **0.92** | **0.87** |
-| rg-strong, direct | 0.32 | 0.36 |
-| semgrep, paraphrase | 0.03 | **0.14** |
+| rg-oracle, direct | 0.46 | — |
+| rg-strong, direct | 0.34 | 0.36 |
+| semgrep, paraphrase | 0.04 | **0.14** |
+| rg-oracle, paraphrase | **0.00** | — |
 | rg-strong, paraphrase | 0.00 | 0.01 |
 
 So the gap depends entirely on whether you already know what the thing is
-called: **~2.5–3× when you do, 8–28× when you don't.** A better grep strategy
-closes the first gap and does nothing to the second — which is the clearest
-evidence that what remains is a capability difference rather than a
-measurement artifact.
+called: **~2× when you do, unbounded when you don't.**
+
+That second row is the one worth staring at. **`rg-oracle` scores exactly
+0.000 on all 199 kernel paraphrase queries** — a ripgrep allowed to read the
+answer and try every token cannot find one of 199 targets once the query stops
+naming them, because there is no shared token to try. Improving the opponent
+closes the identifier gap and does *nothing* to the paraphrase gap, which is
+the clearest evidence available that what remains is a capability difference
+rather than a measurement artifact.
+
+The honest corollary: semgrep gets 4% of those, not 40%. It is a real
+difference between 4% and 0%, and 4% is still 4%.
+
+Extended language coverage (Rust, Java, Go, Ruby — 1,374 symbol-anchored
+queries) is in [eval/REPORT.md](eval/REPORT.md), along with worked examples
+showing what each condition actually returns.
 
 One finding that cuts against our own framing: on real queries, **BM25 alone
 (0.22) matches the hybrid default (0.21)** and nearly triples semantic-only

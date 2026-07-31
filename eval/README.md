@@ -1,5 +1,9 @@
 # eval — retrieval quality & agent-task evals
 
+**Start with [REPORT.md](REPORT.md)** — setup, the six candidate conditions,
+worked examples showing what each actually returns, and the results with their
+caveats. This file is the operator's guide; REPORT.md is the findings.
+
 Two harnesses:
 
 - **Retrieval evals** (`generate.py`, `run_eval.py`) — LLM-generated query
