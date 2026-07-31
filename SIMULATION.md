@@ -162,6 +162,22 @@ Two details that make it worse than the table suggests:
 The crossover landing between 25% and 50% rather than the pre-registered 5–25%
 is recorded as a miss in §2.
 
+**A correction to this section's own argument**, added later. Comparing a single
+repaired query against a single cold pass understates the case. A rebuild makes
+every *subsequent* query fast while repair keeps charging, so the honest frame is
+amortized — and on that frame RESEARCH.md §8's 5% threshold is better justified
+than the measurement above appeared to say:
+
+| drift | query | extra vs clean | rebuild pays for itself after |
+|---:|---:|---:|---:|
+| 1% | 14.1 ms | +5.4 | 24 queries |
+| 5% | 35.1 ms | +26.4 | **5 queries** |
+| 25% | 90.6 ms | +81.9 | 2 queries |
+| 50% | 131.1 ms | +122.4 | 1 query |
+
+A threshold still has to sit well above the edit-then-search loop — three files
+of 865 is 0.35% — and 5% does. See `FOLD.md` §8.
+
 ### 1.4 Build, evict, then stream anyway (P1)
 
 Not predicted; found because the envelope needed a name for a state I did not
@@ -445,6 +461,16 @@ The first four produced a *green* check. That is the failure mode to watch for
 in this kind of harness — a scenario that tests nothing passes — and it is why
 the scenarios now assert that their own preconditions held (s3d checks that
 `(size, mtime)` really was unchanged; s7 records how many files were on disk).
+
+**One more, found afterwards, recorded here because it is easy to assume
+otherwise: `tools/snapshot.sh` cannot see read-repair at all.** It mktemps a
+fresh cache with `TTL=0` against a *static* `tests/corpus/`, so the first query
+builds the entry and every later one walks, finds nothing, and returns
+`NoDrift` — `Repair` is `None` for all 114 cases. The snapshot is a real gate for
+anything touching walk order or ranking; it is what proves a change did not move
+a score. But a byte-identical snapshot says nothing whatsoever about the repair
+path. That is `crates/semgrep-core/tests/repair.rs`'s job, and anything built on
+the overlay needs its own gate.
 
 ---
 

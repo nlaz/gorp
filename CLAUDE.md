@@ -5,6 +5,11 @@ Semantic grep for agents built on the Bog stack: `../ese` (static embeddings,
 design, README.md for usage, AUDIT.md and FIXES.md for the 2026-07 reorganization
 and what it found.
 
+SIMULATION.md is the session-level behavior audit (what `eval/sim/` found and
+what got fixed). FOLD.md evaluates `../fold` as a durable store for the repair
+overlay — design, verified constraints, and what to measure before committing;
+RCA-FJALL-LOCK.md is the one blocker, drafted for upstream.
+
 ## Layout
 
 ### Layers
