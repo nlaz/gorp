@@ -2255,3 +2255,63 @@ The corollary is equally worth stating: semgrep's own paraphrase number is
 0.04. Both things are true — the capability difference is real, and it is a
 difference between 4% and 0%, not between good and bad. §9.4's wall stands.
 
+### 13.10 MaxSim reranking as a default: no
+
+Re-tested because the §9 lever numbers that first recommended MaxSim were
+produced under the contaminated cache (FIXES.md #10), before rg determinism,
+and before FIXES.md #9 found a NaN poisoning the reranked head — a bug
+"reachable only via `--maxsim`, which is why no eval run caught it." A
+recommendation resting on numbers with three known problems deserves re-running.
+
+**14 paired comparisons, 3,071 queries, 0 wins, 1 loss.**
+
+| set | n | conditions | result |
+|---|---|---|---|
+| CoSQA (real humans) | 1,200 | pool 32 / pool 96 / blend 0.5 | all **inconclusive**, +0.001 to +0.003 |
+| replay (real agents) | 497 | mx48 / mx96, clustered CI | all **inconclusive** |
+| tokio/commons-lang/etcd/jekyll | 1,374 | `--maxsim` | 7 inconclusive, **1 LOSS** |
+
+The loss: jekyll `paraphrase` R@5 0.182 → 0.136, delta −0.045, CI
+[−0.091, −0.011], 0-4 discordant.
+
+**"Inconclusive" here is the well-powered kind, which is the useful part.** On
+CoSQA at n=1,200 the 95% CI on the R@5 delta is about ±0.007. That does not
+say "we could not tell"; it says **any effect is smaller than roughly one
+point**, in either direction. The same question at n=88 (jekyll) genuinely
+cannot tell, and is reported separately rather than averaged in.
+
+**The direct-query trend is negative and consistent.** All four code corpora
+move down (−0.005, −0.010, −0.011, −0.020). Pooled: −0.0116, CI
+[−0.0262, +0.0029], p=0.17 — still inconclusive, but 4/4 with the same sign is
+not the shape of a change about to pay off.
+
+**It is not free.** Warm latency on small corpora, three queries averaged:
+
+| corpus | base | maxsim |
+|---|---|---|
+| jekyll | 8.2 ms | **12.6 ms** |
+| etcd | 8.2 ms | **12.2 ms** |
+| linux | 91.5 ms | 78.8 ms |
+
+~50% on the small corpora. The kernel row shows maxsim *faster*, which is
+almost certainly noise at n=3 and is recorded rather than used — measuring it
+properly would need `bench/run.py`, and it does not change the verdict either
+way.
+
+**And §9.7 stands unrefuted.** That section A/B'd MaxSim at the *agent* level
+and found it actively harmful: fnAcc@10t plain 62% > mx48 59% > mx96 54%, with
+agents searching *more* under maxsim (201 vs 142 calls) because worse first
+results beget retries. The replay result here is inconclusive, and inconclusive
+does not overturn a measured harm — replay removes the agent's decisions, which
+is exactly the mechanism §9.7 blamed.
+
+**Verdict: not a candidate for the default build.** A change that adds latency,
+adds a flag, and adds a less-tested code path has to *earn* default status. The
+evidence says: no win on either real-query set, one loss, a negative trend on
+code, a latency cost, and a standing agent-level finding against it. §9.4's
+"adopt but re-wire" should be read as superseded.
+
+It stays available behind `--maxsim` for anyone who wants to explore the
+rerank, and the numbers above are in `eval/results/` if someone wants to argue
+with them.
+
