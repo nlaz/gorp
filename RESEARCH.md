@@ -2143,3 +2143,54 @@ What this costs: the kernel rows of §12.2 should be read as ±0.02, not to thre
 decimals. The VS Code rows are reproducible as published. Every future run is
 reproducible in both, which is the point of the exercise.
 
+### 13.8 The ceiling on real human queries (CoSQA)
+
+The §13.4 prediction for CoSQA was **0.06–0.10 R@5, staying under bm25's 0.22**.
+Result, over all 1,200 real Bing queries:
+
+| mode | R@1 | R@5 | R@10 | MRR@10 |
+|---|---|---|---|---|
+| rg (legacy) | 0.012 | 0.030 | 0.051 | 0.021 |
+| rg-strong | 0.012 | 0.030 | 0.051 | 0.021 |
+| **rg-oracle** (ceiling) | 0.043 | **0.101** | 0.158 | 0.069 |
+| semantic | 0.022 | 0.083 | 0.122 | 0.048 |
+| hybrid (shipped) | 0.068 | 0.208 | 0.330 | 0.133 |
+| bm25 | 0.074 | **0.222** | 0.325 | 0.138 |
+
+**The prediction holds, and it landed one thousandth above the band** — 0.101
+against a predicted ceiling of 0.10. Calling that a hit would be generous;
+calling it a miss would be pedantic. It is recorded as what it is.
+
+**§12.3's semgrep numbers reproduce exactly.** bm25 MRR 0.138, hybrid 0.133,
+semantic 0.048 — all three to three decimals. The rg columns moved (MRR 0.013 →
+0.021), which is the §13.5 nondeterminism showing up exactly where it should
+and nowhere else: the deterministic engine reproduces, the baseline that was
+never deterministic does not.
+
+**The finding: §12.3's real-query claim has the same shape §12.1 found in the
+kernel claim.** §12.3 reported semgrep's advantage on real queries as **8.3×**
+at R@5 (0.22 vs 0.03). Against a ripgrep permitted to read the answer before
+choosing its pattern, it is **2.2×** (0.222 vs 0.101). The ceiling is 3.4× the
+`rg-strong` heuristic, so most of that 8.3× was, once again, query planning
+rather than retrieval.
+
+That is the second time this pattern has been measured. §12.2 cut "30×" to
+2.9× on the kernel by fixing the baseline's tokenizer; §13.8 cuts "8.3×" to
+2.2× on real queries by removing its query planning entirely. **The direction
+of the claim survives both corrections. The magnitude has now been wrong
+twice, in the same direction, for the same reason.** Any future gap this
+project publishes should be quoted against the ceiling, not against a
+heuristic we wrote.
+
+**A ripgrep that reads the answer beats our semantic mode** — 0.101 vs 0.083
+R@5, and 0.069 vs 0.048 MRR. On real human queries the embedding half is worth
+less than perfect grep-token selection. §9.9 measured why: on code, ese
+functions as a fuzzy lexical matcher rather than a semantic model
+(`def~function` 0.037, `mutex~lock` 0.045). This is that measurement showing up
+in an end-to-end score.
+
+What survives all of it: **bm25 at 0.222 is still 2.2× the ceiling**, on the
+one query set nobody on this project wrote. Ranked lexical retrieval earns its
+keep on real queries; the semantic half does not; and the honest multiplier is
+2.2×, not 8.3×.
+
