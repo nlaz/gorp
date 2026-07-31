@@ -140,7 +140,11 @@ that involve embeddings all moved, BM25 and keyword did not.
   and compare via `report.py --against` — single samples here mislead.
 - warm queries: bm25 88 ms, semantic 53 ms, hybrid 115 ms (halving dims
   halved the embedding scan; the old f32 scan was fault/IO-bound at ~3-4 s)
+- corpus walk (parallel since FIXES.md #24): 272 ms on the 84k-file kernel,
+  19 ms on vscode, ~5 ms on tokio/jekyll. Paid by a build, by `--check-stale`,
+  and — the reason it was worth parallelizing — by read-repair on every warm
+  query past the TTL
 - `--stats` prints per-stage provenance; `--check-stale` is separate (walks
-  the corpus, ~1 s on 84k files)
+  the corpus, ~0.3 s on 84k files)
 - hnsw.bin > 1 GiB is skipped at query time (from_bytes ~20 s at kernel
   scale); HNSW is for a future persistent/server mode

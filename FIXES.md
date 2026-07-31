@@ -260,6 +260,159 @@ internally inconsistent table yields empty results rather than a crash.
 and asserts each prefix either errors or answers, never panics. A spot check
 would have missed this: the bug lived at one specific length.
 
+### 16. Concurrent first-searches SIGBUS'd — P0
+`store::build_at` wrote `emb.bin` straight into the live entry, truncating a file
+another process had already `mmap`ed. A mapping whose backing file is truncated
+faults on access, and a fault is a signal, not an error anyone can catch.
+`unpublish()` removed `meta.json` first to stop a *new* reader starting, but it
+could not recall a mapping that already existed.
+
+A build now assembles itself in a `.building-<pid>` sibling and is published by
+two renames — old entry aside, staging into place — so **no published file is
+ever mutated**. A reader mid-query keeps the inodes it opened and finishes
+against a complete, consistent index; only the directory entry changes.
+`unpublish` is gone, being exactly the thing the swap makes unnecessary.
+
+`cache_entries` skips the transient directories (a finished-but-unswapped staging
+dir holds a valid `meta.json` and would otherwise be discoverable) while
+`cache_status` keeps counting them, so an interrupted build is still reclaimable —
+the property #4 established.
+
+Measured with the harness that found it (`eval/sim`, s9): **4 of 20 trials and 11
+of 160 processes at exit −10 before, 0 of 20 and 0 of 160 after**, holding across
+four repetitions. Closes the open item that had been narrowed but not shut since
+#3.
+
+### 17. Read-repair had no delta bound — P1
+`repair.rs` iterated every stale path unconditionally, re-reading, re-chunking and
+**re-embedding** all of them, and never wrote back — so past ~50% drift a warm
+query cost more than throwing the cache away, on every query, forever.
+
+RESEARCH.md §8 mechanism 2 had specified the guard ("say >5% of files — branch
+switch"); it is now implemented as `SearchOptions::repair_max_drift`, default
+0.05. Above it, `indexed::run` raises a typed `DriftTooLarge` and `search`
+**rebuilds** the entry rather than streaming around it — streaming answers one
+query and keeps nothing, while the rebuild makes every query after it warm, which
+is the entire argument for having a threshold.
+
+A plain option rather than an env var behind a `OnceLock`: latching a tunable per
+process is what makes `cache_base` untestable (open item 3 below), and a
+threshold with no test that crosses it is not a threshold. The CLI reads
+`SEMGREP_REPAIR_MAX_DRIFT` into it so the sim can still sweep.
+
+Measured on tokio, against SIMULATION.md §1.3's own table:
+
+| drift | before, *every* query | after, 1st | after, steady |
+|---:|---:|---:|---:|
+| 5% | 35.1 ms | 163.5 ms | **8.2 ms** |
+| 25% | 90.6 ms | 162.4 ms | **8.4 ms** |
+| 50% | 131.1 ms | 168.1 ms | **8.2 ms** |
+| 100% | 196.9 ms | 161.2 ms | **8.9 ms** |
+
+The retry after a rebuild runs with the bound off. That is not belt-and-braces:
+a scope the root walk excludes does not gain rows by rebuilding the root, so
+re-raising would charge a build *and* a stream on every query. A hidden directory
+is the case that found it.
+
+### 18. A write could evict the entry it had just written — P1
+`write_cache_entry` ran `enforce_budget()` before returning, and under a cap below
+one entry the LRU evicted what it had just been handed; the query then missed on
+re-discovery and streamed the corpus as well, paying twice and keeping nothing
+(5 of 8 queries under budget pressure). `enforce_budget_protecting` spares the new
+entry; if it alone exceeds the cap it survives this call and is evicted by the
+next write like anything else.
+
+### 19. LRU eviction destroyed healthy entries when a delete failed — P2
+`budget.rs` popped the victim whether or not `remove_dir_all` succeeded and
+decremented the running total only on success, so one undeletable directory made
+the loop chew through every healthy entry behind it — four entries in, one out,
+and the survivor was the undeletable one, at exit 0 with no warning. The loop now
+stops on a failed delete and reports it: an entry that will not delete is a
+permissions anomaly, not ordinary pressure, and pressing on trades the whole
+cache for nothing.
+
+`enforce_budget` returns a `Reclaimed { removed, freed, stuck }` rather than a
+pair, because `semgrep-core` does not print — every word the user sees is written
+by the CLI's `out`, which is what keeps "stdout is data, stderr is commentary"
+checkable in one place. `dir_bytes` also recurses now; it was correct only
+because entries happen to be flat.
+
+### 20. `out::hits` did not escape paths — P2
+`println!("{}:{}:{}")` meant a filename containing a newline split one hit across
+two stdout lines (six files on disk, seven lines out) and one containing `:`
+mis-parsed silently. `quote_path` now C-quotes a path containing a control
+character, a quote, or a colon, and leaves every other path byte-identical — so
+the common case does not get noisier and `tools/snapshot.sh` does not move.
+Applied at all three writers of a path: `out::hits`, `out::context`, and the
+`-e`-miss suggestion lines. `--json` was already correct and is unchanged.
+
+### 21. A nonexistent search path exited 1, not 2 — P2
+"No results" is what an agent reads as *the code is not there*, when the path was
+simply wrong; ranked mode additionally announced it was caching a scope that did
+not exist. `cmd::search` now checks the path before anything else and bails,
+which the existing error path renders as exit 2 with a reason. `exists`, not
+`is_dir`, because a single file is a legitimate scope the streaming path handles.
+
+### 22. Every warm ranked query resolved the index twice — P2
+`warn_if_first_search` called `cache::discover` on *every* ranked search — a full
+canonicalization and generation scan — purely to decide whether to print one
+line, and then the engine resolved the same scope again. The notice now comes
+from the engine via `SearchOptions::on_first_search`, fired at the point a build
+becomes certain. Warm queries resolve once; a ranked cold miss is two rather than
+three. The exact-miss path still resolves twice of its own, which is
+`suggest_ranked_alternatives` not reusing what it already resolved — a separate,
+smaller thing, and pinned as such.
+
+### 23. A narrow scope could return zero hits — P2
+`candidates()` filtered to the query's subtree correctly, but filtered a fused
+list only `FUSION_POOL * 2` = 256 rows wide, so a scope holding none of the
+corpus-wide top 256 got nothing. `Rows` now materializes an in-scope mask once
+and exposes `serves(id) = live(id) && in_scope(id)`, threaded into the BM25
+accumulation (`top_k_scoped`) and the brute-force scan
+(`brute_force_top_k_i8_where`) so the filter runs **before** truncation. A scoped
+query also gets faster, since rows that cannot be returned never reach the
+kernel. HNSW is skipped under a scope: the graph returns its own bounded list and
+cannot be told to skip rows, which is the same mistake again.
+
+On tokio, `docs` 0 → 10 hits, `benches` 5 → 10, `examples` 3 → 10. Whole-corpus
+ranking is unchanged (the mask is `None`), which `tools/snapshot.sh` confirms.
+
+**A correction to SIMULATION.md §1.7 while fixing this.** It reported `.github`
+and `docs` together as one finding. Only `docs` was. `corpus::walk` runs
+`ignore::WalkBuilder` at its default `hidden(true)`, and tokio's index contains
+**no dot-prefixed path at all** — there was never anything under `.github` to
+starve, and no scope filter can fix that. Pinned in
+`a_hidden_subtree_is_absent_from_its_parents_index_but_searchable_on_its_own`.
+
+### 24. The walk was serial — perf
+`corpus::walk` drove `ignore::WalkBuilder::build()`, one thread. It is now
+`build_parallel()`, and **the terminal sort is what makes that safe**: chunk ids
+are assigned in walk order, but walk order is defined by that sort rather than by
+traversal order, so concurrent traversal changes nothing downstream. Removing the
+sort would silently break the index format, which is why it is stated in the
+docstring.
+
+Worth doing because the walk is not only a build cost — read-repair walks the
+scope on every warm query past the TTL:
+
+| corpus | files | before | after |
+|---|---:|---:|---:|
+| jekyll | 806 | 7.1 ms | 5.3 ms |
+| tokio | 865 | 6.0 ms | 5.2 ms |
+| vscode | 4,389 | 43.2 ms | 19.3 ms |
+| linux | 84,265 | **1,735 ms** | **272 ms** |
+
+No small-corpus regression, which was the risk. Verified identical: the parallel
+walk reproduces the 846-file table of a tokio index built by the pre-change
+binary, in the same order, and twenty repeated walks are byte-identical.
+
+### 25. The citation guard could not tell one document from another — P3
+`tests/docs.rs` scraped every `§N` out of the source and checked it against
+RESEARCH.md whatever document the comment named. So `SIMULATION.md §1.1` passed
+only because RESEARCH.md happens to have a §1.1, and a correct citation of a
+section RESEARCH.md lacks would have failed — §1.3 through §1.7 exist only in
+SIMULATION.md. Wrong in both directions, and passing. Citations are now
+attributed to the document named nearest before them, defaulting to RESEARCH.md.
 
 ---
 

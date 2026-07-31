@@ -10,6 +10,11 @@ in `eval/sim/results/` (3.8 MB, checked in) and the generated tables in
 Numbers below are from the **post-fix** run unless marked otherwise. The
 pre-fix run is what found the panic; both are described where they differ.
 
+> **2026-07-31, later the same day.** All eight remaining findings are now fixed
+> (`FIXES.md` #16–#24), plus the walk parallelized. Each section below keeps what
+> was measured and adds what it measures now; §7 collects the results and the two
+> places this report turned out to be wrong about its own findings.
+
 Why a third harness. `eval/` scores single queries, `bench/` times single
 queries. The index is a cache (RESEARCH.md §8), so almost everything
 structurally interesting — write-through, read-repair, the TTL gate, LRU
@@ -30,19 +35,19 @@ wrong**, and those are the more useful half of the report, because they were
 wrong about where the time goes — which is what the instrumentation was built to
 answer.
 
-| # | Finding | Severity | Site |
-|---|---|---|---|
-| 1 | A corrupt `bm25.flat` **panics** instead of erroring, so the entry is never evicted and every later run panics too | **P0** | `store/bm25.rs:82` |
-| 2 | Concurrent first-searches of one scope **SIGBUS** (8/20 trials) | **P0** | `cache/mod.rs:153` |
-| 3 | Read-repair has no size bound: past ~25–50% drift a query costs more than a full cold pass, forever | **P1** | `cache/repair.rs:99` |
-| 4 | Under budget pressure a query builds an index, immediately evicts it, then streams anyway — paying twice | **P1** | `cache/mod.rs:178` |
-| 5 | A filename containing a newline breaks the `path:line:text` stdout contract | **P2** | `out.rs:42` |
-| 6 | A mistyped path exits 1 ("no results"), not 2 | **P2** | `cmd/search.rs` |
+| # | Finding | Severity | Site | Status |
+|---|---|---|---|---|
+| 1 | A corrupt `bm25.flat` **panics** instead of erroring, so the entry is never evicted and every later run panics too | **P0** | `store/bm25.rs:82` | fixed, #15 |
+| 2 | Concurrent first-searches of one scope **SIGBUS** (8/20 trials) | **P0** | `cache/mod.rs:153` | fixed, #16 |
+| 3 | Read-repair has no size bound: past ~25–50% drift a query costs more than a full cold pass, forever | **P1** | `cache/repair.rs:99` | fixed, #17 |
+| 4 | Under budget pressure a query builds an index, immediately evicts it, then streams anyway — paying twice | **P1** | `cache/mod.rs:178` | fixed, #18 |
+| 5 | A filename containing a newline breaks the `path:line:text` stdout contract | **P2** | `out.rs:42` | fixed, #20 |
+| 6 | A mistyped path exits 1 ("no results"), not 2 | **P2** | `cmd/search.rs` | fixed, #21 |
 
 Plus two confirmed-as-designed behaviors worth knowing (a same-second edit is
-invisible to drift detection; a narrow scope can return zero hits), and the LRU
-eviction accounting bug, which is real but needs an undeletable directory to
-trigger.
+invisible to drift detection; a narrow scope can return zero hits — fixed, #23),
+and the LRU eviction accounting bug, which is real but needs an undeletable
+directory to trigger (fixed, #19).
 
 ---
 
@@ -124,6 +129,10 @@ others, which is not reassurance — it means the window is narrow, not absent.
 The documented fix (build into a staging directory, then rename) closes it, and
 would also make `unpublish` unnecessary.
 
+**Fixed** (`FIXES.md` #16), and re-measured with this scenario: **4/20 trials and
+11/160 processes before, 0/20 and 0/160 after**, holding across four
+repetitions. `unpublish` is gone, as predicted.
+
 ### 1.3 The read-repair delta cliff (P1)
 
 RESEARCH.md §8 mechanism 2 specifies the guard: "if the delta exceeds a
@@ -178,6 +187,13 @@ than the measurement above appeared to say:
 A threshold still has to sit well above the edit-then-search loop — three files
 of 865 is 0.35% — and 5% does. See `FOLD.md` §8.
 
+**Fixed** (`FIXES.md` #17) on exactly that argument: above 5% the entry is
+**rebuilt**, not streamed around, so the cost lands once instead of on every
+query. Re-measured on tokio — 100% drift went from 196.9 ms *per query* to
+161 ms once and 8.9 ms thereafter; 5% from 35.1 ms per query to 8.2 ms
+thereafter. The overlay still never writes back below the threshold, which is
+now a bounded cost rather than an unbounded one.
+
 ### 1.4 Build, evict, then stream anyway (P1)
 
 Not predicted; found because the envelope needed a name for a state I did not
@@ -199,6 +215,12 @@ FIXES.md #5 moved reclamation to *after* registration so the enforcer could see
 the entry that triggered it. It can now see it — and evicts it. The missing piece
 is that a corpus which cannot fit the budget should not be written at all, rather
 than written and immediately reclaimed.
+
+**Fixed** (`FIXES.md` #18), though not the way that last sentence proposed:
+the entry is still written, and `enforce_budget_protecting` spares it from the
+eviction its own write triggered. Refusing to write it at all would mean deciding
+the corpus is too big *before* building it, and the size is not known until it is
+built.
 
 ### 1.5 A newline in a filename breaks the stdout contract (P2)
 
@@ -226,6 +248,11 @@ is the CLI's central promise and a tested invariant, and `path:line:text` is wha
 makes semgrep drop-in for grep. A consumer splitting on `:` mis-parses `od:d.py`
 silently, and a newline turns one result into two.
 
+**Fixed** (`FIXES.md` #20): a path containing a control character, a quote, or a
+colon is C-quoted; every other path is byte-identical, so the common case does
+not get noisier and `tools/snapshot.sh` does not move. Six files now produce six
+lines.
+
 **The first version of this check passed for the wrong reason** — run against
 the whole adversarial tree, `huge.py`'s 200k matching lines overflowed the
 harness's 64 KB capture cap long before the odd names appeared, and it also made
@@ -248,6 +275,9 @@ Exit 1 means "nothing found", and that is what an agent reads: *the code is not
 there*. The path was simply wrong. `-e` behaves the same way. Worse, ranked mode
 announces it is caching a scope that does not exist. Exit 2 exists for exactly
 this and is not used.
+
+**Fixed** (`FIXES.md` #21): the path is checked before anything else, so both
+modes exit 2 with a reason and nothing is announced about caching.
 
 ### 1.7 Confirmed as designed, worth knowing
 
@@ -276,7 +306,15 @@ comment at `indexed.rs:257` explains the filter-before-truncate ordering and is
 correct as far as it goes; it does not cover the case where 256 fused rows
 contain nothing from the requested subtree.
 
-**LRU eviction destroys healthy entries when a delete fails.** `budget.rs:115-122`
+**Fixed** (`FIXES.md` #23) — `docs` 0 → 10, `benches` 5 → 10, `examples` 3 → 10 —
+**but this row conflates two different bugs, and only one of them was this one.**
+`.github` is hidden, `corpus::walk` skips hidden directories, and tokio's index
+holds no dot-prefixed path at all: there was nothing under that scope to starve.
+See §7.
+
+**LRU eviction destroys healthy entries when a delete fails** (**fixed**,
+`FIXES.md` #19: the loop stops at the first failed delete and reports it).
+`budget.rs:115-122`
 pops the victim from the list *before* attempting the delete and decrements the
 running total only on success, so a failure neither stops the loop nor accounts
 for itself. With one entry `chmod 0500`: 4 entries before, **1 after** — and the
@@ -501,6 +539,77 @@ invocation, which is how the hidden second search became visible.
 adversarial trees, mutations, fault injection), `scenarios.py` (the catalog with
 machine-readable expectations), `run.py`, `report.py`. Stdlib only, like the rest
 of `eval/` and `bench/`.
+
+## 7. What the fixes changed
+
+Landed the same day, in five batches, each verified against `cargo test`,
+`tools/snapshot.sh --check` (byte-identical throughout — no ranking moved) and
+this harness. Details and patch sites in `FIXES.md` #16–#25.
+
+| finding | before | after |
+|---|---|---|
+| §1.2 concurrency | 4/20 trials, 11/160 processes at exit −10 | **0/20, 0/160**, across four repetitions |
+| §1.3 repair, 100% drift | 196.9 ms on *every* query | 161 ms once, then **8.9 ms** |
+| §1.3 repair, 5% drift | 35.1 ms on every query | 164 ms once, then **8.2 ms** |
+| §1.4 budget | 5 of 8 queries built and evicted the same entry | the write protects its own entry |
+| §1.5 stdout | 6 files → 7 lines, `od:d.py` mis-parsed | 6 files → 6 lines, ambiguous names quoted |
+| §1.6 missing path | exit 1, "no results", announces caching | exit 2 with a reason |
+| §1.7 narrow scope | `docs` 0 hits, `benches` 5, `examples` 3 | **10, 10, 10** |
+| §1.7 LRU | 4 entries in, 1 out, exit 0, silent | healthy entries survive; the failure is reported |
+| §4 warm resolutions | 2 per warm query | **1** |
+| walk (new) | 1,735 ms on the 84k-file kernel | **272 ms** |
+
+### Two things this report got wrong about its own findings
+
+**§1.7 conflated two bugs.** It reported `.github` and `docs` on tokio together,
+as one finding: two scopes returning zero hits from a fully indexed corpus. Only
+`docs` was that finding. `corpus::walk` runs `ignore::WalkBuilder` at its default
+`hidden(true)`, and tokio's index holds **no dot-prefixed path at all** — there
+was never anything under `.github` to starve, and no amount of scope-aware
+ranking can produce rows that were never indexed. Asking for the hidden scope by
+name builds it an index of its own, because a walk rooted *at* `.github` does not
+consider its contents hidden. Both halves are pinned by name now.
+
+**§1.3's crossover comparison was the wrong frame, and the section already said
+so.** The correction appended to it — that the honest comparison is amortized,
+not single-query — is what the implemented threshold acts on: above the bound the
+entry is **rebuilt**, not streamed around, because streaming answers one query
+and keeps nothing. The measured result is in the table above, and it is a larger
+effect than the crossover framing suggested.
+
+### Reading `results/INDEX.md` after this
+
+Both runs are kept, so the generated tables carry both. The **`synthetic`,
+`tokio`, `jekyll`** sessions are the original run this report describes; the
+**`final-*`** sessions are the same 19 scenarios against the fixed binary. The
+`corpora` column is what tells them apart — a failed check listed against only
+`jekyll, synthetic, tokio` is a bug that no longer reproduces.
+
+Three checks still fail on the fixed binary, and all three are predictions §2
+already recorded as wrong. Nothing here is a regression:
+
+| check | fails on | why |
+|---|---|---|
+| `index load dominates a warm query` (>0.60) | all three | measured 13.5%; §2 retracted this outright |
+| `build dominates the first query` (≥0.90) | jekyll, synthetic | 87.8% on jekyll — §2's near-miss, unchanged |
+| `a repaired query still does not amortize` | synthetic only | §5: at 61 tiny files noise exceeds the effect; passes on tokio |
+
+The scenarios keep asserting the refuted predictions rather than being edited to
+match: a check that fails for a reason written down is a record, and a check
+quietly relaxed to green is not.
+
+### And one more scenario that was testing nothing
+
+`s5c-dir-bytes-is-not-recursive` invoked `semgrep cache <path>`, which is a clap
+usage error: exit 2, empty stdout. Its check then confirmed that a size was
+*absent* from that empty string, and passed — for its entire life, including in
+the run this report describes. §5 predicted this failure mode in general and
+listed four instances; this is a fifth, found only because fixing `dir_bytes`
+should have made the check fail and did not. The harness now distinguishes "no
+path given" from "this verb takes no path", and the scenario asserts its own
+invocation succeeded before reading its output.
+
+---
 
 ## Reproducing
 
