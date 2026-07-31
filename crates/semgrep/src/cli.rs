@@ -126,8 +126,8 @@ pub struct Tuning {
     #[arg(long, hide = true, conflicts_with = "maxsim")]
     pub no_maxsim: bool,
 
-    /// MaxSim rerank head size (0 = auto: k*3, min 32). 96 buys recall for
-    /// ~45% more rerank time on small corpora — see rank::maxsim::AUTO_HEAD.
+    /// MaxSim rerank head size (0 = auto: k*3, min 96). Lower it to trade
+    /// paraphrase recall for a few ms — see rank::maxsim::AUTO_HEAD.
     #[arg(long, hide = true, default_value_t = 0)]
     pub maxsim_pool: usize,
 

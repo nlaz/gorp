@@ -7,20 +7,29 @@
 
 /// Head size when `maxsim_pool` is left at 0.
 ///
-/// 32, chosen for rerank cost: on etcd a semantic query is 8.2 ms at head 32
-/// against 12.0 ms at head 96, so the deeper head is ~45% more expensive for
-/// the rerank stage. On the kernel the two are within noise (67.6 vs 65.6 ms),
-/// where the scan dominates.
+/// 96. Chosen for recall, and the same answer three independent measurements
+/// have now given:
 ///
-/// **It costs recall, and the trade is deliberate rather than free.** Head 96
-/// won the §9.6 sweep (semantic +0.03..0.06 R@5 over head 24), and re-measured
-/// at head 32 vs 96 over three corpora it is worse or level in 5 of 6 cells —
-/// significantly so on etcd paraphrase (0.025 vs 0.060, CI [-0.065,-0.010]).
-/// Deep heads help most exactly where the semantic list is weakest and needs
-/// the most reordering.
+/// - §9.6's original sweep: semantic +0.03..0.06 R@5 over head 24.
+/// - Head 32 vs 96 over three corpora: 96 worse or level in 5 of 6 cells,
+///   significantly on etcd paraphrase (0.025 vs 0.060, CI [-0.065,-0.010]).
+/// - Head 42 vs 96 pooled over four corpora: 96 wins paraphrase
+///   (-0.0160, CI [-0.0306,-0.0015], p=0.052); direct inconclusive.
 ///
-/// Raise it with `--maxsim-pool 96` if recall matters more than a few ms.
-const AUTO_HEAD: usize = 32;
+/// The effect concentrates in the *paraphrase* stratum, which is the shape you
+/// would predict: a deep head matters most where the semantic list is weakest
+/// and needs the most reordering. On identifier-style queries the right answer
+/// is usually already near the top and a shallow head finds it.
+///
+/// Cost, etcd semantic warm: 12.5 ms at 96 against 8.7 ms at 32 and 8.3 ms at
+/// 42 — about 4 ms. On the kernel the heads are within noise of each other
+/// (67.6 vs 65.6 ms), because the scan dominates. Head 42 was measured and
+/// beat neither: no better than 32 on recall, no cheaper in practice.
+///
+/// Note `head_size` takes `max(k * 3, AUTO_HEAD)`, so a caller asking for
+/// `-k 50` reranks 150 rows rather than 96. The floor is what this constant
+/// sets; large-k callers pay proportionally more.
+const AUTO_HEAD: usize = 96;
 
 /// How many of a ranked list's rows to rerank.
 pub fn head_size(ranked_len: usize, k: usize, configured: usize) -> usize {
@@ -175,7 +184,7 @@ mod tests {
 
     #[test]
     fn head_size_respects_the_configured_override_and_the_list_length() {
-        assert_eq!(head_size(500, 10, 0), 32, "auto head is 32 at k=10");
+        assert_eq!(head_size(500, 10, 0), 96, "auto head is 96 at k=10");
         assert_eq!(head_size(500, 50, 0), 150, "auto head grows with k*3");
         assert_eq!(head_size(500, 10, 24), 24, "an explicit pool wins");
         assert_eq!(head_size(12, 10, 96), 12, "never past the end of the list");
