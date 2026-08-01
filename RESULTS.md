@@ -113,7 +113,48 @@ spreading results across files.
 4. Scoring is strict single-truth (right file, ±10 lines); absolute numbers
    understate usefulness, cross-tool deltas are the signal.
 
-## 4. Remaining roadmap
+## 4. The semantic-first scoreboard (2026-08-01, RESEARCH.md §14)
+
+The project's success criterion changed 2026-08-01: semantic search must beat
+ranked lexical on real queries (§14.1). These are the consolidated standings —
+every condition scored on the same queries within a chart, ripgrep reported at
+all three levels per §13.4 (legacy, strong, and the oracle *ceiling*, which
+consults the answer and which no agent can run).
+
+**CoSQA — 1,200 real human queries (R@5 / R@10):**
+
+| condition | R@5 | R@10 |
+|---|---|---|
+| ripgrep (≈ rg-strong here) | 0.030 | 0.051 |
+| rg-oracle (ceiling) | 0.101 | 0.158 |
+| semantic, raw index (old default) | 0.108 | 0.173 |
+| **semantic, `--embed-preproc split --sif`** | **0.188** | **0.286** |
+| hybrid (retired default) | 0.208 | 0.330 |
+| bm25 (the bar) | 0.222 | 0.325 |
+
+**VS Code `direct` — 200 identifier-bearing queries (R@5 / R@10):**
+
+| condition | R@5 | R@10 |
+|---|---|---|
+| ripgrep (legacy) | 0.155 | 0.240 |
+| rg-strong | 0.360 | 0.440 |
+| rg-oracle (ceiling, first measured 2026-08-01) | 0.540 | 0.635 |
+| semantic, raw index | 0.710 | 0.730 |
+| **semantic, `--embed-preproc split --sif`** | **0.825** | **0.840** |
+| hybrid | 0.870 | 0.885 |
+| bm25 | 0.880 | 0.885 |
+
+What moved and why (§14.4–§14.6): prose-rendering the embedded text fixes the
+token *units* and pays on camelCase corpora; SIF pooling fixes the token
+*weights* and pays on real snake_case queries; MaxSim's rerank contribution
+grows on the rendered stream (+0.040 CoSQA R@5). The remaining gap to bm25 is
+1.18× on CoSQA. Even the oracle-grade ripgrep sits below semantic mode in both
+tables — token choice is not the hard part; ranking the files that contain the
+token is. The §3 finding stands corrected in degree, not direction: ranked
+lexical still leads, but the semantic branch now recovers 85% of it on real
+queries, from 49%.
+
+## 5. Remaining roadmap
 
 - Agent-task evals (`eval/agent-eval.md`): searches-to-success & tokens per
   task, rg-only vs semgrep — the end-to-end product claim.
