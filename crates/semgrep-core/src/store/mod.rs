@@ -42,6 +42,11 @@ pub struct IndexMeta {
     /// be embedded with the same corpus stats (`sif.bin`).
     #[serde(default)]
     pub sif: bool,
+    /// How chunk text was rendered before embedding (RESEARCH.md §14.2) —
+    /// queries must be rendered the same way, so the warm path reads this,
+    /// never a flag. Absent in old metas = `none`, which is exact.
+    #[serde(default)]
+    pub embed_preproc: crate::text::EmbedPreproc,
 }
 
 #[derive(Debug, Default)]
@@ -68,6 +73,8 @@ pub struct BuildOptions {
     pub sif_a: f64,
     /// Subtract the sample-estimated common component (SIF's second half).
     pub sif_center: bool,
+    /// Prose-render chunk text before embedding (RESEARCH.md §14.2).
+    pub embed_preproc: crate::text::EmbedPreproc,
 }
 
 impl Default for BuildOptions {
@@ -78,6 +85,7 @@ impl Default for BuildOptions {
             sif: false,
             sif_a: crate::text::SIF_A,
             sif_center: false,
+            embed_preproc: crate::text::EmbedPreproc::None,
         }
     }
 }

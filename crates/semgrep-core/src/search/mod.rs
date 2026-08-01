@@ -16,7 +16,7 @@ pub use crate::rank::Mode;
 use crate::trace::{
     Bucket, SCHEDULE_KEYWORD, Stage, Stages, Trace, elapsed_ms,
 };
-use crate::{ChunkParams, cache, keyword, store};
+use crate::{ChunkParams, cache, keyword, store, text};
 use anyhow::Result;
 use std::path::Path;
 use std::time::Instant;
@@ -93,6 +93,10 @@ pub struct SearchOptions {
     /// `Clone` and `Debug`.
     pub on_first_search: Option<fn()>,
     pub keyword: KeywordOptions,
+    /// Prose-render text before embedding (RESEARCH.md §14.2). Drives the cold
+    /// path and the write-through build; the warm path takes the index's own
+    /// `meta.embed_preproc` instead — stored vectors dictate the space.
+    pub embed_preproc: text::EmbedPreproc,
 }
 
 impl Default for SearchOptions {
@@ -117,6 +121,7 @@ impl Default for SearchOptions {
             repair_max_drift: cache::repair::DEFAULT_MAX_DRIFT,
             on_first_search: None,
             keyword: KeywordOptions::default(),
+            embed_preproc: text::EmbedPreproc::None,
         }
     }
 }
@@ -339,7 +344,11 @@ fn build_through(root: &Path, opts: &SearchOptions, prelude: &mut Prelude) -> bo
     if let Some(notify) = opts.on_first_search {
         notify();
     }
-    let build = store::BuildOptions { params: opts.params, ..Default::default() };
+    let build = store::BuildOptions {
+        params: opts.params,
+        embed_preproc: opts.embed_preproc,
+        ..Default::default()
+    };
     match cache::write_cache_entry(&canon, &build, |_, _| {}) {
         Ok((_, stats)) => {
             prelude.extend(stats.stages.iter().map(|r| (r.stage, r.ms)));

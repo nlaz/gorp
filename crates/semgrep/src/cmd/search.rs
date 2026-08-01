@@ -23,7 +23,7 @@ pub fn run(cli: &Cli, query: &str) -> Result<i32> {
         anyhow::bail!("{}: no such file or directory", root.display());
     }
     let (mode, mode_reason) = resolve_mode(cli)?;
-    let opts = options(cli, mode);
+    let opts = options(cli, mode)?;
 
     let result = search(&root, query, &opts)?;
     let exit = if result.hits.is_empty() { crate::EXIT_NONE } else { crate::EXIT_FOUND };
@@ -88,9 +88,16 @@ fn resolve_mode(cli: &Cli) -> Result<(Mode, &'static str)> {
     }
 }
 
-fn options(cli: &Cli, mode: Mode) -> SearchOptions {
+fn options(cli: &Cli, mode: Mode) -> Result<SearchOptions> {
     let t = &cli.tuning;
-    SearchOptions {
+    let embed_preproc = semgrep_core::text::EmbedPreproc::parse(&t.embed_preproc)
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "unknown --embed-preproc {:?} (none|split|split-whole|split-nokw)",
+                t.embed_preproc
+            )
+        })?;
+    Ok(SearchOptions {
         mode,
         k: cli.top,
         no_index: t.no_index,
@@ -118,7 +125,8 @@ fn options(cli: &Cli, mode: Mode) -> SearchOptions {
             fixed_string: cli.fixed_string,
             max_hits: 0,
         },
-    }
+        embed_preproc,
+    })
 }
 
 /// A cold ranked search is also a cache build, and on a large scope that is

@@ -203,11 +203,14 @@ fn rank_semantic(
     }
 
     // A SIF index pools chunks by rarity weight, so the query has to be pooled
-    // with the same corpus statistics or the distances mean nothing.
+    // with the same corpus statistics or the distances mean nothing. Same for
+    // prose rendering: the index's own meta decides, never a flag — the stored
+    // vectors dictate the space (RESEARCH.md §14.2).
     let q = trace.time(Stage::RankEmbedQuery, || {
+        let rendered = text::prose_render(query, idx.meta.embed_preproc);
         let mut q = match &idx.sif {
-            Some(s) => text::embed_sif(query, s),
-            None => text::embed_query(query),
+            Some(s) => text::embed_sif(&rendered, s),
+            None => text::embed_query(&rendered),
         };
         rank::normalize(&mut q);
         q
@@ -289,7 +292,8 @@ fn rerank_maxsim(
     if !opts.rerank_maxsim || opts.maxsim_post || ranked.is_empty() {
         return ranked;
     }
-    let query_tokens = text::token_vectors(query, idx.sif.as_ref());
+    let pp = idx.meta.embed_preproc;
+    let query_tokens = text::token_vectors(&text::prose_render(query, pp), idx.sif.as_ref());
     if query_tokens.is_empty() {
         return ranked;
     }
@@ -305,7 +309,9 @@ fn rerank_maxsim(
                 // away as possible rather than dropping out of the list.
                 let sim = corpus::lines(&d.root, &path, &chunk)
                     .map(|text| {
-                        let doc = text::token_vectors(&corpus::doc_text(&path, &text), None);
+                        let raw = corpus::doc_text(&path, &text);
+                        let doc =
+                            text::token_vectors(&text::prose_render(&raw, pp), None);
                         rank::maxsim(&query_tokens, &doc)
                     })
                     .unwrap_or(f32::NEG_INFINITY);

@@ -827,6 +827,75 @@ fn cold_and_warm_agree_with_maxsim_reranking() {
     }
 }
 
+/// cold == warm must survive prose rendering (RESEARCH.md §14.2): the cold
+/// path renders inline, the warm path renders per the meta the write-through
+/// build persisted, and the two must be the same function of the same option.
+/// MaxSim is on, so the token-vector rendering sites are covered too.
+#[test]
+fn cold_and_warm_agree_under_embed_preproc() {
+    use semgrep_core::text::EmbedPreproc;
+    let _cache = isolate_cache();
+
+    for pp in [EmbedPreproc::Split, EmbedPreproc::SplitWhole, EmbedPreproc::SplitNokw] {
+        // A fresh scope per variant: cache entries are keyed by root and chunk
+        // params, not by embed options, so reusing one scope would warm later
+        // variants from the first one's index (the documented --sif tradeoff).
+        let dir = tempfile::tempdir().unwrap();
+        fixture(dir.path());
+        for query in [
+            "compute the backoff delay",
+            "check whether a session token is valid",
+            "quantum chromodynamics lattice gauge",
+        ] {
+            let with = |o: SearchOptions| SearchOptions {
+                embed_preproc: pp,
+                rerank_maxsim: true,
+                ..o
+            };
+            let cold = search(dir.path(), query, &with(stream_opts(Mode::Semantic))).unwrap();
+            assert!(!cold.report.used_index);
+            let warm = search(dir.path(), query, &with(opts(Mode::Semantic))).unwrap();
+            assert!(warm.report.used_index);
+
+            let c: Vec<_> = cold.hits.iter().map(|h| (&h.path, h.start_line)).collect();
+            let w: Vec<_> = warm.hits.iter().map(|h| (&h.path, h.start_line)).collect();
+            assert_eq!(c, w, "cold != warm for {pp:?} {query:?}");
+        }
+    }
+}
+
+/// The warm path renders queries per the index's own meta, never per the flag:
+/// stored vectors dictate the space. A `split` index queried with default
+/// options must answer exactly as it does when the flag agrees with the meta.
+#[test]
+fn a_preproc_index_ignores_the_search_flag_and_follows_its_meta() {
+    use semgrep_core::text::EmbedPreproc;
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+
+    let build = BuildOptions {
+        params: ChunkParams { window: 8, overlap: 2, ..Default::default() },
+        embed_preproc: EmbedPreproc::Split,
+        ..Default::default()
+    };
+    store::build(dir.path(), &build, |_, _| {}).unwrap();
+
+    let query = "compute the backoff delay";
+    let flag_agrees = SearchOptions {
+        embed_preproc: EmbedPreproc::Split,
+        ..opts(Mode::Semantic)
+    };
+    let flag_default = opts(Mode::Semantic);
+    let a = search(dir.path(), query, &flag_agrees).unwrap();
+    let b = search(dir.path(), query, &flag_default).unwrap();
+    assert!(a.report.used_index && b.report.used_index);
+    let shape = |r: &semgrep_core::search::SearchResult| -> Vec<(String, u32)> {
+        r.hits.iter().map(|h| (h.path.clone(), h.start_line)).collect()
+    };
+    assert_eq!(shape(&a), shape(&b), "the flag leaked into a warm query");
+}
+
 /// The rerank head must not change what the *pool* is allowed to contain: a
 /// deeper head may only reorder rows the shallower one already had, plus more.
 #[test]

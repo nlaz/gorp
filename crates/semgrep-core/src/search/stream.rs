@@ -72,7 +72,8 @@ pub fn run(
     let hits = hit::finalize(root, query, cands, opts, "", &mut trace, |c| {
         let fm = &files[c.chunk.file_id as usize];
         let text = corpus::lines(root, &fm.path, &c.chunk)?;
-        let embedded = text::embed_query(&corpus::doc_text(&fm.path, &text));
+        let doc = corpus::doc_text(&fm.path, &text);
+        let embedded = text::embed_query(&text::prose_render(&doc, opts.embed_preproc));
         // Through the index's quantization, so diversity reranking sees the
         // same vectors it would warm. Without this the two paths diversify
         // differently and a cached scope answers a query differently from an
@@ -119,7 +120,10 @@ fn corpus_pass(
     // span before, which is how a whole `ese::encode` call went unattributed on
     // a path whose entire job is embedding.
     let mut embedder = trace.time(Stage::RankEmbedQuery, || {
-        want_sem.then(|| Embedder::new(text::embed_query(query), pool))
+        want_sem.then(|| {
+            let q = text::embed_query(&text::prose_render(query, opts.embed_preproc));
+            Embedder::new(q, pool, opts.embed_preproc)
+        })
     });
 
     let t_pass = Instant::now();
@@ -166,6 +170,8 @@ struct Embedder {
     pending: Vec<(u32, String)>,
     nearest: TopK,
     embed_ms: f64,
+    /// Same rendering the build side applies, or cold and warm diverge.
+    preproc: text::EmbedPreproc,
 }
 
 impl Embedder {
@@ -173,7 +179,7 @@ impl Embedder {
     /// what bounds resident text regardless of corpus size.
     const BATCH: usize = 1024;
 
-    fn new(query: [f32; crate::EMBED_DIM], k: usize) -> Self {
+    fn new(query: [f32; crate::EMBED_DIM], k: usize, preproc: text::EmbedPreproc) -> Self {
         let mut q = query;
         rank::normalize(&mut q);
         Self {
@@ -181,6 +187,7 @@ impl Embedder {
             pending: Vec::with_capacity(Self::BATCH),
             nearest: TopK::new(k),
             embed_ms: 0.0,
+            preproc,
         }
     }
 
@@ -202,7 +209,8 @@ impl Embedder {
             return;
         }
         let start = Instant::now();
-        let mut vecs = ese::encode(self.pending.iter().map(|(_, text)| text));
+        let mut vecs =
+            ese::encode(self.pending.iter().map(|(_, t)| text::prose_render(t, self.preproc)));
         for ((id, _), v) in self.pending.iter().zip(vecs.iter_mut()) {
             // Exactly what store::build writes into emb.bin, so the two paths
             // score the same numbers.
@@ -257,7 +265,8 @@ fn rerank_maxsim(
         return ranked;
     }
     // No SIF stats on the cold path, matching a default-built index.
-    let query_tokens = text::token_vectors(query, None);
+    let query_tokens =
+        text::token_vectors(&text::prose_render(query, opts.embed_preproc), None);
     if query_tokens.is_empty() {
         return ranked;
     }
@@ -271,7 +280,11 @@ fn rerank_maxsim(
                 let fm = &files[chunk.file_id as usize];
                 let sim = corpus::lines(root, &fm.path, chunk)
                     .map(|text| {
-                        let doc = text::token_vectors(&corpus::doc_text(&fm.path, &text), None);
+                        let raw = corpus::doc_text(&fm.path, &text);
+                        let doc = text::token_vectors(
+                            &text::prose_render(&raw, opts.embed_preproc),
+                            None,
+                        );
                         rank::maxsim(&query_tokens, &doc)
                     })
                     .unwrap_or(f32::NEG_INFINITY);

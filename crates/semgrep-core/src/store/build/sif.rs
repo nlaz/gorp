@@ -22,7 +22,9 @@ pub fn count(root: &Path, files: &[FileMeta], opts: &super::BuildOptions) -> Sif
             .map(|fm| {
                 let mut s = SifStats::default();
                 if let Some(text) = corpus::read_text(&corpus::abs_path(root, fm)) {
-                    s.count(&text);
+                    // Frequencies must describe what the pooling will see:
+                    // a rendered corpus is counted rendered.
+                    s.count(&crate::text::prose_render(&text, opts.embed_preproc));
                 }
                 s
             })
@@ -65,7 +67,11 @@ fn common_component(
         .filter_map(|fm| {
             let text = corpus::read_text(&corpus::abs_path(root, fm))?;
             let (_, first) = corpus::chunk_lines(0, &text, &opts.params).into_iter().next()?;
-            Some(crate::text::embed_sif(&corpus::doc_text(&fm.path, first), stats))
+            let doc = corpus::doc_text(&fm.path, first);
+            Some(crate::text::embed_sif(
+                &crate::text::prose_render(&doc, opts.embed_preproc),
+                stats,
+            ))
         })
         .collect();
     if vectors.is_empty() {

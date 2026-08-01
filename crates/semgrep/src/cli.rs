@@ -164,6 +164,12 @@ pub struct Tuning {
     /// MaxSim vs original-order blend within the head (1.0 = pure MaxSim)
     #[arg(long, hide = true, default_value_t = 1.0)]
     pub maxsim_blend: f32,
+
+    /// Prose-render text before embedding, cold path and write-through build
+    /// (RESEARCH.md §14.2). The warm path always follows the index's own
+    /// meta.json instead. Harness use: like --sif, isolate SEMGREP_CACHE_DIR.
+    #[arg(long, hide = true, default_value = "none")]
+    pub embed_preproc: String,
 }
 
 #[derive(Subcommand)]
@@ -184,6 +190,10 @@ pub enum Cmd {
         /// Subtract the sample-estimated common component (SIF second half)
         #[arg(long, hide = true)]
         sif_center: bool,
+        /// Prose-render chunk text before embedding: none | split |
+        /// split-whole | split-nokw (experimental, RESEARCH.md §14.2)
+        #[arg(long, hide = true, default_value = "none")]
+        embed_preproc: String,
         /// Report index freshness instead of rebuilding
         #[arg(long)]
         status: bool,

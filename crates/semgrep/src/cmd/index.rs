@@ -13,6 +13,7 @@ pub struct Args {
     pub sif: bool,
     pub sif_a: f64,
     pub sif_center: bool,
+    pub embed_preproc: String,
     pub status: bool,
     pub window: u32,
     pub overlap: u32,
@@ -24,6 +25,13 @@ pub fn run(args: Args) -> Result<i32> {
     if args.status {
         return status(&root);
     }
+    let embed_preproc = semgrep_core::text::EmbedPreproc::parse(&args.embed_preproc)
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "unknown --embed-preproc {:?} (none|split|split-whole|split-nokw)",
+                args.embed_preproc
+            )
+        })?;
     let opts = BuildOptions {
         params: ChunkParams {
             window: args.window,
@@ -34,6 +42,7 @@ pub fn run(args: Args) -> Result<i32> {
         sif: args.sif,
         sif_a: args.sif_a,
         sif_center: args.sif_center,
+        embed_preproc,
     };
     let stats = store::build(&root, &opts, |done, total| {
         // Every 500 files: often enough to look alive on a big corpus, rare
