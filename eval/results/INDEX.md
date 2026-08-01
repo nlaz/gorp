@@ -4,12 +4,14 @@
 The per-query ranks in the JSON files are the source of truth; this
 is a view of them. `--check` fails if the two have diverged.
 
-126 runs, 65,452 per-query ranks recorded.
+128 runs, 67,052 per-query ranks recorded.
 
 ## Runs
 
 | run | query set | corpus | cells | ranks | when | git | provenance |
 |---|---|---|---|---|---|---|---|
+| `lever-vscode-preproc-split-idf` | unknown (fp 7578782896e9f02e) | bench/corpora/vscode | 2 | 400 | 2026-08-01 | 139f3bb | yes |
+| `lever-cosqa-preproc-split-idf` | unknown (fp a9006a29f625c5b9) | eval/data/cosqa/corpus | 1 | 1,200 | 2026-08-01 | 9bbb9fe | yes |
 | `oracle-vscode` | unknown (fp 85ebc3c532f239a1) | bench/corpora/vscode | 4 | 800 | 2026-08-01 | 3bde20c | yes |
 | `lever-vscode-preproc-split-sif-nomx` | unknown (fp 7578782896e9f02e) | bench/corpora/vscode | 2 | 400 | 2026-08-01 | 2d0b679 | yes |
 | `lever-vscode-preproc-none-nomx` | unknown (fp 7578782896e9f02e) | bench/corpora/vscode | 2 | 400 | 2026-08-01 | 2d0b679 | yes |
@@ -194,6 +196,7 @@ is a view of them. `--check` fails if the two have diverged.
 | `lever-cosqa-preproc-sif` | semantic | real | 1200 | 0.062 | 0.170 | 0.259 | 0.110 |
 | `lever-cosqa-preproc-split` | bm25 | real | 1200 | 0.074 | 0.219 | 0.324 | 0.138 |
 | `lever-cosqa-preproc-split` | semantic | real | 1200 | 0.046 | 0.116 | 0.183 | 0.079 |
+| `lever-cosqa-preproc-split-idf` | semantic | real | 1200 | 0.072 | 0.173 | 0.286 | 0.120 |
 | `lever-cosqa-preproc-split-nokw` | semantic | real | 1200 | 0.043 | 0.117 | 0.177 | 0.074 |
 | `lever-cosqa-preproc-split-sif` | semantic | real | 1200 | 0.076 | 0.188 | 0.286 | 0.125 |
 | `lever-cosqa-preproc-split-sif-nomx` | semantic | real | 1200 | 0.051 | 0.148 | 0.229 | 0.095 |
@@ -370,6 +373,8 @@ is a view of them. `--check` fails if the two have diverged.
 | `lever-vscode-preproc-split` | bm25 | paraphrase | 200 | 0.040 | 0.135 | 0.180 | 0.079 |
 | `lever-vscode-preproc-split` | semantic | direct | 200 | 0.595 | 0.785 | 0.805 | 0.674 |
 | `lever-vscode-preproc-split` | semantic | paraphrase | 200 | 0.020 | 0.075 | 0.085 | 0.040 |
+| `lever-vscode-preproc-split-idf` | semantic | direct | 200 | 0.680 | 0.845 | 0.860 | 0.745 |
+| `lever-vscode-preproc-split-idf` | semantic | paraphrase | 200 | 0.035 | 0.105 | 0.120 | 0.066 |
 | `lever-vscode-preproc-split-nokw` | semantic | direct | 200 | 0.580 | 0.750 | 0.775 | 0.653 |
 | `lever-vscode-preproc-split-nokw` | semantic | paraphrase | 200 | 0.020 | 0.070 | 0.090 | 0.040 |
 | `lever-vscode-preproc-split-sif` | semantic | direct | 200 | 0.655 | 0.825 | 0.840 | 0.723 |

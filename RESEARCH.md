@@ -2754,3 +2754,24 @@ CoSQA + vscode. Predictions, before the first run:
    CoSQA — stopword-heavy real prose rewards the harder crush of common
    tokens — and idf wins nowhere clearly.
 
+**Result (same day): prediction 1 holds — the curves are interchangeable.**
+Paired, `split-idf` vs `split-sif`:
+
+| | Δ R@5 | 95% CI | sign test |
+|---|---|---|---|
+| CoSQA | −0.015 | [−0.029, +0.001] | 32w/50l, p=0.060 |
+| CoSQA R@10 | +0.000 | [−0.016, +0.017] | 53w/53l, p=1.0 |
+| vscode direct | +0.020 | [−0.010, +0.050] | p=0.29 |
+| vscode paraphrase | +0.015 | [−0.015, +0.045] | p=0.51 |
+
+And vs `none`, idf replicates SIF's whole gain: CoSQA +0.065 R@5 / +0.112
+R@10 (both p≈0), vscode direct +0.135, paraphrase +0.075. So §14.4's biggest
+lever was **having frequency-based term weighting at all**, not the SIF
+functional form — a/(a+p) over collection frequency and BM25's log-df curve
+land within each other's noise everywhere, with one borderline cell (CoSQA
+R@5, p=0.060) leaning sif, exactly the low-confidence direction guessed in
+prediction 3. Practical consequence: `--sif` stays the canonical spelling and
+`--sif-idf` stays a control lever; nothing graduates from this experiment,
+but the §14.4 mechanism story sharpens — the embedder didn't need BM25's
+curve, it needed BM25's *idea*.
+

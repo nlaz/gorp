@@ -686,6 +686,32 @@
     ]
   },
   {
+    "name": "lever-cosqa-preproc-split-idf",
+    "n_cells": 1,
+    "n_ranks": 1200,
+    "corpus": "eval/data/cosqa/corpus",
+    "queries": "eval/queries/cosqa-1200.jsonl",
+    "queries_fp": "a9006a29f625c5b9",
+    "query_set": "unknown (fp a9006a29f625c5b9)",
+    "corpus_digest": null,
+    "at": "2026-08-01T17:43:09Z",
+    "git_head": "9bbb9fe",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "real",
+        "n": 1200,
+        "recall@1": 0.072,
+        "recall@5": 0.173,
+        "recall@10": 0.286,
+        "mrr@10": 0.12,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
     "name": "lever-cosqa-preproc-split-nokw",
     "n_cells": 1,
     "n_ranks": 1200,
@@ -3269,6 +3295,42 @@
         "recall@5": 0.03,
         "recall@10": 0.05,
         "mrr@10": 0.02,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-vscode-preproc-split-idf",
+    "n_cells": 2,
+    "n_ranks": 400,
+    "corpus": "bench/corpora/vscode",
+    "queries": "eval/queries/vscode.jsonl",
+    "queries_fp": "7578782896e9f02e",
+    "query_set": "unknown (fp 7578782896e9f02e)",
+    "corpus_digest": "a3c36fb239aa9aadd40f6c470976d049",
+    "at": "2026-08-01T17:43:29Z",
+    "git_head": "139f3bb",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.68,
+        "recall@5": 0.845,
+        "recall@10": 0.86,
+        "mrr@10": 0.745,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.035,
+        "recall@5": 0.105,
+        "recall@10": 0.12,
+        "mrr@10": 0.066,
         "has_ranks": true
       }
     ]
