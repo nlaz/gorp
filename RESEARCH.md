@@ -2719,3 +2719,13 @@ On separators, asked and pinned: hyphens and underscores never survive any
 character reaches ese (`kebab_and_snake_separators_are_removed_not_kept` in
 `text/prose.rs`). Only the `none` baseline still shows the model punctuation.
 
+**And a first oracle number for vscode** (2026-08-01, `oracle-vscode.json`:
+rg/rg-strong/rg-oracle/hybrid rerun on the 200 `direct` queries; rg 0.155,
+rg-strong 0.360, hybrid 0.870 all reproduce their published values exactly):
+**rg-oracle direct R@5 = 0.540** (R@10 0.635). That slots between the kernel's
+0.462 and CoSQA's 0.101×-shaped story and says something § 13.9 couldn't:
+on camelCase identifier queries, even a ripgrep that reads the answer stops at
+0.540 — below the *old* semantic mode (0.710), let alone the rendered index
+(0.825). The §13.9 explanation transfers: choosing the right token is not the
+hard part; ranking the hundreds of files that contain it is.
+

@@ -4,12 +4,13 @@
 The per-query ranks in the JSON files are the source of truth; this
 is a view of them. `--check` fails if the two have diverged.
 
-125 runs, 64,652 per-query ranks recorded.
+126 runs, 65,452 per-query ranks recorded.
 
 ## Runs
 
 | run | query set | corpus | cells | ranks | when | git | provenance |
 |---|---|---|---|---|---|---|---|
+| `oracle-vscode` | unknown (fp 85ebc3c532f239a1) | bench/corpora/vscode | 4 | 800 | 2026-08-01 | 3bde20c | yes |
 | `lever-vscode-preproc-split-sif-nomx` | unknown (fp 7578782896e9f02e) | bench/corpora/vscode | 2 | 400 | 2026-08-01 | 2d0b679 | yes |
 | `lever-vscode-preproc-none-nomx` | unknown (fp 7578782896e9f02e) | bench/corpora/vscode | 2 | 400 | 2026-08-01 | 2d0b679 | yes |
 | `lever-cosqa-preproc-split-sif-nomx` | unknown (fp a9006a29f625c5b9) | eval/data/cosqa/corpus | 1 | 1,200 | 2026-08-01 | 2d0b679 | yes |
@@ -543,6 +544,10 @@ is a view of them. `--check` fails if the two have diverged.
 | `oracle-cosqa` | semantic | real | 1200 | 0.022 | 0.083 | 0.122 | 0.048 |
 | `oracle-linux` | rg-oracle | direct | 199 | 0.231 | 0.462 | 0.497 | 0.324 |
 | `oracle-linux` | rg-oracle | paraphrase | 199 | 0.000 | 0.000 | 0.000 | 0.000 |
+| `oracle-vscode` | hybrid | direct | 200 | 0.655 | 0.870 | 0.885 | 0.745 |
+| `oracle-vscode` | rg | direct | 200 | 0.065 | 0.155 | 0.240 | 0.107 |
+| `oracle-vscode` | rg-oracle | direct | 200 | 0.265 | 0.540 | 0.635 | 0.371 |
+| `oracle-vscode` | rg-strong | direct | 200 | 0.110 | 0.360 | 0.440 | 0.202 |
 | `prose256-linux` | bm25 | direct | 199 | 0.698 | 0.920 | 0.945 | 0.797 |
 | `prose256-linux` | bm25 | paraphrase | 199 | 0.005 | 0.035 | 0.065 | 0.019 |
 | `prose256-linux` | hybrid | direct | 199 | 0.618 | 0.899 | 0.950 | 0.735 |
