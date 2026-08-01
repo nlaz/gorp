@@ -148,4 +148,12 @@ mod tests {
         assert!(!r.contains('_'), "{r:?}");
         assert!(!r.contains('['));
     }
+
+    #[test]
+    fn kebab_and_snake_separators_are_removed_not_kept() {
+        // Hyphens are split chars like any punctuation, so kebab-case CSS/CLI
+        // identifiers render as prose too — and no separator reaches ese.
+        assert_eq!(render("--embed-preproc font-size", EmbedPreproc::Split), "embed preproc font size");
+        assert_eq!(render("get_user-name", EmbedPreproc::Split), "get user name");
+    }
 }

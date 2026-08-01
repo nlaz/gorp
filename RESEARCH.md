@@ -2683,3 +2683,39 @@ place only for structural weighting (signature vs body, identifier vs
 literal), and §11's lesson stands — that bet needs the replay instrument
 first, not a grammar.
 
+### 14.6 R@10, and MaxSim on top of the rendered stream (2026-08-01, follow-up)
+
+Two questions asked after §14.4 landed: does the picture hold at deeper k,
+and does MaxSim reranking still earn its place once the stream it matches
+over is rendered? (MaxSim over *raw* text was §9.8's autopsy — its match
+units were exactly the shredded fragments. Under `split-sif` its units are
+code-aware subtokens, SIF-weighted on both sides, so its old failure mode is
+gone in principle. Measured:)
+
+**R@10, semantic, split-sif vs none:** CoSQA 0.173 → **0.286** (+0.112,
+CI [+0.089, +0.135]) against bm25's 0.325 — 88% of the bar at k=10, same
+shape as k=5. vscode direct +0.110, etcd direct +0.155 (both p≈0); the
+snake_case corpora stay flat, as at R@5.
+
+**MaxSim × preproc factorial** (semantic, `--no-maxsim` as the off cell;
+paired within each index):
+
+| | maxsim off | on | Δ (CI) |
+|---|---|---|---|
+| CoSQA, none, R@5 | 0.083 | 0.108 | +0.026 [+0.006, +0.046] |
+| CoSQA, split-sif, R@5 | 0.148 | 0.188 | **+0.040** [+0.015, +0.063] |
+| CoSQA, split-sif, R@10 | 0.229 | 0.286 | +0.057 [+0.031, +0.082] |
+| vscode direct, none, R@5 | 0.560 | 0.710 | +0.150 [+0.095, +0.210] |
+| vscode direct, split-sif, R@5 | 0.615 | 0.825 | **+0.210** [+0.150, +0.275] |
+
+The three levers stack, and MaxSim's contribution *grows* under the rendered
+index — consistent with §9.8's diagnosis that its old ceiling was the token
+units, not the mechanism. A provenance detail worth keeping: the maxsim-off
+none cell reads 0.083, three decimals equal to §13.8's published semantic
+number — that row was, as suspected in §14.4, the maxsim-off configuration.
+
+On separators, asked and pinned: hyphens and underscores never survive any
+`split` variant — kebab-case splits like snake_case does, and no separator
+character reaches ese (`kebab_and_snake_separators_are_removed_not_kept` in
+`text/prose.rs`). Only the `none` baseline still shows the model punctuation.
+

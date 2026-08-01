@@ -598,6 +598,32 @@
     ]
   },
   {
+    "name": "lever-cosqa-preproc-none-nomx",
+    "n_cells": 1,
+    "n_ranks": 1200,
+    "corpus": "eval/data/cosqa/corpus",
+    "queries": "eval/queries/cosqa-1200.jsonl",
+    "queries_fp": "a9006a29f625c5b9",
+    "query_set": "unknown (fp a9006a29f625c5b9)",
+    "corpus_digest": null,
+    "at": "2026-08-01T15:59:08Z",
+    "git_head": "2d0b679",
+    "binary_mtime": "2026-08-01T15:35:26Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "real",
+        "n": 1200,
+        "recall@1": 0.022,
+        "recall@5": 0.083,
+        "recall@10": 0.122,
+        "mrr@10": 0.048,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
     "name": "lever-cosqa-preproc-none",
     "n_cells": 2,
     "n_ranks": 2400,
@@ -681,6 +707,32 @@
         "recall@5": 0.117,
         "recall@10": 0.177,
         "mrr@10": 0.074,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-cosqa-preproc-split-sif-nomx",
+    "n_cells": 1,
+    "n_ranks": 1200,
+    "corpus": "eval/data/cosqa/corpus",
+    "queries": "eval/queries/cosqa-1200.jsonl",
+    "queries_fp": "a9006a29f625c5b9",
+    "query_set": "unknown (fp a9006a29f625c5b9)",
+    "corpus_digest": null,
+    "at": "2026-08-01T15:59:18Z",
+    "git_head": "2d0b679",
+    "binary_mtime": "2026-08-01T15:35:26Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "real",
+        "n": 1200,
+        "recall@1": 0.051,
+        "recall@5": 0.148,
+        "recall@10": 0.229,
+        "mrr@10": 0.095,
         "has_ranks": true
       }
     ]
@@ -3130,6 +3182,42 @@
     ]
   },
   {
+    "name": "lever-vscode-preproc-none-nomx",
+    "n_cells": 2,
+    "n_ranks": 400,
+    "corpus": "bench/corpora/vscode",
+    "queries": "eval/queries/vscode.jsonl",
+    "queries_fp": "7578782896e9f02e",
+    "query_set": "unknown (fp 7578782896e9f02e)",
+    "corpus_digest": "a3c36fb239aa9aadd40f6c470976d049",
+    "at": "2026-08-01T15:59:32Z",
+    "git_head": "2d0b679",
+    "binary_mtime": "2026-08-01T15:35:26Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.335,
+        "recall@5": 0.56,
+        "recall@10": 0.615,
+        "mrr@10": 0.426,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.0,
+        "recall@5": 0.005,
+        "recall@10": 0.02,
+        "mrr@10": 0.003,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
     "name": "lever-vscode-preproc-none",
     "n_cells": 4,
     "n_ranks": 800,
@@ -3217,6 +3305,42 @@
         "recall@5": 0.07,
         "recall@10": 0.09,
         "mrr@10": 0.04,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-vscode-preproc-split-sif-nomx",
+    "n_cells": 2,
+    "n_ranks": 400,
+    "corpus": "bench/corpora/vscode",
+    "queries": "eval/queries/vscode.jsonl",
+    "queries_fp": "7578782896e9f02e",
+    "query_set": "unknown (fp 7578782896e9f02e)",
+    "corpus_digest": "a3c36fb239aa9aadd40f6c470976d049",
+    "at": "2026-08-01T15:59:39Z",
+    "git_head": "2d0b679",
+    "binary_mtime": "2026-08-01T15:35:26Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.44,
+        "recall@5": 0.615,
+        "recall@10": 0.695,
+        "mrr@10": 0.512,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "paraphrase",
+        "n": 200,
+        "recall@1": 0.02,
+        "recall@5": 0.045,
+        "recall@10": 0.06,
+        "mrr@10": 0.03,
         "has_ranks": true
       }
     ]
