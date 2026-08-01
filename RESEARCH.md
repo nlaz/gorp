@@ -2443,3 +2443,146 @@ after fusion?" is a reasonable one that will be asked again; it is now one
 command to answer instead of a re-implementation, and the answer is in this
 table.
 
+## 14. Semantic-first (2026-08-01)
+
+### 14.1 The decision
+
+**Semantic search is the product. The success criterion is semantic beating
+lexical, on real queries, measured against the rg-oracle ceiling. Hybrid is off
+by default until semantic carries its own weight; it returns when fusing it
+back in is adding a strong signal to a stronger one, not hiding a weak one
+behind BM25.** (Maintainer decision, recorded 2026-08-01.)
+
+The default mode is now `semantic` — in the CLI (`--mode` unset), in
+`SearchOptions::default()`, and in the exact-miss suggestion path, which used
+to run a hidden hybrid query and now runs the default. `hybrid` remains
+available as a mode flag, tuned exactly as §9.5 left it, and the harnesses
+continue to report it: the fusion machinery is not being unbuilt, it is being
+benched.
+
+**What this costs today, stated up front rather than discovered later.** On
+the only query set this project didn't write (§13.8, CoSQA, 1,200 real Bing
+queries):
+
+| mode | R@5 | MRR@10 |
+|---|---|---|
+| semantic (new default) | 0.083 | 0.048 |
+| hybrid (old default) | 0.208 | 0.133 |
+| bm25 (the bar) | 0.222 | 0.138 |
+
+The default gets 2.5× worse on real queries, today. The reasoning for taking
+that trade anyway:
+
+1. **Hybrid was grading the project on a strength it didn't build.** §13.10
+   measured that in hybrid, BM25 carries the fused result — 97% of queries come
+   back unchanged when the semantic branch is reranked. Every published hybrid
+   number was, to first order, a BM25 number. A default that looks healthy
+   while its distinguishing component contributes 3% removes all pressure to
+   fix that component.
+2. **The thing only semantic can do is the thesis.** §13.9: a ripgrep allowed
+   to read the answer before choosing its pattern scores exactly 0.000 on 199
+   paraphrase queries; semantic scores 0.04. That 0.04 is the entire reason
+   this project exists — and it is 0.04. The capability is real and tiny, and
+   it stays tiny while the default hides it.
+3. **The failure is understood and layered** (§9.8, §9.9): the prose tokenizer
+   shreds identifiers, static vectors carry no context, and the space lacks
+   code-concept relations. Layer 1 has a cheap, documented, never-implemented
+   fix (§14.2). Layer 3 has a known fix path (re-distill from a code teacher,
+   §9.9). Neither gets built while the fused default makes them look optional.
+
+Falsifiable exit condition, so this decision can be graded rather than
+re-argued: **semantic beats bm25 on CoSQA R@5** (currently 0.083 vs 0.222).
+When that holds, re-measure hybrid on top of the stronger branch and decide
+the default again with §9.5's sweep. If after the §14.2 campaign and a model
+swap semantic still hasn't closed the gap, that is a finding about static
+prose embeddings on code, and it goes here next to everything else.
+
+Side effect worth naming: MaxSim reranking is on by default in semantic mode
+(+0.080 R@5 on etcd, CI [+0.010, +0.155], §13.10), so the default search now
+includes the rerank stage. Warm default latency moves from hybrid's ~115 ms to
+semantic's ~53 ms plus the rerank head.
+
+### 14.2 The hypothesis: the embedder is shown the wrong text
+
+What the embedding stack actually sees today: `doc_text()` = the relative path,
+a newline, and the raw chunk slice — operators, delimiters, decorators, string
+noise and all — pushed through ese's BERT-style prose pipeline. §9.8 measured
+what that does at the token level:
+
+- `scalar_None` → `[scalar, _, none]`: snake_case shreds, and the highest-signal
+  unit in the chunk never exists as a matchable token.
+- Punctuation tokens are first-class: `_` matches `_` anywhere with cosine
+  1.000, pure noise mass under mean pooling.
+- camelCase, inconsistently, does *not* split: `computeBackoffDelay` stays one
+  OOV-ish blob the wordpiece vocab fragments arbitrarily.
+- The §9.8 fix path — "use semgrep's own code-aware BM25 tokenizer for the
+  match units" — was documented for MaxSim and never applied to the pooled
+  vectors that every semantic search actually scores.
+
+The hypothesis (maintainer's, and §9.8's, independently): identifier words,
+file-path words, and comment prose carry nearly all of a chunk's semantic
+signal for a prose model; operators, values, decorators and syntax carry
+little and *detract* under uniform mean pooling, because every token —
+`{`, `_`, `->` — gets an equal share of the average. So: render the chunk into
+the prose the model was trained on before embedding it. `get_user_name` becomes
+`get user name`; punctuation contributes nothing; the query gets the identical
+rendering so both sides live in the same space.
+
+This is a layer-1 fix (§9.9's taxonomy). It cannot create code-concept
+relations the space lacks — no rendering makes `mutex` near `lock` — so it
+sharpens ese as the fuzzy lexical matcher it measurably is, and should move
+direct/real-query scores, not the paraphrase wall.
+
+No tree-sitter is required for this round: the code-aware tokenizer
+(`text/token.rs`) already splits snake_case and camelCase and drops
+punctuation, language-agnostically. A parser becomes worth its weight only for
+*structural* weighting (identifier-vs-literal, signature-vs-body), which is a
+follow-on lever, not a prerequisite — and §11's function-chunking result
+(no benefit, and the instrument couldn't referee it) says structure bets need
+better instruments before they need parsers.
+
+The lever: `--embed-preproc <variant>` at index time, persisted in
+`meta.json` exactly as `sif` is, applied identically to chunks at build, to
+queries at search, and to the cold streaming path (cold == warm must survive
+this, FIXES.md #11). BM25 and keyword are untouched — their tokenizer already
+does this, which is part of why they win.
+
+### 14.3 Pre-registration (written before the first run)
+
+Conditions, per corpus — each is one index build:
+
+| tag | render |
+|---|---|
+| `none` | today's raw `doc_text` (control) |
+| `split` | code-aware tokens, subtokens only: `getUserName` → `get user name` |
+| `split-whole` | subtokens + whole identifier: `… get user name getusername` |
+| `split-nokw` | `split` minus language keywords and pure-number tokens |
+| `split-sif` | `split` with `--sif` pooling (data-driven downweighting on top) |
+
+Corpora and sets: CoSQA (primary, real queries), linux + vscode (direct and
+paraphrase strata), tokio + etcd (the <2k-file band where §9.7 found variants
+actually diverge). Mode under test: `semantic`. `bm25` is rerun once per corpus
+as the bar and a tripwire — its pipeline is untouched, so any movement there
+is a bug in the lever, not a result. Scoring: `eval/run_eval.py`, R@5 primary,
+MRR@10 secondary, paired bootstrap CIs against `none`, sign tests.
+
+Predictions, with the §13.4 convention that a miss is recorded as a miss:
+
+1. **CoSQA semantic R@5: 0.083 → 0.11–0.16 for `split`.** Mechanism: mean
+   pooling stops spending mass on punctuation pieces and shredded fragments.
+   Below 0.10 the hypothesis is substantially wrong; above 0.16 I underrated
+   surface noise.
+2. **`split` does not reach bm25 (0.222) on CoSQA.** Layer 1 alone shouldn't
+   close a 2.7× gap. If it does, §9.9's "the model is the bottleneck" needs
+   revision, which would be the best possible outcome of this experiment.
+3. **Kernel/vscode `direct` improves under `split`** — both sides now emit the
+   same subtoken stream, strengthening exactly the fuzzy-lexical channel §9.9
+   says semantic mode really is.
+4. **Kernel `paraphrase` stays ≤ 0.08** (currently ~0.04). No rendering
+   creates the missing relations. If paraphrase moves materially, layer 1 was
+   a bigger share of the wall than three sections of forensics concluded.
+5. **`split-nokw` ≥ `split` on CoSQA; `split-sif` ≈ best overall.** Keyword
+   mass is noise under uniform pooling; SIF should learn most of what the
+   stoplist hand-codes, making `nokw`'s edge mostly vanish under `sif`.
+6. **bm25 identical to three decimals across conditions** (tripwire).
+

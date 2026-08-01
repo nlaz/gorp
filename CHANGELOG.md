@@ -4,6 +4,17 @@ Findings and performance improvements, newest first. Measured numbers are
 medians on an M-series Mac; "kernel" = Linux 6.9 source (1.15 GB, 1.51M
 chunks). Full data: `RESULTS.md`, `bench/results/`, `eval/data/`.
 
+## 2026-08-01 — semantic-first: the default mode is now `semantic`
+
+Maintainer decision, recorded with its cost in RESEARCH.md §14: the success
+criterion for this project is semantic search beating lexical on real queries,
+and a hybrid default whose fused result is 97% BM25 (§13.10) was hiding the
+component under test. `--mode hybrid` remains, tuned as before; the exact-miss
+suggestion path follows the default. Known cost today: CoSQA R@5 0.208 → 0.083
+until the §14.2 preprocessing campaign and the model work close the gap —
+that trade is the point, not an oversight. MaxSim reranking is on in semantic
+mode, so it is now part of the default search.
+
 ## 2026-07-30 — reorganization: layers, and the defects it surfaced
 
 Restructured `semgrep-core` into six layers with a one-way dependency rule

@@ -98,7 +98,9 @@ pub struct SearchOptions {
 impl Default for SearchOptions {
     fn default() -> Self {
         Self {
-            mode: Mode::Hybrid,
+            // Semantic-first: RESEARCH.md §14. Hybrid stays available as an
+            // explicit mode; it returns as default when semantic carries it.
+            mode: Mode::Semantic,
             k: 10,
             no_index: false,
             use_hnsw: true,

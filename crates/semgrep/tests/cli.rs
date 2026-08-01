@@ -272,7 +272,7 @@ fn the_trace_file_records_every_engine_invocation_including_the_hidden_one() {
     // An exact-mode miss over an indexed scope runs a *second*, complete
     // `search()` to build its suggestion. `--stats` never showed it — it
     // describes the primary result only — so the cost of a failed `-e` looked
-    // like a keyword scan when it was a keyword scan plus a hybrid query.
+    // like a keyword scan when it was a keyword scan plus a ranked query.
     let sg = Sg::new();
     let trace = sg.cache.join("trace.jsonl");
     let trace_s = trace.to_string_lossy().into_owned();
@@ -298,7 +298,7 @@ fn the_trace_file_records_every_engine_invocation_including_the_hidden_one() {
         "both invocations belong to one command"
     );
     assert_eq!(records[0]["input"]["mode"], "keyword");
-    assert_eq!(records[1]["input"]["mode"], "hybrid");
+    assert_eq!(records[1]["input"]["mode"], "semantic");
     assert_eq!(records[1]["input"]["mode_reason"], "exact-miss-suggestion");
 
     // Two index resolutions for one failed `-e`, neither of them the user's:

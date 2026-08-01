@@ -33,8 +33,8 @@ Both are consumed as path dependencies (`../anny`, `../ese`) for now.
 | ---------- | ---------- | ---------------- | -------------- |
 | `keyword`  | Regex/literal match, grep semantics | Parallel scan via ripgrep's own crates (`grep-regex`, `grep-searcher`, `ignore`) | Same scan (no keyword index in v1 — rg is already near-optimal here; this keeps our keyword numbers honest) |
 | `bm25`     | Ranked lexical search over chunks | One-pass in-memory index build, then query | Serialized postings |
-| `semantic` | Embedding similarity over chunks | Stream files → chunk → `ese::encode` → brute-force top-k (bounded memory: only a k-heap retained) | Default: exact rayon brute-force over the mmap'd embedding matrix (memory-light; ~2 GB of vectors would otherwise sit resident in HNSW for a kernel-sized corpus). `semgrep index --hnsw` opts into the `anny` graph for ~ms queries; benchmarks compare both. |
-| `hybrid`   | Reciprocal-rank fusion of `bm25` + `semantic` (default mode) | Both cold paths share one corpus pass | Both warm paths |
+| `semantic` | Embedding similarity over chunks (default mode — semantic-first, RESEARCH.md §14) | Stream files → chunk → `ese::encode` → brute-force top-k (bounded memory: only a k-heap retained) | Default: exact rayon brute-force over the mmap'd embedding matrix (memory-light; ~2 GB of vectors would otherwise sit resident in HNSW for a kernel-sized corpus). `semgrep index --hnsw` opts into the `anny` graph for ~ms queries; benchmarks compare both. |
+| `hybrid`   | Reciprocal-rank fusion of `bm25` + `semantic` (off by default until semantic carries its weight, RESEARCH.md §14) | Both cold paths share one corpus pass | Both warm paths |
 
 **Why chunks for both BM25 and semantic:** one document table, one granularity,
 so fusion and eval scoring are apples-to-apples, and every result maps back to
@@ -81,8 +81,8 @@ falls back to exact brute-force over `emb.bin`.
 ## CLI
 
 ```
-semgrep <QUERY> [PATH]              # search (default mode: hybrid; auto-uses .semgrep/ if present & fresh)
-  --mode hybrid|keyword|bm25|semantic
+semgrep <QUERY> [PATH]              # search (default mode: semantic; auto-uses .semgrep/ if present & fresh)
+  --mode semantic|keyword|bm25|hybrid
   -k, --top N                   # ranked modes, default 10
   -C, --context N               # context lines around the hit line
   -i, --ignore-case             # keyword mode

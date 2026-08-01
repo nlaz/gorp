@@ -97,7 +97,7 @@ pub struct Cli {
 /// name. A caller who has to pick an engine has already been failed.
 #[derive(Args, Clone)]
 pub struct Tuning {
-    /// hybrid | keyword | bm25 | semantic (harness use; -e beats this)
+    /// semantic (default) | keyword | bm25 | hybrid (harness use; -e beats this)
     #[arg(long, hide = true)]
     pub mode: Option<String>,
 

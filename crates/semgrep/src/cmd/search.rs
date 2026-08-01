@@ -70,14 +70,16 @@ pub fn run(cli: &Cli, query: &str) -> Result<i32> {
 }
 
 /// `-e` wins over `--mode`: the explicit contract beats the harness knob.
-/// Returns why, because "hybrid" in a trace is ambiguous between asked-for and
-/// defaulted-to, and the two are different experiments.
+/// Returns why, because "semantic" in a trace is ambiguous between asked-for
+/// and defaulted-to, and the two are different experiments.
 fn resolve_mode(cli: &Cli) -> Result<(Mode, &'static str)> {
     if cli.exact {
         return Ok((Mode::Keyword, "exact-flag"));
     }
     match cli.tuning.mode.as_deref() {
-        None => Ok((Mode::Hybrid, "default")),
+        // Semantic-first (RESEARCH.md §14): hybrid is off by default until the
+        // semantic branch carries its own weight.
+        None => Ok((Mode::Semantic, "default")),
         Some("hybrid") => Ok((Mode::Hybrid, "mode-flag")),
         Some("keyword") => Ok((Mode::Keyword, "mode-flag")),
         Some("bm25") => Ok((Mode::Bm25, "mode-flag")),
@@ -150,7 +152,7 @@ fn suggest_ranked_alternatives(
     // No cold-start notice: this path already refused to run unless an index
     // exists, so it can never be the search that builds one.
     let ranked_opts =
-        SearchOptions { mode: Mode::Hybrid, k: 3, on_first_search: None, ..opts.clone() };
+        SearchOptions { mode: Mode::Semantic, k: 3, on_first_search: None, ..opts.clone() };
     let Ok(ranked) = search(root, query, &ranked_opts) else { return false };
     // A whole second engine invocation, and until now it appeared in no report
     // at all: `--stats` describes the primary search only, so an exact miss
@@ -158,7 +160,7 @@ fn suggest_ranked_alternatives(
     telemetry::emit(
         &telemetry::search_envelope(
             Phase::Suggest,
-            Mode::Hybrid,
+            Mode::Semantic,
             "exact-miss-suggestion",
             root,
             query,
