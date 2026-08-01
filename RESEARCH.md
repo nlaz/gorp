@@ -2586,3 +2586,100 @@ Predictions, with the §13.4 convention that a miss is recorded as a miss:
    stoplist hand-codes, making `nokw`'s edge mostly vanish under `sif`.
 6. **bm25 identical to three decimals across conditions** (tripwire).
 
+### 14.4 Results (2026-08-01, same day; eval/preproc.sh, 2,798 queries × 5–6 conditions)
+
+Semantic mode as shipped (MaxSim on). Note the baseline correction first: §14.1
+quoted CoSQA semantic at 0.083 from §13.8, but §13.8 predates MaxSim becoming
+semantic mode's default — the shipped baseline this campaign measured is
+**0.108**. Deltas below are against that, paired per query, 2,000-resample
+bootstrap CIs, exact sign tests.
+
+**CoSQA (1,200 real queries, the primary set):**
+
+| condition | R@5 | Δ vs none | 95% CI | sign test |
+|---|---|---|---|---|
+| none | 0.108 | — | — | — |
+| split | 0.116 | +0.007 | [−0.006, +0.022] | p=0.33 |
+| split-whole | 0.110 | +0.002 | [−0.012, +0.016] | p=0.90 |
+| split-nokw | 0.117 | +0.008 | [−0.006, +0.023] | p=0.29 |
+| sif (control, added post-hoc) | 0.170 | +0.062 | [+0.043, +0.081] | 109w/35l, p≈0 |
+| **split-sif** | **0.188** | **+0.080** | [+0.060, +0.099] | 133w/37l, p≈0 |
+| bm25 (the bar) | 0.222 | | | |
+
+MRR@10: 0.078 → 0.125 (split-sif, CI [+0.033, +0.060]). `split-sif` beats
+`sif` alone by +0.018 (CI [+0.001, +0.037], p=0.045) — both components are
+real, and they compose. **The shipped semantic mode now recovers 85% of
+bm25's R@5 on real queries, from 49% at §13.8.** The gap is 1.18×, down
+from 2.7×.
+
+**The other corpora, split-sif vs none, semantic R@5:**
+
+| corpus | lang/case | direct Δ | paraphrase Δ |
+|---|---|---|---|
+| vscode | TS, camelCase | 0.710 → 0.825 (+0.115, p≈0) | 0.030 → 0.090 (+0.060, p=0.012) |
+| etcd | Go, camelCase | 0.420 → 0.595 (+0.175, p≈0) | −0.015 (n.s.) |
+| tokio | Rust, snake_case | +0.015 (n.s.) | +0.005 (n.s.) |
+| linux | C, snake_case | −0.005 (n.s.) | 0.010 → 0.035 (+0.025, 5w/0l, p=0.06) |
+
+On vscode, `split` *alone* is +0.075 direct (p=0.006) and `split-whole`
++0.115 (p<1e-4); on CoSQA and the kernel, `split` alone is noise.
+
+**The mechanism, resolved into two facets.** The failure was always "mean
+pooling over a noisy token stream" (§9.8). Rendering fixes the *units* — and
+pays exactly where ese's prose tokenizer couldn't already produce them:
+camelCase corpora (TS +0.115, Go +0.175). It pays ~nothing where the
+tokenizer already splits on `_` (Python, Rust, C). SIF fixes the *weights* —
+and pays where the units were fine but boilerplate drowned them: +0.062 on
+real Python queries. Each lever is null exactly where the other's problem
+dominates, which is why no single-lever condition ever showed this and why
+§9.4 — which never had a real-query set — benched SIF as a loser. CoSQA
+didn't exist here until §13.8; the biggest single finding of this campaign is
+that **SIF's 2026-07-28 rejection was an artifact of synthetic queries**.
+
+**Prediction scorecard (§14.3):**
+
+1. CoSQA split → [0.11, 0.16]: lands 0.116, inside the band — but the band's
+   premise (baseline 0.083) was wrong, and against the true 0.108 baseline
+   the delta is noise. Scored as a **miss**: the mechanism (punctuation-noise
+   removal) barely matters on a snake_case corpus.
+2. split doesn't reach bm25 on CoSQA: **hit** (even split-sif at 0.188 < 0.222).
+3. direct improves under split: **half-hit** — decisively on camelCase
+   corpora, null on snake_case ones. The prediction failed to condition on
+   what the corpus's identifier convention leaves for the renderer to do.
+4. Kernel paraphrase ≤ 0.08: **hit** (0.035 at best). And a detail worth its
+   own sentence: at 0.035, semantic-with-split-sif now *ties bm25* on kernel
+   paraphrase — the wall holds, but semantic no longer trails lexical behind it.
+5. split-nokw ≥ split (0.117 vs 0.116, both n.s.); split-sif best overall:
+   **hit**, but for the wrong reason — SIF didn't merely subsume the
+   stoplist, it carried the condition.
+6. bm25 unmoved: **miss as stated.** CoSQA bm25 read 0.219 under `split`
+   (Δ −0.003, CI [−0.013, +0.007], n.s.). The lever cannot touch BM25
+   *scoring*, but bm25-mode output passes through MMR diversification, which
+   reads the (now rendered) embedding matrix. A tripwire that fires on a
+   coupling you forgot is doing its job; the coupling is real, the magnitude
+   is noise.
+
+### 14.5 What graduates, and what gates it
+
+`--embed-preproc split --sif` is the recommended index configuration for the
+semantic-first campaign, and the numbers above are the §14.1 scoreboard's
+first movement (CoSQA 0.108 → 0.188 against bm25's 0.222). It is **not**
+being made the default build in this commit: offline gains have failed to
+transfer to agent outcomes twice (§9.7, §10.6), and the standing rule is that
+engine defaults move on agent-level evidence. The gate, in order of cost:
+
+1. **Query replay** (§13.2, free): rerun the logged agent argv through a
+   split-sif index vs default. If the gain shows on real agent queries, that
+   is §11.5's recommended instrument saying yes.
+2. If replay agrees, flip the default build and re-record the snapshot in
+   that commit; the cache generation mechanism retires old entries.
+
+Next levers, in leverage order: re-test the §10 code table *on top of*
+split-sif (the table fixed the space, this fixed the stream — the two
+failures were independent, so the fixes should stack); then sif-center and
+`--sif-a` retuning on CoSQA (both were tuned on synthetic sets). Tree-sitter
+remains unneeded: everything above is tokenizer-level. A parser earns its
+place only for structural weighting (signature vs body, identifier vs
+literal), and §11's lesson stands — that bet needs the replay instrument
+first, not a grammar.
+

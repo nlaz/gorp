@@ -4,6 +4,20 @@ Findings and performance improvements, newest first. Measured numbers are
 medians on an M-series Mac; "kernel" = Linux 6.9 source (1.15 GB, 1.51M
 chunks). Full data: `RESULTS.md`, `bench/results/`, `eval/data/`.
 
+## 2026-08-01 — embed preprocessing: semantic recovers 85% of bm25 on real queries
+
+The §14.3 campaign (5 corpora, 2,798 queries, paired stats): rendering code
+as prose before embedding (`--embed-preproc split`) plus SIF pooling takes
+CoSQA semantic R@5 from 0.108 to **0.188** (CI [+0.060, +0.099], 133w/37l)
+against bm25's 0.222 — the gap falls from 2.7× (§13.8) to 1.18×. Two facets
+of one failure: rendering fixes the token *units* and pays on camelCase
+corpora (vscode direct +0.115, etcd +0.175); SIF fixes the *weights* and
+pays on real snake_case queries (+0.062) — and §9.4's rejection of SIF turns
+out to have been an artifact of synthetic query sets. Kernel paraphrase wall
+stands (0.035 at best) but semantic now ties bm25 behind it. Not yet the
+default build: gated on query replay (§14.5), per the twice-learned §9.7
+lesson. Full record: RESEARCH.md §14.4.
+
 ## 2026-08-01 — semantic-first: the default mode is now `semantic`
 
 Maintainer decision, recorded with its cost in RESEARCH.md §14: the success

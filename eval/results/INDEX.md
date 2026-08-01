@@ -4,12 +4,38 @@
 The per-query ranks in the JSON files are the source of truth; this
 is a view of them. `--check` fails if the two have diverged.
 
-95 runs, 40,666 per-query ranks recorded.
+121 runs, 61,452 per-query ranks recorded.
 
 ## Runs
 
 | run | query set | corpus | cells | ranks | when | git | provenance |
 |---|---|---|---|---|---|---|---|
+| `lever-linux-preproc-split-sif` | unknown (fp 46fc2ea43fcb30be) | bench/corpora/linux | 2 | 398 | 2026-08-01 | 72d7c22 | yes |
+| `lever-linux-preproc-split-nokw` | unknown (fp 46fc2ea43fcb30be) | bench/corpora/linux | 2 | 398 | 2026-08-01 | 72d7c22 | yes |
+| `lever-linux-preproc-split-whole` | unknown (fp 46fc2ea43fcb30be) | bench/corpora/linux | 2 | 398 | 2026-08-01 | 72d7c22 | yes |
+| `lever-linux-preproc-split` | unknown (fp 46fc2ea43fcb30be) | bench/corpora/linux | 4 | 796 | 2026-08-01 | 72d7c22 | yes |
+| `lever-cosqa-preproc-sif` | unknown (fp a9006a29f625c5b9) | eval/data/cosqa/corpus | 1 | 1,200 | 2026-08-01 | 72d7c22 | yes |
+| `lever-linux-preproc-none` | unknown (fp 46fc2ea43fcb30be) | bench/corpora/linux | 4 | 796 | 2026-08-01 | 72d7c22 | yes |
+| `lever-cosqa-preproc-split-sif` | unknown (fp a9006a29f625c5b9) | eval/data/cosqa/corpus | 1 | 1,200 | 2026-08-01 | 72d7c22 | yes |
+| `lever-cosqa-preproc-split-nokw` | unknown (fp a9006a29f625c5b9) | eval/data/cosqa/corpus | 1 | 1,200 | 2026-08-01 | 72d7c22 | yes |
+| `lever-cosqa-preproc-split-whole` | unknown (fp a9006a29f625c5b9) | eval/data/cosqa/corpus | 1 | 1,200 | 2026-08-01 | 72d7c22 | yes |
+| `lever-cosqa-preproc-split` | unknown (fp a9006a29f625c5b9) | eval/data/cosqa/corpus | 2 | 2,400 | 2026-08-01 | 72d7c22 | yes |
+| `lever-cosqa-preproc-none` | unknown (fp a9006a29f625c5b9) | eval/data/cosqa/corpus | 2 | 2,400 | 2026-08-01 | 72d7c22 | yes |
+| `lever-vscode-preproc-split-sif` | unknown (fp 7578782896e9f02e) | bench/corpora/vscode | 2 | 400 | 2026-08-01 | 72d7c22 | yes |
+| `lever-vscode-preproc-split-nokw` | unknown (fp 7578782896e9f02e) | bench/corpora/vscode | 2 | 400 | 2026-08-01 | 72d7c22 | yes |
+| `lever-vscode-preproc-split-whole` | unknown (fp 7578782896e9f02e) | bench/corpora/vscode | 2 | 400 | 2026-08-01 | 72d7c22 | yes |
+| `lever-vscode-preproc-split` | unknown (fp 7578782896e9f02e) | bench/corpora/vscode | 4 | 800 | 2026-08-01 | 72d7c22 | yes |
+| `lever-vscode-preproc-none` | unknown (fp 7578782896e9f02e) | bench/corpora/vscode | 4 | 800 | 2026-08-01 | 72d7c22 | yes |
+| `lever-etcd-preproc-split-sif` | unknown (fp c5ff8f3b1e947e2e) | bench/corpora/etcd | 2 | 400 | 2026-08-01 | 72d7c22 | yes |
+| `lever-etcd-preproc-split-nokw` | unknown (fp c5ff8f3b1e947e2e) | bench/corpora/etcd | 2 | 400 | 2026-08-01 | 72d7c22 | yes |
+| `lever-etcd-preproc-split-whole` | unknown (fp c5ff8f3b1e947e2e) | bench/corpora/etcd | 2 | 400 | 2026-08-01 | 72d7c22 | yes |
+| `lever-etcd-preproc-split` | unknown (fp c5ff8f3b1e947e2e) | bench/corpora/etcd | 4 | 800 | 2026-08-01 | 72d7c22 | yes |
+| `lever-etcd-preproc-none` | unknown (fp c5ff8f3b1e947e2e) | bench/corpora/etcd | 4 | 800 | 2026-08-01 | 72d7c22 | yes |
+| `lever-tokio-preproc-split-sif` | unknown (fp cfaeed9fe176d1a4) | bench/corpora/tokio | 2 | 400 | 2026-08-01 | 72d7c22 | yes |
+| `lever-tokio-preproc-split-nokw` | unknown (fp cfaeed9fe176d1a4) | bench/corpora/tokio | 2 | 400 | 2026-08-01 | 72d7c22 | yes |
+| `lever-tokio-preproc-split-whole` | unknown (fp cfaeed9fe176d1a4) | bench/corpora/tokio | 2 | 400 | 2026-08-01 | 84ac398 | yes |
+| `lever-tokio-preproc-split` | unknown (fp cfaeed9fe176d1a4) | bench/corpora/tokio | 4 | 800 | 2026-08-01 | 84ac398 | yes |
+| `lever-tokio-preproc-none` | unknown (fp cfaeed9fe176d1a4) | bench/corpora/tokio | 4 | 800 | 2026-08-01 | 84ac398 | yes |
 | `sem96-cosqa` | unknown (fp a9006a29f625c5b9) | eval/data/cosqa/corpus | 1 | 1,200 | 2026-07-31 | 5c6a10c | yes |
 | `sem96-linux` | unknown (fp 46fc2ea43fcb30be) | bench/corpora/linux | 2 | 398 | 2026-07-31 | 956d54d | yes |
 | `sem96-vscode` | unknown (fp 7578782896e9f02e) | bench/corpora/vscode | 2 | 400 | 2026-07-31 | 956d54d | yes |
@@ -157,6 +183,28 @@ is a view of them. `--check` fails if the two have diverged.
 | `fnchunk-vscode` | hybrid | paraphrase | 200 | 0.030 | 0.120 | 0.175 | 0.069 |
 | `fnchunk-vscode` | semantic | direct | 200 | 0.295 | 0.545 | 0.635 | 0.400 |
 | `fnchunk-vscode` | semantic | paraphrase | 200 | 0.000 | 0.010 | 0.020 | 0.006 |
+| `lever-cosqa-preproc-none` | bm25 | real | 1200 | 0.074 | 0.222 | 0.325 | 0.138 |
+| `lever-cosqa-preproc-none` | semantic | real | 1200 | 0.051 | 0.108 | 0.173 | 0.078 |
+| `lever-cosqa-preproc-sif` | semantic | real | 1200 | 0.062 | 0.170 | 0.259 | 0.110 |
+| `lever-cosqa-preproc-split` | bm25 | real | 1200 | 0.074 | 0.219 | 0.324 | 0.138 |
+| `lever-cosqa-preproc-split` | semantic | real | 1200 | 0.046 | 0.116 | 0.183 | 0.079 |
+| `lever-cosqa-preproc-split-nokw` | semantic | real | 1200 | 0.043 | 0.117 | 0.177 | 0.074 |
+| `lever-cosqa-preproc-split-sif` | semantic | real | 1200 | 0.076 | 0.188 | 0.286 | 0.125 |
+| `lever-cosqa-preproc-split-whole` | semantic | real | 1200 | 0.046 | 0.110 | 0.177 | 0.076 |
+| `lever-etcd-preproc-none` | bm25 | direct | 200 | 0.435 | 0.705 | 0.790 | 0.548 |
+| `lever-etcd-preproc-none` | bm25 | paraphrase | 200 | 0.020 | 0.065 | 0.095 | 0.041 |
+| `lever-etcd-preproc-none` | semantic | direct | 200 | 0.270 | 0.420 | 0.530 | 0.336 |
+| `lever-etcd-preproc-none` | semantic | paraphrase | 200 | 0.015 | 0.060 | 0.075 | 0.031 |
+| `lever-etcd-preproc-split` | bm25 | direct | 200 | 0.435 | 0.695 | 0.790 | 0.549 |
+| `lever-etcd-preproc-split` | bm25 | paraphrase | 200 | 0.020 | 0.065 | 0.095 | 0.040 |
+| `lever-etcd-preproc-split` | semantic | direct | 200 | 0.380 | 0.610 | 0.715 | 0.484 |
+| `lever-etcd-preproc-split` | semantic | paraphrase | 200 | 0.000 | 0.075 | 0.095 | 0.031 |
+| `lever-etcd-preproc-split-nokw` | semantic | direct | 200 | 0.405 | 0.615 | 0.715 | 0.496 |
+| `lever-etcd-preproc-split-nokw` | semantic | paraphrase | 200 | 0.015 | 0.070 | 0.090 | 0.034 |
+| `lever-etcd-preproc-split-sif` | semantic | direct | 200 | 0.420 | 0.595 | 0.685 | 0.497 |
+| `lever-etcd-preproc-split-sif` | semantic | paraphrase | 200 | 0.020 | 0.045 | 0.075 | 0.032 |
+| `lever-etcd-preproc-split-whole` | semantic | direct | 200 | 0.400 | 0.605 | 0.720 | 0.490 |
+| `lever-etcd-preproc-split-whole` | semantic | paraphrase | 200 | 0.000 | 0.075 | 0.090 | 0.028 |
 | `lever-linux-base` | bm25 | direct | 199 | 0.698 | 0.920 | 0.950 | 0.796 |
 | `lever-linux-base` | bm25 | paraphrase | 199 | 0.005 | 0.035 | 0.065 | 0.019 |
 | `lever-linux-base` | hybrid | direct | 199 | 0.633 | 0.905 | 0.955 | 0.745 |
@@ -203,6 +251,20 @@ is a view of them. `--check` fails if the two have diverged.
 | `lever-linux-mp96` | hybrid | paraphrase | 199 | 0.005 | 0.040 | 0.060 | 0.020 |
 | `lever-linux-mp96` | semantic | direct | 199 | 0.593 | 0.759 | 0.779 | 0.665 |
 | `lever-linux-mp96` | semantic | paraphrase | 199 | 0.005 | 0.020 | 0.020 | 0.010 |
+| `lever-linux-preproc-none` | bm25 | direct | 199 | 0.698 | 0.920 | 0.945 | 0.797 |
+| `lever-linux-preproc-none` | bm25 | paraphrase | 199 | 0.005 | 0.035 | 0.065 | 0.019 |
+| `lever-linux-preproc-none` | semantic | direct | 199 | 0.578 | 0.739 | 0.759 | 0.641 |
+| `lever-linux-preproc-none` | semantic | paraphrase | 199 | 0.000 | 0.010 | 0.015 | 0.003 |
+| `lever-linux-preproc-split` | bm25 | direct | 199 | 0.698 | 0.920 | 0.945 | 0.795 |
+| `lever-linux-preproc-split` | bm25 | paraphrase | 199 | 0.005 | 0.035 | 0.065 | 0.019 |
+| `lever-linux-preproc-split` | semantic | direct | 199 | 0.598 | 0.749 | 0.774 | 0.663 |
+| `lever-linux-preproc-split` | semantic | paraphrase | 199 | 0.000 | 0.010 | 0.015 | 0.005 |
+| `lever-linux-preproc-split-nokw` | semantic | direct | 199 | 0.628 | 0.764 | 0.784 | 0.687 |
+| `lever-linux-preproc-split-nokw` | semantic | paraphrase | 199 | 0.000 | 0.010 | 0.015 | 0.003 |
+| `lever-linux-preproc-split-sif` | semantic | direct | 199 | 0.643 | 0.734 | 0.764 | 0.682 |
+| `lever-linux-preproc-split-sif` | semantic | paraphrase | 199 | 0.010 | 0.035 | 0.035 | 0.017 |
+| `lever-linux-preproc-split-whole` | semantic | direct | 199 | 0.608 | 0.749 | 0.774 | 0.666 |
+| `lever-linux-preproc-split-whole` | semantic | paraphrase | 199 | 0.000 | 0.010 | 0.015 | 0.005 |
 | `lever-linux-prf` | bm25 | direct | 199 | 0.236 | 0.653 | 0.774 | 0.411 |
 | `lever-linux-prf` | bm25 | paraphrase | 199 | 0.020 | 0.040 | 0.070 | 0.030 |
 | `lever-linux-prf` | hybrid | direct | 199 | 0.377 | 0.734 | 0.814 | 0.523 |
@@ -231,6 +293,20 @@ is a view of them. `--check` fails if the two have diverged.
 | `lever-linux-sifc` | hybrid | paraphrase | 199 | 0.005 | 0.035 | 0.055 | 0.018 |
 | `lever-linux-sifc` | semantic | direct | 199 | 0.573 | 0.658 | 0.678 | 0.610 |
 | `lever-linux-sifc` | semantic | paraphrase | 199 | 0.010 | 0.020 | 0.025 | 0.014 |
+| `lever-tokio-preproc-none` | bm25 | direct | 200 | 0.420 | 0.710 | 0.785 | 0.534 |
+| `lever-tokio-preproc-none` | bm25 | paraphrase | 200 | 0.035 | 0.090 | 0.125 | 0.062 |
+| `lever-tokio-preproc-none` | semantic | direct | 200 | 0.310 | 0.530 | 0.635 | 0.408 |
+| `lever-tokio-preproc-none` | semantic | paraphrase | 200 | 0.025 | 0.045 | 0.065 | 0.036 |
+| `lever-tokio-preproc-split` | bm25 | direct | 200 | 0.420 | 0.700 | 0.790 | 0.534 |
+| `lever-tokio-preproc-split` | bm25 | paraphrase | 200 | 0.035 | 0.085 | 0.125 | 0.061 |
+| `lever-tokio-preproc-split` | semantic | direct | 200 | 0.310 | 0.515 | 0.615 | 0.396 |
+| `lever-tokio-preproc-split` | semantic | paraphrase | 200 | 0.020 | 0.070 | 0.090 | 0.040 |
+| `lever-tokio-preproc-split-nokw` | semantic | direct | 200 | 0.290 | 0.515 | 0.595 | 0.386 |
+| `lever-tokio-preproc-split-nokw` | semantic | paraphrase | 200 | 0.020 | 0.060 | 0.095 | 0.038 |
+| `lever-tokio-preproc-split-sif` | semantic | direct | 200 | 0.345 | 0.545 | 0.655 | 0.426 |
+| `lever-tokio-preproc-split-sif` | semantic | paraphrase | 200 | 0.025 | 0.050 | 0.090 | 0.037 |
+| `lever-tokio-preproc-split-whole` | semantic | direct | 200 | 0.315 | 0.520 | 0.615 | 0.402 |
+| `lever-tokio-preproc-split-whole` | semantic | paraphrase | 200 | 0.015 | 0.070 | 0.085 | 0.035 |
 | `lever-vscode-base` | bm25 | direct | 200 | 0.745 | 0.880 | 0.885 | 0.803 |
 | `lever-vscode-base` | bm25 | paraphrase | 200 | 0.040 | 0.135 | 0.180 | 0.080 |
 | `lever-vscode-base` | hybrid | direct | 200 | 0.655 | 0.865 | 0.885 | 0.749 |
@@ -277,6 +353,20 @@ is a view of them. `--check` fails if the two have diverged.
 | `lever-vscode-mp96` | hybrid | paraphrase | 200 | 0.040 | 0.140 | 0.175 | 0.079 |
 | `lever-vscode-mp96` | semantic | direct | 200 | 0.580 | 0.745 | 0.765 | 0.647 |
 | `lever-vscode-mp96` | semantic | paraphrase | 200 | 0.010 | 0.025 | 0.030 | 0.016 |
+| `lever-vscode-preproc-none` | bm25 | direct | 200 | 0.745 | 0.880 | 0.885 | 0.803 |
+| `lever-vscode-preproc-none` | bm25 | paraphrase | 200 | 0.040 | 0.135 | 0.175 | 0.078 |
+| `lever-vscode-preproc-none` | semantic | direct | 200 | 0.540 | 0.710 | 0.730 | 0.611 |
+| `lever-vscode-preproc-none` | semantic | paraphrase | 200 | 0.010 | 0.030 | 0.050 | 0.020 |
+| `lever-vscode-preproc-split` | bm25 | direct | 200 | 0.745 | 0.880 | 0.885 | 0.804 |
+| `lever-vscode-preproc-split` | bm25 | paraphrase | 200 | 0.040 | 0.135 | 0.180 | 0.079 |
+| `lever-vscode-preproc-split` | semantic | direct | 200 | 0.595 | 0.785 | 0.805 | 0.674 |
+| `lever-vscode-preproc-split` | semantic | paraphrase | 200 | 0.020 | 0.075 | 0.085 | 0.040 |
+| `lever-vscode-preproc-split-nokw` | semantic | direct | 200 | 0.580 | 0.750 | 0.775 | 0.653 |
+| `lever-vscode-preproc-split-nokw` | semantic | paraphrase | 200 | 0.020 | 0.070 | 0.090 | 0.040 |
+| `lever-vscode-preproc-split-sif` | semantic | direct | 200 | 0.655 | 0.825 | 0.840 | 0.723 |
+| `lever-vscode-preproc-split-sif` | semantic | paraphrase | 200 | 0.040 | 0.090 | 0.100 | 0.060 |
+| `lever-vscode-preproc-split-whole` | semantic | direct | 200 | 0.645 | 0.825 | 0.850 | 0.720 |
+| `lever-vscode-preproc-split-whole` | semantic | paraphrase | 200 | 0.015 | 0.065 | 0.100 | 0.039 |
 | `lever-vscode-prf` | bm25 | direct | 200 | 0.435 | 0.795 | 0.840 | 0.569 |
 | `lever-vscode-prf` | bm25 | paraphrase | 200 | 0.040 | 0.110 | 0.145 | 0.069 |
 | `lever-vscode-prf` | hybrid | direct | 200 | 0.510 | 0.825 | 0.855 | 0.645 |
