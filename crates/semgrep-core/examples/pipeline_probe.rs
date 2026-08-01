@@ -99,13 +99,32 @@ fn main() {
     }
     sif.a = 1e-3;
 
-    let chunk_vecs: Vec<[Vec<f32>; 3]> = docs
+    // Treatments: [raw, split, split-sif, split-idf]. The last two share one
+    // stats object — only the weighting curve flips (§14.7).
+    let mut chunk_vecs: Vec<Vec<Vec<f32>>> = docs
         .iter()
         .zip(&rendered)
         .map(|(d, r)| {
-            [unit(embed_query(d)), unit(embed_query(r)), unit(embed_sif(r, &sif))]
+            vec![unit(embed_query(d)), unit(embed_query(r)), unit(embed_sif(r, &sif))]
         })
         .collect();
+    let query_texts: Vec<(String, String)> = SCENARIOS
+        .iter()
+        .map(|&(q, _, _)| (q.to_string(), prose_render(q, EmbedPreproc::Split).into_owned()))
+        .collect();
+    let mut query_vecs: Vec<Vec<Vec<f32>>> = query_texts
+        .iter()
+        .map(|(q, qr)| {
+            vec![unit(embed_query(q)), unit(embed_query(qr)), unit(embed_sif(qr, &sif))]
+        })
+        .collect();
+    sif.idf = true;
+    for (cv, r) in chunk_vecs.iter_mut().zip(&rendered) {
+        cv.push(unit(embed_sif(r, &sif)));
+    }
+    for (qv, (_, qr)) in query_vecs.iter_mut().zip(&query_texts) {
+        qv.push(unit(embed_sif(qr, &sif)));
+    }
 
     let mut bm25 = Bm25Index::new();
     for d in &docs {
@@ -115,19 +134,18 @@ fn main() {
 
     let scenarios: Vec<_> = SCENARIOS
         .iter()
-        .map(|&(q, gold, label)| {
-            let qr = prose_render(q, EmbedPreproc::Split).into_owned();
-            let qv =
-                [unit(embed_query(q)), unit(embed_query(&qr)), unit(embed_sif(&qr, &sif))];
+        .enumerate()
+        .map(|(si, &(q, gold, label))| {
+            let qv = &query_vecs[si];
             let cosines: Vec<Vec<f32>> = chunk_vecs
                 .iter()
-                .map(|cv| (0..3).map(|i| cos(&qv[i], &cv[i])).collect())
+                .map(|cv| (0..4).map(|i| cos(&qv[i], &cv[i])).collect())
                 .collect();
             let bm: Vec<(u32, f32)> = bm25.query(q, CHUNKS.len());
             json!({
                 "query": q, "gold": gold, "label": label,
-                "cosines": cosines,           // per chunk: [raw, split, split_sif]
-                "bm25": bm,                    // engine truth: (chunk_id, score) desc
+                "cosines": cosines,   // per chunk: [raw, split, split_sif, split_idf]
+                "bm25": bm,           // engine truth: (chunk_id, score) desc
             })
         })
         .collect();
