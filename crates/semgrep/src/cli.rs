@@ -190,6 +190,10 @@ pub enum Cmd {
         /// Subtract the sample-estimated common component (SIF second half)
         #[arg(long, hide = true)]
         sif_center: bool,
+        /// Weight pooling by BM25-style idf over document frequency instead
+        /// of a/(a+p) (experimental, RESEARCH.md §14.7)
+        #[arg(long, hide = true, requires = "sif")]
+        sif_idf: bool,
         /// Prose-render chunk text before embedding: none | split |
         /// split-whole | split-nokw (experimental, RESEARCH.md §14.2)
         #[arg(long, hide = true, default_value = "none")]

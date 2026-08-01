@@ -2729,3 +2729,28 @@ on camelCase identifier queries, even a ripgrep that reads the answer stops at
 (0.825). The §13.9 explanation transfers: choosing the right token is not the
 hard part; ranking the hundreds of files that contain it is.
 
+### 14.7 SIF vs idf weighting for the pooled vector (pre-registered 2026-08-01)
+
+SIF weights a token by a/(a + p(w)) over *collection* frequency; BM25's idf
+weights by log-scaled *document* frequency. Both say "common tokens carry
+less" — with different shapes: SIF is hyperbolic (crushes stopwords hard,
+saturates at 1.0 for everything rare, so `blkg` and `backoff` weigh the same),
+idf is logarithmic (gentler on common terms, still discriminating among rare
+ones). Since SIF turned out to be the biggest single lever on real queries
+(§14.4), the natural control is: was that *SIF's weighting shape*, or just
+*having any* frequency-based weighting? `--sif-idf` swaps the pooling weight
+to ln((n − df + ½)/(df + ½) + 1) over per-file document frequency, everything
+else identical — same rendered stream, same stats file, same query-side
+pooling, MaxSim token weights included.
+
+Conditions: `split-idf` vs the standing `split-sif` and `none`, semantic mode,
+CoSQA + vscode. Predictions, before the first run:
+
+1. **idf ≈ sif on CoSQA: |ΔR@5| ≤ 0.02, CI straddling 0.** After Σw
+   normalization, pooling should care *that* boilerplate is downweighted, not
+   about the precise curve doing it.
+2. **Both beat `none` decisively** (replicating §14.4's +0.080 shape).
+3. Weak directional guess, low confidence: if they separate, sif wins on
+   CoSQA — stopword-heavy real prose rewards the harder crush of common
+   tokens — and idf wins nowhere clearly.
+

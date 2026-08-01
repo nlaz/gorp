@@ -13,6 +13,7 @@ pub struct Args {
     pub sif: bool,
     pub sif_a: f64,
     pub sif_center: bool,
+    pub sif_idf: bool,
     pub embed_preproc: String,
     pub status: bool,
     pub window: u32,
@@ -42,6 +43,7 @@ pub fn run(args: Args) -> Result<i32> {
         sif: args.sif,
         sif_a: args.sif_a,
         sif_center: args.sif_center,
+        sif_idf: args.sif_idf,
         embed_preproc,
     };
     let stats = store::build(&root, &opts, |done, total| {

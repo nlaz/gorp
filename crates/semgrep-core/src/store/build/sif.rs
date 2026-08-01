@@ -33,9 +33,10 @@ pub fn count(root: &Path, files: &[FileMeta], opts: &super::BuildOptions) -> Sif
             stats.merge_counts(p);
         }
     }
-    // After the merge, never before: merge_counts deliberately ignores `a`, so
-    // setting it earlier would be silently discarded.
+    // After the merge, never before: merge_counts deliberately ignores
+    // configuration, so setting it earlier would be silently discarded.
     stats.a = opts.sif_a;
+    stats.idf = opts.sif_idf;
 
     if opts.sif_center {
         stats.mean = common_component(root, files, opts, &stats);

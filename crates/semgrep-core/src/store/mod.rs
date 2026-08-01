@@ -73,6 +73,9 @@ pub struct BuildOptions {
     pub sif_a: f64,
     /// Subtract the sample-estimated common component (SIF's second half).
     pub sif_center: bool,
+    /// Weight pooling by BM25-style idf over document frequency instead of
+    /// SIF's a/(a+p) (RESEARCH.md §14.7). Only meaningful with `sif`.
+    pub sif_idf: bool,
     /// Prose-render chunk text before embedding (RESEARCH.md §14.2).
     pub embed_preproc: crate::text::EmbedPreproc,
 }
@@ -85,6 +88,7 @@ impl Default for BuildOptions {
             sif: false,
             sif_a: crate::text::SIF_A,
             sif_center: false,
+            sif_idf: false,
             embed_preproc: crate::text::EmbedPreproc::None,
         }
     }

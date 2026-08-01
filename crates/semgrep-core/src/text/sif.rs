@@ -28,34 +28,65 @@ pub struct SifStats {
     pub a: f64,
     #[serde(default)]
     pub mean: Option<Vec<f32>>,
+    /// Document frequency: in how many `count` calls (files) each token
+    /// appeared. What idf weighting (§14.7) reads, as freqs is what SIF reads.
+    #[serde(default)]
+    pub df: std::collections::HashMap<String, u64>,
+    #[serde(default)]
+    pub n_docs: u64,
+    /// Weight by BM25-style idf over `df` instead of a/(a+p) over `freqs`
+    /// (--sif-idf, §14.7). Persisted so query pooling always matches chunks.
+    #[serde(default)]
+    pub idf: bool,
 }
 
 impl SifStats {
-    /// a/(a + p(w)); unseen tokens get the maximum weight (rare = strong).
+    /// SIF: a/(a + p(w)), unseen tokens get the maximum weight (rare =
+    /// strong). idf mode: ln((n − df + ½)/(df + ½) + 1), the BM25 curve.
     #[inline]
     pub fn weight(&self, token: &str) -> f32 {
+        if self.idf {
+            let n = self.n_docs.max(1) as f64;
+            let df = self.df.get(token).copied().unwrap_or(0) as f64;
+            return ((n - df + 0.5) / (df + 0.5) + 1.0).ln() as f32;
+        }
         let p =
             self.freqs.get(token).map(|&c| c as f64 / self.total.max(1) as f64).unwrap_or(0.0);
         (self.a / (self.a + p)) as f32
     }
 
-    /// Count `text`'s tokens into the stats (build-time pass 1).
+    /// Count one document's tokens into the stats (build-time pass 1).
+    /// A call is a document: collection counts land in `freqs`, presence
+    /// lands in `df` once per token however often it repeats.
     pub fn count(&mut self, text: &str) {
-        ese::for_each_token(text, |tok| {
-            *self.freqs.entry(tok.to_string()).or_insert(0) += 1;
-            self.total += 1;
+        let mut local: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
+        ese::for_each_token(text, |tok| match local.get_mut(tok) {
+            Some(c) => *c += 1,
+            None => {
+                local.insert(tok.to_string(), 1);
+            }
         });
+        self.n_docs += 1;
+        for (t, c) in local {
+            self.total += c;
+            *self.df.entry(t.clone()).or_insert(0) += 1;
+            *self.freqs.entry(t).or_insert(0) += c;
+        }
     }
 
-    /// Fold another shard's *counts* in. Deliberately not a full merge: `a` and
-    /// `mean` are configuration, not observations, and silently taking them from
-    /// whichever shard merged last is how a build ends up weighting chunks with
-    /// one constant and queries with another.
+    /// Fold another shard's *counts* in. Deliberately not a full merge: `a`,
+    /// `mean` and `idf` are configuration, not observations, and silently
+    /// taking them from whichever shard merged last is how a build ends up
+    /// weighting chunks with one constant and queries with another.
     pub fn merge_counts(&mut self, other: SifStats) {
         for (t, c) in other.freqs {
             *self.freqs.entry(t).or_insert(0) += c;
         }
+        for (t, c) in other.df {
+            *self.df.entry(t).or_insert(0) += c;
+        }
         self.total += other.total;
+        self.n_docs += other.n_docs;
     }
 }
 
@@ -100,4 +131,47 @@ pub fn token_vectors(text: &str, sif: Option<&SifStats>) -> Vec<(f32, Vec<f32>)>
         }
     });
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn stats() -> SifStats {
+        let mut s = SifStats::default();
+        // 4 documents; "common" in all of them, "rare" in one.
+        for i in 0..4 {
+            s.count(if i == 0 { "common rare common" } else { "common filler" });
+        }
+        s.a = SIF_A;
+        s
+    }
+
+    #[test]
+    fn both_weightings_rank_rare_above_common() {
+        let mut s = stats();
+        assert!(s.weight("rare") > s.weight("common"));
+        s.idf = true;
+        assert!(s.weight("rare") > s.weight("common"));
+    }
+
+    #[test]
+    fn idf_weight_is_the_bm25_curve_over_document_frequency() {
+        let mut s = stats();
+        s.idf = true;
+        // n=4, df(rare)=1: ln((4 − 1 + 0.5)/1.5 + 1). Repetition within a doc
+        // must not move df — "common" appears twice in doc 0 but df is 4.
+        assert!((s.weight("rare") - ((3.5f32 / 1.5) + 1.0).ln()).abs() < 1e-6);
+        assert_eq!(s.df.get("common"), Some(&4));
+        assert_eq!(s.freqs.get("common"), Some(&5));
+    }
+
+    #[test]
+    fn merge_folds_df_and_docs_like_the_other_counts() {
+        let mut a = stats();
+        let b = stats();
+        a.merge_counts(b);
+        assert_eq!(a.n_docs, 8);
+        assert_eq!(a.df.get("rare"), Some(&2));
+    }
 }
