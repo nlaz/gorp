@@ -3065,3 +3065,74 @@ stand. The primary regime becomes **agentic-guess search**, defined and
 pre-registered in §16. The boards become three: guess (primary), blind
 (model-experiment instrument), named-identifier (regression).
 
+## 16. Agentic-guess search (2026-08-02): the orientation
+
+### 16.1 The thesis and the data
+
+The product hypothesis, stated as something falsifiable: **a coding agent
+interprets a user request and guesses vocabulary; ranked search should make
+those guesses land faster than exact-matching the same guesses.** The agent's
+guess is the query distribution that matters — not the user's problem
+statement (blind, §15.10) and not our generated paraphrases (§13.3).
+
+The raw material already exists: the locbench shim logs hold **2,739 real
+search invocations** — 609 ranked semgrep queries + 163 `search`, 1,397
+`semgrep -e` exact patterns, and 570 rg calls (430 distinct patterns) that
+replay deliberately excluded (§13.2). The exact and rg strata are the purest
+guesses on record: alternation ladders of candidate spellings
+(`writeParquet\|save_parquet\|to_parquet`) — an agent literally enumerating
+its guess distribution for one intent.
+
+And one mechanical discovery sharpens the whole program: ripgrep's regex
+engine treats `\|` as a **literal pipe**, not alternation. Agents habitually
+type BRE-style `\|` ladders; every such search was dead on arrival, matching
+a literal `|` that occurs nowhere. The share is measured at harvest time
+(prediction 5) from logged exit codes, before any replay.
+
+### 16.2 The success criterion
+
+Over the checked-in guess corpora (`guesses-v0.jsonl` harvested from
+existing logs; `guesses-agent.jsonl` from new capture runs): **one ranked
+query built from the agent's own guess must land a gold file in the top 5
+more often than the agent's actual exact-mode workflow did — instance-
+clustered CI excluding zero — and hybrid must not trail bm25 on the same
+corpus.** Named-identifier sets remain the regression floor (§14); strict-
+blind remains the model-experiment gate (§15.10) and moves only with a
+model swap.
+
+### 16.3 Method
+
+`harvest.py` exports every invocation losslessly (pattern, flags, scopes,
+frequency, order, condition — the §7.3 description-bias provenance);
+`ladder.py` decomposes alternation ladders into guess-groups with two
+translations (T1 = space-joined rung literals, casing preserved; T2 =
+pre-split control); `guessplay.py` replays three arms per guess-group
+against the instance's gold with `replay.py`'s clustered statistics:
+(a) the agent's actual exact pattern (verbatim, plus `|`-normalized for
+dead ladders, reported separately), (b) the ranked translation under
+{bm25, semantic, hybrid} × {shipped default, §14 champion} — §15.9-B says
+SIF is mis-tuned for token-poor queries, so both configs are measured —
+and (c) the agents' real ranked queries re-scored under the same build.
+Original scopes are primary (65% of agent calls are scoped); repo-root is
+the sensitivity cut.
+
+### 16.4 Pre-registration (written before the first harvest or replay)
+
+1. **Hybrid-T1 beats the actual exact arm on hit@5** over all exact+rg
+   guess-groups: Δ ≥ +0.05, clustered CI excluding 0.
+2. **The advantage is rescue, not replacement**: rescue rate ≥ 20% (ranked
+   top-10 hits among groups whose exact replay found no gold), and
+   parity-or-worse where the exact arm already hits at rank 1.
+3. **Hybrid ≥ bm25 on the guess corpus** (MRR delta positive; §15.7's
+   direction, now at larger n under the current engine).
+4. **T1 ≥ T2** for semantic/hybrid — the engine's tokenizer already splits
+   identifiers; pre-splitting destroys casing signal.
+5. **Dead ladders are real and rescuable**: ≥ 10% of `-e` ladder invocations
+   used `\|`; the ranked translation rescues that stratum at the highest
+   rate of any stratum.
+6. **Exact hit@5 falls with ladder length; ranked-translation hit@5 is
+   flat-to-rising in it** — a long ladder is the agent signaling it doesn't
+   know the name, exactly when guess-tolerant search should win.
+7. **Scope robustness**: the directions of 1–3 are unchanged between
+   original-scope and repo-root replays.
+
