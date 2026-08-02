@@ -23,6 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import corpus_text  # noqa: E402
+import leakage  # noqa: E402
 import validate_queries  # noqa: E402
 
 CODE_EXT = {".c", ".h", ".rs", ".ts", ".js", ".py", ".go", ".java", ".cpp", ".md", ".txt"}
@@ -54,14 +55,25 @@ from a corpus.
 
 Return STRICT JSON (no markdown fence) with exactly these keys:
 {{"direct": "<a natural-language query (5-15 words) a person would type into a code/document search engine to find exactly this chunk>",
-  "paraphrase": "<a query for the same content that deliberately avoids the distinctive identifiers, function names, or rare words appearing in the chunk>"}}
+  "paraphrase": "<a query for the same content that deliberately avoids the distinctive identifiers, function names, or rare words appearing in the chunk>",
+  "blind": "<a SHORT query (4-8 words) that a developer who has NEVER seen this codebase — and does not know what anything in it is called — would type to find this functionality. HARD RULES: do not use the name of the function, type, or constant this chunk defines, even if that name is an ordinary English word; do not use any identifier that appears in the chunk, whole or in part; describe what the code DOES in everyday programming vocabulary>",
+  "blind_long": "<the same intent as blind, expanded to 12-20 words: a fuller plain-vocabulary description of the behavior, under the same HARD RULES — no identifier from the chunk, whole or in part, including the name of the thing it defines>"}}
 
-Write both queries using ONLY what the chunk itself says. Do not guess at or
+Write all queries using ONLY what the chunk itself says. Do not guess at or
 refer to the file name, the directory it might live in, or its position in a
 project — you have not been shown them, and a query that names them would be
 scoring the eval's bookkeeping rather than the search.
 
 The queries must be answerable by this chunk specifically, not by the whole file."""
+
+RETRY_NOTE = """
+
+Your previous blind/blind_long queries used these forbidden tokens that name
+identifiers from the chunk: {bad}. Rewrite ONLY with everyday vocabulary that
+does not appear in any identifier of the chunk; the direct and paraphrase
+queries were fine and can stay the same."""
+
+KINDS = ("direct", "paraphrase", "blind", "blind_long")
 
 
 def eligible(p: Path) -> bool:
@@ -149,7 +161,7 @@ def sample_chunks(root: Path, n: int, seed: int):
     return out
 
 
-def ask_claude(prompt: str) -> dict | None:
+def _ask_once(prompt: str) -> dict | None:
     proc = subprocess.run(
         ["claude", "-p", "--output-format", "text", prompt],
         capture_output=True, text=True, timeout=120,
@@ -160,9 +172,45 @@ def ask_claude(prompt: str) -> dict | None:
         text = text.strip("`").lstrip("json").strip()
     try:
         d = json.loads(text)
-        return d if {"direct", "paraphrase"} <= d.keys() else None
+        return d if set(KINDS) <= d.keys() else None
     except json.JSONDecodeError:
         return None
+
+
+def blind_violations(q: dict, chunk: str, symbol: str | None) -> list[str]:
+    """Forbidden tokens in the blind keys, per the §15.3 predicate. Checked
+    locally against the chunk text and symbol — no corpus read, so the loop
+    can gate every generation attempt for free."""
+    bad = []
+    for kind in ("blind", "blind_long"):
+        toks = leakage.content_tokens(q[kind])
+        bad += leakage.gold_identifier_hits(toks, chunk, symbol)
+        if leakage._overlap(toks, leakage.content_tokens(chunk)) > \
+                leakage.BLIND_ROW_OVERLAP_CAP:
+            bad.append(f"(overlap cap: {q[kind]!r})")
+    return sorted(set(bad))
+
+
+def ask_claude(prompt: str, chunk: str | None = None, symbol: str | None = None,
+               max_attempts: int = 3) -> dict | None:
+    """Generate, then verify blindness and re-prompt with the offending
+    tokens. The §13.1 lesson made structural: an instruction the generator
+    once received is not a property of the data — only the check is. A chunk
+    that cannot produce a passing blind query in `max_attempts` is dropped
+    whole, keeping every kind paired over the same golds; the attrition is
+    the caller's to report."""
+    p = prompt
+    for _ in range(max_attempts):
+        q = _ask_once(p)
+        if q is None:
+            continue
+        if chunk is None:
+            return q
+        bad = blind_violations(q, chunk, symbol)
+        if not bad:
+            return q
+        p = prompt + RETRY_NOTE.format(bad=", ".join(bad))
+    return None
 
 
 def main():
@@ -194,7 +242,8 @@ def main():
     def one(c):
         # chunk only — see the note on PROMPT for why path/start/end are not
         # passed, and what happened when they were.
-        q = ask_claude(PROMPT.format(chunk=c["chunk"]))
+        q = ask_claude(PROMPT.format(chunk=c["chunk"]),
+                       chunk=c["chunk"], symbol=c.get("symbol"))
         return (c, q)
 
     with open(args.out, "w") as f, ThreadPoolExecutor(max_workers=args.workers) as pool:
@@ -209,7 +258,7 @@ def main():
                              (c["file"] + str(c["start_line"])).encode()
                          ).hexdigest()[:8], 16) % 1000) / 1000.0 < args.locked_frac
                          else "dev")
-                for kind in ("direct", "paraphrase"):
+                for kind in KINDS:
                     row = {
                         "query": q[kind], "kind": kind, "file": c["file"],
                         "start_line": c["start_line"], "end_line": c["end_line"],
@@ -229,8 +278,13 @@ def main():
                 f.flush()
                 written += 1
             if (i + 1) % 20 == 0:
-                print(f"  {i + 1}/{len(chunks)} chunks → {written * 2} queries", flush=True)
-    print(f"wrote {written * 2} queries to {args.out}")
+                print(f"  {i + 1}/{len(chunks)} chunks → {written * len(KINDS)} queries",
+                      flush=True)
+    dropped = len(chunks) - written
+    print(f"wrote {written * len(KINDS)} queries to {args.out}"
+          + (f" ({dropped} chunks dropped: no blind query passed the gate in "
+             f"3 attempts — record this attrition in MANIFEST provenance)"
+             if dropped else ""))
 
 
 if __name__ == "__main__":
