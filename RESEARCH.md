@@ -2911,3 +2911,40 @@ p50 0.33 / p90 0.60; the 0.5 per-row cap excludes 15.3% of them (the
 near-verbatim tail) — strict but livable, kept. Set-mean 0.25 applies to
 generated blind sets only; real-data strata use the row predicate alone.
 
+### 15.7 Phase 2: the real-world blind strata (same day)
+
+`eval/locbench/blind_screen.py` (output regenerable; `eval/data` is
+gitignored) screens by tier — *named* (a gold function name or file stem
+verbatim), *partial* (only subtokens; no gold-text prose guard exists here,
+so common verbs land in this bucket and it is reported, never folded), and
+*blind*.
+
+**Real bug reports mostly name things: 348/560 Loc-Bench issues (62%) are
+named, 144 (26%) partial, and only 68 (12%) truly blind.** The blind regime
+is the minority of real agent work — worth stating against the reorientation
+before leaning into it. The counter-fact from the same screen: **65% of
+replayed agent *queries* are blind** (324/497). Agents paraphrase and probe
+even when the issue names the target — the tool sees far blinder input than
+the issue would suggest.
+
+Replayed agent queries by tier (ranks recorded pre-§14, i.e. the *old*
+semantic config; MRR, instance-clustered CIs):
+
+| tier | n | bm25 | hybrid | semantic | hybrid−bm25 CI |
+|---|---|---|---|---|---|
+| named | 108 | 0.463 | 0.505 | 0.445 | [−0.035, +0.116] |
+| partial | 65 | 0.441 | 0.468 | 0.322 | [−0.012, +0.097] |
+| blind | 324 | 0.264 | 0.293 | 0.256 | [−0.006, +0.068] |
+
+Everything gets harder blind (as it should — less to hold on to), the fused
+engine leads bm25 in every tier without clearing the clustered CI at this n,
+and old-semantic trails. Re-running replay against a split-sif index is the
+cheap next measurement once the campaign lands.
+
+And prediction 5's first, anecdote-grade reading, from re-stratifying the
+§7.1 pilot A/B by instance tier: on the **6 blind instances**, semgrep found
+the gold file 6/6 vs ripgrep's 4/6; on the 27 **named** instances ripgrep is
+27/27 — the issue names the file, grep's perfect regime. Direction as
+predicted, n far too small to score; the 560-instance screen is the sampling
+frame for a targeted run when one is worth buying.
+
