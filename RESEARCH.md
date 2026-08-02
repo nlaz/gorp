@@ -3002,3 +3002,51 @@ product claims, hold strict-blind as the gate the §9.9 code-teacher
 re-distillation must move — it is the experiment these six sets were built
 to referee, and nothing else on the §9 lever list can touch them.
 
+### 15.9 Why the blind misses miss: forensics (2026-08-02)
+
+`examples/why_miss.rs` (the §9.8 method, aimed at real campaign rows):
+pooled cosines under raw/split/split-sif, per-query-token attribution with
+SIF weights, and where each chunk's pooled mass sits. Four scenarios traced;
+three failure mechanisms and one success mechanism fell out, each with
+receipts.
+
+**A — the rare words have no relations** (§9.9, confirmed on live misses).
+The query's *distinctive* words — exactly the ones SIF trusts — find nothing:
+`scheduled→future` 0.198, `skip→hidden` ≈0.08 (jekyll `hidden_in_the_future`,
+gold cosine 0.132, rank 39); `backtrace→return` 0.312 (commons-lang
+`getStackFrameList`); `offload→static` 0.229, `synchronous→async` 0.197
+(tokio). The only strong gold link in the publisher miss is surface
+morphology: `publication→publisher` 0.689.
+
+**B — SIF inverts on blind queries.** The exact matches a blind query *does*
+get are its domain-common words, and SIF crushes them by design:
+`exception` matches the gold at **1.000** but carries weight **0.10** in a
+commons-lang corpus; `posts` w=0.23 in a blog engine; `thread` w=0.19 in
+tokio. Result, measured on `getStackFrameList`: gold cosine **0.325 raw →
+0.111 under sif** — base semantic ranked it #1, champion dropped it past 40.
+The campaign table agrees: champion ≤ base on blind cells in 3 of 6 corpora.
+SIF's win on named/real queries (§14.4) is a property of *queries that
+contain rare tokens*; strict-blind queries are constructed not to.
+
+**C — prose crowds out code.** Both jekyll misses rank markdown docs, test
+prose, and release notes on top: the winning chunk for "skip posts scheduled
+for later publication" is a release-notes file matching `posts` 1.000 /
+`later` 1.000 / `skip→skipping` 0.542. A prose model retrieves prose; in a
+mixed corpus the code gold — whose vocabulary is identifiers — cannot outbid
+documents that literally say the query's words.
+
+**D — and the hits are the same mechanism pointed the right way.** Every
+traced blind hit rides a *corpus-rare prose word inside the gold's own
+comments*: `spawn_blocking` wins rank 1 because its doc example says "Stand
+in for complex computation" and `computation` (w≈0.96 both sides) matches
+1.000. The semantic channel that works on blind queries is **comment prose**,
+not code.
+
+Levers this surfaces, in order of directness: (1) re-test blind cells with
+SIF off or query-side-asymmetric weighting — B says the champion config is
+mis-tuned for exactly the primary regime; (2) boost comment/doc lines in the
+embedded rendering (D says they carry the whole working channel — the
+structural-weighting case, §14.2's deferred tree-sitter bet, now with a
+mechanism); (3) the §9.9 code-teacher swap remains the only fix for A, which
+is the binding constraint everywhere else.
+
