@@ -113,11 +113,21 @@ spreading results across files.
 4. Scoring is strict single-truth (right file, ±10 lines); absolute numbers
    understate usefulness, cross-tool deltas are the signal.
 
-## 4. The two boards (2026-08-02, RESEARCH.md §15)
+## 4. The three boards (2026-08-02, RESEARCH.md §15–§16)
 
-Since 2026-08-02 results split into a **blind board** (primary: queries
-verifiably free of gold identifiers, §15.3) and a **named-identifier board**
-(regression: must not collapse, no longer defines success).
+Results split three ways: the **guess board** (primary: real agent search
+strings, §16), the **blind board** (model-experiment instrument, §15.10),
+and the **named-identifier board** (regression floor).
+
+**Guess board (primary).** Over 2,113 real guess-groups from agent logs:
+one ranked hybrid query built from the agent's own guess beats the agent's
+actual exact-mode workflow by +0.034 hit@5 (clustered CI [+0.002, +0.071]),
+with the gap widening monotonically in ladder length (+0.030 → +0.053) —
+ranked search pays exactly where the agent is guessing hardest. 19.6% of
+multi-guess `-e` ladders were mechanically dead (`\|` is a literal pipe to
+the engine). Rescue rate over failed exact guesses is 6.3% — real but far
+below hopes; the supported claim is a better default posture, not a safety
+net. Full scorecard: RESEARCH.md §16.5–§16.6.
 
 **Blind board.** On *real-blind* queries — the 847 CoSQA human queries with
 zero gold-identifier hits — champion semantic is at parity with bm25
