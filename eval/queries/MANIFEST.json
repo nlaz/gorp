@@ -251,6 +251,31 @@
    }
   }
  },
+ "guesses-agent.jsonl": {
+  "sha256": "68d82b521539b3e0",
+  "queries_fp": "68d82b521539b3e0",
+  "n": 359,
+  "kinds": {
+   "guess_exact": 170,
+   "guess_ranked": 189
+  },
+  "corpus": "(locbench worktrees)",
+  "anchor": "n/a",
+  "provenance": "capture runs 2026-08-02 (cap-ranked/cap-two mechanics-only descriptions, sonnet, --no-score, tool-line sha in run meta); haiku batch not run (stopped)"
+ },
+ "guesses-v0.jsonl": {
+  "sha256": "e28d8f3e24191f47",
+  "queries_fp": "e28d8f3e24191f47",
+  "n": 2737,
+  "kinds": {
+   "guess_exact": 1543,
+   "guess_ranked": 624,
+   "guess_rg": 570
+  },
+  "corpus": "(locbench worktrees)",
+  "anchor": "n/a",
+  "provenance": "locbench/harvest.py over all shim logs \u2014 every real agent search, one row per invocation, reconciliation-gated (1,543 exact / 624 ranked / 570 rg; conditions v1-v4 recorded per row, \u00a77.3 bias analyzable)"
+ },
  "jekyll-blind.jsonl": {
   "sha256": "e395df8f32cb1ab4",
   "queries_fp": "e395df8f32cb1ab4",

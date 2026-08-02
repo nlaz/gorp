@@ -3194,3 +3194,25 @@ is not query-time: it is making ranked mode the agent's default posture
 (§7.3's framing lever is worth 3.5× more ranked usage) plus the §9.9 model
 swap for the semantic branch — both now refereed by this board.
 
+### 16.6 The capture runs: description gravity, measured clean (2026-08-02)
+
+70 sonnet runs, 35 instances × {cap-ranked, cap-two}, `--no-score`, the
+exact tool line persisted per run dir (the C2 provenance fix). The haiku
+driver-diversity batch was stopped before running — noted, not replaced.
+`guesses-agent.jsonl`: 359 fresh invocations.
+
+**The starkest interface-gravity number in the record: a single
+mechanics-only sentence documenting `-e` collapses ranked usage from 72%
+to 7%** (cap-ranked: 28% of calls used the undocumented-but-working `-e`
+anyway — pretraining habit; cap-two: 93% exact). §7.3 measured framing
+*advice* worth 3.5×; this measures that merely *mentioning* the exact mode
+— no advice at all — is worth ~10×. For the §16.5 conclusion ("the lever
+is the agent's default posture") this is the dose-response curve.
+
+Second finding: **median guess length is one word under both
+descriptions.** Agents guess *names*, not phrases, no matter how the tool
+is framed. The guess corpus is not a style artifact of v1–v4's ranked
+framing; it is what agents do. (And the cap-two logs show live wrong-guess
+behavior mid-ladder: `Authority(` retried as `Authority\(` — an agent
+debugging its own regex escaping instead of finding code.)
+
