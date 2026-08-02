@@ -21,6 +21,11 @@ Checks, cheapest first:
   2. 1 <= start_line <= end_line <= len(lines)
   3. if the row carries `gold_sha` (written by generate.py), the sha256 of the
      gold span's text still matches what was there at generation time
+  4. rows whose `kind` claims blindness (RESEARCH.md §15.3) actually are:
+     zero gold-identifier hits and bounded token overlap, plus the set-mean
+     overlap cap over all blind rows. A "blind" set that isn't is refused the
+     same way a drifted one is — blindness is a property of the data, not an
+     instruction the generator once received.
 
 Check 3 is the only one that catches an *edited* file, which is the common
 case for a live repo — the path and the line count survive, the content does
@@ -35,6 +40,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import corpus_text  # noqa: E402
+import leakage  # noqa: E402
 
 
 def span_sha(text):
@@ -49,6 +55,7 @@ def validate(rows, corpus, check_sha=True):
     problems = []
     cache = {}
     n_sha_checked = 0
+    blind_overlaps = []
 
     for i, row in enumerate(rows):
         rel = row.get("file")
@@ -97,10 +104,33 @@ def validate(rows, corpus, check_sha=True):
                 problems.append((i, "gold-content-changed",
                                  f"{rel}:{s}-{e} ({row['gold_sha']} -> {got})"))
 
+        if row.get("kind") in leakage.BLIND_KINDS:
+            gold = corpus_text.span(lines, s, e)
+            toks = leakage.content_tokens(row["query"])
+            hits = leakage.gold_identifier_hits(toks, gold, row.get("symbol"))
+            ov = leakage._overlap(toks, leakage.content_tokens(gold))
+            blind_overlaps.append(ov)
+            if hits:
+                problems.append((i, "blind-violation",
+                                 f"{rel}:{s}-{e} query names gold identifiers: "
+                                 f"{sorted(set(hits))}"))
+            elif ov > leakage.BLIND_ROW_OVERLAP_CAP:
+                problems.append((i, "blind-violation",
+                                 f"{rel}:{s}-{e} gold_token_overlap {ov:.2f} > "
+                                 f"{leakage.BLIND_ROW_OVERLAP_CAP} row cap"))
+
+    if blind_overlaps:
+        mean = sum(blind_overlaps) / len(blind_overlaps)
+        if mean > leakage.BLIND_SET_OVERLAP_CAP:
+            problems.append((-1, "blind-set-overlap",
+                             f"mean gold_token_overlap over {len(blind_overlaps)} blind "
+                             f"rows is {mean:.2f} > {leakage.BLIND_SET_OVERLAP_CAP}"))
+
     stats = {
         "n_rows": len(rows),
         "n_files": len(cache),
         "n_sha_checked": n_sha_checked,
+        "n_blind_checked": len(blind_overlaps),
         "n_problems": len(problems),
         # An honest report of what was NOT verified. A set with no gold_sha
         # passes every check here and still cannot detect an edited file.

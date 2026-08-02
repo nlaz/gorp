@@ -1,478 +1,505 @@
 {
-  "commons-lang.jsonl": {
-    "sha256": "c2f8ce8060f5ca40",
-    "queries_fp": "c2f8ce8060f5ca40",
-    "n": 398,
-    "kinds": {
-      "direct": 199,
-      "paraphrase": 199
-    },
-    "corpus": "commons-lang",
-    "anchor": "symbol",
-    "provenance": "generate.py --anchor symbol, path NOT in prompt; 2 unindexable rows dropped",
-    "leakage": {
-      "direct": {
-        "n": 199,
-        "identifier_pct": 0.392,
-        "median_words": 11,
-        "basename_pct": 0.0,
-        "stem_pct": 0.0352,
-        "path_seg_pct": 0.3367,
-        "path_seg_not_in_gold_pct": 0.0,
-        "gold_token_overlap": null
-      },
-      "paraphrase": {
-        "n": 199,
-        "identifier_pct": 0.0101,
-        "median_words": 15,
-        "basename_pct": 0.0,
-        "stem_pct": 0.0,
-        "path_seg_pct": 0.2211,
-        "path_seg_not_in_gold_pct": 0.0,
-        "gold_token_overlap": null
-      }
-    }
+ "ablation-linux-window-newprompt.jsonl": {
+  "sha256": "431ec07cc808ed73",
+  "queries_fp": "431ec07cc808ed73",
+  "n": 120,
+  "kinds": {
+   "direct": 60,
+   "paraphrase": 60
   },
-  "cosqa-1200.jsonl": {
-    "sha256": "b0fe982c083a825e",
-    "queries_fp": "b0fe982c083a825e",
-    "n": 1200,
-    "kinds": {
-      "real": 1200
-    },
-    "corpus": "cosqa",
-    "anchor": "whole-file",
-    "provenance": "fetch-cosqa.sh, 1200 sampled from 9,020 human-written Bing queries",
-    "leakage": {
-      "real": {
-        "n": 1200,
-        "identifier_pct": 0.0,
-        "median_words": 6,
-        "basename_pct": 0.0,
-        "stem_pct": 0.0,
-        "path_seg_pct": 0.0,
-        "path_seg_not_in_gold_pct": 0.0,
-        "gold_token_overlap": null
-      }
-    }
-  },
-  "etcd.jsonl": {
-    "sha256": "50b120153956eec6",
-    "queries_fp": "50b120153956eec6",
-    "n": 400,
-    "kinds": {
-      "direct": 200,
-      "paraphrase": 200
-    },
-    "corpus": "etcd",
-    "anchor": "symbol",
-    "provenance": "generate.py --anchor symbol, path NOT in prompt",
-    "leakage": {
-      "direct": {
-        "n": 200,
-        "identifier_pct": 0.095,
-        "median_words": 12,
-        "basename_pct": 0.0,
-        "stem_pct": 0.145,
-        "path_seg_pct": 0.165,
-        "path_seg_not_in_gold_pct": 0.0,
-        "gold_token_overlap": null
-      },
-      "paraphrase": {
-        "n": 200,
-        "identifier_pct": 0.0,
-        "median_words": 15,
-        "basename_pct": 0.0,
-        "stem_pct": 0.02,
-        "path_seg_pct": 0.1,
-        "path_seg_not_in_gold_pct": 0.0,
-        "gold_token_overlap": null
-      }
-    }
-  },
-  "jekyll.jsonl": {
-    "sha256": "d0c3aee0c884caa3",
-    "queries_fp": "d0c3aee0c884caa3",
-    "n": 176,
-    "kinds": {
-      "direct": 88,
-      "paraphrase": 88
-    },
-    "corpus": "jekyll",
-    "anchor": "symbol",
-    "provenance": "generate.py --anchor symbol, path NOT in prompt",
-    "leakage": {
-      "direct": {
-        "n": 88,
-        "identifier_pct": 0.0568,
-        "median_words": 12,
-        "basename_pct": 0.0,
-        "stem_pct": 0.1477,
-        "path_seg_pct": 0.0682,
-        "path_seg_not_in_gold_pct": 0.0,
-        "gold_token_overlap": null
-      },
-      "paraphrase": {
-        "n": 88,
-        "identifier_pct": 0.0,
-        "median_words": 15,
-        "basename_pct": 0.0,
-        "stem_pct": 0.0341,
-        "path_seg_pct": 0.0682,
-        "path_seg_not_in_gold_pct": 0.0,
-        "gold_token_overlap": null
-      }
-    }
-  },
-  "linux-150.jsonl": {
-    "sha256": "d93eb8a8589cc313",
-    "queries_fp": "d93eb8a8589cc313",
-    "n": 150,
-    "kinds": {
-      "direct": 75,
-      "paraphrase": 75
-    },
-    "corpus": "linux",
-    "anchor": "window",
-    "provenance": "generate.py --anchor window, 150-chunk subset",
-    "leakage": {
-      "direct": {
-        "n": 75,
-        "identifier_pct": 0.64,
-        "median_words": 10,
-        "basename_pct": 0.0,
-        "stem_pct": 0.32,
-        "path_seg_pct": 0.4933,
-        "path_seg_not_in_gold_pct": 0.0,
-        "gold_token_overlap": null
-      },
-      "paraphrase": {
-        "n": 75,
-        "identifier_pct": 0.0,
-        "median_words": 17,
-        "basename_pct": 0.0,
-        "stem_pct": 0.0,
-        "path_seg_pct": 0.24,
-        "path_seg_not_in_gold_pct": 0.0,
-        "gold_token_overlap": null
-      }
-    }
-  },
-  "linux.jsonl": {
-    "sha256": "a4ce3818c9610b9b",
-    "queries_fp": "a4ce3818c9610b9b",
-    "n": 398,
-    "kinds": {
-      "direct": 199,
-      "paraphrase": 199
-    },
-    "corpus": "linux",
-    "anchor": "window",
-    "provenance": "generate.py --anchor window (path WAS in the prompt \u2014 see RESEARCH.md \u00a713.1)",
-    "leakage": {
-      "direct": {
-        "n": 199,
-        "identifier_pct": 0.6633,
-        "median_words": 10,
-        "basename_pct": 0.0151,
-        "stem_pct": 0.3266,
-        "path_seg_pct": 0.4824,
-        "path_seg_not_in_gold_pct": 0.0,
-        "gold_token_overlap": null
-      },
-      "paraphrase": {
-        "n": 199,
-        "identifier_pct": 0.0201,
-        "median_words": 17,
-        "basename_pct": 0.0,
-        "stem_pct": 0.0,
-        "path_seg_pct": 0.2513,
-        "path_seg_not_in_gold_pct": 0.0,
-        "gold_token_overlap": null
-      }
-    }
-  },
-  "replay-agent.jsonl": {
-    "sha256": "6ad20c726da27761",
-    "queries_fp": "6ad20c726da27761",
-    "n": 497,
-    "kinds": {
-      "?": 497
-    },
-    "corpus": "(locbench worktrees)",
-    "anchor": "n/a (query strings only)",
-    "provenance": "harvested from 706 locbench shim logs \u2014 real agent queries, not written by us"
-  },
-  "tokio.jsonl": {
-    "sha256": "b2c4c4a168089652",
-    "queries_fp": "b2c4c4a168089652",
-    "n": 400,
-    "kinds": {
-      "direct": 200,
-      "paraphrase": 200
-    },
-    "corpus": "tokio",
-    "anchor": "symbol",
-    "provenance": "generate.py --anchor symbol, path NOT in prompt",
-    "leakage": {
-      "direct": {
-        "n": 200,
-        "identifier_pct": 0.3,
-        "median_words": 12,
-        "basename_pct": 0.0,
-        "stem_pct": 0.155,
-        "path_seg_pct": 0.1,
-        "path_seg_not_in_gold_pct": 0.0,
-        "gold_token_overlap": null
-      },
-      "paraphrase": {
-        "n": 200,
-        "identifier_pct": 0.005,
-        "median_words": 14,
-        "basename_pct": 0.0,
-        "stem_pct": 0.05,
-        "path_seg_pct": 0.05,
-        "path_seg_not_in_gold_pct": 0.0,
-        "gold_token_overlap": null
-      }
-    }
-  },
-  "vscode-pilot.jsonl": {
-    "sha256": "306ea3517c6ef132",
-    "queries_fp": "306ea3517c6ef132",
-    "n": 20,
-    "kinds": {
-      "direct": 10,
-      "paraphrase": 10
-    },
-    "corpus": "vscode",
-    "anchor": "window",
-    "provenance": "generate.py --anchor window, pilot subset",
-    "leakage": {
-      "direct": {
-        "n": 10,
-        "identifier_pct": 0.7,
-        "median_words": 10,
-        "basename_pct": 0.1,
-        "stem_pct": 0.5,
-        "path_seg_pct": 0.4,
-        "path_seg_not_in_gold_pct": 0.0,
-        "gold_token_overlap": null
-      },
-      "paraphrase": {
-        "n": 10,
-        "identifier_pct": 0.1,
-        "median_words": 20,
-        "basename_pct": 0.0,
-        "stem_pct": 0.0,
-        "path_seg_pct": 0.4,
-        "path_seg_not_in_gold_pct": 0.0,
-        "gold_token_overlap": null
-      }
-    }
-  },
-  "vscode.jsonl": {
-    "sha256": "2e8d6905434c8b01",
-    "queries_fp": "2e8d6905434c8b01",
-    "n": 400,
-    "kinds": {
-      "direct": 200,
-      "paraphrase": 200
-    },
-    "corpus": "vscode",
-    "anchor": "window",
-    "provenance": "generate.py --anchor window (path WAS in the prompt)",
-    "leakage": {
-      "direct": {
-        "n": 200,
-        "identifier_pct": 0.705,
-        "median_words": 10,
-        "basename_pct": 0.0,
-        "stem_pct": 0.225,
-        "path_seg_pct": 0.46,
-        "path_seg_not_in_gold_pct": 0.0,
-        "gold_token_overlap": null
-      },
-      "paraphrase": {
-        "n": 200,
-        "identifier_pct": 0.015,
-        "median_words": 18,
-        "basename_pct": 0.0,
-        "stem_pct": 0.0,
-        "path_seg_pct": 0.265,
-        "path_seg_not_in_gold_pct": 0.0,
-        "gold_token_overlap": null
-      }
-    }
-  },
-  "wikipedia.jsonl": {
-    "sha256": "eb65b3afa159577a",
-    "queries_fp": "eb65b3afa159577a",
-    "n": 400,
-    "kinds": {
-      "direct": 200,
-      "paraphrase": 200
-    },
-    "corpus": "wikipedia",
-    "anchor": "window",
-    "provenance": "generate.py --anchor window (path WAS in the prompt)",
-    "leakage": {
-      "direct": {
-        "n": 200,
-        "identifier_pct": 0.01,
-        "median_words": 11,
-        "basename_pct": 0.0,
-        "stem_pct": 0.0,
-        "path_seg_pct": 0.0,
-        "path_seg_not_in_gold_pct": 0.0,
-        "gold_token_overlap": null
-      },
-      "paraphrase": {
-        "n": 200,
-        "identifier_pct": 0.0,
-        "median_words": 15,
-        "basename_pct": 0.0,
-        "stem_pct": 0.0,
-        "path_seg_pct": 0.0,
-        "path_seg_not_in_gold_pct": 0.0,
-        "gold_token_overlap": null
-      }
-    }
-  },
-  "linux-sym.jsonl": {
-    "sha256": "81c50b36908ea8b1",
-    "queries_fp": "81c50b36908ea8b1",
-    "n": 400,
-    "kinds": {
-      "direct": 200,
-      "paraphrase": 200
-    },
-    "corpus": "linux",
-    "anchor": "symbol",
-    "provenance": "generate.py --anchor symbol, path NOT in prompt (replaces linux.jsonl for new work)",
-    "leakage": {
-      "direct": {
-        "n": 200,
-        "identifier_pct": 0.135,
-        "median_words": 12,
-        "basename_pct": 0.0,
-        "stem_pct": 0.075,
-        "path_seg_pct": 0.135,
-        "path_seg_not_in_gold_pct": 0.0,
-        "gold_token_overlap": null
-      },
-      "paraphrase": {
-        "n": 200,
-        "identifier_pct": 0.0,
-        "median_words": 15,
-        "basename_pct": 0.0,
-        "stem_pct": 0.015,
-        "path_seg_pct": 0.045,
-        "path_seg_not_in_gold_pct": 0.0,
-        "gold_token_overlap": null
-      }
-    }
-  },
-  "vscode-sym.jsonl": {
-    "sha256": "8560ccc61d88c482",
-    "queries_fp": "8560ccc61d88c482",
-    "n": 400,
-    "kinds": {
-      "direct": 200,
-      "paraphrase": 200
-    },
-    "corpus": "vscode",
-    "anchor": "symbol",
-    "provenance": "generate.py --anchor symbol, path NOT in prompt",
-    "leakage": {
-      "direct": {
-        "n": 200,
-        "identifier_pct": 0.125,
-        "median_words": 12,
-        "basename_pct": 0.0,
-        "stem_pct": 0.045,
-        "path_seg_pct": 0.21,
-        "path_seg_not_in_gold_pct": 0.0,
-        "gold_token_overlap": null
-      },
-      "paraphrase": {
-        "n": 200,
-        "identifier_pct": 0.005,
-        "median_words": 15,
-        "basename_pct": 0.0,
-        "stem_pct": 0.015,
-        "path_seg_pct": 0.145,
-        "path_seg_not_in_gold_pct": 0.0,
-        "gold_token_overlap": null
-      }
-    }
-  },
-  "wikipedia-v2.jsonl": {
-    "sha256": "44b2f0f42f0e7b0b",
-    "queries_fp": "44b2f0f42f0e7b0b",
-    "n": 400,
-    "kinds": {
-      "direct": 200,
-      "paraphrase": 200
-    },
-    "corpus": "wikipedia",
-    "anchor": "window",
-    "provenance": "generate.py --anchor window, path NOT in prompt. Window is forced: wikipedia is prose, 0/1013 files have an extension symbols.py can parse",
-    "leakage": {
-      "direct": {
-        "n": 200,
-        "identifier_pct": 0.01,
-        "median_words": 11,
-        "basename_pct": 0.0,
-        "stem_pct": 0.0,
-        "path_seg_pct": 0.0,
-        "path_seg_not_in_gold_pct": 0.0,
-        "gold_token_overlap": null
-      },
-      "paraphrase": {
-        "n": 200,
-        "identifier_pct": 0.0,
-        "median_words": 15,
-        "basename_pct": 0.0,
-        "stem_pct": 0.0,
-        "path_seg_pct": 0.0,
-        "path_seg_not_in_gold_pct": 0.0,
-        "gold_token_overlap": null
-      }
-    }
-  },
-  "ablation-linux-window-newprompt.jsonl": {
-    "sha256": "eb7dcfed84d53132",
-    "queries_fp": "eb7dcfed84d53132",
-    "n": 120,
-    "kinds": {
-      "direct": 60,
-      "paraphrase": 60
-    },
-    "corpus": "linux",
-    "anchor": "window",
-    "provenance": "n=60 chunks. Same anchor as linux.jsonl, new prompt \u2014 isolates the prompt's effect from the anchor's. Not for scoring.",
-    "leakage": {
-      "direct": {
-        "n": 60,
-        "identifier_pct": 0.2,
-        "median_words": 12,
-        "basename_pct": 0.0,
-        "stem_pct": 0.15,
-        "path_seg_pct": 0.2667,
-        "path_seg_not_in_gold_pct": 0.0,
-        "gold_token_overlap": null
-      },
-      "paraphrase": {
-        "n": 60,
-        "identifier_pct": 0.0167,
-        "median_words": 15,
-        "basename_pct": 0.0,
-        "stem_pct": 0.0167,
-        "path_seg_pct": 0.1333,
-        "path_seg_not_in_gold_pct": 0.0,
-        "gold_token_overlap": null
-      }
-    }
+  "corpus": "linux",
+  "anchor": "window",
+  "provenance": "n=60 chunks. Same anchor as linux.jsonl, new prompt \u2014 isolates the prompt's effect from the anchor's. Not for scoring.",
+  "leakage": {
+   "direct": {
+    "n": 60,
+    "identifier_pct": 0.2,
+    "median_words": 12,
+    "basename_pct": 0.0,
+    "stem_pct": 0.15,
+    "path_seg_pct": 0.26666666666666666,
+    "path_seg_not_in_gold_pct": 0.03333333333333333,
+    "gold_token_overlap": 0.3879093129093129,
+    "gold_id_pct": 0.15
+   },
+   "paraphrase": {
+    "n": 60,
+    "identifier_pct": 0.016666666666666666,
+    "median_words": 15,
+    "basename_pct": 0.0,
+    "stem_pct": 0.016666666666666666,
+    "path_seg_pct": 0.13333333333333333,
+    "path_seg_not_in_gold_pct": 0.08333333333333333,
+    "gold_token_overlap": 0.10946414736881152,
+    "gold_id_pct": 0.016666666666666666
+   }
   }
+ },
+ "commons-lang.jsonl": {
+  "sha256": "8953ed53f346749a",
+  "queries_fp": "8953ed53f346749a",
+  "n": 398,
+  "kinds": {
+   "direct": 199,
+   "paraphrase": 199
+  },
+  "corpus": "commons-lang",
+  "anchor": "symbol",
+  "provenance": "generate.py --anchor symbol, path NOT in prompt; 2 unindexable rows dropped",
+  "leakage": {
+   "direct": {
+    "n": 199,
+    "identifier_pct": 0.39195979899497485,
+    "median_words": 11,
+    "basename_pct": 0.0,
+    "stem_pct": 0.035175879396984924,
+    "path_seg_pct": 0.33668341708542715,
+    "path_seg_not_in_gold_pct": 0.06532663316582915,
+    "gold_token_overlap": 0.5254245196456252,
+    "gold_id_pct": 0.6834170854271356
+   },
+   "paraphrase": {
+    "n": 199,
+    "identifier_pct": 0.010050251256281407,
+    "median_words": 15,
+    "basename_pct": 0.0,
+    "stem_pct": 0.0,
+    "path_seg_pct": 0.22110552763819097,
+    "path_seg_not_in_gold_pct": 0.12060301507537688,
+    "gold_token_overlap": 0.15450728602867003,
+    "gold_id_pct": 0.12060301507537688
+   }
+  }
+ },
+ "cosqa-1200.jsonl": {
+  "sha256": "a9006a29f625c5b9",
+  "queries_fp": "a9006a29f625c5b9",
+  "n": 1200,
+  "kinds": {
+   "real": 1200
+  },
+  "corpus": "cosqa",
+  "anchor": "whole-file",
+  "provenance": "fetch-cosqa.sh, 1200 sampled from 9,020 human-written Bing queries",
+  "leakage": {
+   "real": {
+    "n": 1200,
+    "identifier_pct": 0.0,
+    "median_words": 6,
+    "basename_pct": 0.0,
+    "stem_pct": 0.0,
+    "path_seg_pct": 0.0,
+    "path_seg_not_in_gold_pct": 0.0,
+    "gold_token_overlap": 0.3471667152292152,
+    "gold_id_pct": 0.005833333333333334
+   }
+  }
+ },
+ "etcd.jsonl": {
+  "sha256": "c5ff8f3b1e947e2e",
+  "queries_fp": "c5ff8f3b1e947e2e",
+  "n": 400,
+  "kinds": {
+   "direct": 200,
+   "paraphrase": 200
+  },
+  "corpus": "etcd",
+  "anchor": "symbol",
+  "provenance": "generate.py --anchor symbol, path NOT in prompt",
+  "leakage": {
+   "direct": {
+    "n": 200,
+    "identifier_pct": 0.095,
+    "median_words": 12,
+    "basename_pct": 0.0,
+    "stem_pct": 0.145,
+    "path_seg_pct": 0.165,
+    "path_seg_not_in_gold_pct": 0.025,
+    "gold_token_overlap": 0.4051103063603063,
+    "gold_id_pct": 0.77
+   },
+   "paraphrase": {
+    "n": 200,
+    "identifier_pct": 0.0,
+    "median_words": 15,
+    "basename_pct": 0.0,
+    "stem_pct": 0.02,
+    "path_seg_pct": 0.1,
+    "path_seg_not_in_gold_pct": 0.05,
+    "gold_token_overlap": 0.10245287319319826,
+    "gold_id_pct": 0.205
+   }
+  }
+ },
+ "jekyll.jsonl": {
+  "sha256": "94476d160ca47908",
+  "queries_fp": "94476d160ca47908",
+  "n": 176,
+  "kinds": {
+   "direct": 88,
+   "paraphrase": 88
+  },
+  "corpus": "jekyll",
+  "anchor": "symbol",
+  "provenance": "generate.py --anchor symbol, path NOT in prompt",
+  "leakage": {
+   "direct": {
+    "n": 88,
+    "identifier_pct": 0.056818181818181816,
+    "median_words": 12,
+    "basename_pct": 0.0,
+    "stem_pct": 0.14772727272727273,
+    "path_seg_pct": 0.06818181818181818,
+    "path_seg_not_in_gold_pct": 0.03409090909090909,
+    "gold_token_overlap": 0.5001106847697757,
+    "gold_id_pct": 0.4659090909090909
+   },
+   "paraphrase": {
+    "n": 88,
+    "identifier_pct": 0.0,
+    "median_words": 15,
+    "basename_pct": 0.0,
+    "stem_pct": 0.03409090909090909,
+    "path_seg_pct": 0.06818181818181818,
+    "path_seg_not_in_gold_pct": 0.045454545454545456,
+    "gold_token_overlap": 0.10725939149234603,
+    "gold_id_pct": 0.022727272727272728
+   }
+  }
+ },
+ "linux-150.jsonl": {
+  "sha256": "624bd8cfe0356d3c",
+  "queries_fp": "624bd8cfe0356d3c",
+  "n": 150,
+  "kinds": {
+   "direct": 75,
+   "paraphrase": 75
+  },
+  "corpus": "linux",
+  "anchor": "window",
+  "provenance": "generate.py --anchor window, 150-chunk subset",
+  "leakage": {
+   "direct": {
+    "n": 75,
+    "identifier_pct": 0.64,
+    "median_words": 10,
+    "basename_pct": 0.0,
+    "stem_pct": 0.32,
+    "path_seg_pct": 0.49333333333333335,
+    "path_seg_not_in_gold_pct": 0.12,
+    "gold_token_overlap": 0.4591933621933622,
+    "gold_id_pct": 0.5733333333333334
+   },
+   "paraphrase": {
+    "n": 75,
+    "identifier_pct": 0.0,
+    "median_words": 17,
+    "basename_pct": 0.0,
+    "stem_pct": 0.0,
+    "path_seg_pct": 0.24,
+    "path_seg_not_in_gold_pct": 0.14666666666666667,
+    "gold_token_overlap": 0.13313997612294826,
+    "gold_id_pct": 0.0
+   }
+  }
+ },
+ "linux-sym.jsonl": {
+  "sha256": "d19a10d45e88de89",
+  "queries_fp": "d19a10d45e88de89",
+  "n": 400,
+  "kinds": {
+   "direct": 200,
+   "paraphrase": 200
+  },
+  "corpus": "linux",
+  "anchor": "symbol",
+  "provenance": "generate.py --anchor symbol, path NOT in prompt (replaces linux.jsonl for new work)",
+  "leakage": {
+   "direct": {
+    "n": 200,
+    "identifier_pct": 0.135,
+    "median_words": 12,
+    "basename_pct": 0.0,
+    "stem_pct": 0.075,
+    "path_seg_pct": 0.135,
+    "path_seg_not_in_gold_pct": 0.035,
+    "gold_token_overlap": 0.32290767565767564,
+    "gold_id_pct": 0.65
+   },
+   "paraphrase": {
+    "n": 200,
+    "identifier_pct": 0.0,
+    "median_words": 15,
+    "basename_pct": 0.0,
+    "stem_pct": 0.015,
+    "path_seg_pct": 0.045,
+    "path_seg_not_in_gold_pct": 0.015,
+    "gold_token_overlap": 0.11125995408007286,
+    "gold_id_pct": 0.17
+   }
+  }
+ },
+ "linux.jsonl": {
+  "sha256": "46fc2ea43fcb30be",
+  "queries_fp": "46fc2ea43fcb30be",
+  "n": 398,
+  "kinds": {
+   "direct": 199,
+   "paraphrase": 199
+  },
+  "corpus": "linux",
+  "anchor": "window",
+  "provenance": "generate.py --anchor window (path WAS in the prompt \u2014 see RESEARCH.md \u00a713.1)",
+  "leakage": {
+   "direct": {
+    "n": 199,
+    "identifier_pct": 0.6633165829145728,
+    "median_words": 10,
+    "basename_pct": 0.01507537688442211,
+    "stem_pct": 0.32663316582914576,
+    "path_seg_pct": 0.4824120603015075,
+    "path_seg_not_in_gold_pct": 0.16080402010050251,
+    "gold_token_overlap": 0.456189315988311,
+    "gold_id_pct": 0.5979899497487438
+   },
+   "paraphrase": {
+    "n": 199,
+    "identifier_pct": 0.020100502512562814,
+    "median_words": 17,
+    "basename_pct": 0.0,
+    "stem_pct": 0.0,
+    "path_seg_pct": 0.25125628140703515,
+    "path_seg_not_in_gold_pct": 0.1708542713567839,
+    "gold_token_overlap": 0.10837432697642517,
+    "gold_id_pct": 0.0
+   }
+  }
+ },
+ "replay-agent.jsonl": {
+  "sha256": "b53881da115941b1",
+  "queries_fp": "b53881da115941b1",
+  "n": 497,
+  "kinds": {
+   "?": 497
+  },
+  "corpus": "(locbench worktrees)",
+  "anchor": "n/a (query strings only)",
+  "provenance": "harvested from 706 locbench shim logs \u2014 real agent queries, not written by us"
+ },
+ "tokio.jsonl": {
+  "sha256": "cfaeed9fe176d1a4",
+  "queries_fp": "cfaeed9fe176d1a4",
+  "n": 400,
+  "kinds": {
+   "direct": 200,
+   "paraphrase": 200
+  },
+  "corpus": "tokio",
+  "anchor": "symbol",
+  "provenance": "generate.py --anchor symbol, path NOT in prompt",
+  "leakage": {
+   "direct": {
+    "n": 200,
+    "identifier_pct": 0.3,
+    "median_words": 12,
+    "basename_pct": 0.0,
+    "stem_pct": 0.155,
+    "path_seg_pct": 0.1,
+    "path_seg_not_in_gold_pct": 0.01,
+    "gold_token_overlap": 0.4516606718444954,
+    "gold_id_pct": 0.715
+   },
+   "paraphrase": {
+    "n": 200,
+    "identifier_pct": 0.005,
+    "median_words": 14,
+    "basename_pct": 0.0,
+    "stem_pct": 0.05,
+    "path_seg_pct": 0.05,
+    "path_seg_not_in_gold_pct": 0.025,
+    "gold_token_overlap": 0.11463537277565916,
+    "gold_id_pct": 0.175
+   }
+  }
+ },
+ "vscode-pilot.jsonl": {
+  "sha256": "8365f8565e875436",
+  "queries_fp": "8365f8565e875436",
+  "n": 20,
+  "kinds": {
+   "direct": 10,
+   "paraphrase": 10
+  },
+  "corpus": "vscode",
+  "anchor": "window",
+  "provenance": "generate.py --anchor window, pilot subset",
+  "leakage": {
+   "direct": {
+    "n": 10,
+    "identifier_pct": 0.7,
+    "median_words": 10,
+    "basename_pct": 0.1,
+    "stem_pct": 0.5,
+    "path_seg_pct": 0.4,
+    "path_seg_not_in_gold_pct": 0.2,
+    "gold_token_overlap": 0.7293650793650793,
+    "gold_id_pct": 0.7
+   },
+   "paraphrase": {
+    "n": 10,
+    "identifier_pct": 0.1,
+    "median_words": 20,
+    "basename_pct": 0.0,
+    "stem_pct": 0.0,
+    "path_seg_pct": 0.4,
+    "path_seg_not_in_gold_pct": 0.2,
+    "gold_token_overlap": 0.1495280596596386,
+    "gold_id_pct": 0.0
+   }
+  }
+ },
+ "vscode-sym.jsonl": {
+  "sha256": "99b4d2c5145a7685",
+  "queries_fp": "99b4d2c5145a7685",
+  "n": 400,
+  "kinds": {
+   "direct": 200,
+   "paraphrase": 200
+  },
+  "corpus": "vscode",
+  "anchor": "symbol",
+  "provenance": "generate.py --anchor symbol, path NOT in prompt",
+  "leakage": {
+   "direct": {
+    "n": 200,
+    "identifier_pct": 0.125,
+    "median_words": 12,
+    "basename_pct": 0.0,
+    "stem_pct": 0.045,
+    "path_seg_pct": 0.21,
+    "path_seg_not_in_gold_pct": 0.06,
+    "gold_token_overlap": 0.4539685730935731,
+    "gold_id_pct": 0.675
+   },
+   "paraphrase": {
+    "n": 200,
+    "identifier_pct": 0.005,
+    "median_words": 15,
+    "basename_pct": 0.0,
+    "stem_pct": 0.015,
+    "path_seg_pct": 0.145,
+    "path_seg_not_in_gold_pct": 0.065,
+    "gold_token_overlap": 0.1432888492871078,
+    "gold_id_pct": 0.16
+   }
+  }
+ },
+ "vscode.jsonl": {
+  "sha256": "7578782896e9f02e",
+  "queries_fp": "7578782896e9f02e",
+  "n": 400,
+  "kinds": {
+   "direct": 200,
+   "paraphrase": 200
+  },
+  "corpus": "vscode",
+  "anchor": "window",
+  "provenance": "generate.py --anchor window (path WAS in the prompt)",
+  "leakage": {
+   "direct": {
+    "n": 200,
+    "identifier_pct": 0.705,
+    "median_words": 10,
+    "basename_pct": 0.0,
+    "stem_pct": 0.225,
+    "path_seg_pct": 0.46,
+    "path_seg_not_in_gold_pct": 0.12,
+    "gold_token_overlap": 0.6577113997113997,
+    "gold_id_pct": 0.68
+   },
+   "paraphrase": {
+    "n": 200,
+    "identifier_pct": 0.015,
+    "median_words": 18,
+    "basename_pct": 0.0,
+    "stem_pct": 0.0,
+    "path_seg_pct": 0.265,
+    "path_seg_not_in_gold_pct": 0.12,
+    "gold_token_overlap": 0.13928726878127035,
+    "gold_id_pct": 0.0
+   }
+  }
+ },
+ "wikipedia-v2.jsonl": {
+  "sha256": "dd7783b3a646e571",
+  "queries_fp": "dd7783b3a646e571",
+  "n": 400,
+  "kinds": {
+   "direct": 200,
+   "paraphrase": 200
+  },
+  "corpus": "wikipedia",
+  "anchor": "window",
+  "provenance": "generate.py --anchor window, path NOT in prompt. Window is forced: wikipedia is prose, 0/1013 files have an extension symbols.py can parse",
+  "leakage": {
+   "direct": {
+    "n": 200,
+    "identifier_pct": 0.01,
+    "median_words": 11,
+    "basename_pct": 0.0,
+    "stem_pct": 0.0,
+    "path_seg_pct": 0.0,
+    "path_seg_not_in_gold_pct": 0.0,
+    "gold_token_overlap": 0.9112452824952826,
+    "gold_id_pct": 0.01
+   },
+   "paraphrase": {
+    "n": 200,
+    "identifier_pct": 0.0,
+    "median_words": 15,
+    "basename_pct": 0.0,
+    "stem_pct": 0.0,
+    "path_seg_pct": 0.0,
+    "path_seg_not_in_gold_pct": 0.0,
+    "gold_token_overlap": 0.4609088411588412,
+    "gold_id_pct": 0.0
+   }
+  }
+ },
+ "wikipedia.jsonl": {
+  "sha256": "093a1dd8d553c7fc",
+  "queries_fp": "093a1dd8d553c7fc",
+  "n": 400,
+  "kinds": {
+   "direct": 200,
+   "paraphrase": 200
+  },
+  "corpus": "wikipedia",
+  "anchor": "window",
+  "provenance": "generate.py --anchor window (path WAS in the prompt)",
+  "leakage": {
+   "direct": {
+    "n": 200,
+    "identifier_pct": 0.01,
+    "median_words": 11,
+    "basename_pct": 0.0,
+    "stem_pct": 0.0,
+    "path_seg_pct": 0.0,
+    "path_seg_not_in_gold_pct": 0.0,
+    "gold_token_overlap": 0.8969097846597847,
+    "gold_id_pct": 0.01
+   },
+   "paraphrase": {
+    "n": 200,
+    "identifier_pct": 0.0,
+    "median_words": 15,
+    "basename_pct": 0.0,
+    "stem_pct": 0.0,
+    "path_seg_pct": 0.0,
+    "path_seg_not_in_gold_pct": 0.0,
+    "gold_token_overlap": 0.418880267436382,
+    "gold_id_pct": 0.0
+   }
+  }
+ }
 }

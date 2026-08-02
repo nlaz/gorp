@@ -10,68 +10,68 @@ is a view of them. `--check` fails if the two have diverged.
 
 | run | query set | corpus | cells | ranks | when | git | provenance |
 |---|---|---|---|---|---|---|---|
-| `lever-vscode-preproc-split-idf` | unknown (fp 7578782896e9f02e) | bench/corpora/vscode | 2 | 400 | 2026-08-01 | 139f3bb | yes |
-| `lever-cosqa-preproc-split-idf` | unknown (fp a9006a29f625c5b9) | eval/data/cosqa/corpus | 1 | 1,200 | 2026-08-01 | 9bbb9fe | yes |
+| `lever-vscode-preproc-split-idf` | vscode.jsonl | bench/corpora/vscode | 2 | 400 | 2026-08-01 | 139f3bb | yes |
+| `lever-cosqa-preproc-split-idf` | cosqa-1200.jsonl | eval/data/cosqa/corpus | 1 | 1,200 | 2026-08-01 | 9bbb9fe | yes |
 | `oracle-vscode` | unknown (fp 85ebc3c532f239a1) | bench/corpora/vscode | 4 | 800 | 2026-08-01 | 3bde20c | yes |
-| `lever-vscode-preproc-split-sif-nomx` | unknown (fp 7578782896e9f02e) | bench/corpora/vscode | 2 | 400 | 2026-08-01 | 2d0b679 | yes |
-| `lever-vscode-preproc-none-nomx` | unknown (fp 7578782896e9f02e) | bench/corpora/vscode | 2 | 400 | 2026-08-01 | 2d0b679 | yes |
-| `lever-cosqa-preproc-split-sif-nomx` | unknown (fp a9006a29f625c5b9) | eval/data/cosqa/corpus | 1 | 1,200 | 2026-08-01 | 2d0b679 | yes |
-| `lever-cosqa-preproc-none-nomx` | unknown (fp a9006a29f625c5b9) | eval/data/cosqa/corpus | 1 | 1,200 | 2026-08-01 | 2d0b679 | yes |
-| `lever-linux-preproc-split-sif` | unknown (fp 46fc2ea43fcb30be) | bench/corpora/linux | 2 | 398 | 2026-08-01 | 72d7c22 | yes |
-| `lever-linux-preproc-split-nokw` | unknown (fp 46fc2ea43fcb30be) | bench/corpora/linux | 2 | 398 | 2026-08-01 | 72d7c22 | yes |
-| `lever-linux-preproc-split-whole` | unknown (fp 46fc2ea43fcb30be) | bench/corpora/linux | 2 | 398 | 2026-08-01 | 72d7c22 | yes |
-| `lever-linux-preproc-split` | unknown (fp 46fc2ea43fcb30be) | bench/corpora/linux | 4 | 796 | 2026-08-01 | 72d7c22 | yes |
-| `lever-cosqa-preproc-sif` | unknown (fp a9006a29f625c5b9) | eval/data/cosqa/corpus | 1 | 1,200 | 2026-08-01 | 72d7c22 | yes |
-| `lever-linux-preproc-none` | unknown (fp 46fc2ea43fcb30be) | bench/corpora/linux | 4 | 796 | 2026-08-01 | 72d7c22 | yes |
-| `lever-cosqa-preproc-split-sif` | unknown (fp a9006a29f625c5b9) | eval/data/cosqa/corpus | 1 | 1,200 | 2026-08-01 | 72d7c22 | yes |
-| `lever-cosqa-preproc-split-nokw` | unknown (fp a9006a29f625c5b9) | eval/data/cosqa/corpus | 1 | 1,200 | 2026-08-01 | 72d7c22 | yes |
-| `lever-cosqa-preproc-split-whole` | unknown (fp a9006a29f625c5b9) | eval/data/cosqa/corpus | 1 | 1,200 | 2026-08-01 | 72d7c22 | yes |
-| `lever-cosqa-preproc-split` | unknown (fp a9006a29f625c5b9) | eval/data/cosqa/corpus | 2 | 2,400 | 2026-08-01 | 72d7c22 | yes |
-| `lever-cosqa-preproc-none` | unknown (fp a9006a29f625c5b9) | eval/data/cosqa/corpus | 2 | 2,400 | 2026-08-01 | 72d7c22 | yes |
-| `lever-vscode-preproc-split-sif` | unknown (fp 7578782896e9f02e) | bench/corpora/vscode | 2 | 400 | 2026-08-01 | 72d7c22 | yes |
-| `lever-vscode-preproc-split-nokw` | unknown (fp 7578782896e9f02e) | bench/corpora/vscode | 2 | 400 | 2026-08-01 | 72d7c22 | yes |
-| `lever-vscode-preproc-split-whole` | unknown (fp 7578782896e9f02e) | bench/corpora/vscode | 2 | 400 | 2026-08-01 | 72d7c22 | yes |
-| `lever-vscode-preproc-split` | unknown (fp 7578782896e9f02e) | bench/corpora/vscode | 4 | 800 | 2026-08-01 | 72d7c22 | yes |
-| `lever-vscode-preproc-none` | unknown (fp 7578782896e9f02e) | bench/corpora/vscode | 4 | 800 | 2026-08-01 | 72d7c22 | yes |
-| `lever-etcd-preproc-split-sif` | unknown (fp c5ff8f3b1e947e2e) | bench/corpora/etcd | 2 | 400 | 2026-08-01 | 72d7c22 | yes |
-| `lever-etcd-preproc-split-nokw` | unknown (fp c5ff8f3b1e947e2e) | bench/corpora/etcd | 2 | 400 | 2026-08-01 | 72d7c22 | yes |
-| `lever-etcd-preproc-split-whole` | unknown (fp c5ff8f3b1e947e2e) | bench/corpora/etcd | 2 | 400 | 2026-08-01 | 72d7c22 | yes |
-| `lever-etcd-preproc-split` | unknown (fp c5ff8f3b1e947e2e) | bench/corpora/etcd | 4 | 800 | 2026-08-01 | 72d7c22 | yes |
-| `lever-etcd-preproc-none` | unknown (fp c5ff8f3b1e947e2e) | bench/corpora/etcd | 4 | 800 | 2026-08-01 | 72d7c22 | yes |
-| `lever-tokio-preproc-split-sif` | unknown (fp cfaeed9fe176d1a4) | bench/corpora/tokio | 2 | 400 | 2026-08-01 | 72d7c22 | yes |
-| `lever-tokio-preproc-split-nokw` | unknown (fp cfaeed9fe176d1a4) | bench/corpora/tokio | 2 | 400 | 2026-08-01 | 72d7c22 | yes |
-| `lever-tokio-preproc-split-whole` | unknown (fp cfaeed9fe176d1a4) | bench/corpora/tokio | 2 | 400 | 2026-08-01 | 84ac398 | yes |
-| `lever-tokio-preproc-split` | unknown (fp cfaeed9fe176d1a4) | bench/corpora/tokio | 4 | 800 | 2026-08-01 | 84ac398 | yes |
-| `lever-tokio-preproc-none` | unknown (fp cfaeed9fe176d1a4) | bench/corpora/tokio | 4 | 800 | 2026-08-01 | 84ac398 | yes |
-| `sem96-cosqa` | unknown (fp a9006a29f625c5b9) | eval/data/cosqa/corpus | 1 | 1,200 | 2026-07-31 | 5c6a10c | yes |
-| `sem96-linux` | unknown (fp 46fc2ea43fcb30be) | bench/corpora/linux | 2 | 398 | 2026-07-31 | 956d54d | yes |
-| `sem96-vscode` | unknown (fp 7578782896e9f02e) | bench/corpora/vscode | 2 | 400 | 2026-07-31 | 956d54d | yes |
+| `lever-vscode-preproc-split-sif-nomx` | vscode.jsonl | bench/corpora/vscode | 2 | 400 | 2026-08-01 | 2d0b679 | yes |
+| `lever-vscode-preproc-none-nomx` | vscode.jsonl | bench/corpora/vscode | 2 | 400 | 2026-08-01 | 2d0b679 | yes |
+| `lever-cosqa-preproc-split-sif-nomx` | cosqa-1200.jsonl | eval/data/cosqa/corpus | 1 | 1,200 | 2026-08-01 | 2d0b679 | yes |
+| `lever-cosqa-preproc-none-nomx` | cosqa-1200.jsonl | eval/data/cosqa/corpus | 1 | 1,200 | 2026-08-01 | 2d0b679 | yes |
+| `lever-linux-preproc-split-sif` | linux.jsonl | bench/corpora/linux | 2 | 398 | 2026-08-01 | 72d7c22 | yes |
+| `lever-linux-preproc-split-nokw` | linux.jsonl | bench/corpora/linux | 2 | 398 | 2026-08-01 | 72d7c22 | yes |
+| `lever-linux-preproc-split-whole` | linux.jsonl | bench/corpora/linux | 2 | 398 | 2026-08-01 | 72d7c22 | yes |
+| `lever-linux-preproc-split` | linux.jsonl | bench/corpora/linux | 4 | 796 | 2026-08-01 | 72d7c22 | yes |
+| `lever-cosqa-preproc-sif` | cosqa-1200.jsonl | eval/data/cosqa/corpus | 1 | 1,200 | 2026-08-01 | 72d7c22 | yes |
+| `lever-linux-preproc-none` | linux.jsonl | bench/corpora/linux | 4 | 796 | 2026-08-01 | 72d7c22 | yes |
+| `lever-cosqa-preproc-split-sif` | cosqa-1200.jsonl | eval/data/cosqa/corpus | 1 | 1,200 | 2026-08-01 | 72d7c22 | yes |
+| `lever-cosqa-preproc-split-nokw` | cosqa-1200.jsonl | eval/data/cosqa/corpus | 1 | 1,200 | 2026-08-01 | 72d7c22 | yes |
+| `lever-cosqa-preproc-split-whole` | cosqa-1200.jsonl | eval/data/cosqa/corpus | 1 | 1,200 | 2026-08-01 | 72d7c22 | yes |
+| `lever-cosqa-preproc-split` | cosqa-1200.jsonl | eval/data/cosqa/corpus | 2 | 2,400 | 2026-08-01 | 72d7c22 | yes |
+| `lever-cosqa-preproc-none` | cosqa-1200.jsonl | eval/data/cosqa/corpus | 2 | 2,400 | 2026-08-01 | 72d7c22 | yes |
+| `lever-vscode-preproc-split-sif` | vscode.jsonl | bench/corpora/vscode | 2 | 400 | 2026-08-01 | 72d7c22 | yes |
+| `lever-vscode-preproc-split-nokw` | vscode.jsonl | bench/corpora/vscode | 2 | 400 | 2026-08-01 | 72d7c22 | yes |
+| `lever-vscode-preproc-split-whole` | vscode.jsonl | bench/corpora/vscode | 2 | 400 | 2026-08-01 | 72d7c22 | yes |
+| `lever-vscode-preproc-split` | vscode.jsonl | bench/corpora/vscode | 4 | 800 | 2026-08-01 | 72d7c22 | yes |
+| `lever-vscode-preproc-none` | vscode.jsonl | bench/corpora/vscode | 4 | 800 | 2026-08-01 | 72d7c22 | yes |
+| `lever-etcd-preproc-split-sif` | etcd.jsonl | bench/corpora/etcd | 2 | 400 | 2026-08-01 | 72d7c22 | yes |
+| `lever-etcd-preproc-split-nokw` | etcd.jsonl | bench/corpora/etcd | 2 | 400 | 2026-08-01 | 72d7c22 | yes |
+| `lever-etcd-preproc-split-whole` | etcd.jsonl | bench/corpora/etcd | 2 | 400 | 2026-08-01 | 72d7c22 | yes |
+| `lever-etcd-preproc-split` | etcd.jsonl | bench/corpora/etcd | 4 | 800 | 2026-08-01 | 72d7c22 | yes |
+| `lever-etcd-preproc-none` | etcd.jsonl | bench/corpora/etcd | 4 | 800 | 2026-08-01 | 72d7c22 | yes |
+| `lever-tokio-preproc-split-sif` | tokio.jsonl | bench/corpora/tokio | 2 | 400 | 2026-08-01 | 72d7c22 | yes |
+| `lever-tokio-preproc-split-nokw` | tokio.jsonl | bench/corpora/tokio | 2 | 400 | 2026-08-01 | 72d7c22 | yes |
+| `lever-tokio-preproc-split-whole` | tokio.jsonl | bench/corpora/tokio | 2 | 400 | 2026-08-01 | 84ac398 | yes |
+| `lever-tokio-preproc-split` | tokio.jsonl | bench/corpora/tokio | 4 | 800 | 2026-08-01 | 84ac398 | yes |
+| `lever-tokio-preproc-none` | tokio.jsonl | bench/corpora/tokio | 4 | 800 | 2026-08-01 | 84ac398 | yes |
+| `sem96-cosqa` | cosqa-1200.jsonl | eval/data/cosqa/corpus | 1 | 1,200 | 2026-07-31 | 5c6a10c | yes |
+| `sem96-linux` | linux.jsonl | bench/corpora/linux | 2 | 398 | 2026-07-31 | 956d54d | yes |
+| `sem96-vscode` | vscode.jsonl | bench/corpora/vscode | 2 | 400 | 2026-07-31 | 956d54d | yes |
 | `wikipedia-results-tuned` | — | — | 8 | 0 | — | — | **not recorded** |
 | `wikipedia-results` | — | — | 8 | 0 | — | — | **not recorded** |
 | `vscode-results-v2` | — | — | 6 | 0 | — | — | **not recorded** |
 | `vscode-results-tuned` | — | — | 8 | 0 | — | — | **not recorded** |
 | `vscode-results` | — | — | 8 | 0 | — | — | **not recorded** |
 | `vscode-pilot-results` | — | — | 8 | 0 | — | — | **not recorded** |
-| `v2-wikipedia` | wikipedia.jsonl | — | 8 | 1,600 | — | — | **not recorded** |
-| `v2-vscode` | vscode.jsonl | — | 8 | 1,600 | — | — | **not recorded** |
-| `v2-linux` | linux.jsonl | — | 8 | 1,592 | — | — | **not recorded** |
-| `rerun-wikipedia` | unknown (fp 093a1dd8d553c7fc) | — | 10 | 2,000 | — | — | **not recorded** |
-| `rerun-vscode` | unknown (fp 7578782896e9f02e) | — | 10 | 2,000 | — | — | **not recorded** |
-| `rerun-linux-sem` | unknown (fp 46fc2ea43fcb30be) | — | 6 | 1,194 | — | — | **not recorded** |
-| `rerun-linux` | unknown (fp 46fc2ea43fcb30be) | — | 10 | 1,990 | — | — | **not recorded** |
-| `refactor-ab-warm-new` | vscode.jsonl | — | 6 | 1,200 | — | — | **not recorded** |
-| `refactor-ab-warm-base` | vscode.jsonl | — | 6 | 1,200 | — | — | **not recorded** |
-| `refactor-ab-coldsem-new` | vscode.jsonl | — | 2 | 400 | — | — | **not recorded** |
-| `refactor-ab-coldsem-base` | vscode.jsonl | — | 2 | 400 | — | — | **not recorded** |
+| `v2-wikipedia` | unknown (fp eb65b3afa159577a) | — | 8 | 1,600 | — | — | **not recorded** |
+| `v2-vscode` | unknown (fp 2e8d6905434c8b01) | — | 8 | 1,600 | — | — | **not recorded** |
+| `v2-linux` | unknown (fp a4ce3818c9610b9b) | — | 8 | 1,592 | — | — | **not recorded** |
+| `rerun-wikipedia` | wikipedia.jsonl | — | 10 | 2,000 | — | — | **not recorded** |
+| `rerun-vscode` | vscode.jsonl | — | 10 | 2,000 | — | — | **not recorded** |
+| `rerun-linux-sem` | linux.jsonl | — | 6 | 1,194 | — | — | **not recorded** |
+| `rerun-linux` | linux.jsonl | — | 10 | 1,990 | — | — | **not recorded** |
+| `refactor-ab-warm-new` | unknown (fp 2e8d6905434c8b01) | — | 6 | 1,200 | — | — | **not recorded** |
+| `refactor-ab-warm-base` | unknown (fp 2e8d6905434c8b01) | — | 6 | 1,200 | — | — | **not recorded** |
+| `refactor-ab-coldsem-new` | unknown (fp 2e8d6905434c8b01) | — | 2 | 400 | — | — | **not recorded** |
+| `refactor-ab-coldsem-base` | unknown (fp 2e8d6905434c8b01) | — | 2 | 400 | — | — | **not recorded** |
 | `prose256-wikipedia` | — | — | 6 | 0 | — | — | **not recorded** |
 | `prose256-vscode` | — | — | 6 | 0 | — | — | **not recorded** |
 | `prose256-linux` | — | — | 6 | 0 | — | — | **not recorded** |
-| `oracle-linux` | unknown (fp 46fc2ea43fcb30be) | — | 2 | 398 | — | — | **not recorded** |
-| `oracle-cosqa` | unknown (fp a9006a29f625c5b9) | — | 6 | 7,200 | — | — | **not recorded** |
-| `newcorp-tokio` | unknown (fp cfaeed9fe176d1a4) | — | 12 | 2,400 | — | — | **not recorded** |
-| `newcorp-jekyll` | unknown (fp 94476d160ca47908) | — | 12 | 1,056 | — | — | **not recorded** |
-| `newcorp-etcd` | unknown (fp c5ff8f3b1e947e2e) | — | 12 | 2,400 | — | — | **not recorded** |
-| `newcorp-commons-lang` | unknown (fp 8953ed53f346749a) | — | 12 | 2,388 | — | — | **not recorded** |
+| `oracle-linux` | linux.jsonl | — | 2 | 398 | — | — | **not recorded** |
+| `oracle-cosqa` | cosqa-1200.jsonl | — | 6 | 7,200 | — | — | **not recorded** |
+| `newcorp-tokio` | tokio.jsonl | — | 12 | 2,400 | — | — | **not recorded** |
+| `newcorp-jekyll` | jekyll.jsonl | — | 12 | 1,056 | — | — | **not recorded** |
+| `newcorp-etcd` | etcd.jsonl | — | 12 | 2,400 | — | — | **not recorded** |
+| `newcorp-commons-lang` | commons-lang.jsonl | — | 12 | 2,388 | — | — | **not recorded** |
 | `linux-results-tuned` | — | — | 8 | 0 | — | — | **not recorded** |
 | `lever-wikipedia-sifc` | — | — | 4 | 0 | — | — | **not recorded** |
 | `lever-wikipedia-sifa4` | — | — | 4 | 0 | — | — | **not recorded** |
@@ -132,12 +132,12 @@ is a view of them. `--check` fails if the two have diverged.
 | `lever-linux-base` | — | — | 6 | 0 | — | — | **not recorded** |
 | `fnchunk-vscode` | — | — | 6 | 0 | — | — | **not recorded** |
 | `fnchunk-linux` | — | — | 6 | 0 | — | — | **not recorded** |
-| `cosqa-results` | cosqa-1200.jsonl | — | 5 | 6,000 | — | — | **not recorded** |
+| `cosqa-results` | unknown (fp b0fe982c083a825e) | — | 5 | 6,000 | — | — | **not recorded** |
 | `codemodel-wikipedia` | — | — | 6 | 0 | — | — | **not recorded** |
 | `codemodel-vscode` | — | — | 6 | 0 | — | — | **not recorded** |
 | `codemodel-linux` | — | — | 6 | 0 | — | — | **not recorded** |
-| `adv-vscode` | vscode.jsonl | — | 6 | 1,200 | — | — | **not recorded** |
-| `adv-linux` | linux-150.jsonl | — | 6 | 450 | — | — | **not recorded** |
+| `adv-vscode` | unknown (fp 2e8d6905434c8b01) | — | 6 | 1,200 | — | — | **not recorded** |
+| `adv-linux` | unknown (fp d93eb8a8589cc313) | — | 6 | 450 | — | — | **not recorded** |
 
 ## Every metric, every run
 

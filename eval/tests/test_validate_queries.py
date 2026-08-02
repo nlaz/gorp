@@ -195,3 +195,73 @@ def test_strata_partition_the_rows_exactly():
     cells = [run_eval.cell_of(r, ["lang"]) for r in rows]
     assert len(cells) == len(rows)
     assert sorted(set(cells)) == ["direct|lang=c", "direct|lang=rust"]
+
+
+# --- the blind gate (RESEARCH.md §15.3) --------------------------------------
+
+def blind_corpus(tmp_path):
+    return corpus_with(
+        tmp_path,
+        body="def flush(self):\n    # drain the pending buffer\n"
+             "    self._ring_buffer.clear()\n    return True\n",
+        rel="src/a.py")
+
+
+def test_a_genuinely_blind_row_passes(tmp_path):
+    r = row(kind="blind", query="force queued output to disk",
+            symbol="flush", start_line=1, end_line=4)
+    problems, stats = vq.validate([r], blind_corpus(tmp_path))
+    assert problems == []
+    assert stats["n_blind_checked"] == 1
+
+
+def test_a_blind_row_naming_the_lowercase_symbol_is_refused(tmp_path):
+    r = row(kind="blind", query="flush the buffer", symbol="flush",
+            start_line=1, end_line=4)
+    problems, _ = vq.validate([r], blind_corpus(tmp_path))
+    assert "blind-violation" in [p[1] for p in problems]
+    assert "flush" in problems[0][2]
+
+
+def test_a_blind_row_naming_a_gold_identifier_is_refused(tmp_path):
+    r = row(kind="blind", query="clear the _ring_buffer here", symbol="flush",
+            start_line=1, end_line=4)
+    problems, _ = vq.validate([r], blind_corpus(tmp_path))
+    assert "blind-violation" in [p[1] for p in problems]
+
+
+def test_overlap_above_the_row_cap_is_refused(tmp_path):
+    # No identifier named, but every content token appears in the gold.
+    r = row(kind="blind", query="drain pending buffer", symbol="flush",
+            start_line=1, end_line=4)
+    problems, _ = vq.validate([r], blind_corpus(tmp_path))
+    assert "blind-violation" in [p[1] for p in problems]
+    assert "row cap" in problems[0][2]
+
+
+def test_paraphrase_rows_are_never_gated(tmp_path):
+    # The historical kinds keep validating exactly as before, however leaky.
+    r = row(kind="paraphrase", query="flush the _ring_buffer", symbol="flush",
+            start_line=1, end_line=4)
+    problems, stats = vq.validate([r], blind_corpus(tmp_path))
+    assert problems == []
+    assert stats["n_blind_checked"] == 0
+
+
+def test_where_falls_back_to_computed_leakage_fields(tmp_path):
+    corpus = blind_corpus(tmp_path)
+    rows = [row(query="force queued output to disk", symbol="flush",
+                start_line=1, end_line=4),
+            row(query="flush the pending buffer", symbol="flush",
+                start_line=1, end_line=4)]
+    kept = run_eval.apply_where(rows, "is_blind=True", corpus)
+    assert len(kept) == 1 and kept[0]["query"].startswith("force")
+
+
+def test_where_on_an_unknown_field_still_errors_with_both_lists(tmp_path):
+    try:
+        run_eval.apply_where([row()], "nonesuch=1", blind_corpus(tmp_path))
+    except SystemExit as e:
+        assert "nonesuch" in str(e)
+    else:
+        raise AssertionError("expected SystemExit")

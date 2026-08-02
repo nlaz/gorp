@@ -508,9 +508,13 @@ def resolve_queries(spec):
         f"no such query set: {spec} (looked in {', '.join(str(d) for d in QUERY_DIRS)})")
 
 
-def apply_where(rows, where):
+def apply_where(rows, where, corpus=None):
     """Keep rows matching every `k=v` clause. Values compare as strings so
-    `has_doc=True` and `n_lines=12` work without type declarations."""
+    `has_doc=True` and `n_lines=12` work without type declarations.
+
+    A key that is on no row falls back to the computed leakage fields, the
+    same lookup `cell_of` does — so `--where is_blind=True` selects the §15
+    blind stratum of a real set (CoSQA) that never materialized the field."""
     if not where:
         return rows
     clauses = []
@@ -519,13 +523,24 @@ def apply_where(rows, where):
             raise SystemExit(f"--where clause {c!r} is not k=v")
         k, v = c.split("=", 1)
         clauses.append((k.strip(), v.strip()))
-    for k, _ in clauses:
-        if not any(k in r for r in rows):
+
+    row_keys = set().union(*(r.keys() for r in rows))
+    computed = [k for k, _ in clauses if k not in row_keys]
+    if computed:
+        probe = leakage.leakage(rows[0], corpus)
+        unknown = [k for k in computed if k not in probe]
+        if unknown:
             raise SystemExit(
-                f"--where field {k!r} is on no row; available: "
-                f"{sorted(set().union(*(r.keys() for r in rows)))}")
+                f"--where field(s) {unknown} are neither row fields nor leakage "
+                f"fields; rows have {sorted(row_keys)}, leakage has {sorted(probe)}")
+
+    def value(r, k):
+        if k in r:
+            return r[k]
+        return leakage.leakage(r, corpus).get(k)
+
     return [r for r in rows
-            if all(str(r.get(k)) == v for k, v in clauses)]
+            if all(str(value(r, k)) == v for k, v in clauses)]
 
 
 def cell_of(row, strata, corpus=None):
@@ -578,6 +593,9 @@ def main():
                     help="keep only matching rows, e.g. 'split=dev'")
     ap.add_argument("--allow-stale", action="store_true",
                     help="score even if gold spans no longer match the corpus")
+    ap.add_argument("--allow-leaky", action="store_true",
+                    help="score even if blind-labeled rows fail the §15.3 "
+                         "predicate (--allow-stale does not cover this)")
     ap.add_argument("--checkpoint", type=Path, default=None,
                     help="append each (query, mode) result here and resume from "
                          "it on restart — a kernel or oracle run takes hours and "
@@ -595,19 +613,32 @@ def main():
     # measurement. Check before spending an hour of scans on it.
     problems, vstats = validate(rows, args.corpus)
     if problems:
+        # Staleness and leakage are different sins with different overrides:
+        # --allow-stale scores around drift (misses are honest); a leaky
+        # "blind" set is mislabeled data and needs its own explicit waiver.
+        leaky = [p for p in problems if p[1].startswith("blind-")]
+        stale = [p for p in problems if not p[1].startswith("blind-")]
         print(f"query set does not match the corpus: {vstats['n_problems']} problems")
         print(format_problems(problems))
-        if not args.allow_stale:
+        if stale and not args.allow_stale:
             raise SystemExit(
                 "refusing to score a drifted query set (--allow-stale to override)")
-        print("--allow-stale: scoring anyway; affected rows will read as misses")
+        if leaky and not args.allow_leaky:
+            raise SystemExit(
+                f"refusing to score: {len(leaky)} blind-labeled rows are not blind "
+                f"(RESEARCH.md §15.3; --allow-leaky to override, --allow-stale "
+                f"does not apply)")
+        if stale:
+            print("--allow-stale: scoring anyway; affected rows will read as misses")
+        if leaky:
+            print("--allow-leaky: scoring anyway; blind cells are NOT blind")
     if vstats["n_unverifiable"]:
         print(f"note: {vstats['n_unverifiable']}/{vstats['n_rows']} rows carry no "
               f"gold_sha — an edited gold file would not be detected for those")
 
     check_index_freshness(args.corpus, args.modes, args.no_index, args.allow_stale)
 
-    rows = apply_where(rows, args.where)
+    rows = apply_where(rows, args.where, args.corpus)
     if not rows:
         raise SystemExit(f"--where {args.where!r} matched no rows")
 

@@ -24,6 +24,9 @@ import json
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent))
+import leakage  # noqa: E402
+
 HERE = Path(__file__).parent
 RESULTS = HERE / "results"
 LEGACY = HERE / "data"
@@ -119,6 +122,13 @@ def summarize(name, rows, by_fp=None):
     }
 
 
+def _is_blind_run(s):
+    """A run belongs to the blind board when any of its cells scored a
+    §15-gated kind. Membership is derived from the scored data, never from
+    the filename."""
+    return any(c["kind"] in leakage.BLIND_KINDS for c in s["cells"])
+
+
 def render(summaries):
     L = ["# eval/results — every scored run, rolled up",
          "",
@@ -128,17 +138,27 @@ def render(summaries):
          "",
          f"{len(summaries)} runs, "
          f"{sum(s['n_ranks'] for s in summaries):,} per-query ranks recorded.",
-         "",
-         "## Runs",
-         "",
-         "| run | query set | corpus | cells | ranks | when | git | provenance |",
-         "|---|---|---|---|---|---|---|---|"]
-    for s in sorted(summaries, key=lambda s: (s["at"] or "", s["name"]), reverse=True):
-        prov = "yes" if s["provenance_recorded"] else "**not recorded**"
-        qs = s["query_set"] or "—"
-        L.append(f"| `{s['name']}` | {qs} | {s['corpus'] or '—'} | {s['n_cells']} | "
-                 f"{s['n_ranks']:,} | {(s['at'] or '—')[:10]} | "
-                 f"{s['git_head'] or '—'} | {prov} |")
+         ""]
+
+    def run_table(subset):
+        rows = ["| run | query set | corpus | cells | ranks | when | git | provenance |",
+                "|---|---|---|---|---|---|---|---|"]
+        for s in sorted(subset, key=lambda s: (s["at"] or "", s["name"]), reverse=True):
+            prov = "yes" if s["provenance_recorded"] else "**not recorded**"
+            qs = s["query_set"] or "—"
+            rows.append(f"| `{s['name']}` | {qs} | {s['corpus'] or '—'} | {s['n_cells']} | "
+                        f"{s['n_ranks']:,} | {(s['at'] or '—')[:10]} | "
+                        f"{s['git_head'] or '—'} | {prov} |")
+        return rows
+
+    blind = [s for s in summaries if _is_blind_run(s)]
+    named = [s for s in summaries if not _is_blind_run(s)]
+    if blind:
+        L += ["## Runs — blind (primary, RESEARCH.md §15)", ""]
+        L += run_table(blind)
+        L += [""]
+    L += [f"## Runs — named-identifier (regression)" if blind else "## Runs", ""]
+    L += run_table(named)
 
     L += ["", "## Every metric, every run", "",
           "| run | mode | kind | n | R@1 | R@5 | R@10 | MRR@10 |",
