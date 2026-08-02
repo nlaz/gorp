@@ -129,6 +129,11 @@ def _is_blind_run(s):
     return any(c["kind"] in leakage.BLIND_KINDS for c in s["cells"])
 
 
+def _is_guess_run(s):
+    """The §16 primary board: cells scored on real agentic guesses."""
+    return any(c["kind"] in leakage.GUESS_KINDS for c in s["cells"])
+
+
 def render(summaries):
     L = ["# eval/results — every scored run, rolled up",
          "",
@@ -151,13 +156,19 @@ def render(summaries):
                         f"{s['git_head'] or '—'} | {prov} |")
         return rows
 
-    blind = [s for s in summaries if _is_blind_run(s)]
-    named = [s for s in summaries if not _is_blind_run(s)]
+    guess = [s for s in summaries if _is_guess_run(s)]
+    blind = [s for s in summaries if not _is_guess_run(s) and _is_blind_run(s)]
+    named = [s for s in summaries
+             if not _is_guess_run(s) and not _is_blind_run(s)]
+    if guess:
+        L += ["## Runs — guess (primary, RESEARCH.md §16)", ""]
+        L += run_table(guess)
+        L += [""]
     if blind:
-        L += ["## Runs — blind (primary, RESEARCH.md §15)", ""]
+        L += ["## Runs — blind (model-experiment instrument, RESEARCH.md §15.10)", ""]
         L += run_table(blind)
         L += [""]
-    L += [f"## Runs — named-identifier (regression)" if blind else "## Runs", ""]
+    L += ["## Runs — named-identifier (regression)" if (blind or guess) else "## Runs", ""]
     L += run_table(named)
 
     L += ["", "## Every metric, every run", "",

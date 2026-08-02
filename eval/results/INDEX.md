@@ -6,7 +6,7 @@ is a view of them. `--check` fails if the two have diverged.
 
 169 runs, 79,357 per-query ranks recorded.
 
-## Runs — blind (primary, RESEARCH.md §15)
+## Runs — blind (model-experiment instrument, RESEARCH.md §15.10)
 
 | run | query set | corpus | cells | ranks | when | git | provenance |
 |---|---|---|---|---|---|---|---|

@@ -37,10 +37,19 @@ The four symbol-anchored sets are the best of the ones we did write: ground
 truth is a function span, so they can referee a chunking change, and the
 generator was never shown the file path.
 
-## The blindness ladder (RESEARCH.md §15)
+## The guess corpora (RESEARCH.md §16 — primary since 2026-08-02)
 
-Since 2026-08-01 the primary regime is **blind search**. The
-`<corpus>-blind.jsonl` sets carry four kinds over the *same* gold spans —
+`guesses-*.jsonl` are **real agent search strings** harvested losslessly from
+the locbench shim logs (ranked queries, `-e` exact patterns, and rg regexes —
+including alternation ladders of candidate spellings, the purest record of an
+agent guessing vocabulary). One row per invocation, frequency and scopes
+preserved, `condition` recorded per row because tool descriptions measurably
+shape query style (§7.3). These are the primary board; identifiers — right or
+wrong — are allowed by definition, so the blind gate does not apply.
+
+## The blindness ladder (RESEARCH.md §15 — model-experiment instrument since §15.10)
+
+The `<corpus>-blind.jsonl` sets carry four kinds over the *same* gold spans —
 CORE-Bench-style graded context removal:
 
 | level | kind | may contain | enforcement |

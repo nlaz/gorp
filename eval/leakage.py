@@ -81,6 +81,11 @@ def identifiers(tokens):
 
 BLIND_KINDS = {"blind", "blind_long", "symptom"}
 
+# The §16 agentic-guess kinds. NOT blind-gated on purpose: a guess is allowed
+# — expected — to contain identifiers, including wrong ones; the wrong-guess
+# case is precisely what ranked search is supposed to rescue.
+GUESS_KINDS = {"guess_ranked", "guess_exact", "guess_rg", "guess_ladder", "guess"}
+
 # Light stemming, symbol-match only: "flushing" still names `flush`.
 _SUFFIXES = ("ing", "ed", "es", "s", "er")
 

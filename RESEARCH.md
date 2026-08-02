@@ -3050,3 +3050,18 @@ structural-weighting case, §14.2's deferred tree-sitter bet, now with a
 mechanism); (3) the §9.9 code-teacher swap remains the only fix for A, which
 is the binding constraint everywhere else.
 
+### 15.10 Closing note: blind search is an instrument, not the product regime
+
+Recorded 2026-08-02, maintainer decision. §15.8's own synthesis settles the
+orientation question the section opened: strict-blind queries model a user
+*problem statement*, but the product's user is a **coding agent** that
+interprets the problem and emits vocabulary *guesses* — and 47% of real agent
+queries carry an identifier (§13.3), often a wrong one. Strict-blind is
+therefore re-labeled the **model-experiment instrument**: the gate the §9.9
+code-teacher re-distillation must move, refereed by the six gated sets, and
+not a regime any query-time work should chase. Nothing is deleted — the
+sets, the §15.3 predicate, the gates, `blind.sh` and `blind_cut.py` all
+stand. The primary regime becomes **agentic-guess search**, defined and
+pre-registered in §16. The boards become three: guess (primary), blind
+(model-experiment instrument), named-identifier (regression).
+
