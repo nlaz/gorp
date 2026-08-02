@@ -2775,3 +2775,102 @@ prediction 3. Practical consequence: `--sif` stays the canonical spelling and
 but the §14.4 mechanism story sharpens — the embedder didn't need BM25's
 curve, it needed BM25's *idea*.
 
+## 15. Blind search (2026-08-01): the reorientation
+
+### 15.1 The decision
+
+**The primary evaluation regime becomes *blind search*: queries verifiably
+free of the gold's identifiers, simulating a search agent with zero prior
+knowledge of the codebase's naming. Everything measured to date — every
+`direct` set, CoSQA whole, the §14 scoreboard — is retained unchanged as the
+*named-identifier regression board*: it may not collapse, but it no longer
+defines success.** (Maintainer decision, recorded 2026-08-01.)
+
+Why. §14's own root-cause work showed the sets mostly name things: 66–70% of
+`direct` queries contain the gold identifier verbatim (§12), real CoSQA
+queries share 42% of their vocabulary with the gold (§12.3), and 47% of real
+agent queries carry an identifier (§13.3). On that distribution exact
+matching plus idf is close to the optimal decision rule — lexical search is
+being graded on its home field, and semantic search's one structural
+advantage (crossing vocabulary) never comes into play. Meanwhile the two
+cells that *are* vocabulary-crossing are the most interesting numbers in the
+record: rg-oracle scores exactly 0.000 on kernel paraphrase while semantic
+scores 0.035 — now *tied with bm25* (§14.4) — and on identifier-free CoSQA
+the §13.2 verdict flips corpus-by-corpus. The capability this project exists
+for lives in the blind regime, and the harness barely measures it.
+
+The design borrows two ideas from CORE-Bench (arXiv 2409.11363, the
+computational-reproducibility agent benchmark): **graded information
+removal** — the same task at difficulty levels that strip context, rather
+than a binary easy/hard split — and **hard verifiable gates**. The second
+matters because today's `paraphrase` is only an *instruction* to the
+generator, not a property of the output: measured on the sets on disk, 1–5%
+of paraphrase rows still name the gold symbol verbatim, invisible to
+`identifier_pct` because `leakage.identifiers()` deliberately does not count
+single lowercase tokens (`flush`, `spawn`). A blind set must be blind by
+construction and refused by the scorer when it is not.
+
+### 15.2 The blindness ladder
+
+Every level shares the same symbol-anchored gold span — one target, graded
+context removal:
+
+| level | kind | the query may contain | status |
+|---|---|---|---|
+| L0 | `direct` | anything, incl. the gold identifier | exists |
+| L1 | `paraphrase` | shared vocabulary; identifier avoidance advisory only | exists |
+| **L2** | `blind` (4–8 words), `blind_long` (12–20) | zero gold-identifier tokens — incl. lowercase symbol names and rare symbol subtokens — overlap-capped, structurally gated | **new, primary** |
+| L3 | `symptom` | observable behavior only | deferred until the Loc-Bench blind screen shows the stratum matters |
+
+Real-data anchors: the zero-gold-hit subset of CoSQA ≈ real L2; Loc-Bench
+instances whose issue text names no gold identifier ≈ real L3; the ~53% of
+replay-agent queries without identifiers ≈ agent-length L2.
+
+### 15.3 The strict-blind predicate
+
+`identifiers()` is frozen (its definition is baked into every recorded
+`identifier_pct`). Blindness is decided by a new **gold-aware** predicate,
+`gold_identifier_hits(query_tokens, gold_text, symbol)`: a query token t
+(lowercased) is a hit if
+
+- (a) it equals a snake_case/camelCase identifier token *of the gold span*; or
+- (b) it equals the gold's own `symbol` name — the clause `identifiers()`
+  cannot express — or matches it under light suffix stemming
+  (ing/ed/es/s/er); or
+- (c) it equals a subtoken of the symbol (split on `_`/camel) with guards:
+  length ≥ 4, not a stopword, and not occurring in the gold span as plain
+  prose outside the symbol — `rwstat` is caught, `read` passes.
+
+`is_blind(row)` = zero hits AND per-row `gold_token_overlap` ≤ **0.5**.
+Set-level gate: mean overlap over blind rows ≤ **0.25**. Both caps are
+provisional until the §15.5 calibration on existing distributions (paraphrase
+≈ 10–11.5%, real humans 42%), then frozen; the calibration is part of Phase 0
+and happens before any blind set is scored.
+
+### 15.4 The new success criterion
+
+Two boards. **Blind (primary):** semantic beats bm25 on strict-blind cells —
+that is the §14.1 exit condition, re-aimed at the regime the tool exists for.
+**Named-identifier (regression):** every existing set keeps being run; the
+§14 numbers are the floor. A change that wins blind by collapsing named does
+not ship.
+
+### 15.5 Pre-registration (written before the first Phase-0 re-cut run)
+
+The Phase-0 re-cuts of *existing* results into blind/named strata count as
+first runs. Predictions:
+
+1. **On strict-blind generated cells, semantic (split-sif + maxsim) beats
+   bm25: ΔR@5 ≥ +0.03 with CI excluding 0 on ≥3 of 6 corpora.** This is the
+   reorientation's load-bearing bet — if bm25 wins even here, the §9.9
+   model-swap becomes the only move left.
+2. **rg-strong ≤ 0.05 R@5 on blind cells; rg-oracle collapses toward its
+   kernel-paraphrase 0.000.** Blindness by construction removes what grep
+   greps for.
+3. **CoSQA blind re-cut: bm25's advantage shrinks or flips sign on the blind
+   stratum, and widens on the named complement.**
+4. **`blind_long` ≥ `blind` for semantic** (more signal to pool), **≈ for
+   bm25** (length adds few new exact matches).
+5. **Blind-screened Loc-Bench instances show a larger semgrep-vs-grep gap
+   than the identifier-bearing complement.**
+
