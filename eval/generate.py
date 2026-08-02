@@ -162,10 +162,17 @@ def sample_chunks(root: Path, n: int, seed: int):
 
 
 def _ask_once(prompt: str) -> dict | None:
-    proc = subprocess.run(
-        ["claude", "-p", "--output-format", "text", prompt],
-        capture_output=True, text=True, timeout=120,
-    )
+    try:
+        proc = subprocess.run(
+            ["claude", "-p", "--output-format", "text", prompt],
+            capture_output=True, text=True, timeout=120,
+        )
+    except subprocess.TimeoutExpired:
+        return None
+    if proc.returncode != 0:
+        # A usage-limited or broken CLI fails every call instantly; that is
+        # not query attrition and the caller needs to be able to tell.
+        return None
     text = proc.stdout.strip()
     # tolerate accidental fences
     if text.startswith("```"):
@@ -248,6 +255,14 @@ def main():
 
     with open(args.out, "w") as f, ThreadPoolExecutor(max_workers=args.workers) as pool:
         for i, (c, q) in enumerate(pool.map(one, chunks)):
+            # A dead CLI (rate limit, auth) fails every chunk fast. Burning
+            # the remaining calls and reporting 100% "attrition" would file a
+            # tool outage as a data property — the commons-lang lesson.
+            if written == 0 and i + 1 >= 30:
+                raise SystemExit(
+                    f"aborting: 0 of the first {i + 1} chunks produced any "
+                    f"output — the claude CLI is likely rate-limited or "
+                    f"broken, not the chunks. Re-run when it answers.")
             if not q:
                 continue
             with lock:
