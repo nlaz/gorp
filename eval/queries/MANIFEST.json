@@ -35,6 +35,66 @@
    }
   }
  },
+ "commons-lang-blind.jsonl": {
+  "sha256": "cb833af219efe56d",
+  "queries_fp": "cb833af219efe56d",
+  "n": 800,
+  "kinds": {
+   "blind": 200,
+   "blind_long": 200,
+   "direct": 200,
+   "paraphrase": 200
+  },
+  "corpus": "commons-lang",
+  "anchor": "symbol",
+  "provenance": "generate.py --anchor symbol, blind ladder (\u00a715); session-default model; 0/200 dropped (first attempt lost whole to a rate-limited CLI, regenerated)",
+  "leakage": {
+   "blind": {
+    "n": 200,
+    "identifier_pct": 0.005,
+    "median_words": 7,
+    "basename_pct": 0.0,
+    "stem_pct": 0.0,
+    "path_seg_pct": 0.25,
+    "path_seg_not_in_gold_pct": 0.2,
+    "gold_token_overlap": 0.09325595238095237,
+    "gold_id_pct": 0.0
+   },
+   "blind_long": {
+    "n": 200,
+    "identifier_pct": 0.005,
+    "median_words": 20,
+    "basename_pct": 0.0,
+    "stem_pct": 0.0,
+    "path_seg_pct": 0.33,
+    "path_seg_not_in_gold_pct": 0.29,
+    "gold_token_overlap": 0.08015533608548316,
+    "gold_id_pct": 0.0
+   },
+   "direct": {
+    "n": 200,
+    "identifier_pct": 0.875,
+    "median_words": 10,
+    "basename_pct": 0.0,
+    "stem_pct": 0.185,
+    "path_seg_pct": 0.435,
+    "path_seg_not_in_gold_pct": 0.085,
+    "gold_token_overlap": 0.6475449134199134,
+    "gold_id_pct": 0.965
+   },
+   "paraphrase": {
+    "n": 200,
+    "identifier_pct": 0.0,
+    "median_words": 17,
+    "basename_pct": 0.0,
+    "stem_pct": 0.005,
+    "path_seg_pct": 0.395,
+    "path_seg_not_in_gold_pct": 0.225,
+    "gold_token_overlap": 0.1500679582500403,
+    "gold_id_pct": 0.15
+   }
+  }
+ },
  "commons-lang.jsonl": {
   "sha256": "8953ed53f346749a",
   "queries_fp": "8953ed53f346749a",
@@ -95,6 +155,66 @@
    }
   }
  },
+ "etcd-blind.jsonl": {
+  "sha256": "db615edc72bbc105",
+  "queries_fp": "db615edc72bbc105",
+  "n": 688,
+  "kinds": {
+   "blind": 172,
+   "blind_long": 172,
+   "direct": 172,
+   "paraphrase": 172
+  },
+  "corpus": "etcd",
+  "anchor": "symbol",
+  "provenance": "generate.py --anchor symbol, blind ladder (\u00a715); session-default model; 28/200 chunks dropped (no blind query passed the gate in 3 attempts)",
+  "leakage": {
+   "blind": {
+    "n": 172,
+    "identifier_pct": 0.0,
+    "median_words": 7,
+    "basename_pct": 0.0,
+    "stem_pct": 0.0,
+    "path_seg_pct": 0.03488372093023256,
+    "path_seg_not_in_gold_pct": 0.03488372093023256,
+    "gold_token_overlap": 0.03408776301218162,
+    "gold_id_pct": 0.0
+   },
+   "blind_long": {
+    "n": 172,
+    "identifier_pct": 0.005813953488372093,
+    "median_words": 20,
+    "basename_pct": 0.0,
+    "stem_pct": 0.005813953488372093,
+    "path_seg_pct": 0.05813953488372093,
+    "path_seg_not_in_gold_pct": 0.05813953488372093,
+    "gold_token_overlap": 0.032410159225219705,
+    "gold_id_pct": 0.0
+   },
+   "direct": {
+    "n": 172,
+    "identifier_pct": 0.7209302325581395,
+    "median_words": 11,
+    "basename_pct": 0.0,
+    "stem_pct": 0.23837209302325582,
+    "path_seg_pct": 0.2441860465116279,
+    "path_seg_not_in_gold_pct": 0.03488372093023256,
+    "gold_token_overlap": 0.5526953343813809,
+    "gold_id_pct": 0.936046511627907
+   },
+   "paraphrase": {
+    "n": 172,
+    "identifier_pct": 0.005813953488372093,
+    "median_words": 18,
+    "basename_pct": 0.0,
+    "stem_pct": 0.03488372093023256,
+    "path_seg_pct": 0.10465116279069768,
+    "path_seg_not_in_gold_pct": 0.023255813953488372,
+    "gold_token_overlap": 0.09963758415068413,
+    "gold_id_pct": 0.3488372093023256
+   }
+  }
+ },
  "etcd.jsonl": {
   "sha256": "c5ff8f3b1e947e2e",
   "queries_fp": "c5ff8f3b1e947e2e",
@@ -128,6 +248,66 @@
     "path_seg_not_in_gold_pct": 0.05,
     "gold_token_overlap": 0.10245287319319826,
     "gold_id_pct": 0.205
+   }
+  }
+ },
+ "jekyll-blind.jsonl": {
+  "sha256": "e395df8f32cb1ab4",
+  "queries_fp": "e395df8f32cb1ab4",
+  "n": 292,
+  "kinds": {
+   "blind": 73,
+   "blind_long": 73,
+   "direct": 73,
+   "paraphrase": 73
+  },
+  "corpus": "jekyll",
+  "anchor": "symbol",
+  "provenance": "generate.py --anchor symbol, blind ladder (\u00a715); claude-sonnet-5; small corpus, 73 chunks sampled",
+  "leakage": {
+   "blind": {
+    "n": 73,
+    "identifier_pct": 0.0,
+    "median_words": 7,
+    "basename_pct": 0.0,
+    "stem_pct": 0.0410958904109589,
+    "path_seg_pct": 0.0547945205479452,
+    "path_seg_not_in_gold_pct": 0.0547945205479452,
+    "gold_token_overlap": 0.05055446836268754,
+    "gold_id_pct": 0.0
+   },
+   "blind_long": {
+    "n": 73,
+    "identifier_pct": 0.0,
+    "median_words": 20,
+    "basename_pct": 0.0,
+    "stem_pct": 0.0410958904109589,
+    "path_seg_pct": 0.0547945205479452,
+    "path_seg_not_in_gold_pct": 0.0547945205479452,
+    "gold_token_overlap": 0.044738970403756864,
+    "gold_id_pct": 0.0
+   },
+   "direct": {
+    "n": 73,
+    "identifier_pct": 0.5753424657534246,
+    "median_words": 11,
+    "basename_pct": 0.0,
+    "stem_pct": 0.2328767123287671,
+    "path_seg_pct": 0.3013698630136986,
+    "path_seg_not_in_gold_pct": 0.0410958904109589,
+    "gold_token_overlap": 0.6147423352902804,
+    "gold_id_pct": 0.8767123287671232
+   },
+   "paraphrase": {
+    "n": 73,
+    "identifier_pct": 0.0,
+    "median_words": 17,
+    "basename_pct": 0.0,
+    "stem_pct": 0.0821917808219178,
+    "path_seg_pct": 0.0821917808219178,
+    "path_seg_not_in_gold_pct": 0.0547945205479452,
+    "gold_token_overlap": 0.1023581821527027,
+    "gold_id_pct": 0.0821917808219178
    }
   }
  },
@@ -200,6 +380,66 @@
     "path_seg_not_in_gold_pct": 0.14666666666666667,
     "gold_token_overlap": 0.13313997612294826,
     "gold_id_pct": 0.0
+   }
+  }
+ },
+ "linux-blind.jsonl": {
+  "sha256": "1f2e55e0e5f63aac",
+  "queries_fp": "1f2e55e0e5f63aac",
+  "n": 796,
+  "kinds": {
+   "blind": 199,
+   "blind_long": 199,
+   "direct": 199,
+   "paraphrase": 199
+  },
+  "corpus": "linux",
+  "anchor": "symbol",
+  "provenance": "generate.py --anchor symbol, blind ladder (\u00a715); claude-sonnet-5; 1/200 dropped",
+  "leakage": {
+   "blind": {
+    "n": 199,
+    "identifier_pct": 0.005025125628140704,
+    "median_words": 8,
+    "basename_pct": 0.0,
+    "stem_pct": 0.0,
+    "path_seg_pct": 0.04020100502512563,
+    "path_seg_not_in_gold_pct": 0.02512562814070352,
+    "gold_token_overlap": 0.10721464465183057,
+    "gold_id_pct": 0.0
+   },
+   "blind_long": {
+    "n": 199,
+    "identifier_pct": 0.0,
+    "median_words": 24,
+    "basename_pct": 0.0,
+    "stem_pct": 0.0,
+    "path_seg_pct": 0.06030150753768844,
+    "path_seg_not_in_gold_pct": 0.04522613065326633,
+    "gold_token_overlap": 0.08249434191358479,
+    "gold_id_pct": 0.0
+   },
+   "direct": {
+    "n": 199,
+    "identifier_pct": 0.46733668341708545,
+    "median_words": 9,
+    "basename_pct": 0.0,
+    "stem_pct": 0.20603015075376885,
+    "path_seg_pct": 0.25125628140703515,
+    "path_seg_not_in_gold_pct": 0.01507537688442211,
+    "gold_token_overlap": 0.3695670047428842,
+    "gold_id_pct": 0.8291457286432161
+   },
+   "paraphrase": {
+    "n": 199,
+    "identifier_pct": 0.020100502512562814,
+    "median_words": 15,
+    "basename_pct": 0.0,
+    "stem_pct": 0.0,
+    "path_seg_pct": 0.09045226130653267,
+    "path_seg_not_in_gold_pct": 0.05025125628140704,
+    "gold_token_overlap": 0.12720756566634225,
+    "gold_id_pct": 0.20100502512562815
    }
   }
  },
@@ -286,6 +526,66 @@
   "anchor": "n/a (query strings only)",
   "provenance": "harvested from 706 locbench shim logs \u2014 real agent queries, not written by us"
  },
+ "tokio-blind.jsonl": {
+  "sha256": "779ab6332184218b",
+  "queries_fp": "779ab6332184218b",
+  "n": 800,
+  "kinds": {
+   "blind": 200,
+   "blind_long": 200,
+   "direct": 200,
+   "paraphrase": 200
+  },
+  "corpus": "tokio",
+  "anchor": "symbol",
+  "provenance": "generate.py --anchor symbol, blind ladder (\u00a715); session-default model; 0/200 chunks dropped",
+  "leakage": {
+   "blind": {
+    "n": 200,
+    "identifier_pct": 0.005,
+    "median_words": 7,
+    "basename_pct": 0.0,
+    "stem_pct": 0.01,
+    "path_seg_pct": 0.035,
+    "path_seg_not_in_gold_pct": 0.035,
+    "gold_token_overlap": 0.03872619047619048,
+    "gold_id_pct": 0.0
+   },
+   "blind_long": {
+    "n": 200,
+    "identifier_pct": 0.005,
+    "median_words": 20,
+    "basename_pct": 0.0,
+    "stem_pct": 0.025,
+    "path_seg_pct": 0.065,
+    "path_seg_not_in_gold_pct": 0.06,
+    "gold_token_overlap": 0.0417838692954792,
+    "gold_id_pct": 0.0
+   },
+   "direct": {
+    "n": 200,
+    "identifier_pct": 0.705,
+    "median_words": 11,
+    "basename_pct": 0.0,
+    "stem_pct": 0.22,
+    "path_seg_pct": 0.355,
+    "path_seg_not_in_gold_pct": 0.015,
+    "gold_token_overlap": 0.5823670773670774,
+    "gold_id_pct": 0.905
+   },
+   "paraphrase": {
+    "n": 200,
+    "identifier_pct": 0.005,
+    "median_words": 17,
+    "basename_pct": 0.0,
+    "stem_pct": 0.08,
+    "path_seg_pct": 0.085,
+    "path_seg_not_in_gold_pct": 0.05,
+    "gold_token_overlap": 0.13478770427628786,
+    "gold_id_pct": 0.11
+   }
+  }
+ },
  "tokio.jsonl": {
   "sha256": "cfaeed9fe176d1a4",
   "queries_fp": "cfaeed9fe176d1a4",
@@ -319,6 +619,66 @@
     "path_seg_not_in_gold_pct": 0.025,
     "gold_token_overlap": 0.11463537277565916,
     "gold_id_pct": 0.175
+   }
+  }
+ },
+ "vscode-blind.jsonl": {
+  "sha256": "676437d201a376e3",
+  "queries_fp": "676437d201a376e3",
+  "n": 792,
+  "kinds": {
+   "blind": 198,
+   "blind_long": 198,
+   "direct": 198,
+   "paraphrase": 198
+  },
+  "corpus": "vscode",
+  "anchor": "symbol",
+  "provenance": "generate.py --anchor symbol, blind ladder (\u00a715); claude-sonnet-5; 2/200 dropped",
+  "leakage": {
+   "blind": {
+    "n": 198,
+    "identifier_pct": 0.005050505050505051,
+    "median_words": 8,
+    "basename_pct": 0.0,
+    "stem_pct": 0.0,
+    "path_seg_pct": 0.1111111111111111,
+    "path_seg_not_in_gold_pct": 0.05555555555555555,
+    "gold_token_overlap": 0.11000049333382667,
+    "gold_id_pct": 0.0
+   },
+   "blind_long": {
+    "n": 198,
+    "identifier_pct": 0.005050505050505051,
+    "median_words": 23,
+    "basename_pct": 0.0,
+    "stem_pct": 0.0,
+    "path_seg_pct": 0.13636363636363635,
+    "path_seg_not_in_gold_pct": 0.06565656565656566,
+    "gold_token_overlap": 0.10291332474073024,
+    "gold_id_pct": 0.0
+   },
+   "direct": {
+    "n": 198,
+    "identifier_pct": 0.3181818181818182,
+    "median_words": 10,
+    "basename_pct": 0.0,
+    "stem_pct": 0.05555555555555555,
+    "path_seg_pct": 0.22727272727272727,
+    "path_seg_not_in_gold_pct": 0.04040404040404041,
+    "gold_token_overlap": 0.5159041715859898,
+    "gold_id_pct": 0.7323232323232324
+   },
+   "paraphrase": {
+    "n": 198,
+    "identifier_pct": 0.020202020202020204,
+    "median_words": 16,
+    "basename_pct": 0.0,
+    "stem_pct": 0.015151515151515152,
+    "path_seg_pct": 0.18181818181818182,
+    "path_seg_not_in_gold_pct": 0.07575757575757576,
+    "gold_token_overlap": 0.18448408138739233,
+    "gold_id_pct": 0.2474747474747475
    }
   }
  },

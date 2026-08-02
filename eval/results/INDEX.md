@@ -4,12 +4,58 @@
 The per-query ranks in the JSON files are the source of truth; this
 is a view of them. `--check` fails if the two have diverged.
 
-128 runs, 67,052 per-query ranks recorded.
+169 runs, 79,357 per-query ranks recorded.
 
-## Runs
+## Runs — blind (primary, RESEARCH.md §15)
 
 | run | query set | corpus | cells | ranks | when | git | provenance |
 |---|---|---|---|---|---|---|---|
+| `lever-linux-blind-champion-long` | unknown (fp a62ffbe7bebe0f6d) | bench/corpora/linux | 1 | 199 | 2026-08-02 | ca0b3f2 | yes |
+| `lever-linux-blind-champion` | unknown (fp 7f7bc53bd11f05cf) | bench/corpora/linux | 1 | 199 | 2026-08-02 | ca0b3f2 | yes |
+| `lever-linux-blind-base-long` | unknown (fp a62ffbe7bebe0f6d) | bench/corpora/linux | 2 | 398 | 2026-08-02 | ca0b3f2 | yes |
+| `lever-linux-blind-base` | unknown (fp 7f7bc53bd11f05cf) | bench/corpora/linux | 4 | 796 | 2026-08-02 | ca0b3f2 | yes |
+| `lever-vscode-blind-oracle` | unknown (fp 1e622de660c5fb5f) | bench/corpora/vscode | 1 | 198 | 2026-08-02 | ca0b3f2 | yes |
+| `lever-vscode-blind-champion-long` | unknown (fp a7c277553b05c39a) | bench/corpora/vscode | 1 | 198 | 2026-08-02 | ca0b3f2 | yes |
+| `lever-vscode-blind-champion` | unknown (fp 1e622de660c5fb5f) | bench/corpora/vscode | 1 | 198 | 2026-08-02 | ca0b3f2 | yes |
+| `lever-vscode-blind-base-long` | unknown (fp a7c277553b05c39a) | bench/corpora/vscode | 2 | 396 | 2026-08-02 | ca0b3f2 | yes |
+| `lever-vscode-blind-base` | unknown (fp 1e622de660c5fb5f) | bench/corpora/vscode | 4 | 792 | 2026-08-02 | ca0b3f2 | yes |
+| `lever-jekyll-blind-oracle` | unknown (fp 6b1611c5cdd4c81d) | bench/corpora/jekyll | 1 | 73 | 2026-08-02 | ca0b3f2 | yes |
+| `lever-jekyll-blind-champion-long` | unknown (fp ae25f0741dc11f88) | bench/corpora/jekyll | 1 | 73 | 2026-08-02 | ca0b3f2 | yes |
+| `lever-jekyll-blind-champion` | unknown (fp 6b1611c5cdd4c81d) | bench/corpora/jekyll | 1 | 73 | 2026-08-02 | ca0b3f2 | yes |
+| `lever-jekyll-blind-base-long` | unknown (fp ae25f0741dc11f88) | bench/corpora/jekyll | 2 | 146 | 2026-08-02 | ca0b3f2 | yes |
+| `lever-jekyll-blind-base` | unknown (fp 6b1611c5cdd4c81d) | bench/corpora/jekyll | 4 | 292 | 2026-08-02 | ca0b3f2 | yes |
+| `lever-commons-lang-blind-oracle` | unknown (fp aef32238ee947e77) | bench/corpora/commons-lang | 1 | 200 | 2026-08-02 | b256d82 | yes |
+| `lever-commons-lang-blind-champion-long` | unknown (fp e10b9a5c932d0083) | bench/corpora/commons-lang | 1 | 200 | 2026-08-02 | b256d82 | yes |
+| `lever-commons-lang-blind-champion` | unknown (fp aef32238ee947e77) | bench/corpora/commons-lang | 1 | 200 | 2026-08-02 | b256d82 | yes |
+| `lever-commons-lang-blind-base-long` | unknown (fp e10b9a5c932d0083) | bench/corpora/commons-lang | 2 | 400 | 2026-08-02 | b256d82 | yes |
+| `lever-commons-lang-blind-base` | unknown (fp aef32238ee947e77) | bench/corpora/commons-lang | 4 | 800 | 2026-08-02 | f10ed4e | yes |
+| `lever-etcd-blind-oracle` | unknown (fp ff64a5763ceca36c) | bench/corpora/etcd | 1 | 172 | 2026-08-02 | f10ed4e | yes |
+| `lever-etcd-blind-champion-long` | unknown (fp f5e18fab4c75d480) | bench/corpora/etcd | 1 | 172 | 2026-08-02 | f10ed4e | yes |
+| `lever-etcd-blind-champion` | unknown (fp ff64a5763ceca36c) | bench/corpora/etcd | 1 | 172 | 2026-08-02 | f10ed4e | yes |
+| `lever-etcd-blind-base-long` | unknown (fp f5e18fab4c75d480) | bench/corpora/etcd | 2 | 344 | 2026-08-02 | f10ed4e | yes |
+| `lever-etcd-blind-base` | unknown (fp ff64a5763ceca36c) | bench/corpora/etcd | 4 | 688 | 2026-08-02 | f10ed4e | yes |
+| `lever-tokio-blind-oracle` | unknown (fp 1646f9af9b36257f) | bench/corpora/tokio | 1 | 200 | 2026-08-02 | f10ed4e | yes |
+| `lever-tokio-blind-champion-long` | unknown (fp b80d84549365c556) | bench/corpora/tokio | 1 | 200 | 2026-08-02 | f10ed4e | yes |
+| `lever-tokio-blind-champion` | unknown (fp 1646f9af9b36257f) | bench/corpora/tokio | 1 | 200 | 2026-08-02 | f10ed4e | yes |
+| `lever-tokio-blind-base-long` | unknown (fp b80d84549365c556) | bench/corpora/tokio | 2 | 400 | 2026-08-02 | f10ed4e | yes |
+| `lever-tokio-blind-base` | unknown (fp 1646f9af9b36257f) | bench/corpora/tokio | 4 | 800 | 2026-08-02 | f10ed4e | yes |
+
+## Runs — named-identifier (regression)
+
+| run | query set | corpus | cells | ranks | when | git | provenance |
+|---|---|---|---|---|---|---|---|
+| `lever-linux-blind-champion-direct` | unknown (fp 8905dc76f45e6124) | bench/corpora/linux | 1 | 199 | 2026-08-02 | ca0b3f2 | yes |
+| `lever-linux-blind-base-direct` | unknown (fp 8905dc76f45e6124) | bench/corpora/linux | 2 | 398 | 2026-08-02 | ca0b3f2 | yes |
+| `lever-vscode-blind-champion-direct` | unknown (fp 34ad8e5c4f33f83e) | bench/corpora/vscode | 1 | 198 | 2026-08-02 | ca0b3f2 | yes |
+| `lever-vscode-blind-base-direct` | unknown (fp 34ad8e5c4f33f83e) | bench/corpora/vscode | 2 | 396 | 2026-08-02 | ca0b3f2 | yes |
+| `lever-jekyll-blind-champion-direct` | unknown (fp 551b0b6f4e5a96b9) | bench/corpora/jekyll | 1 | 73 | 2026-08-02 | ca0b3f2 | yes |
+| `lever-jekyll-blind-base-direct` | unknown (fp 551b0b6f4e5a96b9) | bench/corpora/jekyll | 2 | 146 | 2026-08-02 | ca0b3f2 | yes |
+| `lever-commons-lang-blind-champion-direct` | unknown (fp 6687dc27fee8b894) | bench/corpora/commons-lang | 1 | 200 | 2026-08-02 | b256d82 | yes |
+| `lever-commons-lang-blind-base-direct` | unknown (fp 6687dc27fee8b894) | bench/corpora/commons-lang | 2 | 400 | 2026-08-02 | b256d82 | yes |
+| `lever-etcd-blind-champion-direct` | unknown (fp 05ff42e63331592c) | bench/corpora/etcd | 1 | 172 | 2026-08-02 | f10ed4e | yes |
+| `lever-etcd-blind-base-direct` | unknown (fp 05ff42e63331592c) | bench/corpora/etcd | 2 | 344 | 2026-08-02 | f10ed4e | yes |
+| `lever-tokio-blind-champion-direct` | unknown (fp 35448d378693180a) | bench/corpora/tokio | 1 | 200 | 2026-08-02 | f10ed4e | yes |
+| `lever-tokio-blind-base-direct` | unknown (fp 35448d378693180a) | bench/corpora/tokio | 2 | 400 | 2026-08-02 | f10ed4e | yes |
 | `lever-vscode-preproc-split-idf` | vscode.jsonl | bench/corpora/vscode | 2 | 400 | 2026-08-01 | 139f3bb | yes |
 | `lever-cosqa-preproc-split-idf` | cosqa-1200.jsonl | eval/data/cosqa/corpus | 1 | 1,200 | 2026-08-01 | 9bbb9fe | yes |
 | `oracle-vscode` | unknown (fp 85ebc3c532f239a1) | bench/corpora/vscode | 4 | 800 | 2026-08-01 | 3bde20c | yes |
@@ -190,6 +236,18 @@ is a view of them. `--check` fails if the two have diverged.
 | `fnchunk-vscode` | hybrid | paraphrase | 200 | 0.030 | 0.120 | 0.175 | 0.069 |
 | `fnchunk-vscode` | semantic | direct | 200 | 0.295 | 0.545 | 0.635 | 0.400 |
 | `fnchunk-vscode` | semantic | paraphrase | 200 | 0.000 | 0.010 | 0.020 | 0.006 |
+| `lever-commons-lang-blind-base` | bm25 | blind | 200 | 0.015 | 0.035 | 0.060 | 0.027 |
+| `lever-commons-lang-blind-base` | hybrid | blind | 200 | 0.020 | 0.045 | 0.060 | 0.033 |
+| `lever-commons-lang-blind-base` | rg-strong | blind | 200 | 0.005 | 0.015 | 0.015 | 0.008 |
+| `lever-commons-lang-blind-base` | semantic | blind | 200 | 0.020 | 0.055 | 0.090 | 0.037 |
+| `lever-commons-lang-blind-base-direct` | bm25 | direct | 200 | 0.750 | 0.975 | 0.990 | 0.854 |
+| `lever-commons-lang-blind-base-direct` | semantic | direct | 200 | 0.500 | 0.800 | 0.875 | 0.623 |
+| `lever-commons-lang-blind-base-long` | bm25 | blind_long | 200 | 0.015 | 0.055 | 0.085 | 0.030 |
+| `lever-commons-lang-blind-base-long` | semantic | blind_long | 200 | 0.015 | 0.050 | 0.065 | 0.031 |
+| `lever-commons-lang-blind-champion` | semantic | blind | 200 | 0.025 | 0.060 | 0.080 | 0.039 |
+| `lever-commons-lang-blind-champion-direct` | semantic | direct | 200 | 0.540 | 0.820 | 0.900 | 0.661 |
+| `lever-commons-lang-blind-champion-long` | semantic | blind_long | 200 | 0.020 | 0.055 | 0.060 | 0.032 |
+| `lever-commons-lang-blind-oracle` | rg-oracle | blind | 200 | 0.005 | 0.025 | 0.050 | 0.015 |
 | `lever-cosqa-preproc-none` | bm25 | real | 1200 | 0.074 | 0.222 | 0.325 | 0.138 |
 | `lever-cosqa-preproc-none` | semantic | real | 1200 | 0.051 | 0.108 | 0.173 | 0.078 |
 | `lever-cosqa-preproc-none-nomx` | semantic | real | 1200 | 0.022 | 0.083 | 0.122 | 0.048 |
@@ -201,6 +259,18 @@ is a view of them. `--check` fails if the two have diverged.
 | `lever-cosqa-preproc-split-sif` | semantic | real | 1200 | 0.076 | 0.188 | 0.286 | 0.125 |
 | `lever-cosqa-preproc-split-sif-nomx` | semantic | real | 1200 | 0.051 | 0.148 | 0.229 | 0.095 |
 | `lever-cosqa-preproc-split-whole` | semantic | real | 1200 | 0.046 | 0.110 | 0.177 | 0.076 |
+| `lever-etcd-blind-base` | bm25 | blind | 172 | 0.006 | 0.012 | 0.035 | 0.011 |
+| `lever-etcd-blind-base` | hybrid | blind | 172 | 0.006 | 0.012 | 0.035 | 0.012 |
+| `lever-etcd-blind-base` | rg-strong | blind | 172 | 0.000 | 0.000 | 0.012 | 0.002 |
+| `lever-etcd-blind-base` | semantic | blind | 172 | 0.000 | 0.012 | 0.047 | 0.010 |
+| `lever-etcd-blind-base-direct` | bm25 | direct | 172 | 0.756 | 0.924 | 0.942 | 0.835 |
+| `lever-etcd-blind-base-direct` | semantic | direct | 172 | 0.465 | 0.727 | 0.814 | 0.583 |
+| `lever-etcd-blind-base-long` | bm25 | blind_long | 172 | 0.017 | 0.023 | 0.041 | 0.023 |
+| `lever-etcd-blind-base-long` | semantic | blind_long | 172 | 0.000 | 0.012 | 0.017 | 0.005 |
+| `lever-etcd-blind-champion` | semantic | blind | 172 | 0.000 | 0.006 | 0.017 | 0.004 |
+| `lever-etcd-blind-champion-direct` | semantic | direct | 172 | 0.581 | 0.872 | 0.901 | 0.708 |
+| `lever-etcd-blind-champion-long` | semantic | blind_long | 172 | 0.000 | 0.012 | 0.023 | 0.006 |
+| `lever-etcd-blind-oracle` | rg-oracle | blind | 172 | 0.000 | 0.012 | 0.035 | 0.007 |
 | `lever-etcd-preproc-none` | bm25 | direct | 200 | 0.435 | 0.705 | 0.790 | 0.548 |
 | `lever-etcd-preproc-none` | bm25 | paraphrase | 200 | 0.020 | 0.065 | 0.095 | 0.041 |
 | `lever-etcd-preproc-none` | semantic | direct | 200 | 0.270 | 0.420 | 0.530 | 0.336 |
@@ -215,6 +285,18 @@ is a view of them. `--check` fails if the two have diverged.
 | `lever-etcd-preproc-split-sif` | semantic | paraphrase | 200 | 0.020 | 0.045 | 0.075 | 0.032 |
 | `lever-etcd-preproc-split-whole` | semantic | direct | 200 | 0.400 | 0.605 | 0.720 | 0.490 |
 | `lever-etcd-preproc-split-whole` | semantic | paraphrase | 200 | 0.000 | 0.075 | 0.090 | 0.028 |
+| `lever-jekyll-blind-base` | bm25 | blind | 73 | 0.000 | 0.014 | 0.041 | 0.009 |
+| `lever-jekyll-blind-base` | hybrid | blind | 73 | 0.000 | 0.027 | 0.055 | 0.010 |
+| `lever-jekyll-blind-base` | rg-strong | blind | 73 | 0.000 | 0.000 | 0.000 | 0.000 |
+| `lever-jekyll-blind-base` | semantic | blind | 73 | 0.000 | 0.027 | 0.055 | 0.011 |
+| `lever-jekyll-blind-base-direct` | bm25 | direct | 73 | 0.781 | 0.973 | 0.986 | 0.874 |
+| `lever-jekyll-blind-base-direct` | semantic | direct | 73 | 0.658 | 0.836 | 0.890 | 0.731 |
+| `lever-jekyll-blind-base-long` | bm25 | blind_long | 73 | 0.027 | 0.055 | 0.068 | 0.041 |
+| `lever-jekyll-blind-base-long` | semantic | blind_long | 73 | 0.000 | 0.014 | 0.014 | 0.005 |
+| `lever-jekyll-blind-champion` | semantic | blind | 73 | 0.000 | 0.014 | 0.055 | 0.008 |
+| `lever-jekyll-blind-champion-direct` | semantic | direct | 73 | 0.685 | 0.918 | 0.959 | 0.775 |
+| `lever-jekyll-blind-champion-long` | semantic | blind_long | 73 | 0.014 | 0.014 | 0.055 | 0.020 |
+| `lever-jekyll-blind-oracle` | rg-oracle | blind | 73 | 0.000 | 0.000 | 0.014 | 0.001 |
 | `lever-linux-base` | bm25 | direct | 199 | 0.698 | 0.920 | 0.950 | 0.796 |
 | `lever-linux-base` | bm25 | paraphrase | 199 | 0.005 | 0.035 | 0.065 | 0.019 |
 | `lever-linux-base` | hybrid | direct | 199 | 0.633 | 0.905 | 0.955 | 0.745 |
@@ -229,6 +311,17 @@ is a view of them. `--check` fails if the two have diverged.
 | `lever-linux-bl75` | hybrid | paraphrase | 199 | 0.000 | 0.045 | 0.060 | 0.016 |
 | `lever-linux-bl75` | semantic | direct | 199 | 0.623 | 0.749 | 0.774 | 0.678 |
 | `lever-linux-bl75` | semantic | paraphrase | 199 | 0.000 | 0.005 | 0.005 | 0.002 |
+| `lever-linux-blind-base` | bm25 | blind | 199 | 0.010 | 0.020 | 0.030 | 0.015 |
+| `lever-linux-blind-base` | hybrid | blind | 199 | 0.010 | 0.015 | 0.030 | 0.015 |
+| `lever-linux-blind-base` | rg-strong | blind | 199 | 0.000 | 0.000 | 0.000 | 0.000 |
+| `lever-linux-blind-base` | semantic | blind | 199 | 0.005 | 0.010 | 0.010 | 0.006 |
+| `lever-linux-blind-base-direct` | bm25 | direct | 199 | 0.553 | 0.769 | 0.809 | 0.637 |
+| `lever-linux-blind-base-direct` | semantic | direct | 199 | 0.317 | 0.528 | 0.563 | 0.407 |
+| `lever-linux-blind-base-long` | bm25 | blind_long | 199 | 0.005 | 0.015 | 0.015 | 0.008 |
+| `lever-linux-blind-base-long` | semantic | blind_long | 199 | 0.000 | 0.000 | 0.005 | 0.001 |
+| `lever-linux-blind-champion` | semantic | blind | 199 | 0.010 | 0.010 | 0.020 | 0.011 |
+| `lever-linux-blind-champion-direct` | semantic | direct | 199 | 0.291 | 0.492 | 0.533 | 0.380 |
+| `lever-linux-blind-champion-long` | semantic | blind_long | 199 | 0.000 | 0.005 | 0.010 | 0.003 |
 | `lever-linux-maxsim` | hybrid | direct | 199 | 0.658 | 0.879 | 0.925 | 0.752 |
 | `lever-linux-maxsim` | hybrid | paraphrase | 199 | 0.035 | 0.050 | 0.060 | 0.042 |
 | `lever-linux-maxsim` | semantic | direct | 199 | 0.618 | 0.729 | 0.769 | 0.668 |
@@ -303,6 +396,18 @@ is a view of them. `--check` fails if the two have diverged.
 | `lever-linux-sifc` | hybrid | paraphrase | 199 | 0.005 | 0.035 | 0.055 | 0.018 |
 | `lever-linux-sifc` | semantic | direct | 199 | 0.573 | 0.658 | 0.678 | 0.610 |
 | `lever-linux-sifc` | semantic | paraphrase | 199 | 0.010 | 0.020 | 0.025 | 0.014 |
+| `lever-tokio-blind-base` | bm25 | blind | 200 | 0.010 | 0.020 | 0.045 | 0.015 |
+| `lever-tokio-blind-base` | hybrid | blind | 200 | 0.000 | 0.015 | 0.050 | 0.010 |
+| `lever-tokio-blind-base` | rg-strong | blind | 200 | 0.000 | 0.005 | 0.005 | 0.001 |
+| `lever-tokio-blind-base` | semantic | blind | 200 | 0.010 | 0.020 | 0.030 | 0.015 |
+| `lever-tokio-blind-base-direct` | bm25 | direct | 200 | 0.685 | 0.855 | 0.915 | 0.760 |
+| `lever-tokio-blind-base-direct` | semantic | direct | 200 | 0.535 | 0.795 | 0.850 | 0.642 |
+| `lever-tokio-blind-base-long` | bm25 | blind_long | 200 | 0.020 | 0.045 | 0.050 | 0.028 |
+| `lever-tokio-blind-base-long` | semantic | blind_long | 200 | 0.010 | 0.020 | 0.030 | 0.013 |
+| `lever-tokio-blind-champion` | semantic | blind | 200 | 0.020 | 0.040 | 0.060 | 0.029 |
+| `lever-tokio-blind-champion-direct` | semantic | direct | 200 | 0.525 | 0.785 | 0.845 | 0.639 |
+| `lever-tokio-blind-champion-long` | semantic | blind_long | 200 | 0.010 | 0.020 | 0.030 | 0.015 |
+| `lever-tokio-blind-oracle` | rg-oracle | blind | 200 | 0.000 | 0.010 | 0.025 | 0.004 |
 | `lever-tokio-preproc-none` | bm25 | direct | 200 | 0.420 | 0.710 | 0.785 | 0.534 |
 | `lever-tokio-preproc-none` | bm25 | paraphrase | 200 | 0.035 | 0.090 | 0.125 | 0.062 |
 | `lever-tokio-preproc-none` | semantic | direct | 200 | 0.310 | 0.530 | 0.635 | 0.408 |
@@ -331,6 +436,18 @@ is a view of them. `--check` fails if the two have diverged.
 | `lever-vscode-bl75` | hybrid | paraphrase | 200 | 0.040 | 0.135 | 0.175 | 0.079 |
 | `lever-vscode-bl75` | semantic | direct | 200 | 0.570 | 0.690 | 0.705 | 0.621 |
 | `lever-vscode-bl75` | semantic | paraphrase | 200 | 0.020 | 0.035 | 0.035 | 0.023 |
+| `lever-vscode-blind-base` | bm25 | blind | 198 | 0.015 | 0.035 | 0.051 | 0.024 |
+| `lever-vscode-blind-base` | hybrid | blind | 198 | 0.010 | 0.030 | 0.045 | 0.019 |
+| `lever-vscode-blind-base` | rg-strong | blind | 198 | 0.000 | 0.005 | 0.010 | 0.003 |
+| `lever-vscode-blind-base` | semantic | blind | 198 | 0.010 | 0.030 | 0.030 | 0.016 |
+| `lever-vscode-blind-base-direct` | bm25 | direct | 198 | 0.556 | 0.773 | 0.828 | 0.648 |
+| `lever-vscode-blind-base-direct` | semantic | direct | 198 | 0.298 | 0.424 | 0.510 | 0.356 |
+| `lever-vscode-blind-base-long` | bm25 | blind_long | 198 | 0.025 | 0.051 | 0.076 | 0.039 |
+| `lever-vscode-blind-base-long` | semantic | blind_long | 198 | 0.005 | 0.010 | 0.015 | 0.007 |
+| `lever-vscode-blind-champion` | semantic | blind | 198 | 0.010 | 0.025 | 0.035 | 0.017 |
+| `lever-vscode-blind-champion-direct` | semantic | direct | 198 | 0.444 | 0.667 | 0.732 | 0.541 |
+| `lever-vscode-blind-champion-long` | semantic | blind_long | 198 | 0.030 | 0.051 | 0.071 | 0.037 |
+| `lever-vscode-blind-oracle` | rg-oracle | blind | 198 | 0.005 | 0.015 | 0.015 | 0.009 |
 | `lever-vscode-maxsim` | hybrid | direct | 200 | 0.620 | 0.815 | 0.860 | 0.702 |
 | `lever-vscode-maxsim` | hybrid | paraphrase | 200 | 0.030 | 0.085 | 0.105 | 0.054 |
 | `lever-vscode-maxsim` | semantic | direct | 200 | 0.560 | 0.680 | 0.700 | 0.614 |

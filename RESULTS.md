@@ -113,13 +113,28 @@ spreading results across files.
 4. Scoring is strict single-truth (right file, ±10 lines); absolute numbers
    understate usefulness, cross-tool deltas are the signal.
 
-## 4. The semantic-first scoreboard (2026-08-01, RESEARCH.md §14)
+## 4. The two boards (2026-08-02, RESEARCH.md §15)
 
-The project's success criterion changed 2026-08-01: semantic search must beat
-ranked lexical on real queries (§14.1). These are the consolidated standings —
-every condition scored on the same queries within a chart, ripgrep reported at
-all three levels per §13.4 (legacy, strong, and the oracle *ceiling*, which
-consults the answer and which no agent can run).
+Since 2026-08-02 results split into a **blind board** (primary: queries
+verifiably free of gold identifiers, §15.3) and a **named-identifier board**
+(regression: must not collapse, no longer defines success).
+
+**Blind board.** On *real-blind* queries — the 847 CoSQA human queries with
+zero gold-identifier hits — champion semantic is at parity with bm25
+(R@5 0.148 vs 0.169, CI spanning zero; MRR dead even). On *strict-blind*
+generated sets (overlap ≈ 0.07, below anything real users emit) every engine
+sits at 1–6% R@5 — semantic 0.028 vs bm25 0.024 pooled over 1,042 rows,
+indistinguishable — and ripgrep collapses entirely (rg-strong ≤ 0.015,
+oracle ≤ 0.025). Those sets are the instrument for the §9.9 code-teacher
+model experiment, not a battleground for the current stack. Full tables and
+the prediction scorecard: RESEARCH.md §15.6–§15.8.
+
+### 4.1 The named-identifier board (regression floor; was "the semantic-first scoreboard")
+
+The §14 standings, retained unchanged — every condition scored on the same
+queries within a chart, ripgrep reported at all three levels per §13.4
+(legacy, strong, and the oracle *ceiling*, which consults the answer and
+which no agent can run).
 
 **CoSQA — 1,200 real human queries (R@5 / R@10):**
 

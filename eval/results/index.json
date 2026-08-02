@@ -598,6 +598,238 @@
     ]
   },
   {
+    "name": "lever-commons-lang-blind-base-direct",
+    "n_cells": 2,
+    "n_ranks": 400,
+    "corpus": "bench/corpora/commons-lang",
+    "queries": "eval/queries/commons-lang-blind.jsonl",
+    "queries_fp": "6687dc27fee8b894",
+    "query_set": "unknown (fp 6687dc27fee8b894)",
+    "corpus_digest": "98bede226fcc3606e1c35802b8ff18e2",
+    "at": "2026-08-02T20:24:22Z",
+    "git_head": "b256d82",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.75,
+        "recall@5": 0.975,
+        "recall@10": 0.99,
+        "mrr@10": 0.854,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.5,
+        "recall@5": 0.8,
+        "recall@10": 0.875,
+        "mrr@10": 0.623,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-commons-lang-blind-base-long",
+    "n_cells": 2,
+    "n_ranks": 400,
+    "corpus": "bench/corpora/commons-lang",
+    "queries": "eval/queries/commons-lang-blind.jsonl",
+    "queries_fp": "e10b9a5c932d0083",
+    "query_set": "unknown (fp e10b9a5c932d0083)",
+    "corpus_digest": "98bede226fcc3606e1c35802b8ff18e2",
+    "at": "2026-08-02T20:24:12Z",
+    "git_head": "b256d82",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "blind_long",
+        "n": 200,
+        "recall@1": 0.015,
+        "recall@5": 0.055,
+        "recall@10": 0.085,
+        "mrr@10": 0.03,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "blind_long",
+        "n": 200,
+        "recall@1": 0.015,
+        "recall@5": 0.05,
+        "recall@10": 0.065,
+        "mrr@10": 0.031,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-commons-lang-blind-base",
+    "n_cells": 4,
+    "n_ranks": 800,
+    "corpus": "bench/corpora/commons-lang",
+    "queries": "eval/queries/commons-lang-blind.jsonl",
+    "queries_fp": "aef32238ee947e77",
+    "query_set": "unknown (fp aef32238ee947e77)",
+    "corpus_digest": "98bede226fcc3606e1c35802b8ff18e2",
+    "at": "2026-08-02T19:40:07Z",
+    "git_head": "f10ed4e",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "blind",
+        "n": 200,
+        "recall@1": 0.015,
+        "recall@5": 0.035,
+        "recall@10": 0.06,
+        "mrr@10": 0.027,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "blind",
+        "n": 200,
+        "recall@1": 0.02,
+        "recall@5": 0.045,
+        "recall@10": 0.06,
+        "mrr@10": 0.033,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-strong",
+        "kind": "blind",
+        "n": 200,
+        "recall@1": 0.005,
+        "recall@5": 0.015,
+        "recall@10": 0.015,
+        "mrr@10": 0.008,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "blind",
+        "n": 200,
+        "recall@1": 0.02,
+        "recall@5": 0.055,
+        "recall@10": 0.09,
+        "mrr@10": 0.037,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-commons-lang-blind-champion-direct",
+    "n_cells": 1,
+    "n_ranks": 200,
+    "corpus": "bench/corpora/commons-lang",
+    "queries": "eval/queries/commons-lang-blind.jsonl",
+    "queries_fp": "6687dc27fee8b894",
+    "query_set": "unknown (fp 6687dc27fee8b894)",
+    "corpus_digest": "98bede226fcc3606e1c35802b8ff18e2",
+    "at": "2026-08-02T20:24:44Z",
+    "git_head": "b256d82",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.54,
+        "recall@5": 0.82,
+        "recall@10": 0.9,
+        "mrr@10": 0.661,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-commons-lang-blind-champion-long",
+    "n_cells": 1,
+    "n_ranks": 200,
+    "corpus": "bench/corpora/commons-lang",
+    "queries": "eval/queries/commons-lang-blind.jsonl",
+    "queries_fp": "e10b9a5c932d0083",
+    "query_set": "unknown (fp e10b9a5c932d0083)",
+    "corpus_digest": "98bede226fcc3606e1c35802b8ff18e2",
+    "at": "2026-08-02T20:24:36Z",
+    "git_head": "b256d82",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "blind_long",
+        "n": 200,
+        "recall@1": 0.02,
+        "recall@5": 0.055,
+        "recall@10": 0.06,
+        "mrr@10": 0.032,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-commons-lang-blind-champion",
+    "n_cells": 1,
+    "n_ranks": 200,
+    "corpus": "bench/corpora/commons-lang",
+    "queries": "eval/queries/commons-lang-blind.jsonl",
+    "queries_fp": "aef32238ee947e77",
+    "query_set": "unknown (fp aef32238ee947e77)",
+    "corpus_digest": "98bede226fcc3606e1c35802b8ff18e2",
+    "at": "2026-08-02T20:24:31Z",
+    "git_head": "b256d82",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "blind",
+        "n": 200,
+        "recall@1": 0.025,
+        "recall@5": 0.06,
+        "recall@10": 0.08,
+        "mrr@10": 0.039,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-commons-lang-blind-oracle",
+    "n_cells": 1,
+    "n_ranks": 200,
+    "corpus": "bench/corpora/commons-lang",
+    "queries": "eval/queries/commons-lang-blind.jsonl",
+    "queries_fp": "aef32238ee947e77",
+    "query_set": "unknown (fp aef32238ee947e77)",
+    "corpus_digest": "98bede226fcc3606e1c35802b8ff18e2",
+    "at": "2026-08-02T20:24:50Z",
+    "git_head": "b256d82",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "rg-oracle",
+        "kind": "blind",
+        "n": 200,
+        "recall@1": 0.005,
+        "recall@5": 0.025,
+        "recall@10": 0.05,
+        "mrr@10": 0.015,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
     "name": "lever-cosqa-preproc-none-nomx",
     "n_cells": 1,
     "n_ranks": 1200,
@@ -852,6 +1084,238 @@
     ]
   },
   {
+    "name": "lever-etcd-blind-base-direct",
+    "n_cells": 2,
+    "n_ranks": 344,
+    "corpus": "bench/corpora/etcd",
+    "queries": "eval/queries/etcd-blind.jsonl",
+    "queries_fp": "05ff42e63331592c",
+    "query_set": "unknown (fp 05ff42e63331592c)",
+    "corpus_digest": "0880c2c0daef42d8e1b3bbd07e01b42e",
+    "at": "2026-08-02T19:37:45Z",
+    "git_head": "f10ed4e",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 172,
+        "recall@1": 0.756,
+        "recall@5": 0.924,
+        "recall@10": 0.942,
+        "mrr@10": 0.835,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 172,
+        "recall@1": 0.465,
+        "recall@5": 0.727,
+        "recall@10": 0.814,
+        "mrr@10": 0.583,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-etcd-blind-base-long",
+    "n_cells": 2,
+    "n_ranks": 344,
+    "corpus": "bench/corpora/etcd",
+    "queries": "eval/queries/etcd-blind.jsonl",
+    "queries_fp": "f5e18fab4c75d480",
+    "query_set": "unknown (fp f5e18fab4c75d480)",
+    "corpus_digest": "0880c2c0daef42d8e1b3bbd07e01b42e",
+    "at": "2026-08-02T19:37:20Z",
+    "git_head": "f10ed4e",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "blind_long",
+        "n": 172,
+        "recall@1": 0.017,
+        "recall@5": 0.023,
+        "recall@10": 0.041,
+        "mrr@10": 0.023,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "blind_long",
+        "n": 172,
+        "recall@1": 0.0,
+        "recall@5": 0.012,
+        "recall@10": 0.017,
+        "mrr@10": 0.005,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-etcd-blind-base",
+    "n_cells": 4,
+    "n_ranks": 688,
+    "corpus": "bench/corpora/etcd",
+    "queries": "eval/queries/etcd-blind.jsonl",
+    "queries_fp": "ff64a5763ceca36c",
+    "query_set": "unknown (fp ff64a5763ceca36c)",
+    "corpus_digest": "0880c2c0daef42d8e1b3bbd07e01b42e",
+    "at": "2026-08-02T19:36:07Z",
+    "git_head": "f10ed4e",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "blind",
+        "n": 172,
+        "recall@1": 0.006,
+        "recall@5": 0.012,
+        "recall@10": 0.035,
+        "mrr@10": 0.011,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "blind",
+        "n": 172,
+        "recall@1": 0.006,
+        "recall@5": 0.012,
+        "recall@10": 0.035,
+        "mrr@10": 0.012,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-strong",
+        "kind": "blind",
+        "n": 172,
+        "recall@1": 0.0,
+        "recall@5": 0.0,
+        "recall@10": 0.012,
+        "mrr@10": 0.002,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "blind",
+        "n": 172,
+        "recall@1": 0.0,
+        "recall@5": 0.012,
+        "recall@10": 0.047,
+        "mrr@10": 0.01,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-etcd-blind-champion-direct",
+    "n_cells": 1,
+    "n_ranks": 172,
+    "corpus": "bench/corpora/etcd",
+    "queries": "eval/queries/etcd-blind.jsonl",
+    "queries_fp": "05ff42e63331592c",
+    "query_set": "unknown (fp 05ff42e63331592c)",
+    "corpus_digest": "0880c2c0daef42d8e1b3bbd07e01b42e",
+    "at": "2026-08-02T19:39:10Z",
+    "git_head": "f10ed4e",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 172,
+        "recall@1": 0.581,
+        "recall@5": 0.872,
+        "recall@10": 0.901,
+        "mrr@10": 0.708,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-etcd-blind-champion-long",
+    "n_cells": 1,
+    "n_ranks": 172,
+    "corpus": "bench/corpora/etcd",
+    "queries": "eval/queries/etcd-blind.jsonl",
+    "queries_fp": "f5e18fab4c75d480",
+    "query_set": "unknown (fp f5e18fab4c75d480)",
+    "corpus_digest": "0880c2c0daef42d8e1b3bbd07e01b42e",
+    "at": "2026-08-02T19:38:57Z",
+    "git_head": "f10ed4e",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "blind_long",
+        "n": 172,
+        "recall@1": 0.0,
+        "recall@5": 0.012,
+        "recall@10": 0.023,
+        "mrr@10": 0.006,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-etcd-blind-champion",
+    "n_cells": 1,
+    "n_ranks": 172,
+    "corpus": "bench/corpora/etcd",
+    "queries": "eval/queries/etcd-blind.jsonl",
+    "queries_fp": "ff64a5763ceca36c",
+    "query_set": "unknown (fp ff64a5763ceca36c)",
+    "corpus_digest": "0880c2c0daef42d8e1b3bbd07e01b42e",
+    "at": "2026-08-02T19:38:20Z",
+    "git_head": "f10ed4e",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "blind",
+        "n": 172,
+        "recall@1": 0.0,
+        "recall@5": 0.006,
+        "recall@10": 0.017,
+        "mrr@10": 0.004,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-etcd-blind-oracle",
+    "n_cells": 1,
+    "n_ranks": 172,
+    "corpus": "bench/corpora/etcd",
+    "queries": "eval/queries/etcd-blind.jsonl",
+    "queries_fp": "ff64a5763ceca36c",
+    "query_set": "unknown (fp ff64a5763ceca36c)",
+    "corpus_digest": "0880c2c0daef42d8e1b3bbd07e01b42e",
+    "at": "2026-08-02T19:39:28Z",
+    "git_head": "f10ed4e",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "rg-oracle",
+        "kind": "blind",
+        "n": 172,
+        "recall@1": 0.0,
+        "recall@5": 0.012,
+        "recall@10": 0.035,
+        "mrr@10": 0.007,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
     "name": "lever-etcd-preproc-none",
     "n_cells": 4,
     "n_ranks": 800,
@@ -1072,6 +1536,238 @@
     ]
   },
   {
+    "name": "lever-jekyll-blind-base-direct",
+    "n_cells": 2,
+    "n_ranks": 146,
+    "corpus": "bench/corpora/jekyll",
+    "queries": "eval/queries/jekyll-blind.jsonl",
+    "queries_fp": "551b0b6f4e5a96b9",
+    "query_set": "unknown (fp 551b0b6f4e5a96b9)",
+    "corpus_digest": "66f59f861b3130b1ffc1665f57e0d41d",
+    "at": "2026-08-02T20:40:56Z",
+    "git_head": "ca0b3f2",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 73,
+        "recall@1": 0.781,
+        "recall@5": 0.973,
+        "recall@10": 0.986,
+        "mrr@10": 0.874,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 73,
+        "recall@1": 0.658,
+        "recall@5": 0.836,
+        "recall@10": 0.89,
+        "mrr@10": 0.731,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-jekyll-blind-base-long",
+    "n_cells": 2,
+    "n_ranks": 146,
+    "corpus": "bench/corpora/jekyll",
+    "queries": "eval/queries/jekyll-blind.jsonl",
+    "queries_fp": "ae25f0741dc11f88",
+    "query_set": "unknown (fp ae25f0741dc11f88)",
+    "corpus_digest": "66f59f861b3130b1ffc1665f57e0d41d",
+    "at": "2026-08-02T20:40:54Z",
+    "git_head": "ca0b3f2",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "blind_long",
+        "n": 73,
+        "recall@1": 0.027,
+        "recall@5": 0.055,
+        "recall@10": 0.068,
+        "mrr@10": 0.041,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "blind_long",
+        "n": 73,
+        "recall@1": 0.0,
+        "recall@5": 0.014,
+        "recall@10": 0.014,
+        "mrr@10": 0.005,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-jekyll-blind-base",
+    "n_cells": 4,
+    "n_ranks": 292,
+    "corpus": "bench/corpora/jekyll",
+    "queries": "eval/queries/jekyll-blind.jsonl",
+    "queries_fp": "6b1611c5cdd4c81d",
+    "query_set": "unknown (fp 6b1611c5cdd4c81d)",
+    "corpus_digest": "66f59f861b3130b1ffc1665f57e0d41d",
+    "at": "2026-08-02T20:40:48Z",
+    "git_head": "ca0b3f2",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "blind",
+        "n": 73,
+        "recall@1": 0.0,
+        "recall@5": 0.014,
+        "recall@10": 0.041,
+        "mrr@10": 0.009,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "blind",
+        "n": 73,
+        "recall@1": 0.0,
+        "recall@5": 0.027,
+        "recall@10": 0.055,
+        "mrr@10": 0.01,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-strong",
+        "kind": "blind",
+        "n": 73,
+        "recall@1": 0.0,
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "mrr@10": 0.0,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "blind",
+        "n": 73,
+        "recall@1": 0.0,
+        "recall@5": 0.027,
+        "recall@10": 0.055,
+        "mrr@10": 0.011,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-jekyll-blind-champion-direct",
+    "n_cells": 1,
+    "n_ranks": 73,
+    "corpus": "bench/corpora/jekyll",
+    "queries": "eval/queries/jekyll-blind.jsonl",
+    "queries_fp": "551b0b6f4e5a96b9",
+    "query_set": "unknown (fp 551b0b6f4e5a96b9)",
+    "corpus_digest": "66f59f861b3130b1ffc1665f57e0d41d",
+    "at": "2026-08-02T20:41:01Z",
+    "git_head": "ca0b3f2",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 73,
+        "recall@1": 0.685,
+        "recall@5": 0.918,
+        "recall@10": 0.959,
+        "mrr@10": 0.775,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-jekyll-blind-champion-long",
+    "n_cells": 1,
+    "n_ranks": 73,
+    "corpus": "bench/corpora/jekyll",
+    "queries": "eval/queries/jekyll-blind.jsonl",
+    "queries_fp": "ae25f0741dc11f88",
+    "query_set": "unknown (fp ae25f0741dc11f88)",
+    "corpus_digest": "66f59f861b3130b1ffc1665f57e0d41d",
+    "at": "2026-08-02T20:41:00Z",
+    "git_head": "ca0b3f2",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "blind_long",
+        "n": 73,
+        "recall@1": 0.014,
+        "recall@5": 0.014,
+        "recall@10": 0.055,
+        "mrr@10": 0.02,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-jekyll-blind-champion",
+    "n_cells": 1,
+    "n_ranks": 73,
+    "corpus": "bench/corpora/jekyll",
+    "queries": "eval/queries/jekyll-blind.jsonl",
+    "queries_fp": "6b1611c5cdd4c81d",
+    "query_set": "unknown (fp 6b1611c5cdd4c81d)",
+    "corpus_digest": "66f59f861b3130b1ffc1665f57e0d41d",
+    "at": "2026-08-02T20:40:58Z",
+    "git_head": "ca0b3f2",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "blind",
+        "n": 73,
+        "recall@1": 0.0,
+        "recall@5": 0.014,
+        "recall@10": 0.055,
+        "mrr@10": 0.008,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-jekyll-blind-oracle",
+    "n_cells": 1,
+    "n_ranks": 73,
+    "corpus": "bench/corpora/jekyll",
+    "queries": "eval/queries/jekyll-blind.jsonl",
+    "queries_fp": "6b1611c5cdd4c81d",
+    "query_set": "unknown (fp 6b1611c5cdd4c81d)",
+    "corpus_digest": "66f59f861b3130b1ffc1665f57e0d41d",
+    "at": "2026-08-02T20:41:03Z",
+    "git_head": "ca0b3f2",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "rg-oracle",
+        "kind": "blind",
+        "n": 73,
+        "recall@1": 0.0,
+        "recall@5": 0.0,
+        "recall@10": 0.014,
+        "mrr@10": 0.001,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
     "name": "lever-linux-base",
     "n_cells": 6,
     "n_ranks": 0,
@@ -1256,6 +1952,212 @@
         "recall@10": 0.005,
         "mrr@10": 0.002,
         "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-linux-blind-base-direct",
+    "n_cells": 2,
+    "n_ranks": 398,
+    "corpus": "bench/corpora/linux",
+    "queries": "eval/queries/linux-blind.jsonl",
+    "queries_fp": "8905dc76f45e6124",
+    "query_set": "unknown (fp 8905dc76f45e6124)",
+    "corpus_digest": "4dc078c136ba76221741b2159e29c6e5",
+    "at": "2026-08-02T21:04:02Z",
+    "git_head": "ca0b3f2",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.553,
+        "recall@5": 0.769,
+        "recall@10": 0.809,
+        "mrr@10": 0.637,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.317,
+        "recall@5": 0.528,
+        "recall@10": 0.563,
+        "mrr@10": 0.407,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-linux-blind-base-long",
+    "n_cells": 2,
+    "n_ranks": 398,
+    "corpus": "bench/corpora/linux",
+    "queries": "eval/queries/linux-blind.jsonl",
+    "queries_fp": "a62ffbe7bebe0f6d",
+    "query_set": "unknown (fp a62ffbe7bebe0f6d)",
+    "corpus_digest": "4dc078c136ba76221741b2159e29c6e5",
+    "at": "2026-08-02T21:03:17Z",
+    "git_head": "ca0b3f2",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "blind_long",
+        "n": 199,
+        "recall@1": 0.005,
+        "recall@5": 0.015,
+        "recall@10": 0.015,
+        "mrr@10": 0.008,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "blind_long",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.0,
+        "recall@10": 0.005,
+        "mrr@10": 0.001,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-linux-blind-base",
+    "n_cells": 4,
+    "n_ranks": 796,
+    "corpus": "bench/corpora/linux",
+    "queries": "eval/queries/linux-blind.jsonl",
+    "queries_fp": "7f7bc53bd11f05cf",
+    "query_set": "unknown (fp 7f7bc53bd11f05cf)",
+    "corpus_digest": "4dc078c136ba76221741b2159e29c6e5",
+    "at": "2026-08-02T20:44:39Z",
+    "git_head": "ca0b3f2",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "blind",
+        "n": 199,
+        "recall@1": 0.01,
+        "recall@5": 0.02,
+        "recall@10": 0.03,
+        "mrr@10": 0.015,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "blind",
+        "n": 199,
+        "recall@1": 0.01,
+        "recall@5": 0.015,
+        "recall@10": 0.03,
+        "mrr@10": 0.015,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-strong",
+        "kind": "blind",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "mrr@10": 0.0,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "blind",
+        "n": 199,
+        "recall@1": 0.005,
+        "recall@5": 0.01,
+        "recall@10": 0.01,
+        "mrr@10": 0.006,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-linux-blind-champion-direct",
+    "n_cells": 1,
+    "n_ranks": 199,
+    "corpus": "bench/corpora/linux",
+    "queries": "eval/queries/linux-blind.jsonl",
+    "queries_fp": "8905dc76f45e6124",
+    "query_set": "unknown (fp 8905dc76f45e6124)",
+    "corpus_digest": "4dc078c136ba76221741b2159e29c6e5",
+    "at": "2026-08-02T21:06:41Z",
+    "git_head": "ca0b3f2",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 199,
+        "recall@1": 0.291,
+        "recall@5": 0.492,
+        "recall@10": 0.533,
+        "mrr@10": 0.38,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-linux-blind-champion-long",
+    "n_cells": 1,
+    "n_ranks": 199,
+    "corpus": "bench/corpora/linux",
+    "queries": "eval/queries/linux-blind.jsonl",
+    "queries_fp": "a62ffbe7bebe0f6d",
+    "query_set": "unknown (fp a62ffbe7bebe0f6d)",
+    "corpus_digest": "4dc078c136ba76221741b2159e29c6e5",
+    "at": "2026-08-02T21:05:59Z",
+    "git_head": "ca0b3f2",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "blind_long",
+        "n": 199,
+        "recall@1": 0.0,
+        "recall@5": 0.005,
+        "recall@10": 0.01,
+        "mrr@10": 0.003,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-linux-blind-champion",
+    "n_cells": 1,
+    "n_ranks": 199,
+    "corpus": "bench/corpora/linux",
+    "queries": "eval/queries/linux-blind.jsonl",
+    "queries_fp": "7f7bc53bd11f05cf",
+    "query_set": "unknown (fp 7f7bc53bd11f05cf)",
+    "corpus_digest": "4dc078c136ba76221741b2159e29c6e5",
+    "at": "2026-08-02T21:05:18Z",
+    "git_head": "ca0b3f2",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "blind",
+        "n": 199,
+        "recall@1": 0.01,
+        "recall@5": 0.01,
+        "recall@10": 0.02,
+        "mrr@10": 0.011,
+        "has_ranks": true
       }
     ]
   },
@@ -2336,6 +3238,238 @@
     ]
   },
   {
+    "name": "lever-tokio-blind-base-direct",
+    "n_cells": 2,
+    "n_ranks": 400,
+    "corpus": "bench/corpora/tokio",
+    "queries": "eval/queries/tokio-blind.jsonl",
+    "queries_fp": "35448d378693180a",
+    "query_set": "unknown (fp 35448d378693180a)",
+    "corpus_digest": "45974290c2df2ea6984e7a9b4cb179ce",
+    "at": "2026-08-02T19:34:48Z",
+    "git_head": "f10ed4e",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.685,
+        "recall@5": 0.855,
+        "recall@10": 0.915,
+        "mrr@10": 0.76,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.535,
+        "recall@5": 0.795,
+        "recall@10": 0.85,
+        "mrr@10": 0.642,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-tokio-blind-base-long",
+    "n_cells": 2,
+    "n_ranks": 400,
+    "corpus": "bench/corpora/tokio",
+    "queries": "eval/queries/tokio-blind.jsonl",
+    "queries_fp": "b80d84549365c556",
+    "query_set": "unknown (fp b80d84549365c556)",
+    "corpus_digest": "45974290c2df2ea6984e7a9b4cb179ce",
+    "at": "2026-08-02T19:34:16Z",
+    "git_head": "f10ed4e",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "blind_long",
+        "n": 200,
+        "recall@1": 0.02,
+        "recall@5": 0.045,
+        "recall@10": 0.05,
+        "mrr@10": 0.028,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "blind_long",
+        "n": 200,
+        "recall@1": 0.01,
+        "recall@5": 0.02,
+        "recall@10": 0.03,
+        "mrr@10": 0.013,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-tokio-blind-base",
+    "n_cells": 4,
+    "n_ranks": 800,
+    "corpus": "bench/corpora/tokio",
+    "queries": "eval/queries/tokio-blind.jsonl",
+    "queries_fp": "1646f9af9b36257f",
+    "query_set": "unknown (fp 1646f9af9b36257f)",
+    "corpus_digest": "45974290c2df2ea6984e7a9b4cb179ce",
+    "at": "2026-08-02T19:33:54Z",
+    "git_head": "f10ed4e",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "blind",
+        "n": 200,
+        "recall@1": 0.01,
+        "recall@5": 0.02,
+        "recall@10": 0.045,
+        "mrr@10": 0.015,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "blind",
+        "n": 200,
+        "recall@1": 0.0,
+        "recall@5": 0.015,
+        "recall@10": 0.05,
+        "mrr@10": 0.01,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-strong",
+        "kind": "blind",
+        "n": 200,
+        "recall@1": 0.0,
+        "recall@5": 0.005,
+        "recall@10": 0.005,
+        "mrr@10": 0.001,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "blind",
+        "n": 200,
+        "recall@1": 0.01,
+        "recall@5": 0.02,
+        "recall@10": 0.03,
+        "mrr@10": 0.015,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-tokio-blind-champion-direct",
+    "n_cells": 1,
+    "n_ranks": 200,
+    "corpus": "bench/corpora/tokio",
+    "queries": "eval/queries/tokio-blind.jsonl",
+    "queries_fp": "35448d378693180a",
+    "query_set": "unknown (fp 35448d378693180a)",
+    "corpus_digest": "45974290c2df2ea6984e7a9b4cb179ce",
+    "at": "2026-08-02T19:35:23Z",
+    "git_head": "f10ed4e",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 200,
+        "recall@1": 0.525,
+        "recall@5": 0.785,
+        "recall@10": 0.845,
+        "mrr@10": 0.639,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-tokio-blind-champion-long",
+    "n_cells": 1,
+    "n_ranks": 200,
+    "corpus": "bench/corpora/tokio",
+    "queries": "eval/queries/tokio-blind.jsonl",
+    "queries_fp": "b80d84549365c556",
+    "query_set": "unknown (fp b80d84549365c556)",
+    "corpus_digest": "45974290c2df2ea6984e7a9b4cb179ce",
+    "at": "2026-08-02T19:35:16Z",
+    "git_head": "f10ed4e",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "blind_long",
+        "n": 200,
+        "recall@1": 0.01,
+        "recall@5": 0.02,
+        "recall@10": 0.03,
+        "mrr@10": 0.015,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-tokio-blind-champion",
+    "n_cells": 1,
+    "n_ranks": 200,
+    "corpus": "bench/corpora/tokio",
+    "queries": "eval/queries/tokio-blind.jsonl",
+    "queries_fp": "1646f9af9b36257f",
+    "query_set": "unknown (fp 1646f9af9b36257f)",
+    "corpus_digest": "45974290c2df2ea6984e7a9b4cb179ce",
+    "at": "2026-08-02T19:35:07Z",
+    "git_head": "f10ed4e",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "blind",
+        "n": 200,
+        "recall@1": 0.02,
+        "recall@5": 0.04,
+        "recall@10": 0.06,
+        "mrr@10": 0.029,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-tokio-blind-oracle",
+    "n_cells": 1,
+    "n_ranks": 200,
+    "corpus": "bench/corpora/tokio",
+    "queries": "eval/queries/tokio-blind.jsonl",
+    "queries_fp": "1646f9af9b36257f",
+    "query_set": "unknown (fp 1646f9af9b36257f)",
+    "corpus_digest": "45974290c2df2ea6984e7a9b4cb179ce",
+    "at": "2026-08-02T19:35:30Z",
+    "git_head": "f10ed4e",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "rg-oracle",
+        "kind": "blind",
+        "n": 200,
+        "recall@1": 0.0,
+        "recall@5": 0.01,
+        "recall@10": 0.025,
+        "mrr@10": 0.004,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
     "name": "lever-tokio-preproc-none",
     "n_cells": 4,
     "n_ranks": 800,
@@ -2740,6 +3874,238 @@
         "recall@10": 0.035,
         "mrr@10": 0.023,
         "has_ranks": false
+      }
+    ]
+  },
+  {
+    "name": "lever-vscode-blind-base-direct",
+    "n_cells": 2,
+    "n_ranks": 396,
+    "corpus": "bench/corpora/vscode",
+    "queries": "eval/queries/vscode-blind.jsonl",
+    "queries_fp": "34ad8e5c4f33f83e",
+    "query_set": "unknown (fp 34ad8e5c4f33f83e)",
+    "corpus_digest": "a3c36fb239aa9aadd40f6c470976d049",
+    "at": "2026-08-02T20:41:57Z",
+    "git_head": "ca0b3f2",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "direct",
+        "n": 198,
+        "recall@1": 0.556,
+        "recall@5": 0.773,
+        "recall@10": 0.828,
+        "mrr@10": 0.648,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 198,
+        "recall@1": 0.298,
+        "recall@5": 0.424,
+        "recall@10": 0.51,
+        "mrr@10": 0.356,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-vscode-blind-base-long",
+    "n_cells": 2,
+    "n_ranks": 396,
+    "corpus": "bench/corpora/vscode",
+    "queries": "eval/queries/vscode-blind.jsonl",
+    "queries_fp": "a7c277553b05c39a",
+    "query_set": "unknown (fp a7c277553b05c39a)",
+    "corpus_digest": "a3c36fb239aa9aadd40f6c470976d049",
+    "at": "2026-08-02T20:41:47Z",
+    "git_head": "ca0b3f2",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "blind_long",
+        "n": 198,
+        "recall@1": 0.025,
+        "recall@5": 0.051,
+        "recall@10": 0.076,
+        "mrr@10": 0.039,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "blind_long",
+        "n": 198,
+        "recall@1": 0.005,
+        "recall@5": 0.01,
+        "recall@10": 0.015,
+        "mrr@10": 0.007,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-vscode-blind-base",
+    "n_cells": 4,
+    "n_ranks": 792,
+    "corpus": "bench/corpora/vscode",
+    "queries": "eval/queries/vscode-blind.jsonl",
+    "queries_fp": "1e622de660c5fb5f",
+    "query_set": "unknown (fp 1e622de660c5fb5f)",
+    "corpus_digest": "a3c36fb239aa9aadd40f6c470976d049",
+    "at": "2026-08-02T20:41:09Z",
+    "git_head": "ca0b3f2",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "bm25",
+        "kind": "blind",
+        "n": 198,
+        "recall@1": 0.015,
+        "recall@5": 0.035,
+        "recall@10": 0.051,
+        "mrr@10": 0.024,
+        "has_ranks": true
+      },
+      {
+        "mode": "hybrid",
+        "kind": "blind",
+        "n": 198,
+        "recall@1": 0.01,
+        "recall@5": 0.03,
+        "recall@10": 0.045,
+        "mrr@10": 0.019,
+        "has_ranks": true
+      },
+      {
+        "mode": "rg-strong",
+        "kind": "blind",
+        "n": 198,
+        "recall@1": 0.0,
+        "recall@5": 0.005,
+        "recall@10": 0.01,
+        "mrr@10": 0.003,
+        "has_ranks": true
+      },
+      {
+        "mode": "semantic",
+        "kind": "blind",
+        "n": 198,
+        "recall@1": 0.01,
+        "recall@5": 0.03,
+        "recall@10": 0.03,
+        "mrr@10": 0.016,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-vscode-blind-champion-direct",
+    "n_cells": 1,
+    "n_ranks": 198,
+    "corpus": "bench/corpora/vscode",
+    "queries": "eval/queries/vscode-blind.jsonl",
+    "queries_fp": "34ad8e5c4f33f83e",
+    "query_set": "unknown (fp 34ad8e5c4f33f83e)",
+    "corpus_digest": "a3c36fb239aa9aadd40f6c470976d049",
+    "at": "2026-08-02T20:42:38Z",
+    "git_head": "ca0b3f2",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "direct",
+        "n": 198,
+        "recall@1": 0.444,
+        "recall@5": 0.667,
+        "recall@10": 0.732,
+        "mrr@10": 0.541,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-vscode-blind-champion-long",
+    "n_cells": 1,
+    "n_ranks": 198,
+    "corpus": "bench/corpora/vscode",
+    "queries": "eval/queries/vscode-blind.jsonl",
+    "queries_fp": "a7c277553b05c39a",
+    "query_set": "unknown (fp a7c277553b05c39a)",
+    "corpus_digest": "a3c36fb239aa9aadd40f6c470976d049",
+    "at": "2026-08-02T20:42:22Z",
+    "git_head": "ca0b3f2",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "blind_long",
+        "n": 198,
+        "recall@1": 0.03,
+        "recall@5": 0.051,
+        "recall@10": 0.071,
+        "mrr@10": 0.037,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-vscode-blind-champion",
+    "n_cells": 1,
+    "n_ranks": 198,
+    "corpus": "bench/corpora/vscode",
+    "queries": "eval/queries/vscode-blind.jsonl",
+    "queries_fp": "1e622de660c5fb5f",
+    "query_set": "unknown (fp 1e622de660c5fb5f)",
+    "corpus_digest": "a3c36fb239aa9aadd40f6c470976d049",
+    "at": "2026-08-02T20:42:07Z",
+    "git_head": "ca0b3f2",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "semantic",
+        "kind": "blind",
+        "n": 198,
+        "recall@1": 0.01,
+        "recall@5": 0.025,
+        "recall@10": 0.035,
+        "mrr@10": 0.017,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
+    "name": "lever-vscode-blind-oracle",
+    "n_cells": 1,
+    "n_ranks": 198,
+    "corpus": "bench/corpora/vscode",
+    "queries": "eval/queries/vscode-blind.jsonl",
+    "queries_fp": "1e622de660c5fb5f",
+    "query_set": "unknown (fp 1e622de660c5fb5f)",
+    "corpus_digest": "a3c36fb239aa9aadd40f6c470976d049",
+    "at": "2026-08-02T20:42:55Z",
+    "git_head": "ca0b3f2",
+    "binary_mtime": "2026-08-01T17:42:16Z",
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "rg-oracle",
+        "kind": "blind",
+        "n": 198,
+        "recall@1": 0.005,
+        "recall@5": 0.015,
+        "recall@10": 0.015,
+        "mrr@10": 0.009,
+        "has_ranks": true
       }
     ]
   },

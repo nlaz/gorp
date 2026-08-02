@@ -2948,3 +2948,57 @@ the gold file 6/6 vs ripgrep's 4/6; on the 27 **named** instances ripgrep is
 predicted, n far too small to score; the 560-instance screen is the sampling
 frame for a targeted run when one is worth buying.
 
+### 15.8 The first blind campaign: the scorecard (2026-08-02)
+
+Six `<corpus>-blind.jsonl` sets, 4,168 queries, every blind row verified at
+generation and again by the gate (blind cells: `gold_id% = 0.0` everywhere,
+overlap 0.03–0.11, median 7–8 words). `eval/blind.sh`, per §15.5's registered
+conditions. Blind R@5:
+
+| corpus | rg-strong | rg-oracle | bm25 | hybrid | semantic | champion | Δ(champ−bm25), CI |
+|---|---|---|---|---|---|---|---|
+| tokio | 0.005 | 0.010 | 0.020 | 0.015 | 0.020 | 0.040 | +0.020 [−0.010, +0.050] |
+| etcd | 0.000 | 0.012 | 0.012 | 0.012 | 0.012 | 0.006 | −0.006 [−0.023, +0.012] |
+| commons-lang | 0.015 | 0.025 | 0.035 | 0.045 | 0.055 | 0.060 | +0.025 [+0.000, +0.055] |
+| jekyll | 0.000 | 0.000 | 0.014 | 0.027 | 0.027 | 0.014 | ±0.000 |
+| vscode | 0.005 | 0.015 | 0.035 | 0.030 | 0.030 | 0.025 | −0.010 [−0.035, +0.010] |
+| linux | 0.000 | *(not run — stopped)* | 0.020 | 0.015 | 0.010 | 0.010 | −0.010 [−0.030, +0.010] |
+
+**Prediction 1: MISS, 0/6.** Pooled over 1,042 blind rows: semantic 0.028 vs
+bm25 0.024, Δ +0.004, CI [−0.007, +0.014]. On strictly-blind generated
+queries **nobody can retrieve** — every engine sits at 1–6% R@5 — and the
+registered consequence applies as written: *the §9.9 model swap is the only
+move left* in this regime. A prose-space embedder severed from vocabulary
+overlap loses its fuzzy-lexical channel exactly as grep loses its exact one.
+
+**Prediction 2: HIT, decisively.** rg-strong ≤ 0.015 everywhere (band was
+≤ 0.05); the oracle ≤ 0.025 everywhere it ran. Blindness by construction
+removes what grep greps for — including an oracle-grade grep.
+
+**Prediction 4: MISS, inverted.** `blind_long` does nothing for semantic
+(Δ ±0.000) and significantly helps **bm25** (+0.015, CI [+0.002, +0.029]).
+More words buy the exact matcher more lottery tickets for accidental
+overlap; the pooled vector gains nothing. The reasoning behind the
+prediction ("more signal to pool") was wrong about which engine is
+starved for tokens.
+
+**The synthesis, and it is the §15 finding that matters.** The blind regime
+split in two under measurement:
+
+- **Real-blind** (CoSQA's 847 zero-gold-hit human queries, overlap ≈ 0.29):
+  champion semantic already at **parity** with bm25 at useful absolute levels
+  (0.148 vs 0.169, CI spanning zero — §15.6). This is where users and agents
+  actually live (§15.7: 65% of agent queries), the fight is winnable, and
+  the §14 levers already won most of it.
+- **Strict-blind** (generated, overlap ≈ 0.07 — half to a quarter of what
+  real blind humans emit): a **floor for every engine**, the §13.9 paraphrase
+  wall measured a third way. Distinguishing engines here is pointless until
+  the embedding space knows code relations; these sets are the *instrument*
+  waiting for the model experiment, not a battleground for the current stack.
+
+Direct anchors confirm the sets are sound (bm25 0.77–0.98 when the query
+names the gold). The campaign's operational conclusion: quote real-blind for
+product claims, hold strict-blind as the gate the §9.9 code-teacher
+re-distillation must move — it is the experiment these six sets were built
+to referee, and nothing else on the §9 lever list can touch them.
+
