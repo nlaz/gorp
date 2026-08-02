@@ -161,11 +161,15 @@ def sample_chunks(root: Path, n: int, seed: int):
     return out
 
 
-def _ask_once(prompt: str) -> dict | None:
+def _ask_once(prompt: str, model: str | None = None) -> dict | None:
+    cmd = ["claude", "-p", "--output-format", "text"]
+    if model:
+        cmd += ["--model", model]
     try:
         proc = subprocess.run(
-            ["claude", "-p", "--output-format", "text", prompt],
+            cmd + [prompt],
             capture_output=True, text=True, timeout=120,
+            stdin=subprocess.DEVNULL,  # else the CLI waits 3s for piped input
         )
     except subprocess.TimeoutExpired:
         return None
@@ -199,7 +203,7 @@ def blind_violations(q: dict, chunk: str, symbol: str | None) -> list[str]:
 
 
 def ask_claude(prompt: str, chunk: str | None = None, symbol: str | None = None,
-               max_attempts: int = 3) -> dict | None:
+               max_attempts: int = 3, model: str | None = None) -> dict | None:
     """Generate, then verify blindness and re-prompt with the offending
     tokens. The §13.1 lesson made structural: an instruction the generator
     once received is not a property of the data — only the check is. A chunk
@@ -208,7 +212,7 @@ def ask_claude(prompt: str, chunk: str | None = None, symbol: str | None = None,
     the caller's to report."""
     p = prompt
     for _ in range(max_attempts):
-        q = _ask_once(p)
+        q = _ask_once(p, model=model)
         if q is None:
             continue
         if chunk is None:
@@ -234,6 +238,12 @@ def main():
     ap.add_argument("--locked-frac", type=float, default=0.3,
                     help="fraction held out as a locked split; report dev while "
                          "iterating, open locked only at decision time")
+    ap.add_argument("--model", default=None,
+                    help="model for `claude -p --model` (e.g. claude-sonnet-5). "
+                         "Query generation does not need the session's top "
+                         "model, and the default one shares the interactive "
+                         "usage window — a 600-call run can exhaust it. Record "
+                         "the model used in the set's MANIFEST provenance.")
     args = ap.parse_args()
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -250,7 +260,8 @@ def main():
         # chunk only — see the note on PROMPT for why path/start/end are not
         # passed, and what happened when they were.
         q = ask_claude(PROMPT.format(chunk=c["chunk"]),
-                       chunk=c["chunk"], symbol=c.get("symbol"))
+                       chunk=c["chunk"], symbol=c.get("symbol"),
+                       model=args.model)
         return (c, q)
 
     with open(args.out, "w") as f, ThreadPoolExecutor(max_workers=args.workers) as pool:
