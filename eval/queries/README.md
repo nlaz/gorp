@@ -37,6 +37,22 @@ The four symbol-anchored sets are the best of the ones we did write: ground
 truth is a function span, so they can referee a chunking change, and the
 generator was never shown the file path.
 
+## The blindness ladder (RESEARCH.md §15)
+
+Since 2026-08-01 the primary regime is **blind search**. The
+`<corpus>-blind.jsonl` sets carry four kinds over the *same* gold spans —
+CORE-Bench-style graded context removal:
+
+| level | kind | may contain | enforcement |
+|---|---|---|---|
+| L0 | `direct` | anything, incl. the gold identifier | none (regression anchor) |
+| L1 | `paraphrase` | shared vocab | advisory prompt only |
+| L2 | `blind` (4–8 w), `blind_long` (12–20 w) | zero gold-identifier tokens, incl. lowercase symbol names and rare subtokens; overlap-capped | **structural**: generated under the §15.3 predicate with a reject/regenerate loop, and `run_eval.py` refuses a leaky blind cell (`--allow-leaky` is the only override; `--allow-stale` does not apply) |
+
+`--stratify is_blind` / `--where is_blind=True` cut *any* set (including
+CoSQA) by the same predicate at scoring time. The named sets above are the
+**regression board**: still run, must not collapse, no longer define success.
+
 ## Two known biases, both measured
 
 **Window anchoring (§11.4).** The linux/vscode/wikipedia sets define ground

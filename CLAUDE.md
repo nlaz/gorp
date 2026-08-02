@@ -48,6 +48,13 @@ ranks, `cache` never scores, `search` orchestrates rather than computes.
 
 - `bench/` — perf harness vs grep/ggrep/rg/ugrep/ack (`fetch-corpora.sh`,
   `run.py`, `report.py`, `queries.json`); corpora + results are gitignored
+- **Blind search is the primary regime since 2026-08-01** (RESEARCH.md §15):
+  success = semantic beats bm25 on strict-blind cells (queries verifiably free
+  of gold identifiers, §15.3 predicate, structurally gated — `run_eval.py`
+  refuses a leaky blind set); every named-identifier set stays as the
+  regression board. `<corpus>-blind.jsonl` sets carry direct/paraphrase/
+  blind/blind_long over the same golds; `eval/blind.sh` is the campaign
+  runner, `eval/blind_cut.py` re-cuts old results by blindness.
 - `eval/` — retrieval-quality harness. `run_eval.py` scores recall@k/MRR with
   paired bootstrap CIs + sign tests (`--baseline`, `--compare-modes`), cuts by
   `--stratify`/`--where`, and prints leakage above every table;
