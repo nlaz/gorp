@@ -4,7 +4,13 @@
 The per-query ranks in the JSON files are the source of truth; this
 is a view of them. `--check` fails if the two have diverged.
 
-169 runs, 79,357 per-query ranks recorded.
+170 runs, 91,227 per-query ranks recorded.
+
+## Runs — guess (primary, RESEARCH.md §16)
+
+| run | query set | corpus | cells | ranks | when | git | provenance |
+|---|---|---|---|---|---|---|---|
+| `guess-replay-v0` | — | (locbench worktrees) | 15 | 11,870 | — | — | yes |
 
 ## Runs — blind (model-experiment instrument, RESEARCH.md §15.10)
 
@@ -236,6 +242,21 @@ is a view of them. `--check` fails if the two have diverged.
 | `fnchunk-vscode` | hybrid | paraphrase | 200 | 0.030 | 0.120 | 0.175 | 0.069 |
 | `fnchunk-vscode` | semantic | direct | 200 | 0.295 | 0.545 | 0.635 | 0.400 |
 | `fnchunk-vscode` | semantic | paraphrase | 200 | 0.000 | 0.010 | 0.020 | 0.006 |
+| `guess-replay-v0` | exact | guess_exact | 1543 | 0.121 | 0.168 | 0.185 | 0.142 |
+| `guess-replay-v0` | exact | guess_rg | 570 | 0.079 | 0.116 | 0.147 | 0.097 |
+| `guess-replay-v0` | exact-norm | guess_exact | 42 | 0.071 | 0.071 | 0.071 | 0.071 |
+| `guess-replay-v0` | exact-norm | guess_rg | 61 | 0.016 | 0.066 | 0.082 | 0.033 |
+| `guess-replay-v0` | ranked-own-bm25 | guess_ranked | 624 | 0.147 | 0.325 | 0.401 | 0.227 |
+| `guess-replay-v0` | ranked-own-hybrid | guess_ranked | 624 | 0.167 | 0.343 | 0.417 | 0.246 |
+| `guess-replay-v0` | ranked-own-semantic | guess_ranked | 624 | 0.135 | 0.330 | 0.399 | 0.217 |
+| `guess-replay-v0` | t1-bm25 | guess_exact | 1543 | 0.100 | 0.191 | 0.222 | 0.137 |
+| `guess-replay-v0` | t1-bm25 | guess_rg | 570 | 0.082 | 0.168 | 0.193 | 0.117 |
+| `guess-replay-v0` | t1-hybrid | guess_exact | 1543 | 0.102 | 0.194 | 0.231 | 0.143 |
+| `guess-replay-v0` | t1-hybrid | guess_rg | 570 | 0.081 | 0.168 | 0.212 | 0.118 |
+| `guess-replay-v0` | t1-semantic | guess_exact | 1543 | 0.100 | 0.191 | 0.231 | 0.136 |
+| `guess-replay-v0` | t1-semantic | guess_rg | 570 | 0.072 | 0.174 | 0.202 | 0.113 |
+| `guess-replay-v0` | t2-hybrid | guess_exact | 1067 | 0.117 | 0.226 | 0.266 | 0.161 |
+| `guess-replay-v0` | t2-hybrid | guess_rg | 376 | 0.096 | 0.199 | 0.234 | 0.136 |
 | `lever-commons-lang-blind-base` | bm25 | blind | 200 | 0.015 | 0.035 | 0.060 | 0.027 |
 | `lever-commons-lang-blind-base` | hybrid | blind | 200 | 0.020 | 0.045 | 0.060 | 0.033 |
 | `lever-commons-lang-blind-base` | rg-strong | blind | 200 | 0.005 | 0.015 | 0.015 | 0.008 |

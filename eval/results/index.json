@@ -598,6 +598,172 @@
     ]
   },
   {
+    "name": "guess-replay-v0",
+    "n_cells": 15,
+    "n_ranks": 11870,
+    "corpus": "(locbench worktrees)",
+    "queries": "guesses-v0.jsonl",
+    "queries_fp": null,
+    "query_set": null,
+    "corpus_digest": null,
+    "at": null,
+    "git_head": null,
+    "binary_mtime": null,
+    "provenance_recorded": true,
+    "cells": [
+      {
+        "mode": "exact",
+        "kind": "guess_exact",
+        "n": 1543,
+        "recall@1": 0.12119248217757615,
+        "recall@5": 0.1678548282566429,
+        "recall@10": 0.18535320803629293,
+        "mrr@10": 0.14159105638366817,
+        "has_ranks": true
+      },
+      {
+        "mode": "exact",
+        "kind": "guess_rg",
+        "n": 570,
+        "recall@1": 0.07894736842105263,
+        "recall@5": 0.11578947368421053,
+        "recall@10": 0.14736842105263157,
+        "mrr@10": 0.09697577276524645,
+        "has_ranks": true
+      },
+      {
+        "mode": "exact-norm",
+        "kind": "guess_exact",
+        "n": 42,
+        "recall@1": 0.07142857142857142,
+        "recall@5": 0.07142857142857142,
+        "recall@10": 0.07142857142857142,
+        "mrr@10": 0.07142857142857142,
+        "has_ranks": true
+      },
+      {
+        "mode": "exact-norm",
+        "kind": "guess_rg",
+        "n": 61,
+        "recall@1": 0.01639344262295082,
+        "recall@5": 0.06557377049180328,
+        "recall@10": 0.08196721311475409,
+        "mrr@10": 0.03278688524590164,
+        "has_ranks": true
+      },
+      {
+        "mode": "ranked-own-bm25",
+        "kind": "guess_ranked",
+        "n": 624,
+        "recall@1": 0.14743589743589744,
+        "recall@5": 0.32532051282051283,
+        "recall@10": 0.40064102564102566,
+        "mrr@10": 0.2268728378103378,
+        "has_ranks": true
+      },
+      {
+        "mode": "ranked-own-hybrid",
+        "kind": "guess_ranked",
+        "n": 624,
+        "recall@1": 0.16666666666666666,
+        "recall@5": 0.34294871794871795,
+        "recall@10": 0.4166666666666667,
+        "mrr@10": 0.24621171652421653,
+        "has_ranks": true
+      },
+      {
+        "mode": "ranked-own-semantic",
+        "kind": "guess_ranked",
+        "n": 624,
+        "recall@1": 0.1346153846153846,
+        "recall@5": 0.3301282051282051,
+        "recall@10": 0.39903846153846156,
+        "mrr@10": 0.21725999694749695,
+        "has_ranks": true
+      },
+      {
+        "mode": "t1-bm25",
+        "kind": "guess_exact",
+        "n": 1543,
+        "recall@1": 0.09980557355800389,
+        "recall@5": 0.19118600129617627,
+        "recall@10": 0.22164614387556708,
+        "mrr@10": 0.13729644374492073,
+        "has_ranks": true
+      },
+      {
+        "mode": "t1-bm25",
+        "kind": "guess_rg",
+        "n": 570,
+        "recall@1": 0.0824561403508772,
+        "recall@5": 0.16842105263157894,
+        "recall@10": 0.19298245614035087,
+        "mrr@10": 0.1169980506822612,
+        "has_ranks": true
+      },
+      {
+        "mode": "t1-hybrid",
+        "kind": "guess_exact",
+        "n": 1543,
+        "recall@1": 0.10239792611795204,
+        "recall@5": 0.19442644199611148,
+        "recall@10": 0.23136746597537264,
+        "mrr@10": 0.14253309878714934,
+        "has_ranks": true
+      },
+      {
+        "mode": "t1-hybrid",
+        "kind": "guess_rg",
+        "n": 570,
+        "recall@1": 0.08070175438596491,
+        "recall@5": 0.16842105263157894,
+        "recall@10": 0.21228070175438596,
+        "mrr@10": 0.11825187969924811,
+        "has_ranks": true
+      },
+      {
+        "mode": "t1-semantic",
+        "kind": "guess_exact",
+        "n": 1543,
+        "recall@1": 0.09980557355800389,
+        "recall@5": 0.19118600129617627,
+        "recall@10": 0.23071937783538563,
+        "mrr@10": 0.13648093283543705,
+        "has_ranks": true
+      },
+      {
+        "mode": "t1-semantic",
+        "kind": "guess_rg",
+        "n": 570,
+        "recall@1": 0.07192982456140351,
+        "recall@5": 0.1736842105263158,
+        "recall@10": 0.20175438596491227,
+        "mrr@10": 0.1133194096351991,
+        "has_ranks": true
+      },
+      {
+        "mode": "t2-hybrid",
+        "kind": "guess_exact",
+        "n": 1067,
+        "recall@1": 0.11715089034676664,
+        "recall@5": 0.22586691658856609,
+        "recall@10": 0.2661668228678538,
+        "mrr@10": 0.16083738712604692,
+        "has_ranks": true
+      },
+      {
+        "mode": "t2-hybrid",
+        "kind": "guess_rg",
+        "n": 376,
+        "recall@1": 0.09574468085106383,
+        "recall@5": 0.19946808510638298,
+        "recall@10": 0.23404255319148937,
+        "mrr@10": 0.13567312563323203,
+        "has_ranks": true
+      }
+    ]
+  },
+  {
     "name": "lever-commons-lang-blind-base-direct",
     "n_cells": 2,
     "n_ranks": 400,

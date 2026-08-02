@@ -3136,3 +3136,61 @@ the sensitivity cut.
 7. **Scope robustness**: the directions of 1–3 are unchanged between
    original-scope and repo-root replays.
 
+### 16.5 Results (2026-08-02, same day: 2,113 guess-groups, 33,394 arm-rows)
+
+`guessplay.py` over the full corpus, instance-clustered CIs throughout.
+
+**P1 — significant, but smaller than registered.** One ranked hybrid query
+built from the agent's own guess vs the agent's actual exact workflow, hit@5
+over all 2,113 exact+rg guess-groups: **Δ +0.034, CI [+0.002, +0.071]**. The
+CI excludes zero — the product effect is real — but the point estimate is
+below the registered +0.05. Scored as a miss on magnitude, a hit on
+direction and significance.
+
+**P2 — miss, and the honest headline.** Rescue rate is **6.3%** (107 of
+1,697 groups whose exact replay found nothing), a third of the registered
+≥20%. Most wrong guesses are wrong enough that no engine rescues them.
+And where the exact guess already hit rank 1 (n=232), the ranked
+translation degrades it 47% of the time — replacement has real costs. The
+product story this supports is narrower than the one registered: ranked
+search is a better *default posture* for guessing (P1), not a reliable
+safety net under any guess (P2).
+
+**P3 — trending, not clearing:** hybrid−bm25 on the agents' own 624 ranked
+queries, MRR **+0.019, CI [−0.004, +0.044]** — the §13.2 shape again,
+tightened but still astride zero.
+
+**P4 — flat** (Δ −0.010, n.s.): T1 ≈ T2; the pre-split control neither
+helps nor hurts. The registered reasoning (casing signal) mattered less
+than assumed.
+
+**P5 — hit, and the campaign's most quotable mechanical fact: 19.6% of
+multi-guess `-e` ladders (104/530) were dead on arrival** — BRE-style `\|`
+that ripgrep's engine reads as a literal pipe. One in five of the agent's
+multi-spelling exact searches never could have matched anything. The ranked
+translation rescues that stratum at 12.5%, double the overall rescue rate
+but below the "highest of any stratum" bet as worded.
+
+**P6 — hit, cleanly, and the mechanism the orientation predicts.** By
+ladder length, exact hit@5 falls 0.172 → 0.105 → 0.084 (1 / 2–3 / 4+ rungs)
+while ranked-translation holds 0.202 → 0.148 → 0.137: **the gap widens
+monotonically with how hard the agent is guessing** (+0.030 → +0.043 →
++0.053). A long ladder is the agent saying it doesn't know the name; that
+is exactly where ranked search pays.
+
+**P7 — hit:** root-scope replay agrees in direction (Δ +0.080,
+CI [−0.001, +0.165]).
+
+**Champion config: no.** The §14 split-sif index does nothing for guesses
+(t1-semantic champion−default Δ −0.008, n.s.) — §15.9-B's diagnosis
+(frequency weighting hurts token-poor queries) extends to the guess regime;
+the shipped default is the right config for this board.
+
+Scorecard: 3 hits (P5, P6, P7), 2 misses (P2, P4), 2 partials (P1
+significant-but-small, P3 positive-but-wide). The §16.2 criterion is **not
+yet met** on magnitude — the ranked-default advantage is +3.4pp, real but
+modest, concentrated precisely where agents guess hardest. The next lever
+is not query-time: it is making ranked mode the agent's default posture
+(§7.3's framing lever is worth 3.5× more ranked usage) plus the §9.9 model
+swap for the semantic branch — both now refereed by this board.
+
