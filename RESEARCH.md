@@ -2838,8 +2838,11 @@ replay-agent queries without identifiers ≈ agent-length L2.
   cannot express — or matches it under light suffix stemming
   (ing/ed/es/s/er); or
 - (c) it equals a subtoken of the symbol (split on `_`/camel) with guards:
-  length ≥ 4, not a stopword, and not occurring in the gold span as plain
-  prose outside the symbol — `rwstat` is caught, `read` passes.
+  length ≥ 4, not a stopword, and not used as an ordinary word by the gold's
+  own comments/docstrings ("plain prose" means what a comment *says* — a bare
+  variable named `rwstat` is code, not prose) — `rwstat` is caught, a
+  comment's `read` passes. (Prose definition refined at implementation time,
+  before any run.)
 
 `is_blind(row)` = zero hits AND per-row `gold_token_overlap` ≤ **0.5**.
 Set-level gate: mean overlap over blind rows ≤ **0.25**. Both caps are
@@ -2873,4 +2876,38 @@ first runs. Predictions:
    bm25** (length adds few new exact matches).
 5. **Blind-screened Loc-Bench instances show a larger semgrep-vs-grep gap
    than the identifier-bearing complement.**
+
+### 15.6 Phase 0: the re-cut of what was already measured (same day)
+
+`eval/blind_cut.py` re-aggregates existing result files by the §15.3
+predicate — zero scan cost, the first look at the blind regime from data
+already paid for.
+
+**CoSQA splits 847 blind / 353 named.** Champion semantic (split-sif+maxsim)
+vs bm25, paired within stratum:
+
+| stratum | n | semantic R@5 | bm25 R@5 | Δ | 95% CI |
+|---|---|---|---|---|---|
+| **blind** | 847 | 0.148 | 0.169 | −0.021 | [−0.045, **+0.004**] |
+| named | 353 | 0.286 | 0.348 | −0.062 | [−0.110, −0.011] |
+
+**On the real blind stratum, semantic search and bm25 are already
+statistically indistinguishable** (MRR Δ −0.004, CI [−0.020, +0.010]); the
+entire surviving lexical advantage is concentrated in the named 29%.
+Prediction 3: direction confirmed — the gap shrinks to noise on blind, stays
+decisive on named. It has not flipped sign yet; that remains the campaign's
+goal. Under the raw pre-§14 index the blind gap was −0.081 — the §14 levers
+closed three quarters of the *blind* gap while barely denting the named one,
+which is exactly what "the levers fixed the fuzzy-lexical channel" predicts.
+
+**The advisory paraphrase instruction leaks worse than §15.1's 1–5% verbatim
+figure**: on etcd, 41/200 paraphrase rows (20%) fail strict-blind once
+subtokens and the overlap cap count. (And 26/200 *direct* rows pass it —
+"direct" doesn't always name.) The gate is not pedantry; a fifth of the
+stratum the §13 record calls vocabulary-crossing isn't.
+
+**Caps frozen after calibration.** Zero-hit real CoSQA queries have overlap
+p50 0.33 / p90 0.60; the 0.5 per-row cap excludes 15.3% of them (the
+near-verbatim tail) — strict but livable, kept. Set-mean 0.25 applies to
+generated blind sets only; real-data strata use the row predicate alone.
 

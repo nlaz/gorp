@@ -241,3 +241,76 @@ def test_an_all_stopword_query_greps_for_nothing_rather_than_everything():
 def test_an_empty_query_produces_no_attempts_at_all():
     assert _attempts_via(run_eval.rg_strong, "") == []
     assert _attempts_via(run_eval.rg_agent_style, "") == []
+
+
+# --- the strict-blind predicate (RESEARCH.md §15.3) --------------------------
+
+GOLD = """static void blkg_rwstat_add(struct blkg_rwstat *rwstat, int op)
+{
+        /* read the counter and add the value */
+        percpu_counter_add(&rwstat->cpu_cnt[op], 1);
+}"""
+
+
+def _hits(query, gold=GOLD, symbol="blkg_rwstat_add"):
+    return leakage.gold_identifier_hits(
+        leakage.content_tokens(query), gold, symbol)
+
+
+def test_a_gold_span_identifier_is_a_hit():
+    # clause (a): snake/camel identifiers of the gold, matched case-blind
+    assert _hits("call percpu_counter_add here") == ["percpu_counter_add"]
+    assert _hits("the blkg_rwstat_add helper") == ["blkg_rwstat_add"]
+
+
+def test_a_lowercase_symbol_name_is_a_hit():
+    # clause (b): the leak identifiers() cannot see. A symbol named `flush`
+    # is an identifier of the gold even though it is an English word.
+    gold = "def flush(self):\n    self.buffer.clear()"
+    assert leakage.gold_identifier_hits(
+        leakage.content_tokens("flush the pending buffer"), gold, "flush") == ["flush"]
+
+
+def test_symbol_match_survives_light_suffixing():
+    gold = "def flush(self):\n    self.buffer.clear()"
+    assert leakage.gold_identifier_hits(
+        leakage.content_tokens("flushing pending writes"), gold, "flush") == ["flushing"]
+
+
+def test_a_rare_symbol_subtoken_is_a_hit_but_prose_words_pass():
+    # clause (c): `rwstat` exists only inside the symbol family — caught.
+    assert "rwstat" in [h.lower() for h in _hits("rwstat accounting logic")]
+    # `read` occurs in the gold as plain prose (the comment), and `add` is
+    # short and everywhere: neither may fire the subtoken clause.
+    assert _hits("read and add a value") == []
+
+
+def test_camel_symbols_split_for_the_subtoken_clause():
+    gold = "function computeBackoffDelay(attempt) { return attempt * 2; }"
+    hits = leakage.gold_identifier_hits(
+        leakage.content_tokens("backoff timing behavior"), gold, "computeBackoffDelay")
+    assert [h.lower() for h in hits] == ["backoff"]
+
+
+def test_is_blind_requires_no_hits_and_bounded_overlap():
+    r = {"query": "per cpu statistics bookkeeping", "symbol": "blkg_rwstat_add"}
+    assert leakage.is_blind(r, GOLD)
+    r = {"query": "blkg_rwstat_add statistics", "symbol": "blkg_rwstat_add"}
+    assert not leakage.is_blind(r, GOLD)
+
+
+def test_overlap_cap_rejects_verbatim_ish_queries_without_identifier_hits():
+    # Every content token of the query occurs in the gold: overlap 1.0 > cap,
+    # blind fails even though no token is identifier-shaped.
+    r = {"query": "counter value struct", "symbol": "blkg_rwstat_add"}
+    assert not leakage.is_blind(r, GOLD)
+
+
+def test_paraphrase_and_direct_rows_are_never_gated_by_summarize(tmp_path):
+    # The new gold_id fields appear only with a corpus, and existing kinds
+    # keep their historical columns byte-for-byte in meaning.
+    r = {"query": "the blkg_rwstat_add helper", "kind": "direct",
+         "file": "a.c", "start_line": 1, "end_line": 1}
+    s = leakage.summarize([r])
+    assert s["direct"]["gold_id_pct"] is None
+    assert "identifier_pct" in s["direct"]

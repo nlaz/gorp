@@ -67,9 +67,115 @@ def identifiers(tokens):
     conflating the two overstates what the rg-strong baseline can do.
 
     Returned longest-first, which is `rg_strong`'s rarity proxy.
+
+    Definition FROZEN for historical comparability — every recorded
+    `identifier_pct` means this. It is query-side and gold-agnostic, so a
+    single lowercase gold symbol (`flush`) is invisible to it; blindness
+    (§15.3) is decided by the gold-aware `gold_identifier_hits` instead.
     """
     return sorted((w for w in tokens if "_" in w or _CAMEL.search(w)),
                   key=len, reverse=True)
+
+
+# --- strict-blind predicate (RESEARCH.md §15.3) ---------------------------
+
+BLIND_KINDS = {"blind", "blind_long", "symptom"}
+
+# Light stemming, symbol-match only: "flushing" still names `flush`.
+_SUFFIXES = ("ing", "ed", "es", "s", "er")
+
+# Per-row and set-mean caps on gold_token_overlap for blind rows. Calibrated
+# in §15's Phase 0 against existing distributions (paraphrase ~0.10-0.115,
+# real CoSQA users 0.42), then frozen.
+BLIND_ROW_OVERLAP_CAP = 0.5
+BLIND_SET_OVERLAP_CAP = 0.25
+
+
+def _subtokens(word):
+    """snake_case / camelCase subtokens of one identifier, lowercased."""
+    out = []
+    for part in word.split("_"):
+        if not part:
+            continue
+        for m in re.finditer(r"[A-Z]+(?![a-z])|[A-Z][a-z0-9]*|[a-z0-9]+", part):
+            out.append(m.group(0).lower())
+    return out
+
+
+def _stem_match(a, b):
+    """a names b under light suffixing, either direction."""
+    if a == b:
+        return True
+    return any(a == b + s or b == a + s for s in _SUFFIXES)
+
+
+_COMMENT_LINE = re.compile(r"^\s*(#|//|/\*|\*|;|--|'''|\"\"\")")
+
+
+def _comment_prose(gold_text):
+    """Lowercased bare tokens from the gold's comment/docstring lines.
+
+    "Plain prose" for the §15.3 subtoken guard: a bare variable named
+    `rwstat` is code, not prose — only what a comment *says* attests a word
+    as ordinary vocabulary. Docstring interiors count via the triple-quote
+    block scan; identifier-shaped tokens never count wherever they appear.
+    """
+    out = set()
+    in_doc = False
+    for line in gold_text.splitlines():
+        stripped = line.strip()
+        is_comment = bool(_COMMENT_LINE.match(stripped))
+        if '"""' in stripped or "'''" in stripped:
+            is_comment = True
+            if stripped.count('"""') % 2 == 1 or stripped.count("'''") % 2 == 1:
+                in_doc = not in_doc
+        elif in_doc:
+            is_comment = True
+        if is_comment:
+            for t in content_tokens(stripped):
+                if "_" not in t and not _CAMEL.search(t):
+                    out.add(t.lower())
+    return out
+
+
+def gold_identifier_hits(q_toks, gold_text, symbol=None):
+    """Query tokens that name an identifier OF THE GOLD. Empty == blind.
+
+    (a) the token equals a snake/camel identifier token of the gold span;
+    (b) it equals the gold's own symbol name (the clause `identifiers()`
+        cannot express — closes the lowercase-symbol leak), incl. light
+        suffixing;
+    (c) it equals a subtoken of the symbol (len >= MIN_SEGMENT, not a
+        stopword) that the gold's comments/docstrings do not use as an
+        ordinary word — `rwstat` is caught, a comment's `read` passes.
+    """
+    gold_ids = {g.lower() for g in identifiers(content_tokens(gold_text))}
+    hits = []
+    sym = (symbol or "").lower()
+    sym_subs = set()
+    if symbol:
+        prose_toks = _comment_prose(gold_text)
+        sym_subs = {
+            s for s in _subtokens(symbol)
+            if len(s) >= MIN_SEGMENT and s not in STOPWORDS and s not in prose_toks
+        }
+    for t in q_toks:
+        tl = t.lower()
+        if tl in gold_ids:
+            hits.append(t)
+        elif sym and _stem_match(tl, sym):
+            hits.append(t)
+        elif tl in sym_subs:
+            hits.append(t)
+    return hits
+
+
+def is_blind(row, gold_text):
+    """§15.3: no gold-identifier hits, and bounded token overlap."""
+    toks = content_tokens(row["query"])
+    if gold_identifier_hits(toks, gold_text, row.get("symbol")):
+        return False
+    return _overlap(toks, content_tokens(gold_text)) <= BLIND_ROW_OVERLAP_CAP
 
 
 def _gold_text(row, corpus):
@@ -113,6 +219,10 @@ def leakage(row, corpus=None):
             out["path_seg_not_in_gold"] = any(
                 s.lower() in ql and s.lower() not in gold_l for s in segs)
             out["gold_token_overlap"] = _overlap(toks, content_tokens(gold))
+            hits = gold_identifier_hits(toks, gold, row.get("symbol"))
+            out["gold_id_hits"] = len(hits)
+            out["is_blind"] = (
+                not hits and out["gold_token_overlap"] <= BLIND_ROW_OVERLAP_CAP)
     return out
 
 
@@ -139,6 +249,7 @@ def summarize(rows, corpus=None):
         n = len(ls)
         words = sorted(l["n_words"] for l in ls)
         ov = [l["gold_token_overlap"] for l in ls if "gold_token_overlap" in l]
+        gid = [l["gold_id_hits"] for l in ls if "gold_id_hits" in l]
         out[kind] = {
             "n": n,
             "identifier_pct": sum(l["has_identifier"] for l in ls) / n,
@@ -148,11 +259,14 @@ def summarize(rows, corpus=None):
             "path_seg_pct": sum(l["path_seg_in_query"] for l in ls) / n,
             "path_seg_not_in_gold_pct": sum(l["path_seg_not_in_gold"] for l in ls) / n,
             "gold_token_overlap": (sum(ov) / len(ov)) if ov else None,
+            # §15.3, gold-aware: rows whose query names a gold identifier.
+            # A new column — historical fields keep their exact meaning.
+            "gold_id_pct": (sum(1 for g in gid if g) / len(gid)) if gid else None,
         }
     return out
 
 
-HEADER = (f"{'kind':<12} {'n':>5} {'ident%':>7} {'medwords':>9} {'goldtok%':>9} "
+HEADER = (f"{'kind':<12} {'n':>5} {'ident%':>7} {'goldid%':>8} {'medwords':>9} {'goldtok%':>9} "
           f"{'base%':>6} {'stem%':>6} {'pathseg%':>9} {'pathseg!gold%':>14}")
 
 
@@ -160,8 +274,10 @@ def format_summary(summary, label=""):
     lines = [f"=== query-set leakage {label} ===", HEADER]
     for kind, s in summary.items():
         ov = f"{s['gold_token_overlap']:>9.1%}" if s["gold_token_overlap"] is not None else f"{'--':>9}"
+        gid = (f"{s['gold_id_pct']:>8.1%}"
+               if s.get("gold_id_pct") is not None else f"{'--':>8}")
         lines.append(
-            f"{kind:<12} {s['n']:>5} {s['identifier_pct']:>7.1%} {s['median_words']:>9} {ov} "
+            f"{kind:<12} {s['n']:>5} {s['identifier_pct']:>7.1%} {gid} {s['median_words']:>9} {ov} "
             f"{s['basename_pct']:>6.1%} {s['stem_pct']:>6.1%} {s['path_seg_pct']:>9.1%} "
             f"{s['path_seg_not_in_gold_pct']:>14.1%}")
     return "\n".join(lines)
