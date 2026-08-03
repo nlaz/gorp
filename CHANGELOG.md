@@ -4,6 +4,37 @@ Findings and performance improvements, newest first. Measured numbers are
 medians on an M-series Mac; "kernel" = Linux 6.9 source (1.15 GB, 1.51M
 chunks). Full data: `RESULTS.md`, `bench/results/`, `eval/data/`.
 
+## 2026-08-03 — where retrieval actually fails, once the bug is subtracted
+
+The §16.11 fix left the obvious question: with the tool working, where is
+semantic search weakest? The §16.10 trajectories cannot say — 96% of their
+2,078 empty searches were the file-scope bug, and 18% of instances never got
+a single non-empty result. `guessplay.jsonl` can, because there the bug is
+*separable*: file-scoped ranked rows found gold **0 out of 5,117 times** while
+directory-scoped rows found it 55.8% of the time, so dropping the former
+leaves a clean 4,537-row frame. Full analysis: RESEARCH.md §17.
+
+On that frame, three answers, two of which invert something that looked
+settled:
+
+- **Semantic has no distinctive weakness against bm25.** Paired on 1,300
+  rows: bm25-only 8.0%, semantic-only 5.5%, and the two discordant sets have
+  identical query profiles (median 1 word, ~50% single-word, ~45% carrying an
+  identifier). They trade wins on queries that look the same. The 50.4% they
+  *both* miss is the real target.
+- **27% of misses are structurally unanswerable** — the agent searched a tree
+  that does not contain the gold. Of the true ranking failures that remain,
+  69% share no vocabulary with the gold at all, which is §15's blind wall on
+  real queries and a model problem, not a ranking-parameter one.
+- **Searching the repo root instead would make things worse**: −0.013,
+  CI [−0.022, −0.003], rescuing 206 rows and costing 263. The agent's scope
+  choice carries information. A scope fix has to be selective.
+
+Also rechecked: §16.5's split-sif null was computed on that half-zeroed
+sample. It survives correction and tightens to +0.002, CI [−0.006, +0.009],
+with semantic at exactly 90 wins to 90 losses — which is what makes the
+§14.5 verdict below a decision rather than a guess.
+
 ## 2026-08-03 — the tool stops advertising `-e`; split-sif does not graduate
 
 Two decisions that had been sitting unresolved since the §16.10 campaign.

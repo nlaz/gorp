@@ -2691,7 +2691,11 @@ fixed; the guard names `--embed-preproc` and the error points at guessplay.
 
 *The instrument the gate meant had already answered.* `guessplay.py` does
 reindex per config, and §16.5 ran it: champion − default = **−0.008, n.s.**
-on the agent-guess board. §15.8 corroborates (champion ≤ base in 3 of 6
+on the agent-guess board. That run predates the §16.11 fix and so had 53% of
+its ranked rows forced to zero, which dilutes a difference rather than
+biasing it — so the null was rechecked on the bug-free rows before being
+leaned on here. It holds, and tightens: **+0.002, CI [−0.006, +0.009]**, with
+semantic exactly 90 wins to 90 losses (§17.2). §15.8 corroborates (champion ≤ base in 3 of 6
 corpora), and §15.9-B gives the mechanism — gold cosine **0.325 raw → 0.111
 under SIF**, dropping a #1 hit past rank 40. Frequency weighting inverts on
 token-poor, identifier-heavy queries, which §13.3 measured as exactly the
@@ -3615,3 +3619,148 @@ the harness. Nobody checked whether the tool worked on the input agents
 actually give it. Add to the pre-run checklist: **replay a handful of
 real agent invocations, verbatim, and look at what came back.**
 
+
+## 17. Where retrieval actually fails at agent scale (2026-08-03)
+
+§16.11 fixed the file-scope bug and left an obvious question: with the
+tool working, where does semantic search actually perform worst? The
+§16.10 trajectories cannot answer it. Re-classifying all 3,519 desc-v5
+searches in that campaign by cause of emptiness:
+
+| count | share of empties | cause |
+|---|---|---|
+| 1,993 | 95.9% | ranked search at a **file** scope — the §16.11 bug |
+| 69 | 3.3% | usage error (exit 2), bad path or malformed args |
+| 16 | 0.8% | exact mode, a genuine zero-match |
+
+2,078 of 3,519 searches (59%) returned nothing, and 82 of 445 instances
+(18%) never received a single non-empty result. A failure taxonomy built
+on that is a taxonomy of the bug.
+
+### 17.1 The instrument: guessplay's pre-fix run, with the bug separated out
+
+`eval/data/locbench/guessplay.jsonl` (33,394 rows, 2026-08-02) predates
+the fix, but the bug is cleanly *separable* rather than merely present —
+which makes the file usable rather than scrap. Split its default-config,
+primary-policy ranked rows by scope shape:
+
+| scope shape | n | found gold @5 |
+|---|---|---|
+| file | 5,117 | **0 (0.0%)** |
+| directory | 4,537 | 2,532 (55.8%) |
+
+Zero out of 5,117. That is the bug measured on the offline instrument, and
+it is the cleanest evidence of it anywhere in this project — a rate of
+exactly zero is not a quality result, it is a structural one. Excluding
+file-scoped rows leaves a **4,537-row bug-free frame**, which is what every
+number below is computed on.
+
+It also means **§16.5's guess-board numbers were computed on a sample where
+53% of ranked rows were forced to zero.** That does not bias a paired
+*difference* — the zeroing is config-independent — but it dilutes one, so
+every §16.5 null deserved rechecking on the clean frame.
+
+### 17.2 §16.5's champion verdict survives the correction
+
+Rechecked, paired on identical (gid, arm, mode), hit@5:
+
+| frame | n | default | champion | Δ | CI | w/l |
+|---|---|---|---|---|---|---|
+| all rows (as §16.5 reported) | 9,654 | 0.206 | 0.207 | +0.001 | [−0.003, +0.004] | 151/143 |
+| **bug-free rows only** | 4,537 | 0.438 | 0.440 | **+0.002** | [−0.006, +0.009] | 151/143 |
+| — semantic only | 1,300 | 0.416 | 0.416 | +0.000 | [−0.021, +0.020] | **90/90** |
+| — hybrid only | 1,937 | 0.451 | 0.461 | +0.010 | [+0.001, +0.021] | 59/39 |
+| — bm25 only | 1,300 | 0.441 | 0.432 | −0.009 | [−0.015, −0.004] | 2/14 |
+
+The null is not an artifact of dilution: on the frame where the tool
+worked, semantic under split-sif is **90 wins and 90 losses**, a tie to the
+row. (bm25 moving at all is §14.4's prediction-6 coupling — bm25-mode output
+passes through MMR, which reads the embedding matrix.) This is what makes
+§14.5's verdict safe to record as a decision rather than a guess.
+
+### 17.3 Semantic has no distinctive weakness against bm25
+
+Paired on the 1,300 bug-free rows where both modes ran the same query:
+
+| outcome | n | share |
+|---|---|---|
+| both found | 469 | 36.1% |
+| **bm25 only** | 104 | 8.0% |
+| **semantic only** | 72 | 5.5% |
+| neither | 655 | 50.4% |
+
+semantic 0.416 vs bm25 0.441. The discordant sets are near-symmetric, and
+profiling them finds no distinguishing feature at all: both have median
+length 1 word, ~50% single-word queries, and ~45% containing a code
+identifier. **The question "where does semantic lose to lexical" has no
+answer on real agent queries, because it does not systematically lose** —
+the two trade wins on queries that look the same. The 50.4% they *both*
+miss is the real target.
+
+### 17.4 The taxonomy of misses
+
+Splitting all 1,300 rows by whether the gold file was even reachable from
+the path the agent searched:
+
+| n | share | outcome |
+|---|---|---|
+| 645 | 49.6% | found, gold inside scope |
+| 476 | 36.6% | **true ranking failure** — gold inside scope, not in top-5 |
+| 179 | 13.8% | **unanswerable** — gold outside the searched path |
+
+So 27% of all misses were structurally impossible: the agent pointed the
+search at a tree that does not contain the answer (`tests/` when the gold
+is in `src/`, a `docs/release-notes` scope for a `jmclient/` bug). No
+engine and no ranking change can recover those.
+
+Of the 476 true ranking failures, **69% share no vocabulary with the gold
+at all** — no token in common with either the gold path or the gold
+function name. Overlap predicts the outcome monotonically: 49.7% of
+found-rows overlap gold vocabulary, ~40% of discordant rows, 30.8% of
+missed rows. That is §15's blind wall, reproduced on real agent queries
+rather than constructed ones, and it is a *model* problem: the embedder
+cannot relate words it was never shown to relate.
+
+### 17.5 The fix that looked obvious and is wrong
+
+13.8% unanswerable-by-scope suggests searching the repo root instead of
+whatever the agent picked. Measured, hit@5, paired:
+
+| frame | n | agent scope | root | Δ | CI | w/l |
+|---|---|---|---|---|---|---|
+| all bug-free rows | 4,537 | 0.438 | 0.425 | **−0.013** | [−0.022, −0.003] | 206/263 |
+| — semantic | 1,300 | 0.416 | 0.405 | −0.012 | [−0.030, +0.005] | 64/79 |
+| — bm25 | 1,300 | 0.441 | 0.423 | −0.018 | [−0.035, −0.002] | 49/72 |
+| file-scoped rows (pre-fix) | 5,117 | 0.000 | 0.463 | +0.463 | [+0.450, +0.478] | 2371/0 |
+
+**Blanket widening is a net loss.** It rescues 206 rows and costs 263: the
+agent's scope choice carries real information, and discarding it to escape
+the 13.8% loses more than it saves. Any scope fix has to be *selective* —
+conditioned on a signal that the current scope is wrong — not a default.
+(The last row is the bug again, not a scope result: at a file scope
+pre-fix, anywhere else was better than nothing.)
+
+### 17.6 What this says to do next, in order
+
+1. **The vocabulary wall is the dominant addressable failure** (69% of true
+   ranking failures) and it is not a ranking-parameter problem. That points
+   at the §9.9 code-teacher swap, gated on the §15 strict-blind instrument,
+   which §15.10 already retained for exactly this purpose. Nothing in §9's
+   lever space touches it.
+2. **Scope needs a confidence signal, not a wider default.** The bounded
+   piece of work is deciding when a scope looks wrong — all-weak scores over
+   a small candidate pool — and saying so on stderr. 13.8% of rows are
+   reachable this way and 0% are reachable by widening unconditionally.
+3. **Not ranking parameters.** split-sif is null on the clean frame (§17.2),
+   and semantic-vs-bm25 is a tie (§17.3). The remaining §9 levers are tuning
+   a component that is not the bottleneck.
+4. **Re-run the campaign only if something else changes.** §16.11's estimate
+   stands: the fix plus a model change is worth one run; the fix alone
+   changes emptiness, not the ceiling that §17.4 describes.
+
+**The methodological note.** Two of this section's findings inverted an
+answer that looked settled. §16.5's null was computed on a half-zeroed
+sample and needed rechecking before §14.5 could lean on it; and "widen the
+scope," which follows directly from the 13.8% number, is a measured
+regression. Both were one paired comparison away from being written down
+wrong.
