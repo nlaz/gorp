@@ -119,6 +119,17 @@ Results split three ways: the **guess board** (primary: real agent search
 strings, §16), the **blind board** (model-experiment instrument, §15.10),
 and the **named-identifier board** (regression floor).
 
+**Agent-level A/B, the powered one (§16.10, 2026-08-03).** 1,115 agent runs,
+556/560 Loc-Bench instances paired, semantic-default semgrep vs ripgrep as
+the agent's only search tool: **parity**. Function-level localization 0.674
+vs 0.673 (Δ +0.002, CI [−0.018, +0.022]); every secondary within ±0.01.
+The headline is the bound: **any advantage is under 2.2pp**, at 27% higher
+cost ($182.80 vs $143.69). What did move, 14×: one sentence of tool
+description takes ranked-search usage from 7% to **98%** with no accuracy
+consequence in either direction. And 80% of the benchmark is decided before
+search matters (357 instances solved by both arms, 164 by neither) —
+§11.5's instrument limit, confirmed at full scale.
+
 **Guess board (primary).** Over 2,113 real guess-groups from agent logs:
 one ranked hybrid query built from the agent's own guess beats the agent's
 actual exact-mode workflow by +0.034 hit@5 (clustered CI [+0.002, +0.071]),

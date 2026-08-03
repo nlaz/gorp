@@ -3438,3 +3438,85 @@ And the un-shimmed search covariate is live and arm-correlated as the
 review predicted: 11% of desc-v5's Bash calls are `find`/`python3`
 content searches versus 4% of rg's.
 
+### 16.10 Result: parity, bounded (2026-08-03)
+
+1,115 agent runs, **556 of 560 instances paired**, $360.99, one analysis
+pass. The endpoints, desc-v5 (semantic) − rg (exact):
+
+| endpoint | semantic | rg | Δ | 95% CI | discordant |
+|---|---|---|---|---|---|
+| **func_acc@10_tol** (primary) | 0.674 | 0.673 | **+0.002** | [−0.018, +0.022] | 18 / 17 |
+| func_recall@10_tol (co-primary) | 0.771 | 0.766 | +0.005 | [−0.014, +0.025] | 38 / 37 |
+| file_acc@5 | 0.838 | 0.835 | +0.004 | [−0.014, +0.022] | 15 / 13 |
+| file_acc@1 | 0.745 | 0.737 | +0.007 | [−0.009, +0.023] | 12 / 8 |
+| file_recall@5 | 0.880 | 0.875 | +0.005 | [−0.011, +0.022] | 19 / 16 |
+| func_acc@10_strict | 0.667 | 0.660 | +0.007 | [−0.014, +0.029] | 22 / 18 |
+
+**This is a null, and it is the informative kind.** The registered
+headline is the bound, not the p-value: **if semantic-default search has
+an agent-level localization advantage over ripgrep on this benchmark, it
+is smaller than 2.2 percentage points.** 357 instances were solved by
+both arms, 164 by neither, and the 35 that separated them split 18–17.
+Achieved discordance ψ = **0.063** — between the pilot's 0.037 and
+§11.5's 0.088, so the instrument had the resolution the re-registration
+claimed, and the answer is that the effect is not there to find at this
+scale.
+
+**Prediction scorecard** (the §16.9a re-registration, not the retracted
+original):
+
+1. **Direction with a CI excluding zero — MISS.** Every one of the six
+   endpoints leans positive (+0.002 to +0.007) and not one clears zero.
+   The 6-for-6 sign is worth *noticing and not believing*: these
+   endpoints are near-duplicates computed on the same runs, so their
+   agreement is one observation wearing six hats, not six confirmations.
+2. **Bound — delivered**: ≤ +2.2pp on the primary, ≤ +2.5pp on recall.
+3. **Ranked share ≥ 80% — HIT, 98%.** 3,385 ranked vs 85 exact calls;
+   `-e` fell to **2.4%** with the footer suppressed, against 11% when
+   the tool was coaching it (§16.9a A1 quantified end to end).
+4. **Instrumentation — HIT.** Zero shim bypasses in 1,115 runs. The
+   un-shimmed leak that looked arm-correlated early (11% vs 4%) converged
+   at scale to **11% vs 12%** — the early asymmetry was small-sample
+   noise, and the covariate is symmetric where it matters.
+
+**The exploratory strata contain a trap, and it is left as one.** Bug
+Reports show +0.037 with an uncorrected p=0.035 (12/3 discordant). That
+is one line out of ten exploratory tests; at α=0.05 the expected number
+of such lines under a global null is 0.5, and drawing one is unremarkable.
+It is reported unstarred, uncorrected, and explicitly **not** a finding —
+§16.9a's multiplicity fix existed to stop exactly this line from becoming
+a headline. If the Bug-Report effect is real, it is a pre-registered
+hypothesis for a *future* run, not a result of this one. The blind tier —
+where §15.7 and §16.5 both predicted the advantage would live — shows
++0.015 with 3/2 discordant pairs: nothing, and underpowered besides.
+
+**Cost is the one clean separation:** $182.80 vs $143.69 for identical
+work — semantic-default agents cost **27% more** per instance (more
+turns, ranked results invite follow-ups) for statistically identical
+localization.
+
+**What this licenses, per the registration.** Warranted: *semantic-default
+semgrep as an agent's only search tool is at parity with ripgrep for
+localization on Loc-Bench, n=556, with an upper bound of +2.2pp, at 27%
+higher cost* — and the behavioral result, that one sentence of tool
+description moves ranked usage from 7% to 98% with no accuracy
+consequence either way. Not warranted: "semantic search doesn't help
+agents." The arms differ in exhaustiveness as well as matching semantics,
+~11% of both arms' searching leaks into un-instrumented tools, the frame
+is instances solvable within $1/900 s, and — the constraint that outlives
+this run — **80% of Loc-Bench instances are decided before search
+matters**: 357 solved by both arms, 164 by neither. §11.5 said the
+instrument was the bottleneck; §16.10 is that claim confirmed at full
+scale, with the money spent to prove it rather than assume it.
+
+**Attrition, as promised.** 4 instances lost: 3 with one arm abandoned
+after 3 budget-cap failures (all 3 missing rg), 1 failing both arms on
+checkout. Budget-cap failures ran 22 rg vs 16 desc-v5 — leaning toward
+dropping instances where *ripgrep* struggled, i.e. against the treatment,
+so the null is if anything conservative. The frame is 556/560 = 99.3%.
+
+**By-product delivered**: `discriminative-instances.json`, the 50
+instances (9%) where the arms disagreed on either endpoint — published as
+a *discordance map of this run*, explicitly not a neutral screen (§16.9a
+C5): selecting future A/Bs on it inherits a winner's-curse bias.
+
