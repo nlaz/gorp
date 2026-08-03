@@ -62,7 +62,7 @@ pub fn run(cli: &Cli, query: &str) -> Result<i32> {
         && result.hits.is_empty()
         && suggest_ranked_alternatives(cli, &root, query, &opts);
 
-    out::footer(query, mode, &result, shown, suggested);
+    out::footer(mode, &result, shown, suggested);
     if cli.stats {
         out::stats(mode, &result);
     }

@@ -266,6 +266,15 @@ pub fn index_envelope(
                 "opts": {
                     "hnsw": opts.hnsw,
                     "sif": opts.sif,
+                    // Which embedding space this index is in. Without it a
+                    // trace cannot tell a `split` build from a `none` one,
+                    // and the two are not comparable — the warm path renders
+                    // queries with the index's own setting, so a mislabelled
+                    // build reads as a quality result (RESEARCH.md §14.5).
+                    // Serialized, not Debug-formatted, so the token matches
+                    // the one the index writes into its own meta.json and the
+                    // two can be joined.
+                    "embed_preproc": opts.embed_preproc,
                     "params": {
                         "window": opts.params.window,
                         "overlap": opts.params.overlap,

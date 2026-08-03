@@ -87,14 +87,14 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, json: bool, context_l
     }
 }
 
-pub fn footer(query: &str, mode: Mode, result: &SearchResult, shown: usize, suggested: bool) {
-    // The self-teaching footers are a product feature and an experimental
-    // confound: they name `-e` (with the caller's own query interpolated)
-    // after every ranked search, which is a stronger dose of mode-advice
-    // than any tool description. An agent A/B whose treatment arm is
-    // "the description never mentions -e" is measuring the footer unless
-    // this exists. Set by eval/locbench/run.py for every condition, so no
-    // arm gets coaching the other lacks (RESEARCH.md §16.9 review, A1).
+pub fn footer(mode: Mode, result: &SearchResult, shown: usize, suggested: bool) {
+    // Ranked footers do not name `-e`. They used to, with the caller's own
+    // query interpolated, and that one line was the strongest posture lever
+    // measured in this project: suppressing it moved an agent's ranked share
+    // from 7% to 98% (RESEARCH.md §16.10) — a larger dose than any tool
+    // description. Ranked search is the tool; `-e` stays in --help for the
+    // caller who goes looking. The keyword-mode footers below still mention
+    // it, but only to steer off it, which is the same posture.
     if std::env::var_os("SEMGREP_NO_HINTS").is_some() {
         return;
     }
@@ -120,14 +120,10 @@ pub fn footer(query: &str, mode: Mode, result: &SearchResult, shown: usize, sugg
             eprintln!("semgrep: {n} matches in {n_files} {files}");
         }
     } else if n == 0 {
-        eprintln!(
-            "semgrep: no results · try broader phrasing or a nearby concept; \
-             -e '{query}' checks for the exact string"
-        );
+        eprintln!("semgrep: no results · try broader phrasing or a nearby concept");
     } else {
         eprintln!(
-            "semgrep: ranked top {n} of {} candidates · not it? rephrase the query, \
-             or -e '<pattern>' for every exact match",
+            "semgrep: ranked top {n} of {} candidates · not it? rephrase the query",
             result.report.n_chunks_considered.max(n)
         );
     }

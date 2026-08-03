@@ -4,6 +4,41 @@ Findings and performance improvements, newest first. Measured numbers are
 medians on an M-series Mac; "kernel" = Linux 6.9 source (1.15 GB, 1.51M
 chunks). Full data: `RESULTS.md`, `bench/results/`, `eval/data/`.
 
+## 2026-08-03 — the tool stops advertising `-e`; split-sif does not graduate
+
+Two decisions that had been sitting unresolved since the §16.10 campaign.
+
+**Shipped: the desc-v5 posture.** The ranked footer used to end every search
+with `-e '<query>' checks for the exact string`. That clause was the strongest
+behavior lever measured in this project — suppressing it moved an agent's
+ranked share from 7% to 98% at no cost in accuracy (RESEARCH.md §16.10), a
+larger dose than any tool description. It is gone from both ranked footers,
+and `about`/`after_help` now carry the measured desc-v5 text. Exact mode is
+unchanged and still documented on its own flag; it just isn't pitched after
+every ranked search. The keyword-mode footers still name `-e`, but only to
+steer off it, which is the same posture. `eval/locbench/preflight.py` gained a
+tripwire so the clause cannot come back unnoticed.
+
+**Not shipped: `--embed-preproc split --sif` as the default build.** §14.5
+gated it on a query replay, and running that gate down produced three
+findings. The gate was not executable — `replay.py` shares one index across
+conditions and structurally cannot compare index *builds*. The instrument it
+meant (`guessplay.py`) had already answered: champion − default −0.008, n.s.
+(§16.5), with §15.9-B's mechanism — SIF drops a gold chunk's cosine 0.325 →
+0.111 on token-poor identifier queries, which is the agent regime. And the
+gate's step 2 rested on a false premise: the cache generation does *not*
+retire entries on an embed-config change, so the flip would have left existing
+entries serving the old space invisibly. The config stays opt-in; §14.5 now
+records the verdict.
+
+Three latent defects that investigation exposed, all fixed: `--embed-preproc`
+was missing from `replay.py`'s `INDEX_FLAGS`, so a `split` condition would
+pass the guard and then do nothing (the warm path follows the index's own
+meta) while reporting parity; `ensure_index` compared only `sif` when deciding
+to reuse an index, silently serving a `none` build to a `split` condition; and
+the index telemetry envelope recorded `sif` but not `embed_preproc`, so a
+trace could not tell which embedding space a build was in.
+
 ## 2026-08-03 — fix: ranked search over a single file returned nothing, always
 
 `semgrep "query" <file>` was empty 100% of the time, for as long as the

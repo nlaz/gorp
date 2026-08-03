@@ -29,10 +29,14 @@ fn default_max_drift() -> f32 {
 #[command(
     name = "semgrep",
     version,
-    about = "Search code by meaning or by name: ranked search with a grep-compatible exact mode",
+    // The tool description is a deliverable, not decoration (RESEARCH.md §6),
+    // and this is the text measured as desc-v5 in §16.8/§16.10: identity
+    // framing, no mention of `-e`. Naming the exact-mode escape hatch here
+    // moved agents off ranked search wholesale; the flag stays documented on
+    // its own argument below, where someone who needs it will find it.
+    about = "Ranked code search: give it an identifier, a phrase, or a question",
     after_help = "Ranked results are the k best locations, not every match — if the answer\n\
-                  isn't there, rephrase the query. Use -e when you need every occurrence\n\
-                  or proof of absence."
+                  isn't there, rephrase the query. -k N returns more."
 )]
 pub struct Cli {
     #[command(subcommand)]

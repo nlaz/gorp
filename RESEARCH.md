@@ -2674,6 +2674,44 @@ engine defaults move on agent-level evidence. The gate, in order of cost:
 2. If replay agrees, flip the default build and re-record the snapshot in
    that commit; the cache generation mechanism retires old entries.
 
+**Verdict (2026-08-03): the config does not graduate. It stays opt-in.**
+
+Three things were wrong with the gate as written, and the answer came out
+negative anyway.
+
+*The gate was not runnable.* `eval/locbench/replay.py` rejects `--sif` by
+design, and the design is the point: it builds one index per worktree and
+distinguishes conditions by query-time flags, so it can never compare two
+index *builds*. Step 1 asked for something that file's architecture forbids.
+Worse, `--embed-preproc` was missing from its `INDEX_FLAGS` guard, so a
+`split` condition would have passed the check and then done nothing at all —
+the warm path renders queries with the index's own stored setting and ignores
+the flag — reporting parity from a condition that never ran. Both are now
+fixed; the guard names `--embed-preproc` and the error points at guessplay.
+
+*The instrument the gate meant had already answered.* `guessplay.py` does
+reindex per config, and §16.5 ran it: champion − default = **−0.008, n.s.**
+on the agent-guess board. §15.8 corroborates (champion ≤ base in 3 of 6
+corpora), and §15.9-B gives the mechanism — gold cosine **0.325 raw → 0.111
+under SIF**, dropping a #1 hit past rank 40. Frequency weighting inverts on
+token-poor, identifier-heavy queries, which §13.3 measured as exactly the
+agent regime. The offline gain is real and the transfer failure is
+predictable, which makes this the third instance of the §9.7/§10.6 pattern
+rather than a surprise.
+
+*And step 2's premise was false.* "The cache generation mechanism retires old
+entries" — it does not. `compat::compat_key` covers format version, embed
+dim, and the compiled table fingerprint; `cache::discover` filters on root
+and chunk params. Neither carries `sif` or `embed_preproc`. Flipping the
+default would have left every existing entry serving the old space
+indefinitely, internally consistent and therefore invisible. Shipping it
+would also have broken cold == warm outright: `search/stream.rs` has no SIF
+pass, so the cold path cannot produce vectors in a SIF index's space.
+
+The standing rule held. What it cost was that nobody checked the gate was
+executable before writing it down — a gate that cannot run is
+indistinguishable from a gate that passed.
+
 Next levers, in leverage order: re-test the §10 code table *on top of*
 split-sif (the table fixed the space, this fixed the stream — the two
 failures were independent, so the fixes should stack); then sif-center and

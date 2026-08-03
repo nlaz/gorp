@@ -157,13 +157,20 @@ has to make a configuration decision.
     client/retry.c:88:if (retries < max_retries) {
 
   stderr — guidance, never in the way of a pipe
-    semgrep: ranked top 10 of 1,514 candidates · not it? rephrase the
-    query, or -e '<pattern>' for every exact match
+    semgrep: ranked top 10 of 1,514 candidates · not it? rephrase the query
   ```
 
-  An exact-mode miss on a cached scope goes further and prints the top-3
-  *ranked* hits for the same terms — a wrong identifier guess costs one call
-  instead of two.
+  The ranked footer points back at rephrasing and **does not advertise `-e`**.
+  That one clause used to be there, and it was the strongest posture lever
+  measured in this project: removing it moved an agent's ranked share from 7%
+  to 98% at no cost in accuracy (RESEARCH.md §16.10). Exact mode stays a
+  first-class escape hatch, documented in `--help`; it just isn't pitched
+  after every ranked search. `SEMGREP_NO_HINTS=1` silences the footers
+  entirely.
+
+  An exact-mode miss on a cached scope goes the other way and prints the
+  top-3 *ranked* hits for the same terms — a wrong identifier guess costs one
+  call instead of two.
 
 ## How it works
 
