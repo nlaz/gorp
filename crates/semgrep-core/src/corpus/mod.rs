@@ -58,12 +58,20 @@ pub fn walk(root: &Path, params: &ChunkParams) -> Result<Vec<FileMeta>> {
                 if meta.len() > max_bytes {
                     return ignore::WalkState::Continue;
                 }
-                let rel = entry
-                    .path()
-                    .strip_prefix(root)
-                    .unwrap_or(entry.path())
-                    .to_string_lossy()
-                    .replace('\\', "/");
+                // A root that IS a file strips to the empty string, and an
+                // empty relative path breaks every downstream consumer —
+                // ranked search over a single file silently returned nothing,
+                // 100% of the time, for as long as this has existed
+                // (RESEARCH.md §16.11; 47% of one campaign's semantic
+                // searches). Exact mode uses the keyword path and never hit
+                // it, which is why no test saw it. Fall back to the file's
+                // own name so the path is always non-empty.
+                let stripped = entry.path().strip_prefix(root).unwrap_or(entry.path());
+                let rel = if stripped.as_os_str().is_empty() {
+                    entry.file_name().to_string_lossy().into_owned()
+                } else {
+                    stripped.to_string_lossy().replace('\\', "/")
+                };
                 let mtime = meta
                     .modified()
                     .ok()
@@ -99,7 +107,23 @@ fn is_index_dir(component: &str) -> bool {
 }
 
 pub fn abs_path(root: &Path, file: &FileMeta) -> PathBuf {
-    root.join(&file.path)
+    resolve(root, &file.path)
+}
+
+/// Resolve a root-relative path against the scope root.
+///
+/// The scope may itself BE a file — agents do this constantly, scoping a
+/// follow-up query to the file they just found. In that case `walk` records
+/// the file's own name as its relative path and a plain `root.join(rel)`
+/// looks for `<file>/<file>`, which does not exist. Every read then fails and
+/// the search returns nothing while reporting success: ranked search over a
+/// single file was empty 100% of the time, across four separate join sites
+/// (RESEARCH.md §16.11). One helper so a fifth site cannot reintroduce it.
+pub fn resolve(root: &Path, rel: &str) -> PathBuf {
+    if root.is_file() {
+        return root.to_path_buf();
+    }
+    root.join(rel)
 }
 
 /// The text a chunk contributes to BM25 and embeddings: the relative file

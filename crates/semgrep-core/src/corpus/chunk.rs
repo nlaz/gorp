@@ -54,7 +54,7 @@ pub fn chunk_lines<'a>(
 /// the file has become unreadable or vanished since it was indexed, which is
 /// normal on a tree that moves under you.
 pub fn lines(root: &Path, rel_path: &str, chunk: &Chunk) -> Option<String> {
-    let text = read_text(&root.join(rel_path))?;
+    let text = read_text(&super::resolve(root, rel_path))?;
     let mut out = String::new();
     for (i, line) in text.lines().enumerate() {
         let line_no = i as u32 + 1;

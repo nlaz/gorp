@@ -3520,3 +3520,60 @@ instances (9%) where the arms disagreed on either endpoint — published as
 a *discordance map of this run*, explicitly not a neutral screen (§16.9a
 C5): selecting future A/Bs on it inherits a winner's-curse bias.
 
+### 16.11 A bug the trajectories exposed, after the result (2026-08-03)
+
+Reading agent trajectories to illustrate §16.10 surfaced something the
+aggregate had hidden: **`semgrep "query" <single-file>` returns zero
+results, always.** Root cause in `corpus::walk` — when the search root
+*is* a file, `entry.path().strip_prefix(root)` yields the **empty
+string** as that file's relative path, and every downstream consumer
+(chunk read, hit materialization) fails on it. Exact mode takes the
+keyword path and is unaffected, which is exactly why the bug survived:
+`-e` on a file works, so nothing in the test suite or the snapshot
+noticed.
+
+Blast radius in this campaign, measured from the shim logs:
+
+| | |
+|---|---|
+| semantic ranked searches | 3,434 |
+| **scoped to a single file** | **1,610 (46.9%)** |
+| of those, returned nothing | **1,610 (100%)** |
+| instances that hit it ≥ once | 339 / 556 (61%) |
+
+Scoping to a file is the natural agent move *after* locating one, so the
+bug fires precisely at the follow-up step — the semantic arm spent nearly
+half its searches on a call that could not succeed.
+
+**Does it void §16.10? Measured, not assumed — and the answer is no.**
+Splitting the paired frame by whether the run ever hit the bug:
+
+| stratum | n | semantic | rg | Δ |
+|---|---|---|---|---|
+| hit the bug | 337 | 0.677 | 0.665 | **+0.012** |
+| never hit it | 219 | 0.671 | 0.685 | **−0.014** |
+
+Both deltas are noise, and they point in *opposite* directions — the
+bug-free stratum is if anything worse for semantic. Agents recovered by
+re-searching at directory scope or falling back to Read, so the failure
+cost turns rather than answers. That said, it plausibly explains part of
+the **27% cost premium** §16.10 reported: an arm that wastes half its
+searches on a guaranteed-empty call takes more turns to get to the same
+place.
+
+**Status of the claim.** §16.10 stands as measured — it is what the
+shipped binary does, and the parity finding is robust to the bug by the
+stratification above. What is *not* established is how a fixed binary
+would perform; that is a new experiment, and a cheap one to justify only
+if something else changes too (the §9.9 model swap is the candidate).
+The fix ships regardless: it is a product bug, agents scope to files
+constantly, and "your search silently returns nothing" is the worst
+failure mode a search tool can have.
+
+**The process lesson, which is the reason this section exists.** Two
+adversarial reviews, a smoke test, and 1,115 runs did not surface this;
+*reading four trajectories* did. The reviews checked the experiment and
+the harness. Nobody checked whether the tool worked on the input agents
+actually give it. Add to the pre-run checklist: **replay a handful of
+real agent invocations, verbatim, and look at what came back.**
+

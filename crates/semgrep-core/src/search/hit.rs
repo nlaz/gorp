@@ -99,7 +99,7 @@ fn materialize(
     score: f32,
     query_tokens: &HashSet<String>,
 ) -> Option<SearchHit> {
-    let text = corpus::read_text(&root.join(rel_path))?;
+    let text = corpus::read_text(&corpus::resolve(root, rel_path))?;
     let mut best: Option<(usize, u32, &str)> = None;
     for (i, line) in text.lines().enumerate() {
         let line_no = i as u32 + 1;

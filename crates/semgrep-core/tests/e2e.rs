@@ -1387,3 +1387,36 @@ fn a_hidden_subtree_is_absent_from_its_parents_index_but_searchable_on_its_own()
     assert!(second.report.used_index, "served from the entry just built");
     assert!(!second.report.wrote_cache, "a hidden scope must not rebuild on every query");
 }
+
+/// A search scope that IS a file must work in every mode.
+///
+/// RESEARCH.md §16.11: it did not. `walk` stripped the root off itself,
+/// yielding an empty relative path, and four separate `root.join(rel)` sites
+/// then looked for `<file>/<file>`. Ranked search over a single file returned
+/// nothing — 100% of the time, for 47% of one campaign's agent searches —
+/// while reporting success. Exact mode "worked" but printed `:9:text` with no
+/// filename. Nothing in the suite covered a file-as-root, which is exactly
+/// the scope an agent uses for a follow-up query.
+#[test]
+fn a_single_file_scope_returns_hits_in_every_mode() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    let file = dir.path().join("src/retry.rs");
+
+    for mode in [Mode::Bm25, Mode::Semantic, Mode::Hybrid] {
+        for no_index in [true, false] {
+            let o = SearchOptions { mode, no_index, k: 3, ..opts(mode) };
+            let r = search(&file, "compute the backoff delay", &o).unwrap();
+            assert!(!r.hits.is_empty(),
+                    "{mode:?} (no_index={no_index}) found nothing in a file scope");
+            assert!(!r.hits[0].path.is_empty(),
+                    "{mode:?} (no_index={no_index}) produced an empty path");
+        }
+    }
+
+    let o = SearchOptions { mode: Mode::Keyword, k: 5, ..opts(Mode::Keyword) };
+    let r = search(&file, "compute_backoff_delay", &o).unwrap();
+    assert!(!r.hits.is_empty(), "keyword found nothing in a file scope");
+    assert!(!r.hits[0].path.is_empty(), "keyword produced an empty path");
+}

@@ -60,7 +60,17 @@ pub fn scan(root: &Path, pattern: &str, opts: &KeywordOptions) -> Result<Vec<Key
             }
             let path = entry.path();
             let rel =
-                path.strip_prefix(root).unwrap_or(path).to_string_lossy().replace('\\', "/");
+                // A root that IS a file strips to "", which printed hits as
+                // `:9:text` with no filename (RESEARCH.md §16.11's sibling on
+                // the keyword path).
+                {
+                    let stripped = path.strip_prefix(root).unwrap_or(path);
+                    if stripped.as_os_str().is_empty() {
+                        path.file_name().unwrap_or_default().to_string_lossy().into_owned()
+                    } else {
+                        stripped.to_string_lossy().replace('\\', "/")
+                    }
+                };
             if rel.starts_with(".semgrep/") {
                 return WalkState::Continue;
             }
