@@ -3406,3 +3406,22 @@ agents", because the arms still differ in result exhaustiveness (10 ranked
 hits vs rg's unbounded list) and both leak a fifth of their searching into
 un-instrumented tools.
 
+**Budget revision, recorded mid-run (2026-08-02).** The first 88 rows cost
+**$0.363/row** against the $0.24 projected from prior campaigns, so the
+full frame projects to **~$425, not ~$270**. The gap is the frame itself:
+this run covers the whole benchmark, including the large repos the pilot's
+50-instance sample never touched, and the semantic arm is the pricier of
+the two ($0.37 vs $0.29 mean — ranked results invite follow-up queries).
+Maintainer approved continuing at the revised figure. Recorded because a
+cost assumption that moves 57% is a fact about the instrument, and the
+next person planning an agent A/B should budget from this number rather
+than from §11.5's.
+
+**First-chunk observation, not an endpoint** (the no-peeking rule binds
+the endpoints, not the instrumentation checks §16.9a demanded): with the
+footer suppressed, desc-v5's ranked share is **100%** — zero exact-mode
+calls in 43 runs, against 89% under the footer-coached §16.8 conditions.
+And the un-shimmed search covariate is live and arm-correlated as the
+review predicted: 11% of desc-v5's Bash calls are `find`/`python3`
+content searches versus 4% of rg's.
+
