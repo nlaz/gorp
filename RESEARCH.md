@@ -3294,3 +3294,36 @@ escape hatch stays available for agents that know it, but undocumented.
 An accuracy separation, if one exists, needs the §11.5 instrument work
 (replay-based, larger n), not more agent runs at this scale.
 
+### 16.9 The powered A/B (pre-registered 2026-08-02, before any run)
+
+§16.8 at benchmark scale: **desc-v5 (semantic, `-e` undocumented) vs rg
+(exact-term), all 560 Loc-Bench instances, one arm each, sonnet.** §11.5's
+power table is the design's spine: at ψ_fn = 0.088, n=560 resolves ~4pp at
+80% power — the size of the effect §16.8 observed. Smaller runs cannot
+answer the question; this one also *creates* §11.5's planned discriminative
+screen as a by-product.
+
+Design registered before the first row:
+
+- **Primary endpoint**: `func_acc@10_tol`, desc-v5 − rg, exact two-sided
+  McNemar over discordant pairs. Frame: all 560 (verified: zero instances
+  have file-only gold, so no exclusions).
+- **Secondaries**: `file_acc@5`, `file_recall@5`, first-gold-hit search
+  index, cost and searches per run.
+- **Arms are intention-to-treat**: `-e` remains functional-but-undocumented
+  in desc-v5; its usage is an outcome, not a protocol violation.
+- **Chunking protocol**: one canonical run (`results-scale.jsonl`, one
+  model), executed as `--resume` slices across subscription usage windows
+  until 1,120 ok rows exist. **No peeking**: endpoints are computed once,
+  at completion; interim looks are for failures and spend only.
+
+Predictions:
+
+1. **desc-v5 beats rg on the primary by ≥ +4pp, McNemar p < 0.05.** Honest
+   power note: 80% power at ~4.5pp; if the true effect is exactly 4pp,
+   power ≈ 70% — a null is informative here, not a whiff.
+2. **The delta concentrates in the partial/blind tiers** of the §15.7
+   instance screen (issues that don't name the gold).
+3. **desc-v5 ranked share ≥ 80%** at scale (reproducing §16.8's 89%).
+4. **Zero shim bypasses; `-e` share in desc-v5 ≤ 15%.**
+
