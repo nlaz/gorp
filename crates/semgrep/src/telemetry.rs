@@ -239,6 +239,13 @@ pub fn search_envelope(
             "results": {
                 "n_hits": result.hits.len(),
                 "n_chunks_considered": r.n_chunks_considered,
+                // Paired with the line above this is the whole diagnosis of an
+                // empty result: 0 files means the scope held nothing, files but
+                // 0 chunks means nothing in it could be read — the §16.11
+                // signature, which for the life of that bug was reported as an
+                // ordinary miss. Without it here a trace cannot tell a caller
+                // who searched the wrong directory from a tool that is broken.
+                "files_walked": r.files_walked,
                 "stale_files": r.stale_files,
                 "exit_code": exit_code,
             },
