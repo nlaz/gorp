@@ -3417,6 +3417,19 @@ cost assumption that moves 57% is a fact about the instrument, and the
 next person planning an agent A/B should budget from this number rather
 than from §11.5's.
 
+**Attrition, monitored mid-run (2026-08-03).** Every `agent_error` in the
+campaign is a `--max-budget-usd 1.0` cap hit at 26–36 turns — the hardest
+instances, not random noise (the §16.9a review predicted the tail would
+bite at n=560). Three attempts and the cell is abandoned, so those
+instances leave the paired frame. **This is only safe if attrition is
+symmetric, so it is being watched rather than assumed**: at 395 rows it
+is 8 rg vs 6 desc-v5 budget hits, 3 vs 3 checkout errors, and 3 vs 2 among
+instances missing one arm. Balanced within noise. Two consequences for the
+write-up regardless of the final split: the frame is **"instances solvable
+within $1 and 900 s"**, not the full benchmark, and the final attrition
+table is reported per arm — an experiment that quietly shrinks its own
+frame is the failure §16.9a existed to prevent.
+
 **First-chunk observation, not an endpoint** (the no-peeking rule binds
 the endpoints, not the instrumentation checks §16.9a demanded): with the
 footer suppressed, desc-v5's ranked share is **100%** — zero exact-mode
