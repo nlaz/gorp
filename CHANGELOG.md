@@ -4,6 +4,23 @@ Findings and performance improvements, newest first. Measured numbers are
 medians on an M-series Mac; "kernel" = Linux 6.9 source (1.15 GB, 1.51M
 chunks). Full data: `RESULTS.md`, `bench/results/`, `eval/data/`.
 
+## 2026-08-03 — fix: ranked search over a single file returned nothing, always
+
+`semgrep "query" <file>` was empty 100% of the time, for as long as the
+ranked path has existed. `corpus::walk` strips the root off itself when the
+root IS a file, producing an empty relative path, and four separate
+`root.join(rel)` sites then looked for `<file>/<file>`. Exact mode used the
+keyword path and "worked", except it printed hits as `:9:text` with no
+filename — which is why no test, snapshot, or review caught it.
+
+Scoping to a file is what an agent does immediately after finding one, so the
+bug fired at the follow-up step: **1,610 of 3,434 semantic searches (47%) in
+the §16.10 campaign, touching 61% of instances**. Path resolution now lives in
+one `corpus::resolve` helper, and a regression test covers file-as-root in
+every mode, cold and warm. Found by reading agent trajectories *after* the
+campaign; `eval/locbench/preflight.py` now replays real agent invocation
+shapes before any run so the next one is caught in seconds, not in hindsight.
+
 ## 2026-08-01 — embed preprocessing: semantic recovers 85% of bm25 on real queries
 
 The §14.3 campaign (5 corpora, 2,798 queries, paired stats): rendering code

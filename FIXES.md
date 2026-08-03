@@ -10,6 +10,41 @@ and two of them I had already written into a comment as fact.
 
 ---
 
+## The single-file scope: a search that answered nothing and said it succeeded
+
+**Symptom.** `semgrep "query" <path/to/file.py>` returned zero results and
+exit 1, in every ranked mode, cold and warm. Exact mode returned hits but
+printed them as `:9:text` — no filename.
+
+**Cause.** `corpus::walk` computes a file's corpus-relative path as
+`entry.path().strip_prefix(root)`. When `root` IS the file, that strips to
+the empty string. Four independent sites then did `root.join(rel)` and looked
+for `<file>/<file>`: `abs_path` (chunking read nothing), `chunk::lines`
+(MaxSim/PRF re-read), `hit::materialize` (hits silently dropped), and the
+keyword walk (empty display path).
+
+**Why it survived.** Every test used a directory as the corpus root — the
+natural thing when you write the tests. No test, and neither adversarial
+review, used the scope an *agent* uses for a follow-up query. The failure was
+also silent: exit 1 is indistinguishable from "no matches", so an agent (and
+a benchmark) reads it as a legitimate empty result.
+
+**Blast radius.** 47% of the semantic arm's searches in the §16.10 campaign
+(1,610 of 3,434), 61% of instances. The result survived it — instances that
+hit the bug show semantic +0.012, those that did not show −0.014, both noise
+in opposite directions (RESEARCH.md §16.11) — but it plausibly explains part
+of that campaign's 27% cost premium.
+
+**Fix.** One `corpus::resolve(root, rel)` helper owns the join and returns
+`root` when root is a file; all four sites call it. Keyword path fixed
+alongside. Regression test: `a_single_file_scope_returns_hits_in_every_mode`.
+
+**Prevention.** `eval/locbench/preflight.py` replays real agent invocation
+shapes (harvested from the logs, including file scopes) against a fixture and
+fails the campaign before it spends money. Verified against the pre-fix
+binary: it flags all four failure modes, including "12 of 25 real invocation
+shapes returned nothing".
+
 ## Bugs fixed
 
 ### 1. BM25 scores were not reproducible — P0
