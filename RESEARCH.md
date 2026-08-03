@@ -3327,3 +3327,82 @@ Predictions:
 3. **desc-v5 ranked share ≥ 80%** at scale (reproducing §16.8's 89%).
 4. **Zero shim bypasses; `-e` share in desc-v5 ≤ 15%.**
 
+### 16.9a Adversarial review, and the re-registration it forced (before any row)
+
+Two red teams were run against §16.9 before spending anything — one on
+design/statistics, one on the harness code. They found enough to void the
+section as first written. Recorded in full because the corrections *are*
+the pre-registration now; the predictions above are **retracted** and
+replaced below.
+
+**A1 — the arm label was false, and it corrupts a published claim.**
+semgrep's own footer prints `not it? rephrase the query, or -e '<pattern>'
+for every exact match` on stderr after *every* ranked search, with the
+caller's query interpolated (`crates/semgrep/src/out.rs`, shipped
+2026-07-30). So "the description never mentions `-e`" described the prompt
+and not the treatment: **the tool advertised `-e` adaptively, at the moment
+of failure, in the arm built to withhold it.** Two consequences. (i) The
+campaign now sets `SEMGREP_NO_HINTS=1` for every condition — a new
+env-gated suppression in `out.rs` — so no arm carries retry-coaching the
+other lacks. (ii) **§16.6's reading is corrected**: "28% of cap-ranked
+calls used the undocumented `-e` anyway — pretraining habit" has a rival
+explanation that was true all along — the tool told them, and 12 of those
+72 calls immediately follow a zero-result ranked query, the footer's exact
+trigger. The description-gravity *direction* (72% vs 7% ranked share)
+survives; the "pretraining habit" attribution does not, and is withdrawn.
+
+**C1 — the registered effect size was arithmetically unreachable.** For a
+paired binary, the marginal delta is bounded by the discordance rate
+(δ ≤ ψ). §16.9 imported ψ = 0.088 from §11.5 — measured across *engine
+variants*, not across these arms. The directly measured discordance for
+rg vs desc-v5 (§16.8, 27 paired instances) is **ψ = 0.037**, of which the
+"+4pp" headline was literally **one discordant instance**. A +4pp marginal
+delta at that ψ would require b − c = 22 out of b + c = 21: impossible.
+Prediction 1 as worded could not have been satisfied by any outcome.
+
+**B1 — the harness would have silently corrupted ~11% of the frame.** 28
+instance pairs share a `(repo, base_commit)`; the worktree was keyed on
+that pair, so concurrent workers checked out, indexed, and
+`worktree remove --force`-ed the *same directory* — deleting trees under
+live agents and leaking an index into the rg arm. Fixed: trees are keyed
+by `instance_id`. (Also fixed: index-build failures no longer abort the
+whole invocation; `checkout_error` rows now carry `model`/`run_id` so a
+later success can supersede them; the stop event is honoured between
+conditions, not only at task entry.)
+
+**The re-registration.** Primary becomes **direction + significance +
+interval, not a threshold**: desc-v5 − rg on `func_acc@10_tol`, exact
+McNemar, reported with the paired bootstrap CI; a co-primary
+`func_recall@10_tol` (continuous, already computed by `scoring.py`) is
+added because the binary endpoint discards resolution on the 96% of
+instances where both arms agree. Holm correction across the four
+secondaries. **Every stratum is exploratory** and reported without
+significance stars — the blind tier alone (n=68, ~2–6 discordant pairs)
+cannot be tested at any α. The post-treatment "search usage" stratum is
+deleted (conditioning on an outcome of treatment). The `--emit-screen`
+artifact is relabeled: it is a *discordance map of this run*, not a
+neutral screen, and future A/Bs run on it would inherit a winner's-curse
+bias.
+
+Re-registered predictions:
+
+1. **Direction**: desc-v5 ≥ rg on both primaries; the func_acc McNemar CI
+   excludes zero. (No magnitude registered: δ ≤ ψ makes any threshold a
+   claim about discordance, not about search.)
+2. **Bound**: whatever the outcome, the headline is the CI's upper limit —
+   "if semantic ranking has an advantage here it is below X pp".
+3. **Behavior (the powered part)**: desc-v5 ranked share ≥ 80%,
+   reproducing §16.8's 89% at 20× the sample.
+4. **Instrumentation honesty**: zero shim bypasses, and the run reports
+   *un-shimmed* search too — 21–28% of agent Bash calls are `find`/
+   `python3`/`awk` content searches invisible to the shim, and that share
+   is itself arm-correlated. `first_hit_search_seq` is therefore demoted
+   to descriptive.
+
+What a null will and will not license is fixed now, not after: a clean
+null licenses "**parity at n=560 with an upper bound of X pp**" plus the
+behavioral result; it does **not** license "semantic ranking doesn't help
+agents", because the arms still differ in result exhaustiveness (10 ranked
+hits vs rg's unbounded list) and both leak a fifth of their searching into
+un-instrumented tools.
+

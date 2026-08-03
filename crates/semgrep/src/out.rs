@@ -88,6 +88,16 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, json: bool, context_l
 }
 
 pub fn footer(query: &str, mode: Mode, result: &SearchResult, shown: usize, suggested: bool) {
+    // The self-teaching footers are a product feature and an experimental
+    // confound: they name `-e` (with the caller's own query interpolated)
+    // after every ranked search, which is a stronger dose of mode-advice
+    // than any tool description. An agent A/B whose treatment arm is
+    // "the description never mentions -e" is measuring the footer unless
+    // this exists. Set by eval/locbench/run.py for every condition, so no
+    // arm gets coaching the other lacks (RESEARCH.md §16.9 review, A1).
+    if std::env::var_os("SEMGREP_NO_HINTS").is_some() {
+        return;
+    }
     let n = result.hits.len();
     if mode == Mode::Keyword {
         let n_files = result.hits.iter().map(|h| h.path.as_str()).collect::<HashSet<_>>().len();
