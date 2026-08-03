@@ -701,6 +701,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "ignore",
  "libc",
  "semgrep-core",
  "serde_json",

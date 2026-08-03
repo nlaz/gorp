@@ -146,6 +146,13 @@ has to make a configuration decision.
 
 - **Grep-shaped contract.** `path:line:text` on stdout, exit 0 on hits and 1
   on none. Agents adopt it without new habits or new prompt scaffolding.
+  The *input* is grep-shaped too: several paths at once, `-i`, `-A`/`-B`/`-C`,
+  `-l`, `-g`/`--include`, and the flags semgrep already satisfies by
+  construction (`-n`, `-r`, `-R`, `-H` — its output is permanently grep's
+  `-rn` form). This was earned rather than assumed: measured against real
+  agent transcripts, `-n` alone accounted for 88% of the flags typed at a
+  grep-shaped tool, and semgrep used to reject every one of them
+  (RESEARCH.md §17).
 - **Ranked, not exhaustive.** The default returns the k best locations. `-e`
   switches to exact regex with grep semantics when you need every occurrence
   or proof of absence.

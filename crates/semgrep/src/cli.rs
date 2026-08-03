@@ -36,7 +36,8 @@ fn default_max_drift() -> f32 {
     // its own argument below, where someone who needs it will find it.
     about = "Ranked code search: give it an identifier, a phrase, or a question",
     after_help = "Ranked results are the k best locations, not every match — if the answer\n\
-                  isn't there, rephrase the query. -k N returns more."
+                  isn't there, rephrase the query. -k N returns more.\n\
+                  Common grep flags are accepted."
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -45,8 +46,12 @@ pub struct Cli {
     /// What to find: an identifier, a phrase, or a question (a regex with -e)
     pub query: Option<String>,
 
-    /// Directory to search (default: current directory)
-    pub path: Option<PathBuf>,
+    /// Files or directories to search (default: current directory)
+    ///
+    /// More than one is grep's contract and 31% of real agent invocations use
+    /// it (RESEARCH.md §17), so it is accepted: the search runs over their
+    /// common ancestor and results are filtered back to the paths given.
+    pub paths: Vec<PathBuf>,
 
     /// Exact regex matching, grep semantics: every match, exit 1 on none
     #[arg(short = 'e', long)]
@@ -72,6 +77,22 @@ pub struct Cli {
     #[arg(short = 'C', long, default_value_t = 0)]
     pub context: usize,
 
+    /// Context lines to print after each hit line (overrides -C)
+    #[arg(short = 'A', long = "after-context")]
+    pub after_context: Option<usize>,
+
+    /// Context lines to print before each hit line (overrides -C)
+    #[arg(short = 'B', long = "before-context")]
+    pub before_context: Option<usize>,
+
+    /// Print only the paths of matching files, in rank order
+    #[arg(short = 'l', long = "files-with-matches")]
+    pub files_with_matches: bool,
+
+    /// Keep only results whose path matches this glob (repeatable), e.g. -g '*.py'
+    #[arg(short = 'g', long = "glob", visible_alias = "include")]
+    pub glob: Vec<String>,
+
     /// Emit JSONL ({path, start_line, end_line, line, text, score})
     #[arg(long)]
     pub json: bool,
@@ -91,9 +112,49 @@ pub struct Cli {
     #[arg(long)]
     pub check_stale: bool,
 
+    /// grep compatibility, for callers arriving with grep muscle memory.
+    #[command(flatten)]
+    pub compat: GrepCompat,
+
     /// Engine internals, for the bench and eval harnesses (see `Tuning`).
     #[command(flatten)]
     pub tuning: Tuning,
+}
+
+/// Flags semgrep already satisfies unconditionally.
+///
+/// These are accepted and read by nothing, and that is not a stub: semgrep's
+/// `path:line:text` output *is* grep's `-rn` form, always. `-n` asks for line
+/// numbers and gets them; `-r`/`-R` ask for recursion and get it; `-H` asks for
+/// filenames and gets them. Each flag's postcondition holds the moment it is
+/// accepted, so honoring it costs nothing.
+///
+/// Honoring their *absence* is what semgrep declines to do — no `-n` would mean
+/// dropping line numbers, no `-r` refusing a directory, `-h` dropping the path.
+/// All three break the contract every caller parses, and `-h` is `--help`.
+///
+/// Hidden rather than listed: they change no behavior, and the tool prompt has a
+/// budget (RESEARCH.md §6). `after_help` says once that grep flags work, which is
+/// what a caller reading `--help` needs — and by RESEARCH.md §17 a caller only
+/// reads `--help` when it is already stuck. `-n` alone is 88% of the flags in
+/// the measured agent corpus, and every one of those calls used to exit 2.
+#[derive(Args, Clone)]
+pub struct GrepCompat {
+    /// Print line numbers (semgrep always does)
+    #[arg(short = 'n', long = "line-number", hide = true)]
+    pub line_number: bool,
+
+    /// Recurse into directories (semgrep always does)
+    #[arg(short = 'r', long = "recursive", hide = true)]
+    pub recursive: bool,
+
+    /// Recurse into directories, following symlinks (semgrep always recurses)
+    #[arg(short = 'R', long = "dereference-recursive", hide = true)]
+    pub dereference_recursive: bool,
+
+    /// Print the filename with each match (semgrep always does)
+    #[arg(short = 'H', long = "with-filename", hide = true)]
+    pub with_filename: bool,
 }
 
 /// Hidden knobs. Not part of the promised interface: they exist so the harnesses
@@ -179,6 +240,16 @@ pub struct Tuning {
 #[derive(Subcommand)]
 pub enum Cmd {
     /// Build or refresh the .semgrep index for a directory
+    ///
+    /// Hidden, deliberately. The index is a cache and builds itself on the
+    /// first ranked search of a scope, so this verb is for prewarming only —
+    /// README.md says "no `semgrep index` in normal use" and "not something an
+    /// agent needs to know about". Listing it in `--help` contradicted that:
+    /// agents read `--help` only when stuck (27 of 27 probes followed three or
+    /// more empty searches), found a verb described as "build the index", and
+    /// concluded searching requires a build step. One did exactly that mid-run
+    /// (RESEARCH.md §17). Hidden, not removed — the harnesses still call it.
+    #[command(hide = true)]
     Index {
         /// Directory to index (default: current directory)
         path: Option<PathBuf>,

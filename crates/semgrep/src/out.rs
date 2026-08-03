@@ -72,19 +72,41 @@ pub fn human(bytes: u64) -> String {
 
 /// One result line per hit, plus optional context. The only writer of result
 /// data, so the `path:line:text` contract has a single home.
-pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, json: bool, context_lines: usize) {
+pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
+    // `-l`: paths only, deduped, in rank order. grep's meaning exactly, and a
+    // cheap answer for a caller that wants to know *where* before it reads.
+    if opts.paths_only && !opts.json {
+        let mut seen = HashSet::new();
+        for hit in &hits[..shown] {
+            if seen.insert(hit.path.as_str()) {
+                println!("{}", quote_path(&hit.path));
+            }
+        }
+        return;
+    }
     for hit in &hits[..shown] {
-        if json {
+        if opts.json {
             // Unwrap: SearchHit is plain data with no map keys, so it cannot fail
             // to serialize.
             println!("{}", serde_json::to_string(hit).expect("SearchHit serializes"));
         } else {
             println!("{}:{}:{}", quote_path(&hit.path), hit.line, hit.text);
-            if context_lines > 0 {
-                context(root, hit, context_lines);
+            if opts.before > 0 || opts.after > 0 {
+                context(root, hit, opts.before, opts.after);
             }
         }
     }
+}
+
+/// How to render hits. Grouped rather than passed as five positionals: the
+/// `path:line:text` contract has one writer, and its options should arrive as
+/// one thing.
+#[derive(Default, Clone, Copy)]
+pub struct Print {
+    pub json: bool,
+    pub paths_only: bool,
+    pub before: usize,
+    pub after: usize,
 }
 
 pub fn footer(mode: Mode, result: &SearchResult, shown: usize, suggested: bool) {
@@ -120,7 +142,30 @@ pub fn footer(mode: Mode, result: &SearchResult, shown: usize, suggested: bool) 
             eprintln!("semgrep: {n} matches in {n_files} {files}");
         }
     } else if n == 0 {
-        eprintln!("semgrep: no results · try broader phrasing or a nearby concept");
+        // Why nothing came back, when the reason is structural rather than a
+        // vocabulary miss. A ranked search over a scope that has anything to
+        // rank essentially cannot return zero — top-k always has k candidates —
+        // so "no results" almost always means the corpus was empty, and saying
+        // "rephrase" sends the caller to fix the one thing that is not wrong.
+        //
+        // This is the guard the §16.11 file-scope bug needed and did not have:
+        // for the life of that bug the tool walked exactly one file, failed to
+        // read it, and reported an ordinary miss. Agents responded by retrying
+        // the same query, then reading `--help` — 27 of 27 help probes in the
+        // §16.10 campaign followed three or more empty searches (§17). One line
+        // here ends that spiral.
+        let walked = result.report.files_walked;
+        if walked == 0 {
+            eprintln!("semgrep: no results · nothing to search under this path");
+        } else if result.report.n_chunks_considered == 0 {
+            let files = if walked == 1 { "file" } else { "files" };
+            eprintln!(
+                "semgrep: no results · found {walked} {files} here but could read none of \
+                 them (binary, unreadable, or over the size cap)"
+            );
+        } else {
+            eprintln!("semgrep: no results · try broader phrasing or a nearby concept");
+        }
     } else {
         eprintln!(
             "semgrep: ranked top {n} of {} candidates · not it? rephrase the query",
@@ -175,12 +220,17 @@ pub fn stats(mode: Mode, result: &SearchResult) {
 
 /// Frame a hit with `n` lines either side. Context lines use `path-line-text`
 /// so a consumer can tell a match from its surroundings — grep's convention.
-pub fn context(root: &Path, hit: &SearchHit, n: usize) {
-    let Some(text) = corpus::read_text(&root.join(&hit.path)) else { return };
+pub fn context(root: &Path, hit: &SearchHit, before: usize, after: usize) {
+    // `resolve`, not `root.join`: a file-as-root records the file's own name as
+    // its relative path, so a plain join looks for `<file>/<file>` and reads
+    // nothing — context would silently vanish exactly when the scope is a single
+    // file (RESEARCH.md §16.11). Same defect as the four engine-side sites,
+    // living in the CLI crate where that sweep did not reach.
+    let Some(text) = corpus::read_text(&corpus::resolve(root, &hit.path)) else { return };
     let lines: Vec<&str> = text.lines().collect();
     let center = hit.line as usize;
-    let lo = center.saturating_sub(n).max(1);
-    let hi = (center + n).min(lines.len());
+    let lo = center.saturating_sub(before).max(1);
+    let hi = (center + after).min(lines.len());
     for i in lo..=hi {
         if i != center {
             println!("{}-{}-{}", quote_path(&hit.path), i, lines[i - 1]);

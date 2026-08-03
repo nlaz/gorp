@@ -15,6 +15,9 @@ anyhow = { workspace = true }
 clap = { workspace = true }
 serde_json = { workspace = true }
 libc = { workspace = true }
+# For `-g`/`--include`: the same glob semantics ripgrep uses, so a caller's
+# muscle memory transfers. Already in the tree via semgrep-core's walk.
+ignore = { workspace = true }
 
 [dev-dependencies]
 serde_json.workspace = true

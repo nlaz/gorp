@@ -4,6 +4,51 @@ Findings and performance improvements, newest first. Measured numbers are
 medians on an M-series Mac; "kernel" = Linux 6.9 source (1.15 GB, 1.51M
 chunks). Full data: `RESULTS.md`, `bench/results/`, `eval/data/`.
 
+## 2026-08-03 — the tool now accepts what agents actually type
+
+semgrep promised a "grep-shaped contract" and delivered it on output only. On
+input it rejected grep. Measured against the §16.10 campaign's ripgrep arm
+(2,074 real agent invocations): **`-n` appeared 1,829 times — 88% of every flag
+typed — and exited 2 every time.** So did `-A`/`-B` (142), `-g`/`--glob`/
+`--include`/`--type` (273), `-l` (118), `-r`/`-R` (48), and the **31% of calls
+that passed more than one path**. Replaying the 69 argv vectors that were usage
+errors in that campaign: **69 → 10, 86% recovered**, the remainder being
+genuinely malformed input.
+
+- `-n`, `-r`, `-R`, `-H` are accepted. Not stubs — semgrep's `path:line:text`
+  output *is* grep's `-rn` form, so each flag's postcondition already holds
+  unconditionally. Honoring their *absence* is what semgrep declines to do:
+  no `-n` would mean dropping line numbers, no `-r` refusing a directory. They
+  stay out of `--help` (they change nothing); one `after_help` line says grep
+  flags work. Combined shorts (`-rn`, `-rln`) follow for free.
+- **Multiple paths.** The search runs over their common ancestor and results
+  are filtered back to the paths given, over-fetching so the top-k usually
+  still fills. Filtering applies to *hits*, never the corpus walk — a walk
+  filter would poison a cache entry every later search of that scope reuses.
+- `-A`/`-B` asymmetric context, `-l` for paths only, `-g`/`--include` globs.
+- **`index` is out of `--help`.** The index is a cache that builds itself, and
+  the README has always said so — but agents read `--help` only when stuck (27
+  of 27 probes followed three or more empty searches), found a verb offering to
+  "build the index", and concluded search needs a build step. One did exactly
+  that mid-campaign. Hidden, not removed; the harnesses still call it.
+- **An empty result now says why.** A ranked search over a readable scope
+  essentially cannot return zero, so zero means the corpus was empty — and
+  "rephrase the query" sent callers to fix the one thing that was not wrong.
+  `SearchReport` gained `files_walked`, and the footer now separates "nothing
+  to search under this path" from **"found N files here but could read none of
+  them"** — the exact signature of the §16.11 bug, which reported an ordinary
+  miss for its entire life. This is the guard that closes the *class*.
+- An invalid `-e` pattern now points at `-F`. Typing a call, `-e 'foo('`, is
+  the common way to reach a regex parse error, and the error alone is a wall
+  of regex internals with no way out.
+- Fixed a fifth instance of the §16.11 join bug, in `out::context` — the CLI
+  crate, which the earlier sweep of `semgrep-core` did not reach. `-C` on a
+  single-file scope printed no context.
+
+`preflight.py` now asserts this whole matrix, with a control that an unknown
+flag still fails, so it is a tripwire rather than a one-time audit. Snapshot
+unchanged (114 cases).
+
 ## 2026-08-03 — where retrieval actually fails, once the bug is subtracted
 
 The §16.11 fix left the obvious question: with the tool working, where is

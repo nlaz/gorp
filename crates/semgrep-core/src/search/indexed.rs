@@ -78,6 +78,7 @@ pub fn run(
                 rows.n_dirty()
             },
             n_chunks_considered: rows.len(),
+            files_walked: idx.meta.files.len(),
             repair: repair_outcome,
             stages: trace.finish(),
             ..Default::default()

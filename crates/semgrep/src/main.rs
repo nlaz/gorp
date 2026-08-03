@@ -28,6 +28,19 @@ fn main() {
             // `{:#}` so the anyhow context chain shows, not just the outermost
             // message — "no .semgrep index here" alone would not say where.
             eprintln!("semgrep: {e:#}");
+            // An error should say what to do next (RESEARCH.md §6). The common
+            // way to reach an invalid pattern is typing a call — `-e 'foo('` —
+            // where the paren is regex syntax and the caller meant a literal.
+            // The parse error alone is a wall of regex internals with no exit;
+            // one of the ten argv vectors that still failed after the grep-compat
+            // work was exactly this, and `-F` answers it.
+            let msg = format!("{e:#}");
+            if msg.contains("invalid pattern") {
+                eprintln!(
+                    "semgrep: searching for a literal? -F takes the pattern as \
+                     plain text · or drop -e and ask in plain language"
+                );
+            }
             EXIT_ERROR
         }
     };

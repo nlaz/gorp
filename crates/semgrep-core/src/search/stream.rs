@@ -85,6 +85,7 @@ pub fn run(
         report: SearchReport {
             used_index: false,
             n_chunks_considered: pass.chunks.len(),
+            files_walked: files.len(),
             stages: trace.finish(),
             ..Default::default()
         },

@@ -151,6 +151,14 @@ pub struct SearchReport {
     /// stale count when `check_stale` was requested.
     pub stale_files: usize,
     pub n_chunks_considered: usize,
+    /// Files in this query's scope: walked on the cold path, the index's file
+    /// table warm. Paired with `n_chunks_considered` it separates "this scope
+    /// is empty" from "this scope has files and none of them could be read" —
+    /// the second being the signature of the §16.11 file-scope bug, which
+    /// reported an ordinary miss for the whole time it existed. A ranked search
+    /// over a readable scope cannot return zero, so a zero needs an explanation
+    /// that "rephrase the query" does not give.
+    pub files_walked: usize,
     /// Why the warm path did or did not repair. A duration cannot distinguish
     /// a throttled check from a clean tree from a failed walk.
     pub repair: RepairOutcome,

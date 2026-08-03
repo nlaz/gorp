@@ -12,20 +12,32 @@ use semgrep_core::search::{SearchOptions, search};
 use std::path::{Path, PathBuf};
 
 pub fn run(cli: &Cli, query: &str) -> Result<i32> {
-    let root = cli.path.clone().unwrap_or_else(|| PathBuf::from("."));
     // Before anything else, and before the "caching this scope" notice in
     // particular, which used to announce that it was indexing a directory that
     // did not exist. A missing path is an error (exit 2), not an empty result
     // (exit 1): an agent reads "no results" as *the code is not there*, when in
     // fact the path was simply wrong. `exists`, not `is_dir`, because a single
     // file is a legitimate scope that the streaming path handles.
-    if !root.exists() {
-        anyhow::bail!("{}: no such file or directory", root.display());
+    for p in &cli.paths {
+        if !p.exists() {
+            anyhow::bail!("{}: no such file or directory", p.display());
+        }
     }
+    let scope = Scope::resolve(&cli.paths);
     let (mode, mode_reason) = resolve_mode(cli)?;
     let opts = options(cli, mode)?;
+    let filter = Filter::new(cli, &scope)?;
+    let root = scope.root.clone();
 
-    let result = search(&root, query, &opts)?;
+    // Over-fetch only when something will be filtered away, so the single-path
+    // case — every snapshot case, and the overwhelming majority of real calls —
+    // runs byte-for-byte as before.
+    let search_opts = match filter.widen(opts.k) {
+        Some(k) => SearchOptions { k, ..opts.clone() },
+        None => opts.clone(),
+    };
+    let mut result = search(&root, query, &search_opts)?;
+    let dropped = filter.apply(&mut result.hits, opts.k);
     let exit = if result.hits.is_empty() { crate::EXIT_NONE } else { crate::EXIT_FOUND };
 
     // Emitted here, not at the end of the function: an exact miss runs a second
@@ -53,7 +65,14 @@ pub fn run(cli: &Cli, query: &str) -> Result<i32> {
     } else {
         result.hits.len()
     };
-    out::hits(&root, &result.hits, shown, cli.json, cli.context);
+    out::hits(&root, &result.hits, shown, &print_opts(cli));
+    if dropped {
+        eprintln!(
+            "semgrep: results narrowed to the paths given · some ranked matches \
+             elsewhere in {} were dropped",
+            root.display()
+        );
+    }
 
     // A miss should be a gradient, not a dead end. When `-e` finds nothing and an
     // index makes it cheap, show what ranked search finds for the same terms — on
@@ -67,6 +86,134 @@ pub fn run(cli: &Cli, query: &str) -> Result<i32> {
         out::stats(mode, &result);
     }
     Ok(exit)
+}
+
+/// Where to search, given zero or more paths.
+///
+/// grep takes a list; semgrep's engine takes one root, because a root is what an
+/// index and a cache entry are keyed by. So a list collapses to its common
+/// ancestor and the extra paths become a filter (see [`Filter`]). One path stays
+/// one root with no filter at all, which is what keeps the common case exact.
+struct Scope {
+    root: PathBuf,
+    /// Root-relative prefixes to keep, empty when everything under `root` counts.
+    keep: Vec<String>,
+}
+
+impl Scope {
+    fn resolve(paths: &[PathBuf]) -> Self {
+        match paths {
+            [] => Self { root: PathBuf::from("."), keep: Vec::new() },
+            [one] => Self { root: one.clone(), keep: Vec::new() },
+            many => {
+                let root = common_ancestor(many);
+                let keep = many
+                    .iter()
+                    .filter_map(|p| {
+                        let c = std::fs::canonicalize(p).ok()?;
+                        let r = std::fs::canonicalize(&root).ok()?;
+                        Some(c.strip_prefix(&r).ok()?.to_string_lossy().replace('\\', "/"))
+                    })
+                    .filter(|s| !s.is_empty())
+                    .collect();
+                Self { root, keep }
+            }
+        }
+    }
+}
+
+/// Deepest directory containing every path. Falls back to `.` if they share
+/// nothing (different drives, or a canonicalize that failed).
+fn common_ancestor(paths: &[PathBuf]) -> PathBuf {
+    let mut it = paths.iter().map(|p| {
+        let c = std::fs::canonicalize(p).unwrap_or_else(|_| p.clone());
+        if c.is_dir() { c } else { c.parent().map(Path::to_path_buf).unwrap_or(c) }
+    });
+    let Some(mut acc) = it.next() else { return PathBuf::from(".") };
+    for p in it {
+        while !p.starts_with(&acc) {
+            match acc.parent() {
+                Some(up) => acc = up.to_path_buf(),
+                None => return PathBuf::from("."),
+            }
+        }
+    }
+    acc
+}
+
+/// Keeps only the hits a caller asked for: under one of several paths (`Scope`),
+/// matching a `-g` glob, or both.
+///
+/// Applied to *hits*, never to the corpus walk. Filtering the walk would change
+/// what gets indexed, and the index is a shared cache keyed by root and chunk
+/// params — one `-g '*.py'` search would poison every later search of that scope
+/// (the shape of FIXES.md #10). Filtering results costs an over-fetch instead.
+struct Filter {
+    keep: Vec<String>,
+    globs: Option<ignore::overrides::Override>,
+}
+
+impl Filter {
+    fn new(cli: &Cli, scope: &Scope) -> Result<Self> {
+        let globs = if cli.glob.is_empty() {
+            None
+        } else {
+            let mut b = ignore::overrides::OverrideBuilder::new(&scope.root);
+            for g in &cli.glob {
+                b.add(g).map_err(|e| anyhow::anyhow!("bad glob {g:?}: {e}"))?;
+            }
+            Some(b.build()?)
+        };
+        Ok(Self { keep: scope.keep.clone(), globs })
+    }
+
+    fn active(&self) -> bool {
+        !self.keep.is_empty() || self.globs.is_some()
+    }
+
+    /// How many results to ask the engine for, or `None` to leave `k` alone.
+    ///
+    /// Filtering happens after ranking, so a narrow filter over a wide root can
+    /// eat the whole head. Over-fetching trades a little work for a top-k that
+    /// is usually still full; it is a heuristic, and the caller is told on
+    /// stderr when it was not enough.
+    fn widen(&self, k: usize) -> Option<usize> {
+        self.active().then(|| k.saturating_mul(20).clamp(200, 2000))
+    }
+
+    fn matches(&self, path: &str) -> bool {
+        let under = self.keep.is_empty()
+            || self.keep.iter().any(|p| {
+                path == p || path.strip_prefix(p).is_some_and(|r| r.starts_with('/'))
+            });
+        let globbed = self
+            .globs
+            .as_ref()
+            .is_none_or(|o| !o.matched(path, false).is_ignore());
+        under && globbed
+    }
+
+    /// Retain matching hits and truncate to `k`. Returns whether anything was
+    /// dropped *by the filter* — not by the truncation, which is ordinary top-k.
+    fn apply(&self, hits: &mut Vec<semgrep_core::search::SearchHit>, k: usize) -> bool {
+        if !self.active() {
+            return false;
+        }
+        let before = hits.len();
+        hits.retain(|h| self.matches(&h.path));
+        let dropped = hits.len() < before;
+        hits.truncate(k);
+        dropped
+    }
+}
+
+fn print_opts(cli: &Cli) -> out::Print {
+    out::Print {
+        json: cli.json,
+        paths_only: cli.files_with_matches,
+        before: cli.before_context.unwrap_or(cli.context),
+        after: cli.after_context.unwrap_or(cli.context),
+    }
 }
 
 /// `-e` wins over `--mode`: the explicit contract beats the harness knob.

@@ -528,3 +528,108 @@ fn json_output_is_one_object_per_hit_under_the_same_names() {
         assert!(!p.starts_with('"'), "--json must not double-quote {p:?}");
     }
 }
+
+/// Grep muscle memory must parse (RESEARCH.md §17).
+///
+/// Measured on the rg arm of the §16.10 campaign: `-n` appeared in 1,829 of
+/// 2,074 real agent invocations (88%), and semgrep exited 2 on every one. The
+/// assertion is `code != 2` — zero hits is a legitimate answer, failing to
+/// parse the command line is not.
+#[test]
+fn grep_compatible_flags_are_accepted() {
+    let sg = Sg::new();
+    for args in [
+        &["-n", "-k", "3", "retry backoff"][..],
+        &["-r", "-k", "3", "retry backoff"][..],
+        &["-R", "-k", "3", "retry backoff"][..],
+        &["-H", "-k", "3", "retry backoff"][..],
+        // Combined shorts: agents type `-rn`, and clap only resolves these
+        // once every constituent short exists.
+        &["-rn", "-k", "3", "retry backoff"][..],
+        &["-rln", "-k", "3", "retry backoff"][..],
+        &["-A", "2", "-k", "2", "retry backoff"][..],
+        &["-B", "2", "-k", "2", "retry backoff"][..],
+        &["-g", "*.md", "-k", "3", "retry backoff"][..],
+        &["--include", "*.md", "-k", "3", "retry backoff"][..],
+    ] {
+        let r = sg.run(args);
+        assert_ne!(r.code, 2, "{args:?} is a usage error: {}", r.stderr);
+    }
+    // The control: parsing must not have simply gone permissive.
+    let r = sg.run(&["--definitely-not-a-flag", "-k", "3", "retry backoff"]);
+    assert_eq!(r.code, 2, "an unknown flag must still be a usage error");
+}
+
+/// `-l` prints unique paths in rank order and nothing else.
+#[test]
+fn files_with_matches_prints_paths_only() {
+    let sg = Sg::new();
+    let r = sg.run(&["-l", "-k", "5", "retry backoff"]);
+    assert_eq!(r.code, 0, "stderr: {}", r.stderr);
+    let lines = r.lines();
+    assert!(!lines.is_empty(), "expected paths");
+    for l in &lines {
+        assert!(!l.contains(':'), "-l must print bare paths, got {l:?}");
+    }
+    let mut uniq = lines.clone();
+    uniq.sort_unstable();
+    uniq.dedup();
+    assert_eq!(uniq.len(), lines.len(), "-l must not repeat a path: {lines:?}");
+}
+
+/// Several paths at once — grep's contract, and 31% of real agent invocations.
+/// Results must come back, and only from the paths asked for.
+#[test]
+fn multiple_paths_search_all_of_them_and_nothing_else() {
+    let sg = Sg::new();
+    let corpus = corpus();
+    let mut cmd = std::process::Command::new(bin());
+    cmd.args(["-k", "10", "retry backoff"])
+        .arg(corpus.join("src"))
+        .arg(corpus.join("docs"))
+        .env("SEMGREP_CACHE_DIR", &sg.cache)
+        .env("SEMGREP_CACHE_TTL_SECS", "0");
+    let out = cmd.output().expect("run semgrep");
+    assert_eq!(out.status.code(), Some(0), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(!stdout.is_empty(), "multi-path search returned nothing");
+    for line in stdout.lines() {
+        let path = line.split(':').next().unwrap_or("");
+        assert!(
+            path.starts_with("src/") || path.starts_with("docs/"),
+            "hit outside the requested paths: {line:?}"
+        );
+    }
+}
+
+/// A scope with files in it that none of which can be read must say so.
+///
+/// This is the §16.11 signature: the file-scope bug walked one file, failed to
+/// read it, and reported an ordinary miss. Agents retried, then read `--help`
+/// — 27 of 27 help probes in the campaign followed three or more empty
+/// searches. "No results" and "nothing here was readable" are different facts
+/// and the caller can only act on the second.
+#[test]
+fn an_unreadable_scope_says_so_rather_than_reporting_a_miss() {
+    let dir = tempfile::tempdir().unwrap();
+    for n in ["a.bin", "b.bin"] {
+        std::fs::write(dir.path().join(n), [0u8, 1, 2, 0, 3, 4]).unwrap();
+    }
+    let sg = Sg::new();
+    let r = sg.run_in(&["-k", "3", "retry backoff"], dir.path());
+    assert_eq!(r.code, 1, "no hits is exit 1");
+    assert!(
+        r.stderr.contains("could read none of them"),
+        "expected the unreadable-scope diagnostic, got: {}",
+        r.stderr
+    );
+
+    // And an genuinely empty directory reports the *other* fact.
+    let empty = tempfile::tempdir().unwrap();
+    let r = sg.run_in(&["-k", "3", "retry backoff"], empty.path());
+    assert!(
+        r.stderr.contains("nothing to search"),
+        "expected the empty-scope diagnostic, got: {}",
+        r.stderr
+    );
+}
