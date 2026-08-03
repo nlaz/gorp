@@ -3216,3 +3216,37 @@ framing; it is what agents do. (And the cap-two logs show live wrong-guess
 behavior mid-ladder: `Authority(` retried as `Authority\(` — an agent
 debugging its own regex escaping instead of finding code.)
 
+### 16.7 The description experiment (pre-registered 2026-08-02, before the runs)
+
+§16.5 said the big lever is the agent's default posture; §16.6 measured the
+dose curve. This experiment closes the loop: candidate descriptions built
+*from* the findings, run as scored A/B conditions against a fresh ripgrep
+baseline — semantic-default semgrep (the §14 flip means ranked mode IS
+semantic now) vs ripgrep-only, same instances, same day, same model.
+
+Conditions (30 stratified instances × 4, sonnet, scoring on):
+
+- **rg** — ripgrep only, the baseline, rerun fresh for a paired same-day read.
+- **desc-v4** — the §7.3 winner (identity framing, `-e` as escape hatch).
+- **desc-v5** — ranked identity with **no `-e` mention at all**: §16.6's
+  72%-ranked posture, now scored.
+- **desc-v6** — **guess-framed**: v5 plus "if you're torn between several
+  possible names, put ALL your candidates in one query" — P6
+  operationalized as prompt text.
+
+Predictions:
+
+1. **Ranked share: v5 and v6 ≥ 60%, v4 ≈ 30–40%** (the §16.6 curve
+   reproduced under scoring conditions).
+2. **v6 produces multi-name ranked queries** (mean ranked-query word count
+   > v5's), i.e. agents fold their ladders into one query when told they may.
+3. **Function-level accuracy orders with ranked share** (the §7.1
+   correlational finding, now interventional): v5/v6 ≥ v4 ≥ rg on fnAcc.
+4. **semgrep conditions ≥ rg on fnAcc** (§7.1's +11pp, retested under the
+   semantic default).
+
+Power caveat, stated before results: at n=30/condition, Loc-Bench file
+accuracy resolves only large deltas (§11.5: 80–87% of instances carry no
+engine signal). The primary read is **behavior** (ranked share, query
+shape — effects measured at 10×), accuracy is directional.
+
