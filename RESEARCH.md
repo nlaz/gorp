@@ -3250,3 +3250,47 @@ accuracy resolves only large deltas (§11.5: 80–87% of instances carry no
 engine signal). The primary read is **behavior** (ranked share, query
 shape — effects measured at 10×), accuracy is directional.
 
+### 16.8 Results (same day; 111/120 runs completed before an external stop)
+
+27 instances present under all four conditions; behavior over every
+completed run.
+
+**Behavior — prediction 1 HIT, decisively:**
+
+| condition | ranked | exact | ranked share | median words |
+|---|---|---|---|---|
+| rg | 0 | 106 (rg) | 0% | — |
+| desc-v4 (identity + `-e` hatch) | 22 | 47 | **32%** | 4 |
+| desc-v5 (no `-e` mention) | 77 | 10 | **89%** | 2 |
+| desc-v6 (v5 + fold-ladders) | 50 | 25 | **67%** | 2 |
+
+Deleting one sentence moved ranked share 32% → 89% — the strongest
+posture lever measured in this project, now under scored conditions.
+Curious detail: v5 agents used `-e` *less* than v6 despite neither being
+told about it in v5 nor discouraged in v6.
+
+**Prediction 2 — weak.** v6's ranked queries are barely more multi-name
+than v5's (36% vs 32% with ≥3 name tokens; identical mean length). The
+folding *does* occur ("safe deepcopy pickle RLock" is a folded ladder) but
+the extra instruction added little beyond removing `-e`. The `-e` deletion
+does the work; the coaching sentence is mostly inert.
+
+**Predictions 3–4 — accuracy is flat, exactly as the power caveat
+predicted.** Paired over 27 instances: fnAcc@10tol rg 0.59, every semgrep
+condition 0.63; fileAcc@5 0.74–0.78 vs rg's 0.74. All semgrep conditions
+sit +4pp above rg on functions with **one discordant pair** (w1/l0) —
+direction right, resolution nil; §11.5's instrument limit, reproduced to
+the letter. No ordering among v4/v5/v6.
+
+**The finding that matters for the product:** behavior is controllable at
+10× by description text *without any accuracy cost* — the 89%-ranked v5
+agents localize exactly as well as the 32%-ranked v4 agents and the
+0%-ranked rg agents, at the same median cost ($0.19–0.22/run). Semantic-
+default semgrep as the agent's only tool is at parity-or-better with
+ripgrep on outcome while running an entirely different (rankable,
+instrument-able, dead-ladder-free) search process. The recommended tool
+description is **desc-v5**: identity framing, no `-e` mention — the
+escape hatch stays available for agents that know it, but undocumented.
+An accuracy separation, if one exists, needs the §11.5 instrument work
+(replay-based, larger n), not more agent runs at this scale.
+
