@@ -344,6 +344,22 @@ pub fn search(root: &Path, query: &str, opts: &SearchOptions) -> Result<SearchRe
 /// failed partway still spent the time.
 fn build_through(root: &Path, opts: &SearchOptions, prelude: &mut Prelude) -> bool {
     let Ok(canon) = std::fs::canonicalize(root) else { return false };
+    // Only build what discovery could serve back. `cache::discover` refuses a
+    // non-directory root, so an entry keyed at a file has no possible reader:
+    // every file-scoped search built a complete index, wrote it, failed to
+    // re-discover it, and streamed anyway — then the budget sweep deleted the
+    // entry it had just written, because it judges a root dead by `is_dir`.
+    // `--stats` reported that round trip as `built_but_missed`, a shape the
+    // trace names precisely because it is a bug. Agents scope to a file
+    // constantly (47% of searches in the §16.10 campaign), so this ran on
+    // roughly half of them, and the work had nowhere to go.
+    //
+    // Serving a file scope from an ancestor's index is the better answer and
+    // the prefix machinery already exists; this is the guard that stops paying
+    // for it twice in the meantime.
+    if !canon.is_dir() {
+        return false;
+    }
     // Here and not at the call site: this is the first point at which a build is
     // certain, so the notice cannot fire for a scope that turns out to be
     // unresolvable. Keyword mode returns before any of this and `no_index` never

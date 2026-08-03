@@ -140,7 +140,13 @@ fn enforce_budget_inner(cap: u64, abandoned_after_secs: u64, keep: Option<&Path>
     //    left alone — that is a build happening right now.
     entries.retain(|e| {
         let dead = !e.root_exists || (e.incomplete && e.age_secs >= abandoned_after_secs);
-        if !dead {
+        // `keep` has to apply here, not only to the LRU pass below. It exists to
+        // protect the entry the caller just built, and a caller that just built
+        // an entry has by definition not had time to make it stale — so if this
+        // sweep judges it dead, the judgement is wrong and deleting it destroys
+        // work that was correct. Guarding only step 2 left "protect what I just
+        // wrote" not actually protecting it from the one step that runs first.
+        if !dead || keep.is_some_and(|k| k == e.dir) {
             return true;
         }
         if std::fs::remove_dir_all(&e.dir).is_ok() {

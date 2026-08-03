@@ -1420,3 +1420,39 @@ fn a_single_file_scope_returns_hits_in_every_mode() {
     assert!(!r.hits.is_empty(), "keyword found nothing in a file scope");
     assert!(!r.hits[0].path.is_empty(), "keyword produced an empty path");
 }
+
+/// A file scope must not build a cache entry it can never read back.
+///
+/// `cache::discover` refuses a non-directory root, so an entry keyed at a file
+/// has no possible reader. Before this was guarded, every file-scoped search
+/// built a complete index, wrote it, failed to re-discover it, streamed anyway,
+/// and then had the entry deleted by the budget sweep — which judges a root
+/// dead by `is_dir` and so classified a live file as a dead repo. `--stats`
+/// named the round trip `built_but_missed`. Agents scope to a file constantly
+/// (47% of searches in the §16.10 campaign), and the tier-1 trace caught it on
+/// the first smoke run.
+#[test]
+fn a_file_scope_does_not_write_a_cache_entry() {
+    let _guard = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    let file = dir.path().join("src/retry.rs");
+
+    for _ in 0..3 {
+        let r = search(&file, "compute the backoff delay", &opts(Mode::Semantic)).unwrap();
+        assert!(!r.hits.is_empty(), "a file scope must still answer");
+        assert!(!r.report.wrote_cache, "a file scope must not write a cache entry");
+        assert!(!r.report.used_index, "and cannot be served from one");
+    }
+    let entries = semgrep_core::cache::cache_status();
+    assert!(
+        !entries.iter().any(|e| e.root == std::fs::canonicalize(&file).unwrap()),
+        "a cache entry was written for a file root: {:?}",
+        entries.iter().map(|e| &e.root).collect::<Vec<_>>()
+    );
+
+    // The control: a directory scope still caches, so the guard above is not
+    // simply switching write-through off.
+    let r = search(dir.path(), "compute the backoff delay", &opts(Mode::Semantic)).unwrap();
+    assert!(r.report.wrote_cache, "a directory scope must still write through");
+}
