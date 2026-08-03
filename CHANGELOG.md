@@ -87,6 +87,18 @@ every mode, cold and warm. Found by reading agent trajectories *after* the
 campaign; `eval/locbench/preflight.py` now replays real agent invocation
 shapes before any run so the next one is caught in seconds, not in hindsight.
 
+*Amended 2026-08-03:* "path resolution now lives in one helper" was not yet
+true when written — `cache::repair` kept two raw `d.root.join(...)` sites with
+the identical silent-skip failure. They were unreachable, but only because
+`cache::discover` refuses a non-directory root, a guard three layers away that
+the repair code cannot see; serving a file-scoped query from an ancestor index
+would have resurrected the bug. Both now go through `resolve`, and the claim
+is true as stated. The deeper cause is also worth naming: `corpus::read_text`
+maps every IO error to the same `None` it uses for binary files, so a path bug
+that made *every* file unreadable was indistinguishable from a corpus of
+`.png`s. Nothing yet detects "walked N files, read 0 of them" — that blind
+spot is the class of bug, and it is still open.
+
 ## 2026-08-01 — embed preprocessing: semantic recovers 85% of bm25 on real queries
 
 The §14.3 campaign (5 corpora, 2,798 queries, paired stats): rendering code

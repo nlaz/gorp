@@ -161,7 +161,8 @@ pub fn scope(
     let _ = std::fs::write(&marker, b"");
 
     let t0 = Instant::now();
-    let scope_abs = if d.prefix.is_empty() { d.root.clone() } else { d.root.join(&d.prefix) };
+    let scope_abs =
+        if d.prefix.is_empty() { d.root.clone() } else { corpus::resolve(&d.root, &d.prefix) };
     let Ok(live) = corpus::walk(&scope_abs, &idx.meta.params) else {
         // The marker was written above, so this failure also suppresses the
         // next TTL window's attempt. Reported rather than swallowed.
@@ -213,7 +214,16 @@ pub fn scope(
     };
     let mut texts: Vec<String> = Vec::new();
     for path in drift.stale_paths() {
-        let Some(text) = corpus::read_text(&d.root.join(path)) else { continue };
+        // Via `resolve`, not a raw join: a file root records the file's own
+        // name as its relative path, and `root.join(rel)` would look for
+        // `<file>/<file>` and fail ENOTDIR — silently, because `read_text`
+        // maps every IO error to the same `None` it uses for binary files
+        // (§16.11). Unreachable today only because `cache::discover` refuses
+        // a non-directory root, which is a guard three layers away that
+        // nothing here can see. Serving a file-scoped query from an ancestor
+        // index is an obvious optimization; this is what keeps it from
+        // resurrecting the bug.
+        let Some(text) = corpus::read_text(&corpus::resolve(&d.root, path)) else { continue };
         for (chunk, slice) in corpus::chunk_lines(0, &text, &idx.meta.params) {
             let doc = corpus::doc_text(path, slice);
             delta.bm25.add_doc(&doc);
