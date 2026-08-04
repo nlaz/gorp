@@ -40,7 +40,13 @@ ranks, `cache` never scores, `search` orchestrates rather than computes.
   (cold), `rows` (the union id space), `hit`.
 - `keyword.rs` — the exact-match escape hatch, independent of all of it.
 
-`crates/semgrep` is the CLI: `cli` (flags), `cmd/` (one file per verb), `out`
+`crates/semgrep` is the CLI, built as **two binaries over one source**: `sg`
+(the name to type) and `semgrep` (kept because nine scripts and the test
+harness resolve it by name). Only the name differs — env vars,
+`~/.cache/semgrep`, `.semgrep/` and the `semgrep: ` stderr prefix are all
+unchanged, so `sg` prints `semgrep:`. Deliberate: that is the expensive half
+of a rename and it invalidates every built index (RESEARCH.md §19.9).
+Its modules: `cli` (flags), `cmd/` (one file per verb), `out`
 (every write to stdout or stderr). **stdout is data, stderr is commentary** —
 `crates/semgrep/tests/cli.rs` enforces it.
 
