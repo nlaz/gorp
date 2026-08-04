@@ -282,6 +282,13 @@ fn print_opts(cli: &Cli) -> out::Print {
         before: cli.before_context.unwrap_or(cli.context),
         after: cli.after_context.unwrap_or(cli.context),
         max_columns: cli.max_columns,
+        // grep's rule: one named file means the path is already known, so it is
+        // noise on every line. `-H` asks for it back. `-l` and `--json` are
+        // unaffected — both are path-carrying formats by definition.
+        with_path: cli.compat.with_filename
+            || cli.json
+            || cli.files_with_matches
+            || !(cli.paths.len() == 1 && cli.paths[0].is_file()),
     }
 }
 

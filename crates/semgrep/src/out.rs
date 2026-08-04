@@ -164,12 +164,24 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
             .map_or_else(|| hit.text.len() - hit.text.trim_start().len(), |f| f.dedent);
         let cut = indent_within(&hit.text, dedent);
         let text = clip(&hit.text[cut..], opts.max_columns);
-        println!("{}:{}:{}", quote_path(&hit.path), hit.line, text);
+        // A tab after the line number when the path is suppressed: without a
+        // path in front, `264:code` runs the number into the code and the eye
+        // has nothing to anchor on. With a path, the compact `p:l:t` form is
+        // what every grep consumer already parses, so it is left alone.
+        if opts.with_path {
+            println!("{}:{}:{}", quote_path(&hit.path), hit.line, text);
+        } else {
+            println!("{}:\t{}", hit.line, text);
+        }
         if let Some(f) = framed {
             for (i, line) in &f.lines {
                 let cut = indent_within(line, dedent);
                 let text = clip(&line[cut..], opts.max_columns);
-                println!("{}-{}-{}", quote_path(&hit.path), i, text);
+                if opts.with_path {
+                    println!("{}-{}-{}", quote_path(&hit.path), i, text);
+                } else {
+                    println!("{}-\t{}", i, text);
+                }
             }
             println!("--");
         }
@@ -187,6 +199,14 @@ pub struct Print {
     pub after: usize,
     /// Characters of each line to print; 0 is no limit.
     pub max_columns: usize,
+    /// Prefix each line with its path.
+    ///
+    /// False only when the caller named exactly one file, which is grep's own
+    /// rule: `grep -n p f` prints `12:text` and `grep -n p a b` prints
+    /// `a:12:text`, because with one file the path is on every line and tells
+    /// the reader nothing they did not just type. `-H` forces it back on, which
+    /// is what a caller piping into something that splits on `:` wants.
+    pub with_path: bool,
 }
 
 /// Hand-written rather than derived so that the default width is `MAX_COLUMNS`
@@ -195,7 +215,14 @@ pub struct Print {
 /// writer in the process.
 impl Default for Print {
     fn default() -> Self {
-        Self { json: false, paths_only: false, before: 0, after: 0, max_columns: MAX_COLUMNS }
+        Self {
+            json: false,
+            paths_only: false,
+            before: 0,
+            after: 0,
+            max_columns: MAX_COLUMNS,
+            with_path: true,
+        }
     }
 }
 

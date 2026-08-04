@@ -381,8 +381,9 @@ fn lines_narrows_to_a_range_in_every_spelling() {
     std::fs::write(dir.path().join("f.py"), body).expect("write");
     let f = dir.path().join("f.py");
     let sg = Sg::new();
+    // One named file, so the tool omits the path and the line number leads.
     let nums = |r: &Run| -> Vec<u32> {
-        r.lines().iter().filter_map(|l| l.split(':').nth(1)?.parse().ok()).collect()
+        r.lines().iter().filter_map(|l| l.split(':').next()?.parse().ok()).collect()
     };
 
     let all = sg.run_in(&["-e", "def fn_", "--all"], &f);
@@ -442,6 +443,39 @@ fn a_dash_reads_paths_from_stdin() {
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(stdout.contains("target_fn"), "stdin path not searched: {stdout}");
     assert!(!stdout.contains("other"), "searched a path stdin did not name: {stdout}");
+}
+
+/// grep's rule: one named file means the path is on every line and tells the
+/// reader nothing they did not just type. The snapshot cannot catch a
+/// regression here — all 114 of its cases search the corpus directory — and a
+/// single file is 53% of real agent invocations (RESEARCH.md §19.9).
+#[test]
+fn one_named_file_drops_the_path_and_leads_with_the_line() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    std::fs::write(dir.path().join("f.py"), "def target(): pass\n").expect("write");
+    let f = dir.path().join("f.py");
+    let sg = Sg::new();
+
+    let one = sg.run_in(&["-e", "def target"], &f);
+    assert_eq!(one.code, 0, "stderr: {}", one.stderr);
+    assert_eq!(one.lines()[0], "1:\tdef target(): pass",
+               "one named file: line, tab, text — no path");
+
+    // -H asks for it back, which is what a caller splitting on `:` wants.
+    let forced = sg.run_in(&["-e", "def target", "-H"], &f);
+    assert!(forced.lines()[0].starts_with("f.py:1:"), "-H restores the path: {:?}",
+            forced.lines()[0]);
+
+    // A directory scope is unchanged: the path is doing real work there.
+    let many = sg.run_in(&["-e", "def target"], dir.path());
+    assert!(many.lines()[0].starts_with("f.py:1:"), "dir scope keeps the path: {:?}",
+            many.lines()[0]);
+
+    // --json and -l are path-carrying formats by definition.
+    let js = sg.run_in(&["-e", "def target", "--json"], &f);
+    assert!(js.lines()[0].contains("\"path\":\"f.py\""), "json keeps path: {:?}", js.lines()[0]);
+    let l = sg.run_in(&["-e", "def target", "-l"], &f);
+    assert_eq!(l.lines()[0], "f.py", "-l is a path listing");
 }
 
 #[test]
