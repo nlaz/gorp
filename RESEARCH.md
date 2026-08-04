@@ -3884,3 +3884,56 @@ So the honest value of tier 2 is: **the §16.10 number was measured on a
 broken tool, and this is what the product actually does.** A null is the
 predicted result, not a disappointment. Recording that here, before the
 run, is what makes it a prediction rather than a rationalisation.
+
+### 18.6 Tier 1b: an independent 40, and what it cost to get one
+
+Tier 1a's +0.050 rested on two discordant pairs, so §18.5 registered parity
+and said so. The way to test that is a fresh sample, and asking for one
+turned up a harness defect first.
+
+**`--seed` barely moved the sample.** `stratified_sample` shuffled each
+category and then `sort(key=repo)`; Python's sort is stable, so the shuffle
+survived only *within* a repo while the repo order came out alphabetical for
+every seed. Taking from the front picked the same alphabetically-first repos
+every time: **seed 1 and seed 2 shared 37 of 40 instances.** No error, no
+warning — a re-run under a new seed returns a near-duplicate and reports it
+as fresh coverage, so any claim of the form "validated on an independent
+sample" would have been false. Fixed by shuffling the repo *order* rather
+than dropping the grouping (the interleaving is still wanted: one repo must
+not dominate 40 rows). Seeds 1–3 now cover 99 distinct instances instead of
+43. Tier 1a's instances came from the old sampler and are replayable only via
+`--instances`, from `results-tier1.jsonl`.
+
+**The run** (seed 2, 33 of 40 instances new, $19.84): gate passed. 165 engine
+traces, **0 ranked searches returning nothing**, 0 distress signals, 0 usage
+errors the tool is answerable for. The §16.11 signature did not appear in
+either tier.
+
+Three non-ok rows failed the gate first, and both causes were environmental
+rather than tool defects:
+
+- `UCL__TLOmodel-1524`, both arms — **`git-lfs: command not found`**. An LFS
+  repo cannot be checked out without it, and the failure is symmetric across
+  arms, so it silently shrinks the frame rather than biasing it. One instance
+  in 40 is ~14 of 560 at full scale. Installed; both arms then completed.
+- `Netflix__metaflow-2141` — the **`--budget-usd` guard firing at $1.02**,
+  working as designed on a 33-turn run, but recorded as `agent_error`, which
+  reads as a failure. It completed at `--budget-usd 1.5` in 24 searches.
+
+**Accuracy across both tiers** (paired, ok rows only):
+
+| | n | rg | desc-v5 | Δ | discordant |
+|---|---|---|---|---|---|
+| tier 1a | 40 | 0.625 | 0.675 | +0.050 | w2/l0 |
+| tier 1b | 40 | 0.575 | 0.550 | **−0.025** | w1/l2 |
+| **pooled distinct** | **73** | **0.616** | **0.616** | **0.000** | w2/l2 |
+
+`func_acc@10_tol`. The sign reversed on an independent sample and the pooled
+delta is exactly zero on four discordant pairs total. **This is §18.5's
+registered prediction landing before the money was spent** — had tier 1a run
+alone, +0.050 would have looked like a result. `file_acc@5` pooled: 0.795 vs
+0.781. Cost per run is at parity (tier 1b: $0.249 rg vs $0.247 desc-v5), the
+27% premium §16.10 measured having gone with the file-scope bug.
+
+Tier 2's registration stands unchanged, now with two independent samples
+behind it rather than a prior.
