@@ -188,6 +188,44 @@ has to make a configuration decision.
   top-3 *ranked* hits for the same terms — a wrong identifier guess costs one
   call instead of two.
 
+### The tool description to give your agent
+
+The tool prompt is a deliverable, not decoration (RESEARCH.md §6): an agent's
+behaviour at this tool is set more by the sentence describing it than by
+anything in the engine. One clause once moved ranked usage from 7% to 98%
+(§16.10), a larger effect than any ranking parameter measured here. Paste this
+into your agent's system prompt:
+
+```
+The only code search tool available is `semgrep`, a ranked code search. Give
+it anything — an identifier, a phrase, or a question: `semgrep "query" [path]`
+returns the most relevant locations as path:line:text (top 10; `-k N` for
+more). Example: semgrep "retry_backoff backoff_delay compute_delay" →
+src/net/retry.rs:142:fn backoff_delay(attempt: u32). Ranked, not exhaustive —
+if the answer isn't there, rephrase.
+```
+
+**Why the example is names and not a question.** semgrep embeds with a static
+table — one vector per token, rarity-pooled, word order discarded — so a
+description reduces at the engine to its rare tokens. Measured across 413 real
+agent queries (§19.2b): when a query shares *no* vocabulary with the answer, a
+description finds it **13%** of the time and a name **50%**. Descriptions are
+not bad, but they only work when they happen to contain the right rare word,
+where a wrong name guess still shares subtokens with the right one —
+`retry_backoff` overlaps `backoff_delay` where "computed" does not. Agents
+imitate the example rather than the prose (§7.3), so the example is what
+decides which of those they write: this one moved the share of name-shaped
+queries **+20pp** against the same description without it.
+
+*Evidence grade, stated plainly:* the behaviour change is measured; the
+accuracy gain that should follow is **directional and not yet confirmed**
+(+0.05 over both ripgrep and the exampleless description, on a 40-instance
+frame that yields too few discordant pairs to resolve it — §19.4).
+
+`semgrep --help` still describes the tool the older way, without the example.
+The two differ deliberately rather than by oversight, and §19.5's campaign is
+what decides whether `--help` follows.
+
 ## How it works
 
 Built on the Bog stack: [`ese`](../ese) (static 512-dim embeddings, compiled
