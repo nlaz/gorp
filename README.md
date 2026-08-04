@@ -316,6 +316,22 @@ Full setup, all seven corpora, worked examples showing exactly what each tool
 returns, and the four measurement bugs we found and fixed along the way:
 **[eval/REPORT.md](eval/REPORT.md)**.
 
+Agent campaigns are reviewable rather than described. Every finding in this
+project came from reading trajectories — a silently-empty search, a verb in
+`--help` that taught agents the wrong model — and each one took a person
+opening JSONL by hand:
+
+```
+python3 eval/locbench/capture.py     # results + run dirs -> one JSON bundle
+python3 eval/locbench/viewer.py      # bundle -> results-viewer.html
+```
+
+One self-contained page: the gate verdict, the paired scoreboard with
+discordant counts beside every delta, a filterable task table, and a
+side-by-side drill-down showing **every search an agent ran, what came back,
+and what the engine did underneath** — with the first search to surface a gold
+file marked. No external assets; it opens offline.
+
 ## Does it actually help an agent?
 
 The end-to-end claim, measured on Loc-Bench (real GitHub issues, ground truth =

@@ -65,6 +65,14 @@ ranks, `cache` never scores, `search` orchestrates rather than computes.
   `symbols.py`; `fetch-cosqa.sh` pulls 9k real human queries (the only set we
   didn't write — prefer it for quality claims, RESEARCH.md §12);
   `locbench/replay.py` replays real agent queries offline (§13.2).
+  `locbench/triage.py` is the **gate between campaign tiers** (§18): it reads
+  the per-invocation trace envelopes (`SEMGREP_TRACE_FILE`, set by `run.py`)
+  beside the shim logs and exits nonzero on tool failures, agent distress
+  (help probes, consecutive empty searches, a query repeated fruitlessly),
+  or harness trouble. `locbench/capture.py` → `locbench/viewer.py` turn a
+  campaign into one self-contained HTML page carrying the numbers *and* the
+  trajectories behind them — every search an agent ran, what came back, and
+  what the engine did. Nothing external, opens offline.
   **Query sets live in `eval/queries/`, checked in** — `eval/data/` is
   gitignored and the sets are `claude`-generated, so nothing published was
   reproducible without them. Three rg conditions exist on purpose: `rg`
