@@ -4147,6 +4147,31 @@ cost of the sixth small and §18's null deserves a second independent look.
    wrong and the observational analysis misled us.
 4. **Cost does not rise**, in any arm.
 
+**Pre-specified subgroup, and a disclosed peek.** §19.2b's mechanism is not a
+claim about queries in general — it is a claim about *blind* ones. Where the
+query already carries the gold's vocabulary, a description does marginally
+better (0.636 vs 0.576); the collapse to 0.129 happens only when it does not.
+So the effect, if real, should concentrate in the **`blind` issue-naming tier**
+(§15.7) and be absent in `named`, where the issue text hands the agent the
+symbol and no phrasing advice can matter. That ordering — an effect in `blind`,
+nothing in `named` — is a sharper test than the pooled delta, and a pooled null
+with a `blind` effect is a pass rather than a failure.
+
+This matters because the pooled endpoint is probably underpowered. §18.5 said
+the binary "discards resolution on the ~96% of instances where both arms
+agree", and §18 ended with four discordant pairs across 73 instances. The
+co-primary `func_recall@10_tol` is the continuous endpoint for that reason and
+should be read beside the binary, not after it.
+
+*Disclosure:* this paragraph was written at 81 of 200 rows, after running
+`ab_analyze.py` on the partial file to check the analysis path executes. That
+peek showed desc-v8 and desc-v7 identical on every endpoint with **zero
+discordant pairs** at n=16 — no signal in either direction, and the `blind`
+stratum at n=3 was 0.000 for both arms. The subgroup follows from §19.2b's
+mechanism, which predates every row; it is recorded here rather than
+introduced at analysis time, and the peek is recorded because a subgroup added
+after any look at the data is worth less if nobody says so.
+
 Two failure modes named in advance. **The example's content is a confound**
 (§7.3: agents imitate examples): `retry backoff` is networking vocabulary and
 Loc-Bench is not mostly networking bugs, so if style moves and accuracy does
