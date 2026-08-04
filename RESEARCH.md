@@ -4562,3 +4562,73 @@ Bash* — aimed at §19.8's third channel, agents calling the tool as a typed AP
 later campaign moves, the honest reading is "v9 moved", not "the Bash clause
 worked". That was the accepted trade for shipping now rather than spending
 another frame on a defect worth 4 tasks in 204.
+
+### 19.10 Pre-registration: three arms, and what power is actually for sale
+
+§19.7 left two things open. **desc-v8-or-v9 against desc-v5 has never been
+measured at power** — the ship decision still rests on §19.5's +0.050 over four
+discordant pairs — and **desc-v9 has never been measured at all**, having
+shipped unmeasured by decision (§19.9). This campaign is rg, desc-v5 and
+desc-v9 on §19.7's own 204 instances.
+
+**What a powered run can buy here, computed before proposing one.** The observed
+discordant rate on `func_acc@10_tol` is 10.3%, which fixes the smallest
+detectable accuracy effect at every frame size available:
+
+| frame | smallest accuracy effect, 80% power |
+|---|---|
+| 204 | ±0.060 |
+| 300 | ±0.050 |
+| 560 — *every instance in the dataset* | ±0.038 |
+
+Every effect this project has measured is ≤0.05, and §19.7's own −0.034 would
+need **682 instances**. **Accuracy cannot be powered at any price on this
+dataset.** That is not a reason to skip the campaign; it is a reason to stop
+calling accuracy its primary endpoint, and to publish the bound beside every
+accuracy null rather than letting a table imply an absence it cannot support.
+
+One endpoint can be powered, and it is the one with a replicated effect:
+
+| endpoint | observed Δ (§19.7) | instances for 80% power |
+|---|---|---|
+| **searches per run** | **−0.72** | **226** |
+| `func_acc@10_tol` | −0.034 | 682 |
+| `func_recall@10_tol` | −0.025 | 879 |
+| cost per run | −0.008 | 1,801 |
+
+**Primary: searches per run, desc-v9 vs rg**, paired within instance, bootstrap
+CI over instance-level differences.
+
+**Registered power: 76%, not 80%.** At n=204 with Δ=−0.72 and sd=3.84 the power
+is 76%; 80% wants 226 instances and 90% wants 300. The frame was chosen for
+exact comparability with §19.7 — `tierframe.py` at seed 1 reproduces its
+instance set, verified — over the extra 22 instances. **A null here therefore
+carries a real chance of being a miss rather than an absence, and saying so is
+part of the registration rather than an excuse available afterwards.**
+
+**Registered prediction:** desc-v9 uses *fewer* searches than rg, by roughly the
+−0.72 of §19.7 and the −1.5 of §19.5. A positive delta falsifies the efficiency
+claim outright.
+
+**Secondaries, pre-specified and none of them powered:** `func_acc@10_tol` over
+all three pairs (bounded to ±0.060, Holm-corrected across the three),
+`func_recall@10_tol`, cost per run, and the blind/partial/named strata.
+
+**What each comparison can and cannot mean.** `desc-v9 vs rg` is the product
+claim. `desc-v9 vs desc-v5` is the open ship question and is **confounded by
+construction** — v5→v9 bundles the naming example (§19.2b), the `sg` rename and
+the Bash clause, so a difference says "v9 differs from v5" and never which part
+did it. `desc-v5 vs rg` replicates §18's null on a harder frame, free with the
+other two. `desc-v9 vs desc-v8` is **exploratory only**: same instances,
+different campaign, so not paired within a run.
+
+All three arms are re-run, rg included, rather than reusing §19.7's rg rows.
+Nothing in the `sg`/SIGPIPE/`tool_of` work touches ripgrep, but the primary
+comparison *is* desc-v9 vs rg, and $60 to have both sides produced under one set
+of conditions is cheaper than arguing the difference away later.
+
+**Registered now because it would be tempting later:** if searches fall and
+accuracy stays flat, that is §19.7's dissociation replicated — the tool doing
+the same work in fewer round-trips — not a disappointment. Reporting it as a
+loss because the accuracy column did not move would be reading the campaign
+backwards.
