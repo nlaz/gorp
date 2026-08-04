@@ -5,6 +5,16 @@ edition = "2024"
 license = "Apache-2.0 OR MIT"
 description = "semgrep: a semantic grep for agents"
 
+# Two names, one source. `sg` is what the tool is called now — short enough to
+# type at a prompt many times a session, which is the whole point of a search
+# tool. `semgrep` stays because nine scripts, the test harness and every
+# existing shell habit resolve it by name, and a rename that breaks all of them
+# to save a symlink is not worth it. Packaging should ship one binary and a
+# symlink; a repo whose `target/` is disposable can afford two.
+[[bin]]
+name = "sg"
+path = "src/main.rs"
+
 [[bin]]
 name = "semgrep"
 path = "src/main.rs"

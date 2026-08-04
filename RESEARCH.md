@@ -4499,3 +4499,66 @@ obvious the moment someone opened a single task and read it against its own
 numbers. That is now the third time in this project (§16.11 and §17 being the
 others) that trajectories caught what aggregates could not, and it is the
 argument for the viewer existing at all.
+
+### 19.9 What agents do with a pipe, and `sg`
+
+§19.8 left two channels open and pointed at the trajectories rather than the
+tables. Reading them produced a measurement, a defect, and a rename.
+
+**The denial trigger, diagnosed.** Recovering the command behind each refusal
+from the transcripts — 144 of 288 are reconstructible — the trigger is **not**
+compound commands, which §19.8 guessed. It is *any binary in the command outside
+the allowlist*, wherever it sits. First binaries: `python3` 62, `git` 23, `rg`
+13, `find` 10, `grep` 9, `semgrep` 5, `cat`/`awk` 3 each. Of the 18 refusals
+whose command *begins with the arm's own permitted tool*, nearly all die on what
+they pipe or chain into, not on the tool; only 2 were the quoted-`|`-read-as-a-
+pipe false positive that looked likely. **The allowlist is behaving as designed
+and stays as it is.** §19.8's proposed widening is withdrawn: it would have
+loosened a gate that is not the problem.
+
+**Piping, measured.** Of commands beginning with the search tool, rg is piped in
+**252 of 863 (29%)** and semgrep in **32 of 778 (4%)**. Targets: `head` 237, rg
+27, grep 15, sed 9, tail 4, xargs 3, wc 3, sort 2, awk 1.
+
+**79% of all piping is `head`, which `-k` already does** — and that is the most
+plausible reading of the 7× gap. rg has no bounded mode, so an agent bounds it
+by hand; semgrep is bounded by construction, so the reflex mostly falls away.
+It does not fall away entirely: agents still write `-k 5 | head -30`, belt and
+braces, which is a small argument that `-k` is not as legible as we think.
+
+Of the 32 semgrep pipes, **2** wanted something `-k` cannot give, and both are
+the same thing spelled two ways — narrowing to a line range, as
+`awk -F: '$2 < 2297'` and `grep -E "8[0-9][0-9]|9[0-3][0-9]"`.
+
+**The defect that made piping unsafe.** `sg -e "def " big/ --all | head -1`
+printed a Rust panic — `failed printing to stdout: Broken pipe (os error 32)` —
+where rg exits quietly. Rust sets `SIGPIPE` to `SIG_IGN` before `main`, so the
+write returns `EPIPE` and `println!` panics. It only fires past the ~64 KB pipe
+buffer, so FIXES.md #26's `-M 200` hid it in ranked mode while `--all` still
+reached it. Restoring the default disposition (ripgrep's own fix, one call)
+makes the process die of SIGPIPE like every other filter. **`| head` is the most
+common thing anyone does to this tool and it could crash it**, unnoticed for as
+long as the tool has existed, because nothing in the eval harness pipes.
+
+**What shipped as a result.**
+
+- **`--lines A-B`** absorbs the one pipe `-k` could not serve. It needs no second
+  binary, which matters where the caller's shell may refuse one.
+- **`-` reads paths from stdin**, so `find … | sg "query" -` works without
+  `xargs`. Recorded as speculative: 3 xargs uses in 1,641 invocations is not
+  demand, and it is here because it composes.
+- **`sg`**, alongside `semgrep`. Two `[[bin]]` targets over one source: the name
+  is short enough to type all session, and nine scripts plus the test harness
+  resolve `semgrep` by name, so breaking them to save a symlink is a bad trade.
+  Env vars, `~/.cache/semgrep`, `.semgrep/` and the `semgrep: ` stderr prefix all
+  stay, which leaves `sg` printing `semgrep: …` — deliberate, and the cheap half
+  of a rename whose expensive half invalidates every built index.
+
+**desc-v9, shipped unmeasured.** desc-v8 with the name changed to `sg` and one
+clause folded into the identity sentence — *a ranked code search you run with
+Bash* — aimed at §19.8's third channel, agents calling the tool as a typed API.
+**It changes two things at once and therefore attributes neither.** §16.6 and the
+`search` name-gravity arm both say a name alone can move behaviour, so if a
+later campaign moves, the honest reading is "v9 moved", not "the Bash clause
+worked". That was the accepted trade for shipping now rather than spending
+another frame on a defect worth 4 tasks in 204.

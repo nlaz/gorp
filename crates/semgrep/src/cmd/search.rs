@@ -18,12 +18,13 @@ pub fn run(cli: &Cli, query: &str) -> Result<i32> {
     // (exit 1): an agent reads "no results" as *the code is not there*, when in
     // fact the path was simply wrong. `exists`, not `is_dir`, because a single
     // file is a legitimate scope that the streaming path handles.
-    for p in &cli.paths {
+    let paths = paths_with_stdin(&cli.paths)?;
+    for p in &paths {
         if !p.exists() {
             anyhow::bail!("{}: no such file or directory", p.display());
         }
     }
-    let scope = Scope::resolve(&cli.paths);
+    let scope = Scope::resolve(&paths);
     let (mode, mode_reason) = resolve_mode(cli)?;
     let opts = options(cli, mode)?;
     let filter = Filter::new(cli, &scope)?;
@@ -67,11 +68,21 @@ pub fn run(cli: &Cli, query: &str) -> Result<i32> {
     };
     out::hits(&root, &result.hits, shown, &print_opts(cli));
     if dropped {
-        eprintln!(
-            "semgrep: results narrowed to the paths given · some ranked matches \
-             elsewhere in {} were dropped",
-            root.display()
-        );
+        // Name the filter that actually dropped them. Saying "the paths given"
+        // when `--lines` did the cutting sends the caller to widen a scope that
+        // was never the constraint.
+        match filter.lines {
+            Some((lo, hi)) => eprintln!(
+                "semgrep: results narrowed to lines {lo}-{} · matches outside that \
+                 range were dropped",
+                if hi == u32::MAX { "end".to_string() } else { hi.to_string() }
+            ),
+            None => eprintln!(
+                "semgrep: results narrowed to the paths given · some ranked matches \
+                 elsewhere in {} were dropped",
+                root.display()
+            ),
+        }
     }
 
     // A miss should be a gradient, not a dead end. When `-e` finds nothing and an
@@ -122,6 +133,35 @@ impl Scope {
     }
 }
 
+/// Expand a literal `-` into the newline-separated paths on stdin, so
+/// `find . -name '*.py' | sg "query" -` works without `xargs`.
+///
+/// `-` is the Unix convention for "the other end of the pipe" and costs nothing
+/// to honour: a caller who genuinely has a file named `-` can write `./-`. The
+/// evidence for this one is thin — 3 `xargs` uses in 1,641 real invocations —
+/// so it is here because it composes, not because it was asked for.
+///
+/// Blank lines are skipped; a `-` with nothing on stdin yields no paths, which
+/// `Scope::resolve` then reads as "search the working directory", the same as
+/// passing no path at all.
+fn paths_with_stdin(paths: &[PathBuf]) -> Result<Vec<PathBuf>> {
+    if !paths.iter().any(|p| p.as_os_str() == "-") {
+        return Ok(paths.to_vec());
+    }
+    let mut buf = String::new();
+    std::io::Read::read_to_string(&mut std::io::stdin(), &mut buf)
+        .map_err(|e| anyhow::anyhow!("reading paths from stdin: {e}"))?;
+    let mut out = Vec::new();
+    for p in paths {
+        if p.as_os_str() == "-" {
+            out.extend(buf.lines().map(str::trim).filter(|l| !l.is_empty()).map(PathBuf::from));
+        } else {
+            out.push(p.clone());
+        }
+    }
+    Ok(out)
+}
+
 /// Deepest directory containing every path. Falls back to `.` if they share
 /// nothing (different drives, or a canonicalize that failed).
 fn common_ancestor(paths: &[PathBuf]) -> PathBuf {
@@ -151,6 +191,7 @@ fn common_ancestor(paths: &[PathBuf]) -> PathBuf {
 struct Filter {
     keep: Vec<String>,
     globs: Option<ignore::overrides::Override>,
+    lines: Option<(u32, u32)>,
 }
 
 impl Filter {
@@ -164,11 +205,12 @@ impl Filter {
             }
             Some(b.build()?)
         };
-        Ok(Self { keep: scope.keep.clone(), globs })
+        let lines = cli.lines.as_deref().map(parse_lines).transpose()?;
+        Ok(Self { keep: scope.keep.clone(), globs, lines })
     }
 
     fn active(&self) -> bool {
-        !self.keep.is_empty() || self.globs.is_some()
+        !self.keep.is_empty() || self.globs.is_some() || self.lines.is_some()
     }
 
     /// How many results to ask the engine for, or `None` to leave `k` alone.
@@ -200,11 +242,37 @@ impl Filter {
             return false;
         }
         let before = hits.len();
-        hits.retain(|h| self.matches(&h.path));
+        hits.retain(|h| {
+            self.matches(&h.path)
+                && self.lines.is_none_or(|(lo, hi)| h.line >= lo && h.line <= hi)
+        });
         let dropped = hits.len() < before;
         hits.truncate(k);
         dropped
     }
+}
+
+/// `A-B`, `A-` or `-B`, inclusive, 1-based — the shape `sed -n 'A,Bp'` uses.
+///
+/// This exists because agents piped the tool into `awk` and `grep` to do it:
+/// `sg -k 20 "def " f.py | awk -F: '$2 < 2297'` and
+/// `… | grep -E "8[0-9][0-9]|9[0-3][0-9]"` are both line-range narrowing spelled
+/// as arithmetic on the second colon field. They were the only two of 32 real
+/// semgrep pipes wanting something `-k` could not give (RESEARCH.md §19.9), and
+/// unlike the other 30 they need a second binary the harness may refuse.
+fn parse_lines(spec: &str) -> Result<(u32, u32)> {
+    let bad = || {
+        anyhow::anyhow!(
+            "bad --lines {spec:?}: expected A-B, A- or -B (inclusive, 1-based)"
+        )
+    };
+    let (a, b) = spec.split_once('-').ok_or_else(bad)?;
+    let lo = if a.is_empty() { 1 } else { a.trim().parse().map_err(|_| bad())? };
+    let hi = if b.is_empty() { u32::MAX } else { b.trim().parse().map_err(|_| bad())? };
+    if lo > hi {
+        anyhow::bail!("bad --lines {spec:?}: {lo} is after {hi}");
+    }
+    Ok((lo, hi))
 }
 
 fn print_opts(cli: &Cli) -> out::Print {

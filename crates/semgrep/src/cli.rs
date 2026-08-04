@@ -126,6 +126,20 @@ pub struct Cli {
     #[arg(short = 'g', long = "glob", visible_alias = "include")]
     pub glob: Vec<String>,
 
+    /// Keep only results in this line range: A-B, A- or -B (inclusive, 1-based)
+    ///
+    /// The one thing agents piped this tool into `awk` and `grep` for —
+    /// `… | awk -F: '$2 < 2297'` is `--lines -2297` — and the only such use that
+    /// `-k` could not already serve (RESEARCH.md §19.9). Doing it here needs no
+    /// second binary, which matters where the caller's shell may refuse one.
+    /// `allow_hyphen_values` because `-B` is half the point: without it clap
+    /// reads `--lines -100` as a stray `-1` flag and suggests `-- -1`, which is
+    /// advice toward a different command. The `--lines=-100` form worked and the
+    /// spaced one did not, which is exactly the kind of split nobody discovers
+    /// until it wastes a turn.
+    #[arg(long = "lines", value_name = "A-B", allow_hyphen_values = true)]
+    pub lines: Option<String>,
+
     /// Emit JSONL ({path, start_line, end_line, line, text, score})
     #[arg(long)]
     pub json: bool,

@@ -342,6 +342,108 @@ fn a_bare_k_asks_for_more_rather_than_failing() {
     assert_eq!(explicit.lines().len(), 5, "-k N is unchanged");
 }
 
+/// `| head` is the most common thing anyone does to this tool — 237 of the 300
+/// pipes in the §19.7 campaign — and it used to crash it. Rust sets SIGPIPE to
+/// SIG_IGN before main, so the write returns EPIPE and `println!` panics. Only
+/// past the ~64 KB pipe buffer, which is why `-M 200` hid it in ranked mode and
+/// `--all` still reached it, and why no test caught it: nothing here pipes.
+#[test]
+fn a_closed_pipe_is_not_a_panic() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let body: String = (0..60_000).map(|i| format!("def fn_{i}(x): return x\n")).collect();
+    std::fs::write(dir.path().join("big.py"), body).expect("write");
+    let sg = Sg::new();
+
+    // `head -1` closes the read end after one line, while the child still has
+    // tens of thousands to write.
+    let out = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "{} -e 'def fn_' {} --all 2>&1 >/dev/null | head -1",
+            bin().display(),
+            dir.path().display()
+        ))
+        .env("SEMGREP_CACHE_DIR", &sg.cache)
+        .output()
+        .expect("run");
+    let stderr = String::from_utf8_lossy(&out.stdout).into_owned();
+    assert!(!stderr.contains("panicked"), "panicked on a closed pipe: {stderr}");
+    assert!(!stderr.contains("Broken pipe"), "leaked an EPIPE message: {stderr}");
+}
+
+/// The one thing agents piped into `awk`/`grep` that `-k` could not serve.
+#[test]
+fn lines_narrows_to_a_range_in_every_spelling() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let body: String = (1..1000)
+        .map(|i| if i % 37 == 0 { format!("def fn_{i}(x): pass\n") } else { "# filler\n".into() })
+        .collect();
+    std::fs::write(dir.path().join("f.py"), body).expect("write");
+    let f = dir.path().join("f.py");
+    let sg = Sg::new();
+    let nums = |r: &Run| -> Vec<u32> {
+        r.lines().iter().filter_map(|l| l.split(':').nth(1)?.parse().ok()).collect()
+    };
+
+    let all = sg.run_in(&["-e", "def fn_", "--all"], &f);
+    assert!(nums(&all).len() > 20, "fixture should have many matches");
+
+    for spec in ["800-939", "1-100", "900-"] {
+        let r = sg.run_in(&["-e", "def fn_", "--all", "--lines", spec], &f);
+        assert_eq!(r.code, 0, "stderr: {}", r.stderr);
+        let (lo, hi) = match spec {
+            "800-939" => (800, 939),
+            "1-100" => (1, 100),
+            _ => (900, u32::MAX),
+        };
+        let got = nums(&r);
+        assert!(!got.is_empty(), "--lines {spec} dropped everything");
+        assert!(got.iter().all(|n| *n >= lo && *n <= hi), "--lines {spec} leaked {got:?}");
+    }
+
+    // `-B` in the spaced form. Without allow_hyphen_values clap reads `-100` as
+    // a stray flag and advises `-- -1`, so `--lines=-100` worked and this did
+    // not — the kind of split that costs a turn to discover.
+    let r = sg.run_in(&["-e", "def fn_", "--all", "--lines", "-100"], &f);
+    assert_eq!(r.code, 0, "spaced -B form rejected: {}", r.stderr);
+    assert!(nums(&r).iter().all(|n| *n <= 100));
+
+    // And it says which filter did the cutting.
+    assert!(
+        r.stderr.contains("narrowed to lines"),
+        "the message should name --lines, not the paths: {}",
+        r.stderr
+    );
+
+    for bad in ["abc", "900-100"] {
+        let r = sg.run_in(&["-e", "def", "--lines", bad], &f);
+        assert_eq!(r.code, 2, "--lines {bad:?} should be a usage error");
+        assert!(r.stderr.contains("--lines"), "error should name the flag: {}", r.stderr);
+    }
+}
+
+/// `find … | sg query -`, so a path list composes without `xargs`.
+#[test]
+fn a_dash_reads_paths_from_stdin() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    std::fs::write(dir.path().join("a.py"), "def target_fn(): pass\n").expect("write");
+    std::fs::write(dir.path().join("b.py"), "def other(): pass\n").expect("write");
+    let sg = Sg::new();
+    let out = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "printf '%s\\n' {}/a.py | {} -e 'def ' -",
+            dir.path().display(),
+            bin().display()
+        ))
+        .env("SEMGREP_CACHE_DIR", &sg.cache)
+        .output()
+        .expect("run");
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("target_fn"), "stdin path not searched: {stdout}");
+    assert!(!stdout.contains("other"), "searched a path stdin did not name: {stdout}");
+}
+
 #[test]
 fn stats_report_goes_to_stderr_with_stage_provenance() {
     let sg = Sg::new();
