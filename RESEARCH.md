@@ -4632,3 +4632,59 @@ accuracy stays flat, that is §19.7's dissociation replicated — the tool doing
 the same work in fewer round-trips — not a disappointment. Reporting it as a
 loss because the accuracy column did not move would be reading the campaign
 backwards.
+
+### 19.11 The three-arm result: a null at 44% power, and a number that reproduced
+
+rg, desc-v5 and desc-v9 on §19.7's own 204 instances. 612 of 612 cells, 613
+attempts, one `parse_error` recovered on retry, $169.62.
+
+**The registered primary is a null, and an underpowered one.**
+
+| | searches/run | Δ | 95% CI |
+|---|---|---|---|
+| **desc-v9 vs rg** | 4.15 vs 4.59 | **−0.441** | **[−0.912, +0.039]** |
+| desc-v5 vs rg | 4.27 vs 4.59 | −0.314 | [−0.814, +0.172] |
+| desc-v9 vs desc-v5 | 4.15 vs 4.27 | −0.127 | [−0.490, +0.225] |
+
+The interval crosses zero by 0.039. §19.10 registered 76% power, sized on
+§19.7's −0.72; the effect came in at −0.44, and **at that effect the realised
+power is 44%** — 488 instances would have been needed for 80%. So this null is
+closer to a coin flip than to evidence of absence, which is what §19.10
+committed to saying rather than discovering afterwards. The efficiency claim is
+now *weaker* than when it had two consistent point estimates behind it: −1.5,
+then −0.72, now −0.44, each smaller than the last, which is the shape of a
+regression to no effect at all.
+
+**Accuracy, bounded to ±0.060 as registered:**
+
+| | Δ `func_acc@10_tol` | discordant | p | blind stratum |
+|---|---|---|---|---|
+| desc-v9 vs rg | −0.044 | 7/16 | 0.093 | **+0.000** |
+| desc-v9 vs desc-v5 | −0.010 | 6/8 | 0.791 | **+0.000** |
+| desc-v5 vs rg | **−0.034** | 7/14 | 0.189 | **+0.000** |
+
+**Two results survive being nulls.** `desc-v5 vs rg` came out at −0.034 — the
+same figure to three decimals as §19.7's `desc-v8 vs rg`, from an independent
+campaign with a different treatment arm. A number that reproduces exactly
+across frames is worth more than most of the deltas in this document. And the
+**blind stratum is +0.000 in all three pairs**, the third independent time it
+has landed on exactly zero. §19.2b's mechanism predicted the effect would live
+there; three campaigns now say it does not live anywhere.
+
+**The ship question, answered as well as this dataset can.** desc-v9 ≈ desc-v5
+on every endpoint: −0.010 accuracy, −0.127 searches, −$0.023 cost. The style
+shift replicated (64% identifier-shaped queries against desc-v5's 50%, n=851
+and 880). So the description reliably changed *how* agents search and moved
+*nothing* about what they found — §19.7's dissociation, now on the pair that
+actually shipped. Since v5→v9 bundles the example, the `sg` rename and the Bash
+clause, the null is at least unambiguous: no component of it mattered enough to
+show.
+
+**What the whole §19 arc adds up to.** Six description arms, three campaigns,
+~$360. Descriptions move agent behaviour reliably and measurably — the
+identifier share moves 15–20pp on demand, replicated four times. **None of it
+moves the answer.** The honest summary of semgrep against ripgrep is unchanged
+from §18: parity, with negative point estimates whose intervals include zero.
+The remaining ceiling is where §17.6 put it — the embedding model, not the
+description, not the ranking parameters, and not, on this evidence, how the
+agent is told to phrase a query.

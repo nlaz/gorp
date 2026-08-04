@@ -5,3 +5,7 @@ bench/results/
 eval/data/
 __pycache__/
 eval/sim/results/*/*/cache/
+
+# Browser-automation scratch (snapshots and console logs written while
+# verifying viewer.py against a real page). Debug output, never input.
+.playwright-mcp/
