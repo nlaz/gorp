@@ -4349,3 +4349,88 @@ mechanism, and should be reported as failing prediction 1.
 
 **Budget:** `--budget-usd 1.5` for every cell from the start, so no cell is
 retried into existence and §19.5's retry conditioning cannot recur.
+
+### 19.7 The blind-enriched result: the registered primary is zero
+
+204 instances in equal strata, rg against desc-v8, 407 of 408 cells, $119.93.
+203 paired instances (blind 67, partial 68, named 68).
+
+**The registered primary — the blind stratum — is exactly zero.**
+
+| stratum | n | desc-v8 | rg | Δ | discordant |
+|---|---|---|---|---|---|
+| **blind (primary)** | 67 | 0.478 | 0.478 | **+0.000** | 3/3 |
+| partial | 68 | 0.515 | 0.588 | −0.074 | 3/8 |
+| named | 68 | 0.574 | 0.603 | −0.029 | 1/3 |
+| pooled | 203 | 0.522 | 0.557 | −0.034 CI[−0.079, +0.010] | 7/14, p=0.19 |
+| reweighted to population | 203 | | | −0.037 CI[−0.081, +0.006] | |
+
+§19.6 registered this in advance: *"A blind null falsifies the mechanism on
+real agents, and §19.2b's observational finding should then be treated as a
+property of that offline replay rather than of agent behaviour."* **It is a
+blind null. The mechanism is falsified on real agents, and that sentence is
+now binding.**
+
+**The manipulation worked; the outcome did not follow.** This is not a failure
+to move agents. The style shift replicated cleanly on a harder frame — 62%
+identifier-shaped queries over 795 ranked searches, against desc-v5's 45%
+baseline in §19.5. Agents read the example, imitated it, and wrote the queries
+§19.2b said would find more. They did not find more. The dissociation is the
+result: **a description can reliably change how an agent searches without
+changing what it finds.**
+
+**Tier-1's +0.050 reversed.** §19.5 measured desc-v8 over rg at +0.050 on 6-to-4
+discordant pairs; at 203 pairs it is −0.034 on 7-to-14. The intervals overlap,
+so this is a null replacing a null rather than a contradiction — but the point
+estimate changed sign, which is exactly the §18.6 pattern (a +0.050 on two
+discordant pairs reversing on an independent 40) happening to *our own shipped
+change*, two days after we wrote §18.6 down.
+
+**The two efficiency predictions passed, and replicated.**
+
+- **Prediction 2 (searches below rg): passed.** 3.89 against 4.48 per run,
+  median 2 against 3, paired Δ **−0.59**. §19.5 saw 3.5 against 5.0, so this is
+  a second measurement of the same effect on a different frame.
+- **Prediction 3 (cost does not rise): passed.** $0.278 against $0.285, paired
+  Δ −$0.007.
+
+So desc-v8 buys **fewer round-trips at no accuracy gain**, and the honest
+summary of semgrep against ripgrep is unchanged from §18: **parity**, with a
+negative point estimate here whose CI includes zero.
+
+**What this does not test.** The campaign compared rg against desc-v8. It says
+nothing at power about **desc-v8 against desc-v5** — the actual ship decision —
+which still rests only on §19.5's +0.050 over 4-to-2 discordant pairs. Shipping
+desc-v8 was justified by an argument this result removes one leg of; the
+remaining legs are the replicated style shift and the replicated search
+reduction, neither of which is an accuracy claim. README has been corrected
+accordingly rather than left carrying a superseded number.
+
+**Three ways this could still be wrong, in the direction of the hypothesis.**
+
+- *The frame is deliberately hard.* 33% blind against a 12% population. The
+  reweighted figure corrects for that and is also negative, so this does not
+  rescue the result, but it does mean the pooled number is not comparable to
+  §16.9/§18's.
+- *Attrition is rg-favourable.* All 3 failures were rg cells truncated by the
+  budget guard on long runs. Dropping those biases the surviving rg sample
+  toward runs rg could finish — which flatters rg. 3 of 410 attempts, so the
+  effect is small, but it points the same way as the result and cannot explain
+  it away.
+- *`func_acc@10_tol` is a blunt endpoint.* The co-primary recall is −0.025 with
+  16-to-20 discordant, so the continuous measure agrees with the binary rather
+  than hiding a signal inside it.
+
+**What §19.2b now means.** Its measurement stands as a description of the
+*offline replay*: on `guessplay.jsonl`, a blind paraphrase found the gold 13%
+of the time against a blind name's 50%, with disjoint CIs. What does not
+survive is the inference from that to agent behaviour. The likeliest
+reconciliation is selection: in the replay, *which* queries an agent wrote was
+already determined by what it knew, and §19.2b's stratification controlled for
+vocabulary overlap with the gold but not for everything overlap proxies. An
+agent instructed to write names writes names for targets it cannot name, and
+those names are guesses, where the agents in the replay who wrote names were
+often agents who had a name.
+
+That is a hypothesis, not a finding, and it is the thing to test next — not
+another description arm.

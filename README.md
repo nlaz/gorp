@@ -217,10 +217,21 @@ imitate the example rather than the prose (§7.3), so the example is what
 decides which of those they write: this one moved the share of name-shaped
 queries **+20pp** against the same description without it.
 
-*Evidence grade, stated plainly:* the behaviour change is measured; the
-accuracy gain that should follow is **directional and not yet confirmed**
-(+0.05 over both ripgrep and the exampleless description, on a 40-instance
-frame that yields too few discordant pairs to resolve it — §19.4).
+*Evidence grade, stated plainly — and one claim here has been withdrawn.* What
+is measured and replicated: the example changes how agents search (+20pp
+name-shaped queries, twice, on two different frames) and it costs **fewer
+searches per task** (3.9 against ripgrep's 4.5, after 3.5 against 5.0 on the
+first frame) at slightly lower cost.
+
+What is **not** true, and was claimed here for one day: that this buys better
+answers. A 40-instance frame suggested +0.05 over ripgrep; a 203-pair frame
+enriched for exactly the cases the mechanism predicted then returned **+0.000
+on that stratum** and −0.034 pooled (§19.7). The description reliably changes
+how an agent searches without changing what it finds. semgrep against ripgrep
+remains what §18 measured: **parity**.
+
+Recommend this description for the round-trips it saves, not for accuracy it
+does not deliver.
 
 `semgrep --help` still describes the tool the older way, without the example.
 The two differ deliberately rather than by oversight, and §19.5's campaign is
