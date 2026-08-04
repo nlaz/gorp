@@ -4019,7 +4019,65 @@ desc-v7 exists to turn that confound into a single variable. The prior is
 strong enough to be worth the frame and weak enough that it cannot stand in
 for it.
 
-### 19.3 Pre-registration (before the first row)
+### 19.2b What a static model does with a paraphrase (and why v7 was wrong)
+
+Before spending a frame teaching agents to write descriptions, the obvious
+question: **does the engine actually reward one?** `ese` is a *static*
+embedding table — one vector per token, pooled by SIF rarity weight, word
+order discarded. There is no contextual encoder, so a query's vector is a
+weighted bag of its tokens' vectors, and `sif.rs`'s weight `a/(a + p(w))`
+with `a = 1e-3` puts a word appearing in 1% of the corpus at 0.09 while a
+rare one sits near 0.99. **A paraphrase is therefore reduced, at the engine,
+to its rare tokens** — "where is the retry backoff computed" is close to
+"retry backoff computed" — and if those tokens miss, nothing is left.
+
+Measured on `guessplay.jsonl`, restricted to the arm where the agent wrote
+the ranked query itself (`ranked-own`; t1/t2 are harness translations of grep
+patterns and identifier-shaped by construction), default config, original
+scope, non-file scopes only — n = 413, hit@5:
+
+| style | n | words | semantic | bm25 | hybrid |
+|---|---|---|---|---|---|
+| identifiers | 194 | 3.2 | 0.526 | 0.500 | **0.526** |
+| plain words | 155 | 3.8 | 0.503 | 0.503 | **0.548** |
+| mixed | 22 | 6.6 | 0.409 | 0.500 | 0.455 |
+| paraphrase | 42 | 7.5 | 0.357 | 0.357 | **0.357** |
+
+Stratifying by §17.4's predictor — does the query share any subtoken with the
+gold function — separates knowing the name from writing it well:
+
+| style | shares gold vocab | shares none |
+|---|---|---|
+| identifiers | 0.581 (n=105) | **0.461** (n=89) |
+| plain words | 0.567 (n=60) | 0.537 (n=95) |
+| paraphrase | 0.824 (n=17) | **0.040** (n=25) |
+
+**A paraphrase that misses the gold's vocabulary finds it 4% of the time. An
+identifier guess that also misses finds it 46%.** That is the finding, and it
+inverts what desc-v7 was built on. A paraphrase is not a way around not
+knowing the name — it is bimodal, superb when it happens to contain the right
+rare word (0.824) and near-total failure when it does not. An identifier
+guess degrades gracefully instead, because a wrong guess still shares
+subtokens with the right one: `retry_backoff` and `backoff_delay` overlap
+where "computed" and `backoff_delay` do not.
+
+Two things follow. **semantic − bm25 is ≈ 0 in every stratum** — the static
+table adds essentially nothing over lexical matching on real agent queries,
+which is §17.3's tie localized rather than contradicted. And **query length
+is the wrong endpoint**: paraphrases are the longest queries and the worst
+ones, so a description that raised mean length by teaching questions would be
+a regression reported as a win. `queryshape.py` reports style, and the
+existing desc-v4 rows show exactly that trap — its +1.34 words is **−7pp
+identifiers and +5pp paraphrase**.
+
+*Caveats, because this is observational.* The style comparison is not
+randomized: agents choose how to phrase, and the overlap stratification is a
+control rather than a randomization. Paraphrase n is small (42, of which 25
+share no gold vocabulary), so 0.040 is 1 hit in 25 — the direction is far
+better established than the magnitude. That is precisely what the campaign
+below is for.
+
+### 19.3 Pre-registration (amended 2026-08-04, before the first row)
 
 Endpoints carry forward from §16.9/§18.5 unchanged: primary
 `func_acc@10_tol`, exact two-sided McNemar over discordant pairs, restricted
@@ -4027,42 +4085,61 @@ to instances with non-empty `gold_funcs`; secondary `file_acc@5`, cost,
 searches per run. One canonical file, `--resume`, no interim endpoint looks,
 `triage.py` per chunk.
 
-Both arms are semgrep, so this is paired *within* the tool and carries no rg
-control — the §18 rg comparison is settled and re-running it would only spend
-money to reproduce a null.
+**What the amendment changed, and when.** §19.3 first registered *query
+length* as prediction 1 and "parity or a small gain" for desc-v7. §19.2b then
+measured that length is the wrong endpoint and that desc-v7's paraphrase
+example demonstrates the worst-performing style. The predictions below
+replace those. **No desc-v7 or desc-v8 row had been run when this was
+written** — the amendment is a response to offline analysis of a pre-existing
+file, not to any result from the campaign it registers. Recording the
+supersession rather than editing the original in place is the point.
+
+**The design is now five arms**, which makes it a factorial rather than an
+A/B: `desc-v5` (no example) against `desc-v6` (a rule, no example) isolates
+the *instruction*; v5 against `desc-v7`/`desc-v8` isolates *having* an
+example; and **v7 against v8 isolates the style the example demonstrates**,
+the two differing only in the 35 characters inside the example's quotes. `rg`
+rides along as the incumbent control, because five arms make the marginal
+cost of the sixth small and §18's null deserves a second independent look.
 
 **Registered predictions, in falsifiable order:**
 
-1. **Query length moves**, by roughly the +1.34 words §19.2a saw between
-   desc-v4 and desc-v5, and plausibly less since desc-v7 changes one of that
-   pair's three differences. Registered floor: **+0.5 words**, below which
-   the example did not take. This is the mechanism the example is supposed to
-   act through, it is measurable from the shim logs *without any accuracy
-   claim* (`queryshape.py --a desc-v7 --b desc-v5`), and it gates the rest.
-   **If query length does not move, predictions 2–3 are void rather than
-   negative** — an unread description cannot be evidence about examples.
-2. **Accuracy is parity or a small gain**, CI including zero. §17.4's 69%
-   vocabulary wall is a model problem that a longer query cannot cross; the
-   reachable part is the ~31% of ranking failures that do share vocabulary,
-   where more query words means more chance of overlap. Anything above
-   +0.05 should be disbelieved and re-run before it is written down.
-3. **Cost does not rise.** Longer queries are input tokens, which are cheap;
-   the round-trips they might save are output tokens, which are not.
+1. **Query style moves, and length is not the endpoint.** Registered floor:
+   **desc-v8 raises the identifier share by ≥5pp over desc-v5**, and desc-v7
+   raises the paraphrase share. Measured with `queryshape.py`, from the shim
+   logs, with no scoring and no gold files. **If style does not move,
+   predictions 2–4 are void rather than negative** — an unread description
+   cannot be evidence about examples. A rise in mean *words* unaccompanied by
+   a style shift is explicitly **not** a pass, which is the trap desc-v4's
+   +1.34 words sets.
+2. **desc-v8 ≥ desc-v7 on accuracy**, and this is the comparison the campaign
+   exists for. §19.2b puts a blind paraphrase at 0.040 and a blind identifier
+   guess at 0.461, so if agents imitate examples (§7.3) the ordering should
+   survive into `func_acc@10_tol`. This is the one place a large effect would
+   not be surprising.
+3. **desc-v7 ≤ desc-v5.** The uncomfortable prediction, registered because it
+   is what §19.2b implies and because desc-v7 is *our own* proposal from
+   yesterday: an example that demonstrates paraphrasing should make things
+   worse, not merely fail to help. If v7 beats v5, §19.2b's mechanism is
+   wrong and the observational analysis misled us.
+4. **Cost does not rise**, in any arm.
 
-The failure mode to name in advance: **§7.3 measured that agents imitate
-examples, so the example's *content* is a confound.** `retry backoff` is a
-networking phrase, and Loc-Bench is not mostly networking bugs. If prediction
-1 lands and 2 does not, the next arm is the same description with a different
-example — not the conclusion that examples do not work.
+Two failure modes named in advance. **The example's content is a confound**
+(§7.3: agents imitate examples): `retry backoff` is networking vocabulary and
+Loc-Bench is not mostly networking bugs, so if style moves and accuracy does
+not, the next arm is a different example rather than a conclusion about
+examples. And **desc-v8 conflates two changes** — identifier shape *and*
+three candidate names in one query. If it wins, which of those did the work
+is a further arm, not something this frame answers.
 
 ### 19.4 How to run it
 
-    OUT=../data/locbench/results-desc-v7.jsonl \
-    CONDITIONS=desc-v5,desc-v7 LIMIT=200 eval/locbench/campaign.sh
+    OUT=../data/locbench/results-desc-tier1.jsonl LIMIT=40 \
+    CONDITIONS=rg,desc-v5,desc-v6,desc-v7,desc-v8 eval/locbench/campaign.sh
 
-    python3 eval/locbench/queryshape.py --a desc-v7 --b desc-v5   # prediction 1
+    python3 eval/locbench/queryshape.py --a desc-v8 --b desc-v5   # prediction 1
     python3 eval/locbench/ab_analyze.py \
-      --results ../data/locbench/results-desc-v7.jsonl --a desc-v7 --b desc-v5
+      --results ../data/locbench/results-desc-tier1.jsonl --a desc-v8 --b desc-v7
 
 `campaign.sh` takes the arms as parameters rather than literals now; its
 defaults still reproduce the §16.9 invocation exactly. Prediction 1 is
