@@ -4182,19 +4182,161 @@ is a further arm, not something this frame answers.
 
 ### 19.4 How to run it
 
+The five-arm campaign §19.5 reports, kept for reproduction:
+
     OUT=../data/locbench/results-desc-tier1.jsonl LIMIT=40 \
     CONDITIONS=rg,desc-v5,desc-v6,desc-v7,desc-v8 eval/locbench/campaign.sh
+
+§19.6's blind-enriched frame:
+
+    INSTANCES=$(python3 eval/locbench/tierframe.py) \
+    OUT=../data/locbench/results-desc-v8-blind.jsonl \
+    CONDITIONS=rg,desc-v8 BUDGET=1.5 eval/locbench/campaign.sh
+
+Analysis, in the order the predictions are gated:
 
     # prediction 1 — --since scopes to THIS campaign's run dirs. Without it the
     # sweep picks up every campaign ever run and compares arms across different
     # instances, which is not a paired comparison.
-    python3 eval/locbench/queryshape.py --since 20260804-0100 --a desc-v8 --b desc-v5
+    python3 eval/locbench/queryshape.py --since <run-id> --a desc-v8 --b rg
 
     python3 eval/locbench/ab_analyze.py \
-      --results ../data/locbench/results-desc-tier1.jsonl --a desc-v8 --b desc-v7
+      --results ../data/locbench/results-desc-v8-blind.jsonl --a desc-v8 --b rg
+    python3 eval/locbench/reweight.py \
+      --results ../data/locbench/results-desc-v8-blind.jsonl --a desc-v8 --b rg
 
-`campaign.sh` takes the arms as parameters rather than literals now; its
-defaults still reproduce the §16.9 invocation exactly. Prediction 1 is
-answerable from the shim logs alone, so **run `queryshape.py` after the first
-chunk** — before the frame is paid for. Order matters here: prediction 1 is
-free and gates the two that are not.
+`campaign.sh` takes arms, frame and budget as parameters rather than literals;
+its defaults reproduce the §16.9 frame's *shape* but run desc-v8, since a
+harness whose default tests something other than what README recommends stops
+being evidence about the product. Prediction 1 is answerable from the shim logs
+alone, so **run `queryshape.py` after the first chunk** — before the frame is
+paid for. Order matters: prediction 1 is free and gates the ones that are not.
+
+### 19.5 What the five-arm campaign found (40 instances × 5 arms, $71.18)
+
+200 cells, 213 attempts, 10 of them the `--budget-usd` guard firing. Primary
+`func_acc@10_tol`, paired within instance:
+
+| arm | accuracy | $/run | searches/run |
+|---|---|---|---|
+| **desc-v8** (identifier example) | **0.600** | **$0.268** | **3.5** |
+| desc-v5 (no example, ships today) | 0.550 | $0.303 | 4.4 |
+| desc-v7 (paraphrase example) | 0.550 | $0.312 | 4.7 |
+| rg | 0.550 | $0.277 | 5.0 |
+| desc-v6 (a rule, no example) | 0.525 | $0.280 | 4.5 |
+
+**Prediction 1 (style moves): passed for v8, failed for v7.** desc-v8 raised
+the identifier share **+20pp** over desc-v5 (65% vs 45%, n=161 vs 218) against
+a registered floor of +5pp — the gate on everything below is met. But v7 was
+registered to raise the *paraphrase* share and did the opposite: paraphrase
+fell 1pp while identifiers rose 8pp. **Showing an agent a question did not make
+it ask questions.** So v7 is not behaviourally the paraphrase arm it was
+designed to be, and every v7 result below is weaker evidence about paraphrasing
+than the design intended.
+
+**Prediction 2 (v8 ≥ v7): directionally yes, unresolved.** Δ = +0.050
+CI[−0.075, +0.175], 4 discordant to 2, p = 0.69.
+
+**Prediction 3 (v7 ≤ v5): failed.** Δ = **+0.000** exactly, 1 discordant to 1.
+An example demonstrating a paraphrase neither helped nor hurt. Registered
+because the mechanism implied our own previous day's proposal was harmful; it
+is not, and that is recorded as a miss rather than reinterpreted.
+
+**Prediction 4 (cost does not rise): passed, and then some.** desc-v8 is the
+*cheapest* arm and uses the fewest searches — 3.5 against rg's 5.0, a 30%
+reduction. Agents given a naming example converge in fewer round-trips, which
+is the §2 token argument landing in the one place it can be observed directly.
+
+**The pooled accuracy result is a null.** +0.050 for desc-v8 over desc-v5, over
+desc-v7 and over rg — the same figure three times, on 4-to-2 and 6-to-4
+discordant splits with p between 0.69 and 0.75. The whole 40-instance frame
+yields 4–6 discordant pairs. Reweighted to the true population, +0.044
+CI[−0.099, +0.188]. §18.6's lesson applies exactly: a +0.050 on two discordant
+pairs reversed on an independent 40.
+
+**The pre-specified blind subgroup, and its honest size.** All three desc-v8
+comparisons show blind +0.167 — and it is the *same* +0.167 each time, because
+v5, v7 and rg all score 0.333 on the 6 blind instances while v8 scores 0.500.
+**That is one instance.** The direction matches §19.2b's mechanism and the
+named stratum is flat as predicted, which is the pattern registered in advance;
+but a single blind instance is an anecdote with a confidence interval drawn
+around it, and it is reported here only because pre-registering a subgroup
+obliges reporting it whatever it says. §19.6 exists to give it 68 instances.
+
+**desc-v6 is inert for the third time**: −0.025 pooled, −0.167 blind, and
++0.40 words with −5pp identifiers on n=245 queries. An explicit instruction to
+describe behaviour and fold candidate names still does not change behaviour
+where an example does. §7.3's example-beats-rule asymmetry now has three
+independent replications and no counterexample.
+
+**Limitations, none of which the numbers above disclose on their own.**
+
+- *Retry conditioning.* 5 of 200 cells come from an arm that failed and was
+  re-run until it succeeded (desc-v6 ×2, rg, desc-v5, desc-v8 ×1 each). That
+  conditions those cells on termination, which plausibly correlates with
+  finding the answer. Spread across arms, so it costs cleanliness rather than
+  direction — but §19.6 removes it by raising the budget for every cell up
+  front rather than retrying failures.
+- *Budget censoring is not symmetric by construction, only by luck.* The guard
+  truncates long runs, and long runs are exactly the informative ones. It fired
+  on three instances; `Netflix__metaflow-2141` is the same instance §18.6
+  documented.
+- *An earlier claim of ours was wrong.* Re-running a failed cell at a higher
+  budget was described mid-campaign as necessary for "equal budget across arms
+  within an instance". It is not: the runs are stochastic (desc-v6 succeeded at
+  $0.98 under a $1.00 cap and then failed at $1.51 under a $1.50 one), and a
+  cap only binds when hit, so an arm finishing at $0.94 is unaffected by
+  headroom it never used. The real hazard was the retry conditioning above.
+
+**What shipped on this.** desc-v8 is now README's recommended tool description
+(§6 called the tool prompt a deliverable and nothing shipped one), with the
+evidence grade stated in the section: behaviour change measured, accuracy gain
+directional and unconfirmed. `campaign.sh` defaults to it. **`cli.rs` keeps its
+desc-v5-derived `--help` text, so `--help` and README now differ, and `--help`
+still advertises "a question"** — the style §19.2b found worst when blind. That
+divergence is deliberate, recorded in both places, and is what §19.6 decides.
+
+### 19.6 Pre-registration: the blind-enriched frame (before the first row)
+
+**The frame changes, and why.** §18.5 registered tier 2 as 560 × 2, rg against
+desc-v5. This supersedes it: rg against **desc-v8**, on **204 instances in
+equal strata** — all 68 `blind`, plus 68 `partial` and 68 `named`
+(`tierframe.py`, seed 1). The dataset is 62/26/12, so a random 560-instance
+frame spends 62% of its budget on the stratum where §19.2b predicts *no*
+effect and still yields only 68 blind pairs. Equal strata buy the same 68 blind
+pairs for ~$134 instead of ~$368.
+
+**What that costs, stated up front:** a pooled mean over this frame is a mean
+over a population one-third blind, and must not be quoted beside §16.9/§18.
+`reweight.py` restores a comparable figure by weighting within-stratum deltas
+to the true 348/144/68 shares, with a stratified bootstrap CI that will be
+*wider* than the unweighted one because blind stays the noisiest stratum.
+
+**Endpoints.** Primary: the **blind stratum**, n = 68 pairs,
+`func_acc@10_tol`, exact McNemar. Secondary: partial and named strata; the
+reweighted pooled estimate; `func_recall@10_tol` (continuous, because §18.5
+notes the binary discards resolution wherever arms agree); cost; searches per
+run — where §19.5 saw desc-v8 30% below rg and that deserves a powered test of
+its own.
+
+**Registered predictions.**
+
+1. **An effect in `blind`, ≈0 in `named`.** This is the whole mechanism:
+   §19.2b found descriptions and names indistinguishable when the query already
+   carries the gold's vocabulary, and 13% against 50% when it does not. A
+   pooled null with a blind effect is a **pass**. A blind null falsifies the
+   mechanism on real agents, and §19.2b's observational finding should then be
+   treated as a property of that offline replay rather than of agent behaviour.
+2. **Searches per run stays below rg.** §19.5's 3.5 vs 5.0 is the most
+   promising unregistered number in this project and is therefore exactly the
+   one most likely to be noise.
+3. **Cost does not rise.**
+
+**Registered in advance because they would otherwise be tempting after the
+fact:** the blind stratum is the primary *because* §19.5's blind signal was one
+instance, not because it was positive; and if the blind effect appears with
+`named` also moving, that is a general-competence difference rather than this
+mechanism, and should be reported as failing prediction 1.
+
+**Budget:** `--budget-usd 1.5` for every cell from the start, so no cell is
+retried into existence and §19.5's retry conditioning cannot recur.
