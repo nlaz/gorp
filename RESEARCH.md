@@ -3764,3 +3764,123 @@ sample and needed rechecking before §14.5 could lean on it; and "widen the
 scope," which follows directly from the 13.8% number, is a measured
 regression. Both were one paired comparison away from being written down
 wrong.
+
+## 18. The two-tiered rerun (2026-08-03)
+
+The §16.10 campaign measured a broken tool: 47% of the treatment arm's
+searches returned nothing, and the harness never noticed because the only
+per-search record was `(argv, exit, stdout_bytes)`. Everything since —
+§16.11's file-scope fix, four join sites plus a fifth in `out::context`,
+the §17 grep-compat work, the `index` false affordance — has been verified
+by tests and offline replay, never under a live agent.
+
+So: a small instrumented tier, a gate, then the full run. Tier 1 is
+underpowered on purpose. Its job is to find the next §16.11 *before* 1,100
+runs are paid for, not to measure accuracy.
+
+### 18.1 The instrument that was missing
+
+`SEMGREP_TRACE_FILE` already existed and was built for this — it does not
+perturb the argv an agent sees, so it works underneath `shim.py`, and it
+catches invocations no outer flag can reach. **`run.py` never set it.** It
+does now, per condition dir, and `files_walked` was added to the envelope
+(it reached `SearchReport` in the §17 work but never the trace, and it is
+the field that separates "empty scope" from "unreadable scope").
+
+`eval/locbench/triage.py` reads those envelopes beside the shim logs and
+gates on them, exiting nonzero so it stops a campaign rather than
+describing one. Validated by running it against the **old** campaign, where
+it correctly fails: 69 usage errors, **455 distress signals**, 82 instances
+where every search was empty. It would have stopped that run on chunk one.
+
+Two of its own defects surfaced in that validation: a disk figure printed
+as `580.0%`, and — the one that matters — **the empty-result gate passing
+vacuously at 0/0 when no traces exist**, which is the same silence the tool
+exists to end. A missing trace now fails the gate.
+
+### 18.2 Tier 0 (free, offline)
+
+Replaying all 3,519 logged agent invocations from §16.10 against the fixed
+binary, on the frozen fixture:
+
+| | §16.10 | now |
+|---|---|---|
+| usage errors (exit 2) | 69 | **7** |
+| returned nothing (exit 1) | 2,008 | **90** |
+| returned hits (exit 0) | 1,442 | **3,422** |
+| regressions | — | **0** |
+
+(Fixture corpus, so "hits" is easy — the exit-code *shape* is the signal,
+not the ranking.)
+
+### 18.3 What tier 1 found, on its first four rows
+
+The smoke run — two instances — reported `path_taken=built_but_missed`
+twice, a shape `telemetry.rs` names precisely because it is a bug.
+Reproduced deterministically: `cache::discover` refuses a non-directory
+root, so a file-scoped search misses; `build_through` then builds a
+**complete index for that file** and writes it; re-discovery misses again
+on the same check, so the search streams anyway; and the budget sweep
+deletes the fresh entry, because it judges a root dead by `root_exists:
+root.is_dir()` — right for "the checkout was deleted", wrong once §16.11
+made file scopes legitimate. Every file-scoped search built an index and
+threw it away, on roughly half of all agent searches.
+
+A second, more general defect fell out of it: `enforce_budget_protecting`
+passed `keep` only to the LRU pass, not to the dead sweep that runs first —
+so "protect the entry I just wrote" did not.
+
+Absolute cost was ~20 ms (a one-file index is cheap), so this is waste and
+churn rather than a performance headline. Serving a file scope from an
+ancestor's index is the better answer and the prefix machinery already
+exists; noted, not attempted.
+
+**This is the entire case for the instrumentation.** Four rows, and it
+surfaced a defect that eight weeks of tests, two adversarial reviews, and a
+1,115-run campaign had not.
+
+### 18.4 Tier 1 results (40 instances × 2 arms, $18.70)
+
+| gate | §16.10 | tier 1 |
+|---|---|---|
+| ranked searches returning nothing | 59% | **0 of 138** |
+| instances where every search was empty | 18% (82) | **0** |
+| distress signals attributable to the tool | 455 | **0** |
+| usage errors the tool is answerable for | 69 | **0** |
+| leaked worktrees / non-ok rows | 4 / 1 | **0 / 0** |
+
+The five remaining exit-2s are the tool being correct, and `triage.py`
+classifies them rather than counting them: two queries beginning with a
+dash (read as flags — the caller's mistake, but the message was unhelpful,
+so `--` is now suggested), two `-k` with no value, one path that does not
+exist in that revision. **Gating on the raw count would have failed the run
+for rejecting a bad path, which is the single most useful error the tool
+emits** — an agent reads "no results" as "the code is not there", and a
+wrong path is the other explanation. The gate is on unrecognised *flags*,
+the category where a compat gap would hide.
+
+Accuracy, reported for completeness and **not** to be read as a result at
+n=40: `func_acc@10_tol` rg 0.625 vs desc-v5 0.675 (w2/l0),
+`file_acc@5` 0.775 vs 0.800 (w1/l0). Two discordant pairs decide the
+primary endpoint, which is §11.5's instrument limit restated. Cost per run
+$0.221 vs $0.246; searches per run 3.8 vs 3.6.
+
+### 18.5 Tier 2 pre-registration (before the first row)
+
+Endpoints carry forward from §16.9 unchanged: primary `func_acc@10_tol`,
+exact two-sided McNemar over discordant pairs, restricted to instances with
+non-empty `gold_funcs`; secondary `file_acc@5`, cost, searches per run. One
+canonical file, `--resume`, no interim endpoint looks; `triage.py` per
+chunk to catch a mid-flight regression rather than a post-mortem.
+
+**The registered expectation is parity.** §16.11 measured the file-scope
+bug as costing nothing (bug-hit +0.012, bug-free −0.014, both noise), and
+§17 put the remaining ceiling on the vocabulary wall — 69% of true ranking
+failures share no token with the gold — which is a model problem and out of
+scope by decision. Tier 1's +0.050 rests on two discordant pairs and is not
+evidence against that prior.
+
+So the honest value of tier 2 is: **the §16.10 number was measured on a
+broken tool, and this is what the product actually does.** A null is the
+predicted result, not a disappointment. Recording that here, before the
+run, is what makes it a prediction rather than a rationalisation.

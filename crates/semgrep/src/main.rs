@@ -21,8 +21,35 @@ mod telemetry;
 
 use clap::Parser;
 
+/// Parse argv, adding one line of recovery advice to the failure clap cannot
+/// explain on its own.
+///
+/// A query that begins with a dash — `semgrep "-v --variable option deploy"` —
+/// is read as flags, and clap says `unexpected argument '-v' found`, which
+/// tells a caller nothing about how to proceed. It happened twice in 143 real
+/// agent invocations (RESEARCH.md §18 tier 1). `--` is the answer and nobody
+/// types it unprompted.
+///
+/// Only the advice is ours: clap still owns the error text, the exit code, and
+/// `--help`/`--version`, which it reports through the same error type.
+fn parse_args() -> cli::Cli {
+    match cli::Cli::try_parse() {
+        Ok(cli) => cli,
+        Err(e) => {
+            let _ = e.print();
+            if matches!(e.kind(), clap::error::ErrorKind::UnknownArgument) {
+                eprintln!(
+                    "semgrep: if that was your query and not a flag, put it after `--`:\n\
+                     semgrep -- \"-v your query here\" [path]"
+                );
+            }
+            std::process::exit(if e.use_stderr() { EXIT_ERROR } else { 0 });
+        }
+    }
+}
+
 fn main() {
-    let code = match cmd::dispatch(cli::Cli::parse()) {
+    let code = match cmd::dispatch(parse_args()) {
         Ok(code) => code,
         Err(e) => {
             // `{:#}` so the anyhow context chain shows, not just the outermost
