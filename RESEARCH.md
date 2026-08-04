@@ -3937,3 +3937,135 @@ alone, +0.050 would have looked like a result. `file_acc@5` pooled: 0.795 vs
 
 Tier 2's registration stands unchanged, now with two independent samples
 behind it rather than a prior.
+
+## 19. The description A/B: restoring the micro-example (2026-08-04)
+
+§18 closed the engine question at parity and §17 put the ceiling on the
+vocabulary wall. What neither touched is the largest lever this project has
+ever measured, which is not in the engine at all: **§16.6 moved an agent's
+ranked share from 72% to 7% by mentioning `-e` in one clause.** Description
+effects here are an order of magnitude larger than any §9 ranking parameter.
+
+### 19.1 What the post-fix trajectories show
+
+The first campaign run on a working tool (366 searches over 5 runs,
+2026-08-03 19:29 onward) is the first clean read of how agents drive this
+tool. The distress signals are gone: empty results fell from 55–68% to ~2%,
+repeated-identical-queries from 1,040 to 0, `--help` probes from 27 to 0.
+
+What is left is the query shape:
+
+| query length | n | share |
+|---|---|---|
+| 1 word | 124 | 34% |
+| 2 words | 125 | 34% |
+| 3 words | 40 | 11% |
+| 4+ words | 77 | 21% |
+
+**68% of queries are one or two words** — identifier guesses at a tool built
+to take descriptions. That is the same population §17.3 profiled from the
+other end: the queries that miss have median length 1 word, and §17.4 found
+69% of true ranking failures share *no token at all* with the gold. A
+one-token guess has almost no surface to overlap on.
+
+### 19.2 The candidate, and why it is a defect rather than an idea
+
+`desc-v5` — the description in every campaign since §16.7, 695 runs — **has
+no micro-example.** `desc-v4` does.
+
+That is an accident of derivation, not a decision. v5 was produced by cutting
+`-e` out of v4 (§16.6), and the example went with it because the example was
+the clause that named a mode. But §7.3's winner was ranked-as-identity
+framing **plus** a micro-example, and §7.3 separately found that *agents
+imitate examples more reliably than they follow rules*. What has shipped for
+695 runs is half of a measured result, and the half that was dropped is the
+half that demonstrates a descriptive query.
+
+`desc-v7` is `desc-v5` with the v4 example restored and nothing else: one
+inserted sentence, 237 characters identical before it and 95 after, verified
+by diff rather than by eye. `-e` stays unmentioned, so this cannot
+re-collapse ranked share the way §16.6 did.
+
+### 19.2a The prior already in the logs, and its confound
+
+`queryshape.py` reads query length by condition out of the shim logs, so the
+descriptions already run can be asked prediction 1 before a row is spent
+(ranked semgrep searches only):
+
+| condition | example? | rule? | n | mean words | ≤2 words |
+|---|---|---|---|---|---|
+| desc-v4 | **yes** | no | 23 | **3.74** | 30% |
+| desc-v5 (ships today) | no | no | 4,129 | 2.40 | 69% |
+| desc-v6 | no | **yes** | 50 | 2.38 | 64% |
+
+Two things fall out, and only one of them is trustworthy.
+
+**The clean one is desc-v6.** It is desc-v5 plus an explicit instruction —
+"describe the behavior… put ALL your candidate names in one query" — and it
+moved query length by **−0.02 words**. A rule telling agents to write longer
+queries did not produce longer queries. That is §7.3's finding reproduced on
+an independent condition, and it is why the lever under test is an example
+rather than another sentence of advice. (This also corrects a claim made in
+passing while scoping this work: desc-v6 *has* been run, 27 instances — an
+earlier count truncated its row and read as never-run.)
+
+**The confounded one is desc-v4.** It is +1.34 words over desc-v5 and has
+the example — but it also mentions `-e`, and calls the tool "a ranked hybrid
+code search" where v5 says "a ranked code search". Three differences, one
+outcome, n = 23. It is a prior, not a result, and reading it as one would be
+§17's methodological note happening a third time.
+
+desc-v7 exists to turn that confound into a single variable. The prior is
+strong enough to be worth the frame and weak enough that it cannot stand in
+for it.
+
+### 19.3 Pre-registration (before the first row)
+
+Endpoints carry forward from §16.9/§18.5 unchanged: primary
+`func_acc@10_tol`, exact two-sided McNemar over discordant pairs, restricted
+to instances with non-empty `gold_funcs`; secondary `file_acc@5`, cost,
+searches per run. One canonical file, `--resume`, no interim endpoint looks,
+`triage.py` per chunk.
+
+Both arms are semgrep, so this is paired *within* the tool and carries no rg
+control — the §18 rg comparison is settled and re-running it would only spend
+money to reproduce a null.
+
+**Registered predictions, in falsifiable order:**
+
+1. **Query length moves**, by roughly the +1.34 words §19.2a saw between
+   desc-v4 and desc-v5, and plausibly less since desc-v7 changes one of that
+   pair's three differences. Registered floor: **+0.5 words**, below which
+   the example did not take. This is the mechanism the example is supposed to
+   act through, it is measurable from the shim logs *without any accuracy
+   claim* (`queryshape.py --a desc-v7 --b desc-v5`), and it gates the rest.
+   **If query length does not move, predictions 2–3 are void rather than
+   negative** — an unread description cannot be evidence about examples.
+2. **Accuracy is parity or a small gain**, CI including zero. §17.4's 69%
+   vocabulary wall is a model problem that a longer query cannot cross; the
+   reachable part is the ~31% of ranking failures that do share vocabulary,
+   where more query words means more chance of overlap. Anything above
+   +0.05 should be disbelieved and re-run before it is written down.
+3. **Cost does not rise.** Longer queries are input tokens, which are cheap;
+   the round-trips they might save are output tokens, which are not.
+
+The failure mode to name in advance: **§7.3 measured that agents imitate
+examples, so the example's *content* is a confound.** `retry backoff` is a
+networking phrase, and Loc-Bench is not mostly networking bugs. If prediction
+1 lands and 2 does not, the next arm is the same description with a different
+example — not the conclusion that examples do not work.
+
+### 19.4 How to run it
+
+    OUT=../data/locbench/results-desc-v7.jsonl \
+    CONDITIONS=desc-v5,desc-v7 LIMIT=200 eval/locbench/campaign.sh
+
+    python3 eval/locbench/queryshape.py --a desc-v7 --b desc-v5   # prediction 1
+    python3 eval/locbench/ab_analyze.py \
+      --results ../data/locbench/results-desc-v7.jsonl --a desc-v7 --b desc-v5
+
+`campaign.sh` takes the arms as parameters rather than literals now; its
+defaults still reproduce the §16.9 invocation exactly. Prediction 1 is
+answerable from the shim logs alone, so **run `queryshape.py` after the first
+chunk** — before the frame is paid for. Order matters here: prediction 1 is
+free and gates the two that are not.

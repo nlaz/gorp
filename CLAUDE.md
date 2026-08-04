@@ -73,6 +73,13 @@ ranks, `cache` never scores, `search` orchestrates rather than computes.
   campaign into one self-contained HTML page carrying the numbers *and* the
   trajectories behind them — every search an agent ran, what came back, and
   what the engine did. Nothing external, opens offline.
+  `locbench/queryshape.py` reads query length by condition out of the shim
+  logs (via `harvest.py`), which is how a **tool-description** arm gets
+  checked before any scoring: §19's A/B registers "did agents write longer
+  queries" as the gate on its accuracy endpoints, because a description that
+  changed no behavior cannot be evidence about behavior.
+  `locbench/campaign.sh` takes its arms as `CONDITIONS=`/`LIMIT=` parameters
+  (defaults reproduce §16.9 exactly), so a new A/B does not fork the loop.
   **Query sets live in `eval/queries/`, checked in** — `eval/data/` is
   gitignored and the sets are `claude`-generated, so nothing published was
   reproducible without them. Three rg conditions exist on purpose: `rg`
