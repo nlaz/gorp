@@ -4070,12 +4070,34 @@ a regression reported as a win. `queryshape.py` reports style, and the
 existing desc-v4 rows show exactly that trap — its +1.34 words is **−7pp
 identifiers and +5pp paraphrase**.
 
-*Caveats, because this is observational.* The style comparison is not
-randomized: agents choose how to phrase, and the overlap stratification is a
-control rather than a randomization. Paraphrase n is small (42, of which 25
-share no gold vocabulary), so 0.040 is 1 hit in 25 — the direction is far
-better established than the magnitude. That is precisely what the campaign
-below is for.
+**The robustness check, and the number to quote.** The four-way classifier is
+fuzzy at one boundary: `cpp_appendColumnToParquet` matches neither the
+snake_case nor the camelCase pattern and lands in "plain words", so that class
+is a mixture of prose and unrecognised identifiers. The clean signal is the
+one that does not depend on recognising code shape — **does the query contain
+English function words** — which splits it into a name and a description with
+no fuzzy middle. Collapsed that way, hybrid hit@5 with bootstrap CIs:
+
+| | name-like | description |
+|---|---|---|
+| all | 0.536 (n=349) [0.484, 0.590] | 0.391 (n=64) [0.281, 0.516] |
+| shares gold vocab | 0.576 (n=165) | 0.636 (n=33) |
+| **shares no gold vocab** | **0.500** (n=184) [0.429, 0.571] | **0.129** (n=31) [0.032, 0.258] |
+
+The overall difference is not conclusive on its own — those CIs overlap. **The
+blind stratum is**, and it is the whole finding: the CIs are disjoint, and
+when the query already contains the gold's vocabulary a description does
+marginally *better* (0.636 vs 0.576). So descriptions are not bad; they are
+**entirely dependent on lucky rare-token overlap**, which is what a static
+bag-of-words model predicts and what the campaign is meant to confirm on
+agents who were told which style to write.
+
+*Caveats, because this is observational.* Agents choose how to phrase, so the
+stratification is a control and not a randomisation. n is small in the cut
+that carries the result (31 blind descriptions), and the narrower
+paraphrase-only cut puts it at 0.040 — 1 hit in 25. Quote **0.129 vs 0.500**,
+the collapsed and better-powered version; the direction is far better
+established than the magnitude either way.
 
 ### 19.3 Pre-registration (amended 2026-08-04, before the first row)
 
@@ -4137,7 +4159,11 @@ is a further arm, not something this frame answers.
     OUT=../data/locbench/results-desc-tier1.jsonl LIMIT=40 \
     CONDITIONS=rg,desc-v5,desc-v6,desc-v7,desc-v8 eval/locbench/campaign.sh
 
-    python3 eval/locbench/queryshape.py --a desc-v8 --b desc-v5   # prediction 1
+    # prediction 1 — --since scopes to THIS campaign's run dirs. Without it the
+    # sweep picks up every campaign ever run and compares arms across different
+    # instances, which is not a paired comparison.
+    python3 eval/locbench/queryshape.py --since 20260804-0100 --a desc-v8 --b desc-v5
+
     python3 eval/locbench/ab_analyze.py \
       --results ../data/locbench/results-desc-tier1.jsonl --a desc-v8 --b desc-v7
 
