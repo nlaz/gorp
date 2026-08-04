@@ -101,13 +101,44 @@ fn normalize(xs: impl Iterator<Item = f32>) -> Vec<f32> {
 /// chunk token; the (weighted) sum is the score. Higher is better. One strong
 /// identifier match can't be averaged away by boilerplate — the failure mode
 /// of pooled single-vector scoring.
+/// Dot product of two unit vectors, summed in 8 independent lanes.
+///
+/// The lanes are the point. Written as `zip(..).map(|(a, b)| a * b).sum()` this
+/// is a strictly-ordered float reduction, and float addition is not associative,
+/// so LLVM is not permitted to reassociate it into vector adds — it emits scalar
+/// code no matter how the bounds checks are arranged. That is a different
+/// blocker from the one in [`crate::rank::dot_distance_i8`], where integer
+/// arithmetic vectorizes as soon as the indexing lets it, and it shipped the
+/// same way: the release binary contained no `fmla` at all. Splitting the
+/// accumulator chooses a summation order up front, which LLVM *can* vectorize.
+/// Measured over the head this reranks, 4.4× (1.34 → 5.91 G MAC/s).
+///
+/// Unlike the i8 scan this is not bit-identical — the reordered sum differs in
+/// the last ulp, which can reorder otherwise-tied candidates.
+#[inline]
+fn dot(q: &[f32], d: &[f32]) -> f32 {
+    let mut lanes = [0f32; 8];
+    let mut cq = q.chunks_exact(8);
+    let mut cd = d.chunks_exact(8);
+    for (x, y) in cq.by_ref().zip(cd.by_ref()) {
+        for l in 0..8 {
+            lanes[l] += x[l] * y[l];
+        }
+    }
+    let mut s: f32 = lanes.iter().sum();
+    for (x, y) in cq.remainder().iter().zip(cd.remainder()) {
+        s += x * y;
+    }
+    s
+}
+
 pub fn maxsim(query_toks: &[(f32, Vec<f32>)], doc_toks: &[(f32, Vec<f32>)]) -> f32 {
     let mut score = 0.0f32;
     for (w, q) in query_toks {
         let mut best = f32::NEG_INFINITY;
         for (_, d) in doc_toks {
             // Unit vectors: dot = cosine similarity.
-            let sim: f32 = q.iter().zip(d.iter()).map(|(a, b)| a * b).sum();
+            let sim = dot(q, d);
             if sim > best {
                 best = sim;
             }

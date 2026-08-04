@@ -32,24 +32,42 @@ pub fn quantize_i8(v: &[f32]) -> Vec<i8> {
 
 /// Distance for i8-quantized unit vectors: `1 − (a·b)/127²`, same
 /// lower-is-better convention as [`distance`]. On unit vectors this is one
-/// integer FMA stream instead of the three float passes cosine needs, and it
-/// autovectorizes; the scan it feeds was 72% of a warm kernel-corpus query.
+/// integer FMA stream instead of the three float passes cosine needs; the scan
+/// it feeds was 72% of a warm kernel-corpus query.
+///
+/// `chunks_exact` is load-bearing, not style. The obvious form of this loop —
+/// index `a[i + l]` under `while i + 8 <= n` — does not vectorize, because the
+/// callers pass a query slice whose length LLVM cannot see (it is a `&[i8]`
+/// parameter, not a `[i8; EMBED_DIM]`), so `n` stays dynamic, the eight
+/// element accesses keep their bounds checks, and the loop is emitted as scalar
+/// `ldursb`/`madd`. It shipped that way: the release binary contained no
+/// `smull`/`sadalp` at all. `chunks_exact` hands LLVM fixed-size slices it can
+/// prove in-bounds, which is the whole precondition. Measured over 1.5M×256
+/// rows on 8 threads, the indexed form ran 23.9 ms against 4.35 ms here, and
+/// `rank:brute` on the kernel corpus went 27 ms → 16 ms.
+///
+/// Hand-written NEON was measured too and is not worth it: 4.29 ms against this
+/// 4.35 ms, because at 8 threads the scan is memory-bandwidth bound (~88 GB/s),
+/// not compute bound. The one-instruction `sdot` would need nightly
+/// (`vdotq_s32`, rust-lang#117224) for a win the memory system would eat.
+///
+/// The arithmetic is integer, so this is bit-identical to the scalar form —
+/// changing it left all 114 snapshot cases byte-for-byte unchanged.
 #[inline]
 pub fn dot_distance_i8(a: &[i8], b: &[i8]) -> f32 {
     let n = a.len().min(b.len());
     let (a, b) = (&a[..n], &b[..n]);
-    let mut lanes = [0i32; 8];
-    let mut i = 0;
-    while i + 8 <= n {
-        for l in 0..8 {
-            lanes[l] += a[i + l] as i32 * b[i + l] as i32;
+    let mut lanes = [0i32; 16];
+    let mut ca = a.chunks_exact(16);
+    let mut cb = b.chunks_exact(16);
+    for (x, y) in ca.by_ref().zip(cb.by_ref()) {
+        for l in 0..16 {
+            lanes[l] += x[l] as i32 * y[l] as i32;
         }
-        i += 8;
     }
     let mut d: i32 = lanes.iter().sum();
-    while i < n {
-        d += a[i] as i32 * b[i] as i32;
-        i += 1;
+    for (x, y) in ca.remainder().iter().zip(cb.remainder()) {
+        d += *x as i32 * *y as i32;
     }
     1.0 - d as f32 / (127.0 * 127.0)
 }
