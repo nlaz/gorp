@@ -4031,10 +4031,11 @@ rare one sits near 0.99. **A paraphrase is therefore reduced, at the engine,
 to its rare tokens** — "where is the retry backoff computed" is close to
 "retry backoff computed" — and if those tokens miss, nothing is left.
 
-Measured on `guessplay.jsonl`, restricted to the arm where the agent wrote
-the ranked query itself (`ranked-own`; t1/t2 are harness translations of grep
-patterns and identifier-shaped by construction), default config, original
-scope, non-file scopes only — n = 413, hit@5:
+Measured on `guessplay.jsonl` by `eval/locbench/stylecut.py` (checked in, so
+every number below re-runs from one command), restricted to the arm where the
+agent wrote the ranked query itself (`ranked-own`; t1/t2 are harness
+translations of grep patterns and identifier-shaped by construction), default
+config, original scope, non-file scopes only — n = 413, hit@5:
 
 | style | n | words | semantic | bm25 | hybrid |
 |---|---|---|---|---|---|

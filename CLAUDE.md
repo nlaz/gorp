@@ -73,11 +73,18 @@ ranks, `cache` never scores, `search` orchestrates rather than computes.
   campaign into one self-contained HTML page carrying the numbers *and* the
   trajectories behind them — every search an agent ran, what came back, and
   what the engine did. Nothing external, opens offline.
-  `locbench/queryshape.py` reads query length by condition out of the shim
-  logs (via `harvest.py`), which is how a **tool-description** arm gets
-  checked before any scoring: §19's A/B registers "did agents write longer
-  queries" as the gate on its accuracy endpoints, because a description that
-  changed no behavior cannot be evidence about behavior.
+  `locbench/queryshape.py` reads query *style* by condition out of the shim
+  logs (via `harvest.py`; `--since` scopes it to one campaign, or it sweeps
+  every campaign ever run and compares arms across different instances). It is
+  how a **tool-description** arm gets checked before any scoring: §19's A/B
+  registers "did agents change how they write queries" as the gate on its
+  accuracy endpoints, because a description that changed no behavior cannot be
+  evidence about behavior. Style and not length, because
+  `locbench/stylecut.py` — which reproduces §19.2b — measured that a *blind*
+  description finds the gold 13% of the time against a blind name's 50%, so
+  paraphrases are the longest queries and the worst, and a description that
+  raised mean length by teaching questions would be a regression reported as a
+  win.
   `locbench/campaign.sh` takes its arms as `CONDITIONS=`/`LIMIT=` parameters
   (defaults reproduce §16.9 exactly), so a new A/B does not fork the loop.
   **Query sets live in `eval/queries/`, checked in** — `eval/data/` is
