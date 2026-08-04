@@ -156,6 +156,15 @@ has to make a configuration decision.
 - **Ranked, not exhaustive.** The default returns the k best locations. `-e`
   switches to exact regex with grep semantics when you need every occurrence
   or proof of absence.
+- **A result costs what it looks like it costs.** Lines print without their
+  indentation and cut at 200 characters (`-M N`, `-M 0` for no limit), so k
+  hits cost about k × 200 and no more. Unbounded, one line could be the whole
+  reply: across 366 real agent searches, 23 lines over 1,000 characters
+  carried 73% of every byte the tool ever printed, and a single-line 374 KB
+  JSON fixture turned one `-k 5` search into 659 KB. That overruns the
+  caller's tool-result limit, so the cost was also a *correctness* problem —
+  the hits ranked below the long line were truncated away unseen. Capped, the
+  same 366 searches cost 75% less and the worst single result is 2.5 KB.
 - **Every reply teaches the next move**, on stderr so stdout stays pipeable:
 
   ```

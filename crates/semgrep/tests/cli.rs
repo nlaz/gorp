@@ -212,6 +212,43 @@ fn context_flag_frames_the_hit() {
     assert!(context_lines >= 2, "expected context lines around the hit");
 }
 
+/// The block is dedented by what its lines *share*, not by the hit's own indent.
+///
+/// Written because the first attempt dedented by the hit's indentation, and the
+/// matched line is usually the deepest one in its block — so every context line
+/// landed at the margin and `-C` returned a flat list of statements, having been
+/// asked for the shape of the code around them.
+#[test]
+fn context_dedents_the_block_without_flattening_it() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    std::fs::write(
+        dir.path().join("nest.py"),
+        "class Handler:\n    def add_code(self, payload):\n        if payload:\n            \
+         return self.registry.add_code(payload)\n        return None\n",
+    )
+    .expect("write");
+    let sg = Sg::new();
+    let r = sg.run_in(&["-e", "return self.registry", "-C", "2"], dir.path());
+    assert_eq!(r.code, 0, "stderr: {}", r.stderr);
+    // `class Handler:` is outside the window, so the four framed lines share the
+    // `def`'s four spaces and only those come off. What nests deeper stays deeper.
+    assert!(
+        r.stdout.contains("nest.py-2-def add_code(self, payload):"),
+        "the shallowest line reaches the margin: {:?}",
+        r.stdout
+    );
+    assert!(
+        r.stdout.contains("nest.py-3-    if payload:"),
+        "one level in stays one level in: {:?}",
+        r.stdout
+    );
+    assert!(
+        r.stdout.contains("nest.py:4:        return self.registry.add_code(payload)"),
+        "the hit keeps its offset from the block too: {:?}",
+        r.stdout
+    );
+}
+
 // ---------------------------------------------------------------------------
 // output formats
 // ---------------------------------------------------------------------------
@@ -230,6 +267,79 @@ fn json_emits_one_object_per_line_with_a_stable_field_set() {
         assert!(v["start_line"].as_u64().unwrap() <= v["line"].as_u64().unwrap());
         assert!(v["line"].as_u64().unwrap() <= v["end_line"].as_u64().unwrap());
     }
+}
+
+/// A ranked result costs k lines, and until `-M` nothing said how wide one could
+/// be. A single-line 374 KB JSON fixture made a real k=5 search return 659 KB —
+/// which does not merely cost tokens, it overruns the reader's tool-result limit
+/// and deletes the hits ranked below it.
+#[test]
+fn one_long_line_cannot_crowd_out_the_hits_beneath_it() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    std::fs::write(
+        dir.path().join("bundle.min.js"),
+        format!("var add_code={};\n", "x".repeat(200_000)),
+    )
+    .expect("write");
+    std::fs::write(
+        dir.path().join("real.py"),
+        "class Handler:\n    def add_code(self, payload):\n        return payload\n",
+    )
+    .expect("write");
+    let sg = Sg::new();
+
+    let r = sg.run_in(&["add_code", "-k", "5"], dir.path());
+    assert_eq!(r.code, 0, "stderr: {}", r.stderr);
+    assert!(r.stdout.len() < 4_000, "capped, got {} bytes", r.stdout.len());
+    assert!(r.stdout.contains("omitted end of long line"), "the cut is declared, not silent");
+    assert!(r.stdout.contains("real.py"), "the hit ranked below the long line survives it");
+
+    // The escape hatch, for a caller that wants the bytes and knows the cost.
+    let full = sg.run_in(&["add_code", "-k", "5", "-M", "0"], dir.path());
+    assert_eq!(full.code, 0, "stderr: {}", full.stderr);
+    assert!(full.stdout.len() > 100_000, "-M 0 restores the whole line");
+    assert!(!full.stdout.contains("omitted end of long line"));
+}
+
+/// Indentation is the one part of a line that is pure position — already carried
+/// by the line number, and reconstructible from the file the hit names.
+#[test]
+fn result_lines_arrive_without_their_indentation() {
+    let sg = Sg::new();
+    let r = sg.run(&["-e", "def _reap"]);
+    assert_eq!(r.code, 0, "stderr: {}", r.stderr);
+    let line = r.lines()[0].to_string();
+    let text = line.splitn(3, ':').nth(2).expect("path:line:text");
+    assert!(!text.starts_with(' ') && !text.starts_with('\t'), "indent stripped: {line:?}");
+    assert!(text.starts_with("def _reap"), "the code itself is untouched: {line:?}");
+}
+
+/// `-k` typed with nothing after it used to exit 2 and cost the caller a whole
+/// round-trip. Neither grep nor ripgrep has `-k` at all, so nothing was being
+/// honored by refusing — it is `tar -k`/`df -k`/`du -k` muscle memory, where the
+/// flag is complete on its own.
+#[test]
+fn a_bare_k_asks_for_more_rather_than_failing() {
+    let sg = Sg::new();
+    // `run_bare` so the path lands *before* the flag: a bare `-k` takes the next
+    // token as its value if there is one, so it only reads as bare at the end of
+    // the line. That is where it appears — of 1,554 real `-k` invocations, 1,552
+    // are followed by a number and 2 by nothing at all, and none by a path.
+    let dir = corpus();
+    let path = dir.to_str().expect("utf-8 corpus path");
+    let bare = sg.run_bare(&["session token", path, "-k"]);
+    assert_eq!(bare.code, 0, "stderr: {}", bare.stderr);
+    assert_eq!(bare.lines().len(), 20, "bare -k means 20");
+
+    // The flag's absence still means the engine's default: "no opinion" and
+    // "more than the default" are different statements and keep different
+    // answers.
+    let absent = sg.run(&["session token"]);
+    assert_eq!(absent.lines().len(), 10, "no -k means the engine default");
+
+    // And an explicit value still wins over both — the common real form.
+    let explicit = sg.run(&["session token", "-k", "5"]);
+    assert_eq!(explicit.lines().len(), 5, "-k N is unchanged");
 }
 
 #[test]

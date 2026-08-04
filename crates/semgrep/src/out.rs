@@ -19,6 +19,54 @@ use std::path::Path;
 /// reports the true total, so enumeration is never silently lossy.
 pub const EXACT_PRINT_CAP: usize = 250;
 
+/// Characters of a hit's line that get printed, before `-M` overrides it.
+///
+/// `EXACT_PRINT_CAP` bounds how many lines are printed and nothing bounded how
+/// wide one could be, so the two together bounded nothing: a ranked k=5 search
+/// for `add_code` returned 659 KB because one hit was a single-line 374 KB JSON
+/// fixture, and `-e equation` returned 12.5 MB the same way. Measured over 366
+/// real agent searches, 23 lines over 1,000 characters carried 73% of all bytes
+/// ever printed. That is not just cost: the agent's tool-result limit truncates
+/// what it is given, so one minified line silently deletes the hits ranked below
+/// it — the result is worse, not merely more expensive.
+///
+/// 200 is chosen to clear the p90 real result line (121 characters) with room,
+/// so ordinary code is never cut.
+pub const MAX_COLUMNS: usize = 200;
+
+/// Appended to a line that `MAX_COLUMNS` cut. ripgrep's own wording for its
+/// `-M/--max-columns`, so a caller that has read one has read both.
+const OMITTED: &str = " [... omitted end of long line]";
+
+/// A line as it gets printed: at most `max` characters, marked when anything was
+/// dropped. `max == 0` is no limit.
+///
+/// Cutting on a character index rather than a byte one keeps multi-byte text
+/// from panicking here, and means `-M 200` is 200 characters of every language
+/// rather than 200 bytes of some of them.
+fn clip(text: &str, max: usize) -> Cow<'_, str> {
+    if max == 0 {
+        return Cow::Borrowed(text);
+    }
+    match text.char_indices().nth(max) {
+        None => Cow::Borrowed(text),
+        Some((end, _)) => Cow::Owned(format!("{}{OMITTED}", &text[..end])),
+    }
+}
+
+/// How many leading bytes of `line` are whitespace, counting no further than
+/// `limit` and never stopping mid-character.
+///
+/// The bound is what makes this a *dedent* rather than a trim: context lines cut
+/// by the hit's indentation keep whatever nesting they have beyond it.
+fn indent_within(line: &str, limit: usize) -> usize {
+    line.char_indices()
+        .take_while(|(i, c)| c.is_whitespace() && *i < limit)
+        .map(|(i, c)| i + c.len_utf8())
+        .last()
+        .unwrap_or(0)
+}
+
 /// A path as it can safely appear in the `path:line:text` contract.
 ///
 /// Returned untouched unless the name would break that contract, which two
@@ -71,7 +119,16 @@ pub fn human(bytes: u64) -> String {
 }
 
 /// One result line per hit, plus optional context. The only writer of result
-/// data, so the `path:line:text` contract has a single home.
+/// data, so the `path:line:text` contract has a single home — and the only place
+/// a hit's text is shaped, so ranked mode, exact mode and `--json` cannot drift
+/// into three different ideas of how wide a line may be.
+///
+/// Two shapings, both applied to `text` and neither to `path` or `line`:
+/// indentation is stripped, and the rest is clipped to `opts.max_columns`. The
+/// text field stops being the file's bytes as a result. That is a real loss and
+/// it is the intended trade — `line` still says where to Read for the original,
+/// while indentation is the one part of a line that is pure position, already
+/// carried by the line number, and reconstructible from the file.
 pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
     // `-l`: paths only, deduped, in rank order. grep's meaning exactly, and a
     // cheap answer for a caller that wants to know *where* before it reads.
@@ -86,14 +143,35 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
     }
     for hit in &hits[..shown] {
         if opts.json {
+            // Shaped here too, rather than left raw for a machine consumer: the
+            // 374 KB line costs the same in either format, and a schema whose
+            // `text` means something different per flag is the worse contract.
             // Unwrap: SearchHit is plain data with no map keys, so it cannot fail
             // to serialize.
-            println!("{}", serde_json::to_string(hit).expect("SearchHit serializes"));
-        } else {
-            println!("{}:{}:{}", quote_path(&hit.path), hit.line, hit.text);
-            if opts.before > 0 || opts.after > 0 {
-                context(root, hit, opts.before, opts.after);
+            let mut shaped = hit.clone();
+            shaped.text = clip(hit.text.trim_start(), opts.max_columns).into_owned();
+            println!("{}", serde_json::to_string(&shaped).expect("SearchHit serializes"));
+            continue;
+        }
+        // The frame is read before the hit line is printed because the amount to
+        // dedent by is a property of the whole block, and the hit line is the
+        // first line of it out the door.
+        let framed = (opts.before > 0 || opts.after > 0)
+            .then(|| frame(root, hit, opts.before, opts.after))
+            .flatten();
+        let dedent = framed
+            .as_ref()
+            .map_or_else(|| hit.text.len() - hit.text.trim_start().len(), |f| f.dedent);
+        let cut = indent_within(&hit.text, dedent);
+        let text = clip(&hit.text[cut..], opts.max_columns);
+        println!("{}:{}:{}", quote_path(&hit.path), hit.line, text);
+        if let Some(f) = framed {
+            for (i, line) in &f.lines {
+                let cut = indent_within(line, dedent);
+                let text = clip(&line[cut..], opts.max_columns);
+                println!("{}-{}-{}", quote_path(&hit.path), i, text);
             }
+            println!("--");
         }
     }
 }
@@ -101,12 +179,24 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
 /// How to render hits. Grouped rather than passed as five positionals: the
 /// `path:line:text` contract has one writer, and its options should arrive as
 /// one thing.
-#[derive(Default, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct Print {
     pub json: bool,
     pub paths_only: bool,
     pub before: usize,
     pub after: usize,
+    /// Characters of each line to print; 0 is no limit.
+    pub max_columns: usize,
+}
+
+/// Hand-written rather than derived so that the default width is `MAX_COLUMNS`
+/// and not `usize`'s zero, which would read as "no limit" and quietly make a
+/// caller that built a `Print` by `..Default::default()` the one unbounded
+/// writer in the process.
+impl Default for Print {
+    fn default() -> Self {
+        Self { json: false, paths_only: false, before: 0, after: 0, max_columns: MAX_COLUMNS }
+    }
 }
 
 pub fn footer(mode: Mode, result: &SearchResult, shown: usize, suggested: bool) {
@@ -218,25 +308,46 @@ pub fn stats(mode: Mode, result: &SearchResult) {
     }
 }
 
-/// Frame a hit with `n` lines either side. Context lines use `path-line-text`
-/// so a consumer can tell a match from its surroundings — grep's convention.
-pub fn context(root: &Path, hit: &SearchHit, before: usize, after: usize) {
+/// The lines `-C` prints around a hit, and the indentation the block shares.
+struct Frame {
+    /// Line number and text, in file order, the hit's own line excluded — it is
+    /// printed by `hits` in the `path:line:text` form before these arrive.
+    lines: Vec<(usize, String)>,
+    /// Leading whitespace common to every non-blank line of the block, the hit's
+    /// included. Stripping *this* is what makes the result a dedent rather than
+    /// a flattening: the shallowest line reaches the margin and every other line
+    /// keeps its offset from it, so the nesting `-C` was asked for survives.
+    /// Dedenting by the hit's own indentation instead collapses the whole block,
+    /// because the matched line is usually the deepest one in it.
+    dedent: usize,
+}
+
+/// Read the `before`/`after` window around a hit. Returned rather than printed
+/// so `hits` can dedent the hit's line by the same amount: the shared
+/// indentation is a property of the block, and the hit is part of the block.
+fn frame(root: &Path, hit: &SearchHit, before: usize, after: usize) -> Option<Frame> {
     // `resolve`, not `root.join`: a file-as-root records the file's own name as
     // its relative path, so a plain join looks for `<file>/<file>` and reads
     // nothing — context would silently vanish exactly when the scope is a single
     // file (RESEARCH.md §16.11). Same defect as the four engine-side sites,
     // living in the CLI crate where that sweep did not reach.
-    let Some(text) = corpus::read_text(&corpus::resolve(root, &hit.path)) else { return };
+    let text = corpus::read_text(&corpus::resolve(root, &hit.path))?;
     let lines: Vec<&str> = text.lines().collect();
     let center = hit.line as usize;
     let lo = center.saturating_sub(before).max(1);
     let hi = (center + after).min(lines.len());
-    for i in lo..=hi {
-        if i != center {
-            println!("{}-{}-{}", quote_path(&hit.path), i, lines[i - 1]);
-        }
-    }
-    println!("--");
+    // Blank lines are skipped, not counted as zero-indented: one empty line in
+    // the window would otherwise pin the shared indentation to nothing and
+    // silently turn the dedent off.
+    let dedent = (lo..=hi)
+        .map(|i| lines[i - 1])
+        .filter(|l| !l.trim().is_empty())
+        .map(|l| l.len() - l.trim_start().len())
+        .min()
+        .unwrap_or(0);
+    let lines =
+        (lo..=hi).filter(|i| *i != center).map(|i| (i, lines[i - 1].to_string())).collect();
+    Some(Frame { lines, dedent })
 }
 
 /// One JSON object on stderr. Stderr, not stdout: `--json` owns stdout and the

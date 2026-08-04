@@ -69,9 +69,42 @@ pub struct Cli {
     #[arg(long)]
     pub all: bool,
 
-    /// Number of ranked results
-    #[arg(short = 'k', long = "top", default_value_t = SearchOptions::default().k)]
+    /// Number of ranked results (bare `-k` means 20)
+    ///
+    /// Two defaults, because the flag's absence and its emptiness are different
+    /// statements. Absent means "no opinion" and gets the engine's 10. Present
+    /// with nothing after it means "more than you were going to give me" — the
+    /// only thing typing `-k` at all can be asking for, since 10 is already
+    /// what you get for free. 20 is that: the mode of every explicit `-k` in
+    /// the measured agent corpus (31 of 98) and twice the default.
+    ///
+    /// This is not grep compatibility — neither grep nor ripgrep has `-k` in
+    /// any form, so there is no other tool's behavior to honor here. It is the
+    /// habit `tar -k`, `df -k` and `du -k` leave behind, where `-k` is a
+    /// complete flag, arriving at a tool where it is not.
+    ///
+    /// A bare `-k` reads as bare only at the end of the line: given a following
+    /// token it still takes it as its value, so `-k <path>` is an error about a
+    /// non-numeric `--top` rather than a search. That is the shape of the data
+    /// and not a compromise — across 1,554 real `-k` invocations, 1,552 are
+    /// followed by a number and 2 by nothing, and not one by a path.
+    #[arg(
+        short = 'k',
+        long = "top",
+        default_value_t = SearchOptions::default().k,
+        default_missing_value = "20",
+        num_args = 0..=1,
+    )]
     pub top: usize,
+
+    /// Truncate each printed line to this many characters (0 = no limit)
+    ///
+    /// A ranked result costs k lines, so this is what bounds what k lines can
+    /// cost. Without it one minified or generated line — a 374 KB single-line
+    /// JSON fixture, measured in a real agent run — can outweigh every other
+    /// result put together and push them out of the reader's context entirely.
+    #[arg(short = 'M', long = "max-columns", default_value_t = crate::out::MAX_COLUMNS)]
+    pub max_columns: usize,
 
     /// Context lines to print around each hit line
     #[arg(short = 'C', long, default_value_t = 0)]

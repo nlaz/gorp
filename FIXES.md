@@ -449,6 +449,38 @@ section RESEARCH.md lacks would have failed — §1.3 through §1.7 exist only i
 SIMULATION.md. Wrong in both directions, and passing. Citations are now
 attributed to the document named nearest before them, defaulting to RESEARCH.md.
 
+### 26. Nothing bounded how wide a result line could be — P1
+`EXACT_PRINT_CAP` bounded how many lines printed and nothing bounded how long
+one could be, so between them they bounded nothing. Measured over the 366
+searches of the first post-§16.11 campaign, **23 lines longer than 1,000
+characters carried 73% of every byte the tool printed**: a `-k 5` ranked search
+for `add_code` returned 659 KB because its top hit was a single-line 374 KB JSON
+fixture, `bleach sanitize html` returned 121 KB of `bootstrap.min.css`, and
+`-e equation` had returned 12.5 MB the same way a day earlier.
+
+Cost was the smaller half. The caller's tool-result limit truncates what it is
+handed, so one minified line **deleted the hits ranked beneath it** — the reply
+was wrong, not merely expensive, and wrong in a way that looks like a thin
+result rather than a truncated one. Generated files were also *winning top
+slots* over real code, which is a ranking observation this fix does not
+address (`eval/locbench/replay.py` can score a down-weight offline).
+
+`out::hits` — already the single writer of `path:line:text` — now strips each
+line's indentation and clips it to `MAX_COLUMNS` (200, over ripgrep's
+`-M/--max-columns` spelling and its `[... omitted end of long line]` wording),
+uniformly across ranked, exact and `--json` so the three cannot drift. `-M 0`
+restores the old behavior. Replayed over the same 366 searches: 75% fewer bytes
+and a worst case of 2.5 KB instead of 659 KB.
+
+Indentation is dropped because it is the one part of a line that is pure
+position — already carried by the line number, and reconstructible from the file
+the hit names. `-C` is the exception: its whole purpose is showing the shape of
+the surrounding code, so a framed block is dedented by the indentation its lines
+*share* rather than each line's own. The first attempt dedented by the hit
+line's indentation, which flattened every block, because the matched line is
+usually the deepest one in it — `context_dedents_the_block_without_flattening_it`
+is the guard.
+
 ---
 
 ## Open, and deliberately not fixed

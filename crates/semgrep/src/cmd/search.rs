@@ -213,6 +213,7 @@ fn print_opts(cli: &Cli) -> out::Print {
         paths_only: cli.files_with_matches,
         before: cli.before_context.unwrap_or(cli.context),
         after: cli.after_context.unwrap_or(cli.context),
+        max_columns: cli.max_columns,
     }
 }
 
