@@ -4437,3 +4437,65 @@ often agents who had a name.
 
 That is a hypothesis, not a finding, and it is the thing to test next — not
 another description arm.
+
+### 19.8 Three ways a search disappeared without being counted
+
+Reading §19.7's own trajectories in the viewer turned up three channels through
+which an agent's search vanished from every record the harness keeps. None
+moves a published endpoint — all of them sit upstream of the metrics, which
+score the agent's final answer — but together they are the difference between
+"the tool was used 1,475 times" and what actually happened.
+
+**1. Paths the scorer could not read (fixed).** `first_gold_hit_seq` matched a
+two-component `dir/base` tail anywhere in the output. **semgrep prints paths
+relative to the scope it was given; rg prints them as passed**, so
+`semgrep q msal/` yields `application.py:162:` where `rg q msal/` yields
+`msal/application.py:162:` — the tail matches ripgrep and misses semgrep. A
+one-armed undercount: 13 of 204 desc-v8 rows had a gold hit the metric could
+not see against 5 of 204 rg rows, including one where all four of the agent's
+searches returned the gold file and the metric read `None`. Now resolved
+against each invocation's own scope. Re-scoring moved 68 desc-v8 and 31 rg rows
+and **changed no endpoint**: primary, co-primary, every secondary and the
+reweighted pooled figure are identical to the digit.
+
+**2. Calls the permission layer refused.** Claude Code evaluates a compound
+command as a whole, so an agent typing `rg …; rg …; git log …` under
+`Bash(rg *)` has *both searches* refused because of the `git`. The call never
+executes, so the shim never runs and `n_invocations` cannot count it.
+**288 refused calls across 88 tasks**; `Zulko__moviepy-2253` is the clean case,
+where the rg arm ran zero real searches and its pane showed only the refusal.
+Roughly symmetric (rg 19% of tasks, desc-v8 24%) and it does not move the
+result — restricting to the 164 tasks where both arms genuinely searched leaves
+the primary at **−0.030** against −0.034. Now counted by `capture.py` and
+filterable in the viewer, which is where it should have been all along.
+
+**3. The tool called as a tool that does not exist.** Four desc-v8 agents
+emitted a structured `tool_use` block rather than a Bash command:
+
+    {"name": "semgrep", "input": {"query": "groupby cohort rechunk order test",
+                                  "path": "dask/tests/test_order.py"}}
+    -> Error: No such tool available: semgrep
+
+The input schema is the description's own signature. `semgrep "query" [path]`
+reads as a spec with named slots, and an agent surrounded by JSON-schema tools
+filled them in. **This happened 8 times across 4 desc-v8 tasks and 0 times to
+rg in 204** — nobody mistakes ripgrep for anything but a shell command. It is
+small and mostly self-correcting (3 of the 4 went on to run real searches, 3 of
+the 4 answered correctly), so it does not explain the null. But it is a
+*self-inflicted, one-armed* loss created by how we worded the treatment, which
+is the kind of thing that is invisible in aggregate and obvious in a
+trajectory.
+
+**What to do about each.** (1) is fixed. (2) wants the allowlist widened to
+permit read-only `git log`-style calls so a chained command stops costing an
+arm its searches, and `run.py` recording denials into the search stats rather
+than leaving them only in transcripts. (3) is a description question, not a
+harness one: a line saying the tool is run *in Bash* would likely end it, at
+the cost of another arm and another campaign to prove it. None of the three is
+worth re-running §19.7 for — the largest, (2), moves the primary by 0.004.
+
+**The pattern worth keeping.** All three were invisible in every table and
+obvious the moment someone opened a single task and read it against its own
+numbers. That is now the third time in this project (§16.11 and §17 being the
+others) that trajectories caught what aggregates could not, and it is the
+argument for the viewer existing at all.
