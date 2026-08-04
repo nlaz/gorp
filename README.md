@@ -197,12 +197,12 @@ anything in the engine. One clause once moved ranked usage from 7% to 98%
 into your agent's system prompt:
 
 ```
-The only code search tool available is `semgrep`, a ranked code search. Give
-it anything — an identifier, a phrase, or a question: `semgrep "query" [path]`
-returns the most relevant locations as path:line:text (top 10; `-k N` for
-more). Example: semgrep "retry_backoff backoff_delay compute_delay" →
-src/net/retry.rs:142:fn backoff_delay(attempt: u32). Ranked, not exhaustive —
-if the answer isn't there, rephrase.
+The only code search tool available is `sg`, a ranked code search you run
+with Bash. Give it anything — an identifier, a phrase, or a question: `sg
+"query" [path]` returns the most relevant locations as path:line:text (top
+10; `-k N` for more). Example: sg "retry_backoff backoff_delay
+compute_delay" → src/net/retry.rs:142:fn backoff_delay(attempt: u32).
+Ranked, not exhaustive — if the answer isn't there, rephrase.
 ```
 
 **Why the example is names and not a question.** semgrep embeds with a static
@@ -233,9 +233,11 @@ remains what §18 measured: **parity**.
 Recommend this description for the round-trips it saves, not for accuracy it
 does not deliver.
 
-`semgrep --help` still describes the tool the older way, without the example.
-The two differ deliberately rather than by oversight, and §19.5's campaign is
-what decides whether `--help` follows.
+The binary is `sg` (and `semgrep`, still, so nothing that resolves it by name
+breaks). `--help` still describes the tool the older way, and still prints
+`semgrep:` on stderr — deliberate: renaming the message prefix, the env vars,
+`~/.cache/semgrep` and `.semgrep/` is the expensive half of a rename, and it
+invalidates every built index to fix a cosmetic mismatch.
 
 ## How it works
 
