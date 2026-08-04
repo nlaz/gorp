@@ -4352,18 +4352,21 @@ retried into existence and §19.5's retry conditioning cannot recur.
 
 ### 19.7 The blind-enriched result: the registered primary is zero
 
-204 instances in equal strata, rg against desc-v8, 407 of 408 cells, $119.93.
-203 paired instances (blind 67, partial 68, named 68).
+204 instances in equal strata, rg against desc-v8, **408 of 408 cells**,
+$120.86, 204 paired instances at the designed 68 / 68 / 68.
 
 **The registered primary — the blind stratum — is exactly zero.**
 
 | stratum | n | desc-v8 | rg | Δ | discordant |
 |---|---|---|---|---|---|
-| **blind (primary)** | 67 | 0.478 | 0.478 | **+0.000** | 3/3 |
+| **blind (primary)** | 68 | 0.471 | 0.471 | **+0.000** | 3/3 |
 | partial | 68 | 0.515 | 0.588 | −0.074 | 3/8 |
 | named | 68 | 0.574 | 0.603 | −0.029 | 1/3 |
-| pooled | 203 | 0.522 | 0.557 | −0.034 CI[−0.079, +0.010] | 7/14, p=0.19 |
-| reweighted to population | 203 | | | −0.037 CI[−0.081, +0.006] | |
+| pooled | 204 | 0.520 | 0.554 | −0.034 CI[−0.078, +0.010] | 7/14, p=0.19 |
+| reweighted to population | 204 | | | −0.037 CI[−0.082, +0.005] | |
+
+(First read at 407 cells gave blind +0.000 on n=67 and pooled −0.034; the last
+cell moved no conclusion and only the third decimal of two arm means.)
 
 §19.6 registered this in advance: *"A blind null falsifies the mechanism on
 real agents, and §19.2b's observational finding should then be treated as a
@@ -4380,7 +4383,7 @@ result: **a description can reliably change how an agent searches without
 changing what it finds.**
 
 **Tier-1's +0.050 reversed.** §19.5 measured desc-v8 over rg at +0.050 on 6-to-4
-discordant pairs; at 203 pairs it is −0.034 on 7-to-14. The intervals overlap,
+discordant pairs; at 204 pairs it is −0.034 on 7-to-14. The intervals overlap,
 so this is a null replacing a null rather than a contradiction — but the point
 estimate changed sign, which is exactly the §18.6 pattern (a +0.050 on two
 discordant pairs reversing on an independent 40) happening to *our own shipped
@@ -4388,11 +4391,11 @@ change*, two days after we wrote §18.6 down.
 
 **The two efficiency predictions passed, and replicated.**
 
-- **Prediction 2 (searches below rg): passed.** 3.89 against 4.48 per run,
-  median 2 against 3, paired Δ **−0.59**. §19.5 saw 3.5 against 5.0, so this is
+- **Prediction 2 (searches below rg): passed.** 3.97 against 4.68 per run,
+  median 2 against 3, paired Δ **−0.72**. §19.5 saw 3.5 against 5.0, so this is
   a second measurement of the same effect on a different frame.
-- **Prediction 3 (cost does not rise): passed.** $0.278 against $0.285, paired
-  Δ −$0.007.
+- **Prediction 3 (cost does not rise): passed.** $0.281 against $0.290, paired
+  Δ −$0.008.
 
 So desc-v8 buys **fewer round-trips at no accuracy gain**, and the honest
 summary of semgrep against ripgrep is unchanged from §18: **parity**, with a
@@ -4414,7 +4417,7 @@ accordingly rather than left carrying a superseded number.
   §16.9/§18's.
 - *Attrition is rg-favourable.* All 3 failures were rg cells truncated by the
   budget guard on long runs. Dropping those biases the surviving rg sample
-  toward runs rg could finish — which flatters rg. 3 of 410 attempts, so the
+  toward runs rg could finish — which flatters rg. 3 of 411 attempts, so the
   effect is small, but it points the same way as the result and cannot explain
   it away.
 - *`func_acc@10_tol` is a blunt endpoint.* The co-primary recall is −0.025 with

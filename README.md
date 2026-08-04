@@ -220,7 +220,7 @@ queries **+20pp** against the same description without it.
 *Evidence grade, stated plainly — and one claim here has been withdrawn.* What
 is measured and replicated: the example changes how agents search (+20pp
 name-shaped queries, twice, on two different frames) and it costs **fewer
-searches per task** (3.9 against ripgrep's 4.5, after 3.5 against 5.0 on the
+searches per task** (4.0 against ripgrep's 4.7, after 3.5 against 5.0 on the
 first frame) at slightly lower cost.
 
 What is **not** true, and was claimed here for one day: that this buys better
