@@ -4195,10 +4195,19 @@ The five-arm campaign §19.5 reports, kept for reproduction:
 
 Analysis, in the order the predictions are gated:
 
-    # prediction 1 — --since scopes to THIS campaign's run dirs. Without it the
-    # sweep picks up every campaign ever run and compares arms across different
-    # instances, which is not a paired comparison.
-    python3 eval/locbench/queryshape.py --since <run-id> --a desc-v8 --b rg
+    # The style check. --since scopes to THIS campaign's run dirs; without it
+    # the sweep picks up every campaign ever run and compares arms across
+    # different instances, which is not a paired comparison.
+    #
+    # No `--a/--b` here, and that is not an omission: a two-arm style delta is
+    # impossible against rg, which has no ranked mode and therefore contributes
+    # no ranked queries at all — `--b rg` reports "no ranked searches for: rg".
+    # (Registered with `--b rg` and corrected on the first chunk, which is what
+    # running the free check early is for.) What is available is a *within-arm
+    # replication*: desc-v8's identifier share on this frame against the 65% it
+    # produced in §19.5 and desc-v5's 45% baseline there. Weaker than a paired
+    # delta, and the strongest form this arm pairing allows.
+    python3 eval/locbench/queryshape.py --since <run-id>
 
     python3 eval/locbench/ab_analyze.py \
       --results ../data/locbench/results-desc-v8-blind.jsonl --a desc-v8 --b rg
