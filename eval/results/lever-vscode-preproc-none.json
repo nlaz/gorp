@@ -211,7 +211,7 @@
     ],
     "queries_fp": "7578782896e9f02e",
     "run": {
-      "at": "2026-08-01T15:21:19Z",
+      "at": "2026-08-05T00:46:34Z",
       "queries": "eval/queries/vscode.jsonl",
       "queries_fp": "7578782896e9f02e",
       "n_queries": 400,
@@ -225,9 +225,9 @@
       "extra": null,
       "no_index": false,
       "binary": "/Users/nlaz/Development/Flower-Computer/semgrep/target/release/semgrep",
-      "binary_mtime": "2026-08-01T15:15:38Z",
-      "binary_bytes": 39071264,
-      "git_head": "72d7c22"
+      "binary_mtime": "2026-08-04T20:16:28Z",
+      "binary_bytes": 39180368,
+      "git_head": "8c0537d"
     },
     "leakage": {
       "n": 200,
@@ -237,7 +237,8 @@
       "stem_pct": 0.225,
       "path_seg_pct": 0.46,
       "path_seg_not_in_gold_pct": 0.12,
-      "gold_token_overlap": 0.6577113997113997
+      "gold_token_overlap": 0.6577113997113997,
+      "gold_id_pct": 0.68
     }
   },
   {
@@ -452,7 +453,7 @@
     ],
     "queries_fp": "7578782896e9f02e",
     "run": {
-      "at": "2026-08-01T15:21:19Z",
+      "at": "2026-08-05T00:46:34Z",
       "queries": "eval/queries/vscode.jsonl",
       "queries_fp": "7578782896e9f02e",
       "n_queries": 400,
@@ -466,9 +467,9 @@
       "extra": null,
       "no_index": false,
       "binary": "/Users/nlaz/Development/Flower-Computer/semgrep/target/release/semgrep",
-      "binary_mtime": "2026-08-01T15:15:38Z",
-      "binary_bytes": 39071264,
-      "git_head": "72d7c22"
+      "binary_mtime": "2026-08-04T20:16:28Z",
+      "binary_bytes": 39180368,
+      "git_head": "8c0537d"
     },
     "leakage": {
       "n": 200,
@@ -478,7 +479,8 @@
       "stem_pct": 0.0,
       "path_seg_pct": 0.265,
       "path_seg_not_in_gold_pct": 0.12,
-      "gold_token_overlap": 0.13928726878127035
+      "gold_token_overlap": 0.13928726878127035,
+      "gold_id_pct": 0.0
     }
   },
   {
@@ -693,7 +695,7 @@
     ],
     "queries_fp": "7578782896e9f02e",
     "run": {
-      "at": "2026-08-01T15:21:19Z",
+      "at": "2026-08-05T00:46:34Z",
       "queries": "eval/queries/vscode.jsonl",
       "queries_fp": "7578782896e9f02e",
       "n_queries": 400,
@@ -707,9 +709,9 @@
       "extra": null,
       "no_index": false,
       "binary": "/Users/nlaz/Development/Flower-Computer/semgrep/target/release/semgrep",
-      "binary_mtime": "2026-08-01T15:15:38Z",
-      "binary_bytes": 39071264,
-      "git_head": "72d7c22"
+      "binary_mtime": "2026-08-04T20:16:28Z",
+      "binary_bytes": 39180368,
+      "git_head": "8c0537d"
     },
     "leakage": {
       "n": 200,
@@ -719,7 +721,8 @@
       "stem_pct": 0.225,
       "path_seg_pct": 0.46,
       "path_seg_not_in_gold_pct": 0.12,
-      "gold_token_overlap": 0.6577113997113997
+      "gold_token_overlap": 0.6577113997113997,
+      "gold_id_pct": 0.68
     }
   },
   {
@@ -934,7 +937,7 @@
     ],
     "queries_fp": "7578782896e9f02e",
     "run": {
-      "at": "2026-08-01T15:21:19Z",
+      "at": "2026-08-05T00:46:34Z",
       "queries": "eval/queries/vscode.jsonl",
       "queries_fp": "7578782896e9f02e",
       "n_queries": 400,
@@ -948,9 +951,9 @@
       "extra": null,
       "no_index": false,
       "binary": "/Users/nlaz/Development/Flower-Computer/semgrep/target/release/semgrep",
-      "binary_mtime": "2026-08-01T15:15:38Z",
-      "binary_bytes": 39071264,
-      "git_head": "72d7c22"
+      "binary_mtime": "2026-08-04T20:16:28Z",
+      "binary_bytes": 39180368,
+      "git_head": "8c0537d"
     },
     "leakage": {
       "n": 200,
@@ -960,7 +963,8 @@
       "stem_pct": 0.0,
       "path_seg_pct": 0.265,
       "path_seg_not_in_gold_pct": 0.12,
-      "gold_token_overlap": 0.13928726878127035
+      "gold_token_overlap": 0.13928726878127035,
+      "gold_id_pct": 0.0
     }
   }
 ]

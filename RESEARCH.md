@@ -4688,3 +4688,644 @@ from §18: parity, with negative point estimates whose intervals include zero.
 The remaining ceiling is where §17.6 put it — the embedding model, not the
 description, not the ranking parameters, and not, on this evidence, how the
 agent is told to phrase a query.
+
+## 20 Pruning the chunk before it is embedded, and budgeting by content
+
+§14 asked what *rendering* to hand the embedder and found `split` + `sif`
+(§14.4). It never asked the prior question: of the tokens in a chunk, which
+ones should be there at all. Under uniform mean pooling that is not a
+rhetorical distinction — every surviving token takes an equal share of the
+vector, so dropping one hands its mass to the rest. Pruning is reweighting.
+
+### 20.1 What is actually in the token stream (2026-08-05)
+
+Rendering the vscode chunk below through the shipped pipeline turned up a
+defect before any experiment ran.
+
+```
+src/vs/workbench/contrib/searchEditor/browser/searchEditorActions.ts
+export function computeBackoffDelay(attempt: number): number {
+  const jitter = Math.random() * BASE_DELAY_MS;
+  return Math.min(MAX_DELAY_MS, 2 ** attempt * jitter);
+}
+```
+
+**`function` and `export` are not in the `split-nokw` keyword table.** Nor are
+`type`, `readonly`, `declare`, `null`, `undefined`, `true`, `false`, `as`,
+`from`, `of` — 43 tokens missing in all, checked against the seven corpus
+languages. The table has `func`, `fn` and `def` but not the spelling
+TypeScript and JavaScript use, so on the corpus where §14.4 measured `split`'s
+largest win the two most common boilerplate tokens in the language were being
+embedded as content. `split-nokw` dropped 2 tokens from the 32 above; it
+should have dropped 4.
+
+The table is left **frozen** and the repair added beside it as
+`KEYWORDS_EXTRA`, so `prune-kw` is an attributable arm rather than a silent
+edit to a published condition. `the_frozen_table_really_was_missing_function_and_export`
+pins the finding as a test.
+
+The ladder, on that chunk. Each rung is a strict subset of the one above
+(`ladder_is_cumulative`), so a delta is attributable to one step:
+
+| tier | tok | mass/tok | what it adds |
+|---|---|---|---|
+| `split` | 34 | 2.9% | — |
+| `split-nokw` (shipped) | 32 | 3.1% | the frozen table |
+| `prune-kw` | 30 | 3.3% | the repaired table |
+| `prune-lex` | 24 | 4.2% | builtin namespaces, primitive/annotation types, unit suffixes (`math`, `number`, `ms`) |
+| `prune-decl` | 16 | 6.2% | declaration positions only; every reference dropped |
+| `prune-uniq` | 18 | 5.6% | `prune-lex`, each distinct token once |
+| `prune-soft` | 29 | 3.4% | `prune-lex`, declarations emitted twice |
+
+At `prune-decl` the body reduces to `compute backoff delay attempt jitter` —
+which is the intent, and which exposes the second finding: **11 of the 16
+surviving tokens are the file path.** 69% of the pooled mass says where the
+file lives. Prune the body and the path's share rises mechanically, so every
+window in a long file converges toward one vector and within-file
+discrimination fails exactly where a file has the most chunks. The path also
+repeats itself — `searchEditor/` and `searchEditorActions` both say "search
+editor". Hence `PathRender`, orthogonal to the tier: `full`, `dedupe`, `tail`
+(last two segments), `scaled` (deduped, capped at 25% of the body's count).
+
+Pruning is **document-side only**. A natural-language query has no declaration
+sites, and the low-signal table would eat real query words — "parse a number
+from a string" is three of six tokens gone. `render_query` therefore stops at
+keyword pruning. This does not break the one-space invariant: that constrains
+the token→vector mapping, not what content each side contributes.
+
+### 20.2 A line is not a unit of content
+
+`ChunkParams.window` is 32 lines. Measured over the benchmark corpora, non-
+whitespace characters per 32-line window:
+
+| corpus | p10 | median | p90 | p99 | max |
+|---|---|---|---|---|---|
+| vscode (ts) | 563 | **931** | 1,418 | 2,253 | 6,767 |
+| linux (c/h) | 504 | **693** | 1,012 | 1,524 | 2,885 |
+| tokio (rs) | 429 | **677** | 975 | 1,409 | 3,283 |
+| jekyll (rb) | 386 | **675** | 874 | 1,106 | 1,419 |
+
+A vscode chunk carries 35% more content than a linux chunk at the same line
+count, the p10→p90 spread inside one corpus is 2.5×, and the worst vscode
+window holds 6,767 non-whitespace characters — seven times the median, pooled
+into one vector by a uniform mean. `ChunkParams.budget` cuts line-aligned
+windows to a content budget instead, carrying the overlap across as a fraction
+(25% at the defaults) so it is a reparameterization rather than a second
+overlap policy. The unit is cAST's (arXiv 2506.15655), chosen for its reason.
+
+Two external results bear on the sizing, and they disagree with our defaults
+in the same direction. The controlled study of 864 RAG code-completion
+settings (arXiv 2605.04763) found ~2,000 non-whitespace characters optimal and
+**function-level chunking never Pareto-optimal**, trailing by 3.57–5.64pp;
+cAST budgeted 4,000. Our median chunk is 700–930. That study also found
+retriever choice (BM25 vs three dense models) worth ≤1.11pp against a
+3.43–6.51pp spread between chunking strategies — if that transfers, chunking
+is a larger lever than the bm25-vs-semantic axis §14 has been sweeping. It may
+not transfer: every retriever there was contextual or lexical, none was a
+static bag-of-words model, and no published comparison we could find tests
+chunk granularity against one.
+
+### 20.3 Pre-registration (written before the first row)
+
+Scoring as §14: `run_eval.py`, semantic mode, paired per query, 2,000-resample
+bootstrap CIs, exact sign tests, leakage printed above every table.
+
+**Corpus assignment, and one confound.** The tiers are a *rendering* change and
+run on all five sets including cosqa. The budget arm is a *chunking* change and
+runs on vscode/linux/tokio/etcd only: cosqa's corpus is one short Python
+function per file (20,604 docs, `eval/REPORT.md:36`), so a 32-line window and
+an 800-character budget cut it into the same single chunk and the comparison is
+structurally empty. Reporting a null there would be reporting the corpus.
+
+Registered predictions, in falsifiable order:
+
+1. **`prune-kw` gains on TS and does nothing on C.** `function`/`export` are
+   6% of the example's tokens; linux has neither spelling. Floor: vscode
+   semantic R@5 ≥ `split-nokw` + 0.01, and |Δ| < 0.01 on linux. A material
+   linux move means the extra 43 words are doing something other than removing
+   boilerplate.
+2. **`prune-lex` is where a gain lives, if one does.** It removes 6 of 30
+   remaining tokens. Floor: ≥ `prune-kw` on vscode and etcd `direct`. **If it
+   loses on 3 of 5 corpora the tier is dead** — a hand-written stoplist that
+   removes signal is not worth maintaining.
+3. **`prune-decl` loses on `direct` and may win on `blind`.** It deletes the
+   call-site tokens a named-identifier query matches, and 71.5% of tokio
+   `direct` queries contain the gold identifier (§13.1). Registered:
+   `prune-decl` < `prune-lex` on `direct`, ≥ on `blind`. Winning both means
+   references are noise and the ladder should go further; losing both means
+   declaration-position is the wrong axis.
+4. **`prune-soft` ≥ `prune-decl` everywhere.** Weighting should dominate
+   deletion when the deleted tokens are sometimes the answer. A reversal says
+   dilution costs more than coverage, which would redirect the whole design.
+5. **Path handling matters only at the aggressive end.** Registered: at
+   `prune-lex` the three path arms sit within 0.02 of each other; at
+   `prune-decl`, `scaled` ≥ `full` + 0.02. If path handling moves nothing at
+   `prune-decl`, the 69% share is not costing anything and two of the three
+   arms were unnecessary.
+6. **SIF partially subsumes `prune-lex`.** Rarity weighting already demotes
+   corpus-common tokens, which is most of the stoplist. Registered:
+   Δ(`prune-lex` − `prune-kw`) is smaller with `--sif` than without, on every
+   corpus. If the two are additive, the stoplist is removing something
+   frequency cannot see; if SIF erases the tier entirely, the list should be
+   deleted rather than tuned.
+7. **The budget at parity is a no-op.** `chars-800` vs `lines-32`, |Δ R@5| <
+   0.02 on all four corpora. A material *win* at parity is attributable to
+   capping the tail rather than to budgeting, and §20.5 then sweeps
+   800/1600/2400 to test the published optimum. A material loss means
+   line-alignment interacts with overlap in a way this reparameterization got
+   wrong.
+
+**Tripwire.** bm25 cells must be identical across tier arms up to MMR, which
+reads the embedding matrix (§14.4 point 6). Any other bm25 movement is a bug,
+not a result.
+
+### 20.4 How to run it
+
+```
+cargo build --release
+eval/prune.sh                  # every corpus, every arm
+eval/prune.sh vscode tokio     # only those
+python3 eval/diff.py --base prune-kw --cand prune-lex prune-decl prune-soft
+```
+
+Results land in `eval/results/lever-<corpus>-prune-<tag>.json`, the lever
+campaign's naming, so the existing comparator reads them unchanged. The script
+skips any condition whose output already exists; delete the file to re-score.
+
+### 20.5 Run 1, and the defect it was measuring instead
+
+Four corpora completed (tokio, etcd, vscode, cosqa; linux was stopped
+mid-run). Semantic mode, paired per query, 2,000-resample bootstrap CIs,
+exact sign tests. Results retained as `lever-<corpus>-prune-qsym-<tag>.json`
+— `qsym` for query-symmetric, which is the thing this run turned out to be
+about.
+
+**Against the incumbent `split-nokw`, R@5 on the primary cell:**
+
+| arm | tokio | etcd | vscode | cosqa |
+|---|---|---|---|---|
+| `split-nokw` | 0.515 | 0.620 | 0.750 | 0.117 |
+| `prune-kw` | **0.585** | **0.675** | **0.780** | 0.122 |
+| `prune-lex` | 0.590 | 0.645 | 0.770 | 0.111 |
+| `prune-soft` | 0.580 | 0.645 | 0.745 | 0.118 |
+| `prune-uniq` | 0.580 | 0.590 | 0.755 | 0.099 |
+| `prune-decl` | 0.395 | 0.420 | 0.545 | 0.072 |
+
+`prune-kw` is +0.070 on tokio (CI [+0.030, +0.115], p=0.003) and +0.055 on
+etcd (CI [+0.010, +0.100], p=0.027).
+
+**Against the §14.4 champion `split`+`sif`, which is the bar that matters:**
+
+| arm | tokio | etcd | vscode | cosqa |
+|---|---|---|---|---|
+| champion | 0.545 | 0.595 | 0.825 | 0.188 |
+| `prune-kw` Δ | +0.040 n.s. | **+0.080** p=0.002 | −0.045 n.s. | **−0.066** p<0.001 |
+
+So the headline against `split-nokw` was flattered by a weak baseline. The
+repaired table beats the champion on one corpus of four and **loses on CoSQA**,
+the only set with real human queries and the one §12 says to prefer for
+quality claims.
+
+**Predictions, scored:**
+
+1. **Partial.** The repair gains, but not where registered: it was predicted as
+   a TypeScript effect and the largest gain is tokio (Rust), which has no
+   `function` or `export` — it has `as`, `where`, `type`, `in`, `true`,
+   `false`. The 43 missing words were not a TS oversight, they were a general
+   one.
+2. **Failed, by its own kill condition.** `prune-lex` − `prune-kw` is +0.005,
+   −0.030, −0.010, −0.012 on the four corpora: worse on three, all n.s. The
+   registered floor was "if it loses on 3 of 5 the tier is dead". A
+   hand-written stoplist adds nothing over fixing the keyword table.
+3. **First half confirmed, hard** (−0.195 to −0.225 on `direct`, p<0.001 on
+   every corpus). **Second half unsupported**: on `blind`, `prune-decl` is
+   −0.015 / +0.017 / +0.000 — one nominal win, one loss, one tie, none
+   significant. Registered reading: declaration-position is the wrong axis.
+4. **Confirmed.** `prune-soft` beats `prune-decl` by +0.185 to +0.225
+   everywhere and is statistically indistinguishable from `prune-lex`. Weight
+   dominates deletion when the deleted tokens are sometimes the answer.
+5. **First half holds** (path arms within 0.025 at `prune-lex`). **Second half
+   is backwards**: at `prune-decl`, `scaled` is the *worst* arm on all four
+   corpora (tokio 0.375 vs full 0.395, vscode 0.490 vs 0.545). Capping the path
+   loses more than path dominance costs — at 69% of the tokens the path is
+   still carrying signal, not crowding it out. `tail` is the best of the four
+   on tokio and full on the rest.
+6. **Mixed.** SIF helps CoSQA enormously (`prune-kw`+sif +0.048, p<0.001) and
+   hurts etcd (−0.085, p=0.001). No clean statement about subsumption.
+7. **Holds.** `chars-800` vs `lines-32` at `prune-kw`: −0.010, −0.030, +0.015,
+   all n.s. The reparameterization is free, as registered. Phase 2 (the
+   800/1600/2400 sweep) is therefore worth running.
+
+**The defect.** `render_query` was documented as "the tier's normalization,
+none of its pruning" and did not implement that: it kept
+`Keywords::Extended`, so the query side was pruned too. On a chunk those words
+are boilerplate. On a query they are English. Measured on CoSQA's 1,200 real
+queries, the extended table removes **1,194 of 7,564 query tokens (15.8%),
+affecting 771 queries** — against 217 tokens (2.9%) for the frozen legacy
+table. `"python logging can not create file"` loses `not`; `"how to prompt an
+input in python"` loses `in`; `"python mkdirs with permission"` loses `with`.
+
+It looked like query-side damage charged to a document-side lever, falling
+hardest on exactly the corpus where the arms lost. **That reading was wrong,
+and §20.6 is the correction** — removing the query-side pruning was tried and
+lost everywhere, including on CoSQA. What §20.5 recorded as a defect is the
+better configuration. The paragraph above is left standing because the
+measurement in it is real (15.8% of CoSQA query tokens do go) and only the
+inference from it was mistaken.
+
+Run 1 is retained as `lever-<corpus>-prune-qsym-<tag>.json` and run 2, which
+tested the correction, as `prune-qasym-`. `qsym` is the shipped behavior.
+
+### 20.6 The correction that lost: prune both sides or neither
+
+§20.5 hypothesised that the prune tiers lost on CoSQA because `render_query`
+was applying the extended keyword table to queries, and that queries should be
+normalized and not pruned. Run 2 tested exactly that, every arm, four corpora.
+
+**Paired Δ R@5, asymmetric (query not pruned) minus symmetric:**
+
+| corpus | `prune-kw` | `prune-lex` | `prune-kw`+sif |
+|---|---|---|---|
+| tokio | **−0.040** p=0.039 | **−0.055** p=0.013 | **−0.075** p=0.001 |
+| etcd | −0.020 n.s. | −0.025 n.s. | +0.000 n.s. |
+| vscode | −0.010 n.s. | −0.025 p=0.062 | −0.015 n.s. |
+| cosqa | −0.003 n.s. | −0.003 n.s. | **−0.014** p=0.021 |
+
+**Every delta is negative or zero — 11 of 12, across 4 corpora — and the
+CoSQA arms the change was written to rescue lost too** (`prune-soft` −0.010
+p=0.012, `prune-uniq` −0.014 p<0.001, `lex-sif` −0.014 p=0.012). The
+hypothesis is refuted on its own chosen corpus.
+
+The mechanism, stated exactly, because a loose version of it predicts the
+wrong things. Ranking is cosine against a fixed query, so `|q|` is constant
+across documents and cancels; the score decomposes additively over the query's
+tokens:
+
+    score(d)  ∝  <C_q, d> + <K_q, d>        C = content tokens, K = keywords
+
+Prune neither side and `<K_q, d>` is a real matching term — weak, but both
+sides carry the vocabulary. Prune both and it vanishes. Prune documents only
+and `K_q` survives in the query while every document has had its counterpart
+deleted: word vectors are not orthogonal, so the term is still non-zero and
+still *varies by document*. It is an additive term with nothing to align
+with, and it reshuffles the ranking on noise. The query's mass is not "lost"
+— the normalization is a constant across documents — it is converted into a
+document-varying error term. Losing `not` from "python logging can not create
+file" costs less than keeping a `not` that every candidate chunk has had
+removed.
+
+Query-side pruning is therefore not a feature. It is the removal of a noise
+term that chunk-side pruning manufactures.
+
+The operative rule, and it is more general than this lever: **prune the two
+sides identically, or do not prune at all.** Pruning a query structurally
+cannot mirror — declaration position, which prose has none of; the low-signal
+table, which eats "parse a number from a string" — must therefore stay
+document-side, and the tiers keep that split. Pinned by
+`keyword_pruning_is_symmetric_and_the_rest_is_not`.
+
+**Where that leaves §20 against the bar.** Symmetric `prune-kw` versus the
+§14.4 champion (`split`+`sif`): tokio +0.040 n.s., etcd **+0.080 p=0.002**,
+vscode −0.045 n.s., cosqa **−0.066 p<0.001**. One win, two nulls, one loss —
+on the corpus §12 says to weight most. The keyword-table repair is a real
+defect fixed and it is not, on this evidence, a shipping win; `split`+`sif`
+survives §20 as the champion. What §20 produced instead is three negative
+results worth having (the stoplist adds nothing over the repair,
+declaration-position deletion costs a fifth of recall, path capping hurts),
+one general rule (prune symmetrically), and one lever that is free at parity
+and still untested at size — the character budget, whose 800/1600/2400 sweep
+is the live thread into §20.7.
+
+### 20.7 The symmetry confound in §20.5, and the arm that would settle it
+
+The §20.6 mechanism revises §20.5's reading of its own predictions, so the
+revision is recorded rather than left implicit.
+
+Sort the tiers by whether a query can mirror them:
+
+| tier | mirrorable query-side? | how it did |
+|---|---|---|
+| `prune-kw` | yes — one table, both sides | best prune arm |
+| `prune-lex` | yes in principle, **never run that way** | −0.005 to −0.030 vs `prune-kw` |
+| `prune-decl` | **no** — prose has no declaration sites | −0.195 to −0.225 |
+
+**The ranking tracks symmetry exactly.** `prune-lex` and `prune-decl` were
+both specified as document-side, on the reasoning in §20.1 that a query
+cannot mirror them. For `prune-decl` that is true. For `prune-lex` it is not:
+the low-signal table applies to a query as readily as to a chunk, and it was
+withheld on the same intuition §20.6 has since shown to be backwards.
+
+So §20.5's conclusions for predictions 2 and 3 — "a hand-written stoplist adds
+nothing over fixing the keyword table" and "references carry signal the ladder
+cannot afford to delete" — are confounded with asymmetry, and the second may
+be measuring nothing but it. Both stand as *measurements of the arms as run*;
+neither is safe as a statement about pruning.
+
+One arm discriminates for the stoplist: **`prune-lex` with the low-signal
+table applied to queries as well.** If it reaches `prune-kw`, asymmetry was
+the whole effect and the stoplist is neutral-to-good. If it still trails, the
+list removes signal and prediction 2 stands as originally read.
+
+Nothing discriminates for `prune-decl`, and that is the more interesting
+half. There is no symmetric version to run — a natural-language query has no
+declaration sites to keep. If §20.6's rule is right, declaration-position
+pruning is not a weak lever but a **structurally inapplicable** one for a
+bag-of-words retriever: any document-side transform a query cannot mirror
+buys a noise term proportional to how much it removes, and `prune-decl`
+removes the most. That predicts the observed ordering
+(`kw` > `lex` > `decl`) from symmetry alone, without reference to what the
+tokens mean — a claim that would generalize past this implementation and past
+this corpus, and one §20.8 should try to break rather than confirm.
+
+### 20.8 The symmetry arm: a null, and a dose-response that holds
+
+`prune-lex-sym` and `prune-uniq-sym` render documents identically to `prune-lex`
+and `prune-uniq` and mirror the pruning onto the query. §20.7 asked whether
+asymmetry explained the stoplist's shortfall.
+
+**It did not.** Mirroring the low-signal table onto the query moves nothing:
+
+| corpus | `lex` | `lex-sym` | paired Δ |
+|---|---|---|---|
+| tokio | 0.590 | 0.590 | +0.000 [−0.020, +0.020] |
+| etcd | 0.645 | 0.635 | −0.010 [−0.030, +0.010] |
+| vscode | 0.770 | 0.760 | −0.010 [−0.025, +0.000] |
+| cosqa | 0.111 | 0.109 | −0.002 [−0.008, +0.004] |
+
+All n.s. And `lex-sym` still fails to beat `prune-kw` (etcd −0.040 p=0.077,
+cosqa −0.013 p=0.052). **§20.5's prediction 2 stands as originally read**: the
+hand-written stoplist adds nothing over repairing the keyword table, and the
+symmetry confound §20.7 raised does not rescue it. Mirrored dedupe is likewise
+a null (−0.025 to +0.003, all n.s.), as §20.7 predicted for it — dedupe removes
+repetitions, not a token class, so no vocabulary mismatch arises to fix.
+
+This is *not* a contradiction of §20.6, and the reason is the useful part. The
+mechanism predicts the noise term `<K_q, d>` scales with how much of the query
+belongs to the pruned class. Measured on the query side:
+
+| pruned class | share of query tokens | cost of leaving it unmirrored |
+|---|---|---|
+| low-signal table | 2.8–7.4% | **0.000 to −0.010** (n.s., §20.8) |
+| keyword table | 14.9–15.8% | **−0.040** tokio, negative on 4/4 (§20.6) |
+| non-declaration tokens | ~100% (a query is all references) | **−0.195 to −0.225** (§20.5) |
+
+Three magnitudes, three effect sizes, monotone. The mechanism was inferred from
+the middle row and it postdicts the other two, which is more than it was fitted
+to do. It also sharpens the §20.7 claim about `prune-decl`: its mismatch is not
+merely unmirrorable, it is *maximal* — every token a natural-language query
+contains is a reference, and references are exactly what it deletes from the
+documents. The prediction that would break this: a document-side transform
+removing ~15% of query-mirrorable vocabulary should cost ~0.04 when unmirrored,
+whatever the transform is about.
+
+**Where §20 ends** is §20.9 — this paragraph originally read "no arm beats
+`split`+`sif` on more than one corpus", which linux overturned. See below.
+
+### 20.9 Linux, and the size sweep that went the wrong way
+
+**A correction first.** §20.5 and §20.8 both say linux was not scored. Three
+linux arms — `nokw`, `kw`, `lex` — did land, written by the interrupted run of
+2026-08-04 23:39–23:42 before the query-side change, i.e. under the `qsym`
+configuration, and they were swept into the `prune-qsym-*` rename with
+everything else. They are valid and they change the headline.
+
+**linux (C, 84k files, 199 `direct` queries), semantic R@5:**
+
+| arm | R@5 | vs incumbent | vs champion (0.734) |
+|---|---|---|---|
+| `split-nokw` | 0.764 | — | +0.030 n.s. |
+| `prune-kw` | **0.814** | +0.050 p=0.006 | **+0.080 [+0.025, +0.141] p=0.011** |
+| `prune-lex` | **0.824** | +0.060 p=0.008 | **+0.090 [+0.035, +0.146] p=0.002** |
+
+So the repair's record against the champion across five corpora is **two
+significant wins (etcd +0.080, linux +0.080), two nulls (tokio, vscode), and
+one significant loss (CoSQA −0.066)** — and the wins are the two largest trees.
+That is a materially better result than §20.8 recorded, and it does not settle
+the question: the loss is on the only corpus whose queries nobody here wrote,
+which §12 says to weight most. Reporting it as a win would be picking the
+favourable four-fifths.
+
+Note also that linux is the one corpus where `prune-lex` is the best arm.
+Prediction 2's kill condition was "loses on 3 of 5"; it lost on 3 of 5 and is
+dead as a general lever, but the exception is the largest corpus and is not
+noise.
+
+**The sweep.** Rendering held at `prune-kw`, chunk budget swept, four corpora:
+
+| corpus | lines-32 | chars-800 | chars-1600 | chars-2400 |
+|---|---|---|---|---|
+| tokio | 0.585 | 0.575 | 0.550 | 0.525 |
+| etcd | 0.675 | 0.645 | 0.655 | 0.655 |
+| vscode | 0.780 | 0.795 | 0.765 | 0.760 |
+| linux | 0.814 | 0.804 | 0.774 | 0.759 |
+
+**Every corpus is flat or declining as the budget grows, monotone on three of
+four.** No single comparison reaches significance, but 11 of 12 against the
+32-line window point down, and the two largest corpora lose the most at 2,400
+(tokio −0.060, linux −0.055, both p≈0.07–0.08).
+
+The external result does not transfer, and the reason is the same one §20.6
+turned on. The controlled study that found ~2,000 characters optimal (arXiv
+2605.04763) used BM25 and three transformer retrievers; cAST used contextual
+embedders. Those have attention to spend across a long chunk. This engine pools
+by a **uniform mean** — a bigger chunk is a strictly more diluted vector, with
+no mechanism to weight the part that matters. Chunk-size guidance from the RAG
+literature should be assumed not to transfer to a static bag-of-words retriever
+until measured, in either direction.
+
+The budget is still worth keeping: it is free at parity (§20.3 prediction 7,
+confirmed twice), it equalises the 35% language-density gap between vscode and
+linux, and it caps a tail where one 32-line vscode window holds 6,767
+non-whitespace characters. It is a fix for the worst chunks, not a knob to turn
+up.
+
+**Final ledger for §20.** One shipped defect found and fixed (43 words missing
+from the keyword table). One arm that beats the champion on the two largest
+corpora and loses on the most trustworthy one — not a shipping decision this
+evidence can make alone. Five negative results that close off directions
+(stoplist, declaration pruning, path capping, dedupe, larger chunks). One rule
+with a quantitative form: mirror what the query can mirror, and the cost of not
+doing so scales with the unmirrored share. `split`+`sif` remains the default
+until the CoSQA loss is understood.
+## 21 Renderings at agent scale: the free gate
+
+§20 measured five chunk renderings against *generated* queries and produced a
+split verdict — `prune-kw` beats the §14 champion on the two largest corpora and
+loses on CoSQA. §9.7's standing rule is that engine changes are gated on
+agent-level evidence, and §14.5 already used the offline agent-query instrument
+to refuse `split+sif` once. This section runs the four renderings against the
+queries agents actually typed.
+
+### 21.1 Pre-registration (written before the first row)
+
+**Instrument.** `eval/locbench/guessplay.py` over `eval/queries/guesses-v1-descv9.jsonl`
+— re-harvested from `runs/`, desc-v9 only: **854 ranked queries over 186
+instances**. Five index configs: `default` (shipped `none`), `split`,
+`prune-kw`, `prune-decl`, `champion` (`split`+`sif`). Modes semantic (shipped)
+and bm25 (tripwire). Scope policy `orig`. No API spend.
+
+**Why `guesses-v0` is not the corpus.** Its 624 ranked rows are entirely V4-era
+conditions (`semgrep`, `sg-*`) with **zero** `desc-*` rows, at a 20–41% ranked
+share; and 208 of the 624 (33%) are file-scoped rows written before the §16.11
+fix, scoring 0.000 in every config. Re-using it would compare a fresh treatment
+against a control a third of which is a hardcoded zero. The old file is retained
+as the §16.5/§17.2 artefact; run 21 writes to `guessplay-v1.jsonl` from empty,
+and every row carries `bin_sha256`.
+
+**The dose, stated in the registration.** `cache::discover` returns `None` for a
+non-directory root (`cache/mod.rs:74-76`), so a **file-scoped search finds no
+index at all** and the cold path renders from the *search flag*
+(`search/stream.rs:77,126`). Measured on the shipping corpus: **394 of 854
+(46%) of desc-v9 ranked searches are file-scoped**, 334 root, 126 directory.
+An index-only arm is therefore 54% treated and would report a diluted null.
+Every arm here carries **both** levers — index build and injected search flag.
+
+`--sif` exists only under `Cmd::Index` and `stream.rs` has no SIF pass, so
+**`champion` is partially treatable by construction**: its file-scoped 46% gets
+`split` without `sif`. It is reported as a partial arm and is not the headline.
+`split` alone is the correctly-treated base of the whole §14/§20 ladder.
+
+**P1 — the gate, and it is about power, not recall.** Define
+**ψ_offline** = the share of *instances* where an arm and the control disagree
+on "did any of this instance's ranked queries surface a gold file at rank ≤5".
+Registered floor: an arm graduates to paid measurement only at
+**ψ_offline ≥ 0.06 with |b−c|/n ≥ 0.03**. Gating on offline recall would gate on
+the one quantity §9.7, §10.6 and §14.5 each showed does not transfer;
+instance-level discordance is what McNemar power is made of, so ψ_offline ≈ 0 is
+a positive statement that there is nothing to buy.
+*Prior, measured on the old corpus before this was written*: champion vs default
+is **0 of 40 discordant instances, ψ_offline = 0.000**, while query-level hit@5
+moves +0.038. The registered expectation is therefore that **no arm clears P1**
+and the campaign's output is a bound. Recording that in advance is the point.
+
+**P2 — `prune-kw` ≥ control.** It is the one arm §20.6's rule says is fully
+mirrorable, so it should carry no manufactured noise term. Floor: Δ hit@5 ≥ 0.00
+under a **cluster bootstrap over instances** (4,000 resamples, seed 1). A
+per-query interval may not be quoted: the measured design effect on this corpus
+is **1.64×**, enough to flip the champion from null to significant.
+*Kill:* Δ ≤ −0.02 with the interval excluding zero → `prune-kw` is dead as a
+shipping candidate and §20.9's two significant wins are confirmed as a
+non-transferring offline result.
+
+**P3 — `prune-decl` loses overall, and the loss is a function of query length.**
+§20.8's dose law says cost scales with the *unmirrored share of query tokens*. A
+one-word identifier guess naming a declaration has an unmirrored share near
+zero. Registered: pooled Δ hit@5 ≤ −0.05, **and** Δ in the 1-word stratum is
+≥ pooled Δ + 0.05, monotone across {1, 2, 3–4, 5+} words. This is the
+discriminating prediction: confirming it postdicts §20.5's −0.20 from query
+composition alone. A flat loss across strata falsifies the dose law in this
+regime.
+*Confound, registered up front:* at `prune-decl` the §20.1 chunk is 69% path
+tokens under the shipped `PathRender::Full`, and §20.5's prediction 5 found
+capping the path made things worse. This arm measures
+prune-decl-with-path-domination and cannot separate the two.
+
+**P4 — `split` bounds the ladder.** Registered: |Δ hit@5| < 0.02. A null on
+`split` bounds every document-side rendering above it. A win ≥ +0.03 reopens
+§14 on agent-regime evidence for the first time.
+
+**Tripwires (each voids the run, not the arm).**
+1. **bm25 invariance.** |Δ| ≤ 0.005 in bm25 mode on every arm — the lexical
+   tokenizer already does what these renderings do (`prose.rs`). Measured on the
+   old corpus: Δ = +0.000, CI [−0.006, +0.007]. Any movement is a bug.
+2. **One binary.** A single `bin_sha256` across every row of every config.
+3. **Index readback.** After each build, `.semgrep/meta.json` must report the
+   requested `{embed_preproc, sif}` or the run aborts — a failed build otherwise
+   degrades into "measured the previous config", which is indistinguishable from
+   a null.
+
+**What a null will and will not license.** It **will** license withdrawing
+`prune-kw` as a shipping candidate despite §20.9, and closing the document-side
+rendering direction with a number rather than a pattern. It **will not** license
+any claim that rendering does not matter to retrieval — §20.9's linux +0.090
+[+0.035, +0.146] p=0.002 stands and is not contradicted by an agent-regime null
+— nor any statement about agent *accuracy*, which this instrument does not
+measure. Per §11.5 and §19.10 accuracy remains unpurchasable here: ±0.060 at
+n=204, ±0.038 at all 560, ±0.15 at a 40-instance tier.
+
+### 21.2 The gate: one arm clears it, in the losing direction
+
+Run 2026-08-05, `guessplay-v1.jsonl`, one binary (`d89fa15f10c6abd8`), 854
+desc-v9 ranked queries over 186 instances, five configs, semantic + bm25.
+
+**A harness bug found first, and it was not the one everyone assumed.** Every
+file-scoped row scored 0.000 in every config on a current binary. The cause was
+`guessplay.score()` prefixing the scope path as though it were a directory —
+a scope of `pkg/trainer.py` and a hit of `trainer.py` composed to
+`pkg/trainer.py/trainer.py`, matching no gold. The engine was returning the hit
+correctly. This had been read as the §16.11 file-scope engine bug (§17.1's
+"0 of 5,117"), including in the analysis that planned this section; it is a
+separate scoring defect and it was still live. Fixed; 46% of the corpus became
+scoreable, base hit@5 0.000 → 0.356.
+
+**And then the fix showed why that half cannot answer this question anyway.**
+With correct scoring, all four arms return **Δ = +0.000, ψ_offline = 0.000** on
+file-scoped rows, both modes, n=295. That is structural: a file scope yields
+hits that all carry the scoped file's own path, so gold-*file* rank is 1 or
+absent regardless of how the engine orders chunks within the file. **The
+rendering cannot affect 46% of real agent searches.** Not a null — an identity.
+The gate therefore rests on the 460 directory- and root-scoped queries over
+148 instances, which is the complete half.
+
+| arm | Δ hit@5 | cluster 95% CI | ψ_offline | b/c | \|b−c\|/n | P1 |
+|---|---|---|---|---|---|---|
+| `split` | −0.007 | [−0.027, +0.014] | 0.061 | 5/4 | 0.007 | no |
+| `prune-kw` | −0.022 | [−0.055, +0.012] | 0.088 | 6/7 | 0.007 | no |
+| `prune-decl` | −0.009 | [−0.065, +0.039] | **0.149** | 8/14 | **0.041** | **clears** |
+| `champion` | −0.015 | [−0.049, +0.017] | 0.108 | 7/9 | 0.014 | no |
+
+**P1 — one arm clears, pointing down.** Only `prune-decl` meets both the
+ψ_offline ≥ 0.06 and the |b−c|/n ≥ 0.03 halves, and its asymmetry is 14
+instances worse against 8 better (p=0.286). Every other arm moves instances
+symmetrically, which is discordance without signal — exactly the condition that
+inflates b+c without inflating |b−c| and therefore *reduces* McNemar power.
+
+**P3 — falsified, and this is the result.** Registered: `prune-decl` loses
+overall by ≤ −0.05. Measured: **−0.009, CI [−0.065, +0.039]** — indistinguishable
+from the shipped default. Offline it lost by **0.15 to 0.28 with p<0.001 on
+every one of five corpora** (§20.5). The arm the offline instrument rated worst
+by a wide margin is a null in the regime this project optimizes for.
+The length strata do not rescue the dose law either — −0.016 / +0.113 / −0.068 /
+−0.005 across {1, 2, 3–4, 5+} words is not monotone. §20.8's dose law postdicts
+the offline numbers and does not extend to real agent queries.
+
+**P2 — missed.** `prune-kw` is the *worst* of the four at −0.022 (CI includes
+zero, so the kill condition does not fire, but the floor of ≥0.00 is not met).
+The arm with two significant offline wins on the largest corpora is the one that
+does least well here.
+
+**P4 — holds.** `split` at −0.007, |Δ| < 0.02. The base of the §14/§20
+document-side ladder is a null on real agent queries, which bounds every
+rendering above it.
+
+**Tripwire 1 tripped, on a mis-set threshold.** `prune-decl` bm25 Δ = +0.011
+against a registered ≤0.005 (CI [−0.002, +0.025], includes zero). The mechanism
+is known: bm25-mode output passes through MMR, which reads the embedding matrix
+(§14.4 point 6), and `prune-decl` perturbs that matrix most. §14.4 recorded the
+identical tripwire as "miss as stated" for the identical reason. Registering it
+a second time at a threshold that mechanism makes unreachable is the error, not
+the engine. Recorded as a trip with a mis-specified threshold. Tripwires 2 and 3
+passed.
+
+**Decision: phase 2 is not bought.** The registered gate exists to answer
+whether a paid frame could detect anything. It cannot. Only `prune-decl` has
+enough instance-level movement to be measurable, and at ψ=0.149 a 40-instance
+tier yields ~6 expected discordant pairs against the 6 all-one-way needed for
+p<0.05 — a coin flip conditional on perfect asymmetry that the 8/14 split
+already contradicts. The other three arms are below the floor outright.
+
+**What this licenses.** Third confirmation of §9.7's rule (after §9.7 and
+§10.6), and the first with the size of the miss measured: an offline deficit of
+0.15–0.28 at p<0.001 corresponds to −0.009 [−0.065, +0.039] on real agent
+queries. **Offline retrieval eval on generated queries does not predict
+agent-regime behaviour for a rendering change** — not merely "gains fail to
+transfer", but losses fail to transfer too, which is the stronger and more
+useful form. `prune-kw` is withdrawn as a shipping candidate: §20.9's linux and
+etcd wins stand as offline facts and do not survive contact with real queries.
+`split`+`sif` remains the default.
+
+**What it does not license.** Nothing about agent *accuracy*, which this
+instrument does not measure. Nothing about renderings on descriptive queries —
+§20.9's linux +0.090 [+0.035, +0.146] p=0.002 stands. And nothing about the 46%
+of searches that are file-scoped, where no rendering can matter by construction;
+if that share is worth attacking, the lever is scope handling, not rendering.

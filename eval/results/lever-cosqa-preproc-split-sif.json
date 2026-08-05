@@ -1211,7 +1211,7 @@
     ],
     "queries_fp": "a9006a29f625c5b9",
     "run": {
-      "at": "2026-08-01T15:23:50Z",
+      "at": "2026-08-05T00:48:40Z",
       "queries": "eval/queries/cosqa-1200.jsonl",
       "queries_fp": "a9006a29f625c5b9",
       "n_queries": 1200,
@@ -1225,9 +1225,9 @@
       "extra": null,
       "no_index": false,
       "binary": "/Users/nlaz/Development/Flower-Computer/semgrep/target/release/semgrep",
-      "binary_mtime": "2026-08-01T15:15:38Z",
-      "binary_bytes": 39071264,
-      "git_head": "72d7c22"
+      "binary_mtime": "2026-08-04T20:16:28Z",
+      "binary_bytes": 39180368,
+      "git_head": "8c0537d"
     },
     "leakage": {
       "n": 1200,
@@ -1237,7 +1237,8 @@
       "stem_pct": 0.0,
       "path_seg_pct": 0.0,
       "path_seg_not_in_gold_pct": 0.0,
-      "gold_token_overlap": 0.3471667152292152
+      "gold_token_overlap": 0.3471667152292152,
+      "gold_id_pct": 0.005833333333333334
     }
   }
 ]
