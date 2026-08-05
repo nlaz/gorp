@@ -63,6 +63,11 @@ scale. Quantization verified quality-neutral (§3, v2 column ≈ v1 within noise
 
 ## 3. Retrieval quality (LLM-generated evals, 200 chunks / 400 queries per corpus)
 
+> These are **generated** queries. §5 measured that they do not predict agent
+> behaviour for a rendering or ranking change, in either direction. Read this
+> board as a regression floor and a corpus-level comparison, not as grounds to
+> accept or reject an engine change.
+
 Ground truth = source chunk ±10 lines. "direct" queries name identifiers;
 "paraphrase" queries deliberately avoid the chunk's vocabulary. "rg" is the
 agent-style fallback (phrase → rarest-words AND → OR, case-insensitive).
@@ -190,10 +195,66 @@ token is. The §3 finding stands corrected in degree, not direction: ranked
 lexical still leads, but the semantic branch now recovers 85% of it on real
 queries, from 49%.
 
-## 5. Remaining roadmap
+## 5. Chunk rendering, and what the offline harness is for (2026-08-05, §20–§23)
 
-- Agent-task evals (`eval/agent-eval.md`): searches-to-success & tokens per
-  task, rg-only vs semgrep — the end-to-end product claim.
+Four campaigns asked whether rewriting a chunk before embedding it helps.
+The answer is no, and finding that out cost three instruments a demotion.
+
+**The transfer failure (§21.2).** The same renderings, measured two ways:
+
+| rendering | offline, generated queries | real agent queries |
+|---|---|---|
+| `prune-decl` | **−0.15 to −0.28, p<0.001 on all five corpora** | **−0.009 [−0.065, +0.039]** |
+| `prune-kw` | +0.080 p=0.002 (linux, etcd) | −0.022 [−0.055, +0.012] |
+
+Generated queries are 10–15 words and contain the gold file's own identifier
+~70% of the time; real agent queries are ~5 words and do it 0.6% of the time.
+**`run_eval.py` cannot referee a rendering or ranking change** — and the new
+half is that offline *losses* fail to transfer too, so a negative offline
+result is not grounds to reject a design either. Third confirmation of §9.7's
+rule, first with the size of the miss measured.
+
+**The powered bound (§23.2).** 7,657 real agent queries over 467 instances,
+six description regimes, 62,808 rows, $0:
+
+| arm | Δ recall@5 vs shipped | 95% cluster CI |
+|---|---|---|
+| `split` | −0.011 | [−0.022, −0.002] pooled; [−0.024, +0.000] on the clean half |
+| `champion` (`split`+`sif`) | +0.005 | [−0.013, +0.023] |
+| `prune-kw-pos` | −0.007 | [−0.021, +0.007] |
+
+**No document-side rendering improves retrieval on real agent queries by more
+than 0.023.** The §14.4 `split`+`sif` recommendation is retired — it is
+indistinguishable from doing nothing, and the shipped `EmbedPreproc::None`
+stands on a number rather than on absence of evidence.
+
+**Two defects found and fixed on the way.** The keyword table deleted tokens
+that are *identifier components* — `__init__`, `from_dict`, `as_completed` —
+damaging **20.9% of the gold function names agents were hunting**; firing it
+only on whole-word keywords cuts that to 0.7% (§22.1). And `guessplay` scored
+file scopes at *file* level, where the answer is decided before ranking
+begins, so 46% of real agent searches returned an exact `Δ = +0.000` for every
+arm; scoring at *function* level recovered them and showed file scopes score
+**0.272 against directory scopes' 0.152** (§22.2).
+
+**Audited (§23.3).** Replay fidelity against the agents' own stored stdout is
+**98.0%** where the tool worked. But 50.1% of the corpus was typed before
+`b49e818`, when file-scoped ranked search returned nothing — point estimates
+replicate across that split, significance does not, and §23.2 is amended
+accordingly. `guessplay.py` is the gate an engine change must clear; it is
+free and it replays real agent queries against real gold.
+
+## 6. Remaining roadmap
+
+- **Within-file ranking** — 46% of real agent searches are file-scoped, they
+  are now instrumented for the first time (§22.2), and no lever has ever been
+  aimed at them. The most promising open direction.
+- **Record provenance in the harvested corpus** — `guesses-*.jsonl` does not
+  mark which rows a broken tool served, so any future campaign inherits §23.3's
+  50% contamination silently. Rows should carry the serving binary or commit.
+- **Validate `symbols.extract` spans** — the function-level metric rests on a
+  regex extractor that under-counts by design, so `rank_func` is a lower bound
+  rather than a calibrated rate.
 - Persistent server / MCP mode with resident index (amortizes load; makes
   HNSW worthwhile; sub-10 ms warm queries plausible).
 - Two-pass streaming BM25 to cut the 916 MB cold-path RSS.
