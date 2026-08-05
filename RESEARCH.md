@@ -5563,3 +5563,73 @@ the rendering direction properly rather than by exhaustion. It does **not**
 license any claim about agent *accuracy* (§11.5: unpurchasable here), about
 ranking or chunking levers (untested), or about descriptive-query retrieval,
 where §20.9's linux +0.090 [+0.035, +0.146] p=0.002 stands.
+
+### 23.2 The bound, and the direction closes
+
+Run 2026-08-05, `guessplay-v3.jsonl`. **62,808 rows, 7,657 ranked queries over
+467 instances**, six description regimes, one binary (`eb9aec404d324b56`).
+Balanced to within 176 rows across arms (the residual is exact-arm rows, which
+only run under `default`).
+
+**Semantic mode, directory- and root-scoped, against the shipped `default`:**
+
+| arm | Δ recall@5 | 95% cluster CI | ψ | b/c |
+|---|---|---|---|---|
+| `split` | **−0.011** | **[−0.022, −0.002]** | 0.037 | 6/8 |
+| `champion` (`split`+`sif`) | +0.005 | [−0.013, +0.023] | 0.098 | 16/21 |
+| `prune-kw-pos` | −0.007 | [−0.021, +0.007] | 0.063 | 8/16 |
+
+**P1 — holds, and hardens into something stronger.** No arm beats `default`;
+the kill condition (an interval excluding zero *upward*) did not fire. But
+`split` now excludes zero **downward**: −0.011 [−0.022, −0.002]. The base of
+the entire §14/§20 document-side ladder is not neutral on real agent queries,
+it is measurably worse than not rendering at all. Every rendering above it
+inherits that.
+
+**P2 — the bound tightened as registered.** §21.2's `champion` interval was
+[−0.049, +0.017], half-width 0.033; here it is [−0.013, +0.023], half-width
+0.018 — a **1.83×** narrowing against a registered 1.4–1.8×. Slightly better
+than predicted, which means the design effect assumption was mildly
+conservative rather than optimistic.
+
+**P3 — passes, and it is the actionable one.** `champion` sits at
+**+0.005, |Δ| < 0.02**. The §14.4 recommendation — carried in this file for
+three sections — is **indistinguishable from doing nothing** on real agent
+queries at a ±0.023 bound. §14.5 refused it once, §21.2 measured −0.015, and
+this settles it at 2.5× the frame: **`split`+`sif` should not be adopted as the
+default.** The shipped `EmbedPreproc::None` stands, and the reason is now a
+number rather than an absence of evidence.
+
+**P4 — file scopes stay discriminative.** ψ_offline > 0 at function level on
+file-scoped rows (0.020), replicating §22.2's recovery on 2.5× the frame. And
+the gap widened: function-level hit@5 is **0.272 on file scopes against 0.152
+on directory scopes**. At scale, the half §21.2 wrote off is not merely
+measurable but **1.8× more productive** than the half we had been scoring.
+
+**P5, P6 — tripwires hold.** bm25 deltas are +0.002 / −0.001 / +0.001, all
+within the registered 0.005. One binary across all 62,808 rows.
+
+**The registered heterogeneity check fired, and it was mis-specified.** §23.1
+said to withdraw the pooled bound if arms disagree in sign across regimes.
+`split` is negative in all five (consistent); `champion` is 3+/2− and
+`prune-kw-pos` 1+/3−. But **a null arm scatters around zero by construction**,
+so sign disagreement among nulls is trivial and the check cannot distinguish
+heterogeneity from noise. Testing the spread against sampling error instead:
+`prune-kw-pos` 0.019 and `split` 0.012 against an expected 0.058 (noise);
+`champion` 0.069, marginally above, driven entirely by desc-v7 — n=92, +0.054,
+about 1.3 SE. The pooled bound stands, with that caveat recorded rather than
+argued away. The check should have been on between-regime variance against
+sampling variance, and is written that way here for reuse.
+
+**What §23 licenses.** *No document-side rendering improves retrieval on real
+agent queries by more than 0.023, across 7,657 queries and 467 instances
+spanning six description regimes — and the ladder's base is 0.011 worse than no
+rendering at all.* That closes the rendering direction on a measurement rather
+than on exhaustion, and it retires the standing `split`+`sif` recommendation.
+
+**What it does not license.** Nothing about agent *accuracy* (§11.5:
+unpurchasable on this benchmark at any n it holds). Nothing about ranking,
+chunking, or scope handling, none of which this varied. And nothing about
+descriptive-query retrieval, where §20.9's linux +0.090 [+0.035, +0.146]
+p=0.002 stands — that result is real, it simply describes a different task,
+which is the whole finding of §21 through §23.

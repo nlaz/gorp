@@ -65,7 +65,7 @@ Its modules: `cli` (flags), `cmd/` (one file per verb), `out`
   `eval/blind_cut.py`, the §15.3 gate in `run_eval.py`). Named-identifier
   sets remain the regression floor.
 - **`run_eval.py` cannot referee a rendering or ranking change** (RESEARCH.md
-  §21.2, §22.2, §23). It scores *generated* queries — 10–15 words, containing
+  §21.2, §22.2, §23.2). It scores *generated* queries — 10–15 words, containing
   the gold file's own identifier ~70% of the time. Real agent queries are ~5
   words and do it 0.6% of the time. Measured on the same arms: `prune-decl`
   lost **0.15–0.28 at p<0.001 on all five corpora** offline and **−0.009
@@ -73,7 +73,11 @@ Its modules: `cli` (flags), `cmd/` (one file per verb), `out`
   not just gains, so a negative offline result is not grounds to reject a
   design either. Use it for regression floors and leakage cuts; gate any engine
   change on `eval/locbench/guessplay.py`, which replays real harvested agent
-  queries against real gold for free. Three confirmations now: §9.7, §10.6, §21.
+  queries against real gold for free. Three confirmations now: §9.7, §10.6, §21. §23.2 closes the direction with a
+  powered bound: **no document-side rendering improves retrieval on real agent
+  queries by more than 0.023** (7,657 queries, 467 instances), `split` is
+  0.011 *worse* than no rendering, and the standing `split`+`sif` recommendation
+  is retired — the shipped `EmbedPreproc::None` stands.
 - `eval/` — retrieval-quality harness. `run_eval.py` scores recall@k/MRR with
   paired bootstrap CIs + sign tests (`--baseline`, `--compare-modes`), cuts by
   `--stratify`/`--where`, and prints leakage above every table;
