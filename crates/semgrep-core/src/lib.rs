@@ -35,11 +35,25 @@ pub struct ChunkParams {
     pub overlap: u32,
     /// Files larger than this are skipped.
     pub max_file_bytes: u64,
+    /// Non-whitespace characters per chunk. When set, windows are cut to this
+    /// budget instead of [`window`](Self::window) lines (RESEARCH.md §20.2).
+    ///
+    /// A line is not a unit of content: measured over the benchmark corpora, a
+    /// 32-line window holds a median 931 non-whitespace characters in vscode
+    /// against 693 in linux, and within vscode the p10→p90 spread is 2.5× with
+    /// a worst case of 6,767 — one chunk seven times the median, pooled into
+    /// one vector by a uniform mean. Budgeting by content equalizes both. The
+    /// unit is cAST's (arXiv 2506.15655), chosen for the same reason.
+    ///
+    /// Chunks stay line-aligned regardless: [`Chunk`] addresses lines, and
+    /// `corpus::lines` re-reads by line number.
+    #[serde(default)]
+    pub budget: Option<u32>,
 }
 
 impl Default for ChunkParams {
     fn default() -> Self {
-        Self { window: 32, overlap: 8, max_file_bytes: 4 * 1024 * 1024 }
+        Self { window: 32, overlap: 8, max_file_bytes: 4 * 1024 * 1024, budget: None }
     }
 }
 

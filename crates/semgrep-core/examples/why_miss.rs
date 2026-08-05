@@ -12,7 +12,10 @@
 
 use semgrep_core::corpus::doc_text;
 use semgrep_core::rank::normalize;
-use semgrep_core::text::{EmbedPreproc, SifStats, embed_query, embed_sif, prose_render};
+use semgrep_core::text::{
+    EmbedPreproc, PathRender, SifStats, embed_query, embed_sif, prose_render_doc,
+    prose_render_query,
+};
 use serde_json::json;
 use std::path::Path;
 
@@ -61,7 +64,7 @@ fn main() {
         .ok()
         .and_then(|b| postcard::from_bytes(&b).ok());
 
-    let q_render = prose_render(query, EmbedPreproc::Split).into_owned();
+    let q_render = prose_render_query(query, EmbedPreproc::Split).into_owned();
     let qv = [
         unit(embed_query(query)),
         unit(embed_query(&q_render)),
@@ -72,7 +75,8 @@ fn main() {
     let mut out_spans = Vec::new();
     for (rel, text) in &spans {
         let doc = doc_text(rel, text);
-        let rendered = prose_render(&doc, EmbedPreproc::Split).into_owned();
+        let rendered =
+            prose_render_doc(&doc, EmbedPreproc::Split, PathRender::Full).into_owned();
         let cv = [
             unit(embed_query(&doc)),
             unit(embed_query(&rendered)),

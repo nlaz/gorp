@@ -32,7 +32,7 @@ fn isolate_cache() -> std::sync::MutexGuard<'static, ()> {
 }
 
 const PARAMS: ChunkParams =
-    ChunkParams { window: 8, overlap: 2, max_file_bytes: 4 * 1024 * 1024 };
+    ChunkParams { window: 8, overlap: 2, max_file_bytes: 4 * 1024 * 1024, budget: None };
 
 /// Every test here is about what the overlay *does*, so the drift bound that
 /// decides whether to use one is off throughout.

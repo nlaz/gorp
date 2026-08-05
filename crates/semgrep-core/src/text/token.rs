@@ -22,23 +22,40 @@ pub(crate) fn for_each_token_with(
         if raw.is_empty() {
             continue;
         }
-        for word in raw.split('_') {
-            if word.is_empty() {
-                continue;
-            }
-            let sub_count = split_camel(word, |sub| {
-                if sub.chars().count() >= 2 {
-                    buf.clear();
-                    buf.extend(sub.chars().flat_map(|c| c.to_lowercase()));
-                    emit(&buf);
-                }
-            });
-            // Whole identifier too, when it actually decomposed.
-            if whole_idents && sub_count > 1 && word.chars().count() >= 2 {
+        subtokens_of(raw, whole_idents, &mut buf, &mut emit);
+    }
+}
+
+/// One raw `[alphanumeric_]+` run into the emitted stream: split on `_`, then
+/// on camelCase/acronym boundaries, lowercased, 1-char subtokens dropped, and
+/// the whole identifier too when it decomposed.
+///
+/// The single implementation of the splitting rule. `text::prose` needs it one
+/// word at a time — a declaration verdict is reached per word and has to reach
+/// every subtoken that word produces — and a second copy of these boundary
+/// rules is exactly how the two would drift.
+pub(crate) fn subtokens_of(
+    raw: &str,
+    whole_idents: bool,
+    buf: &mut String,
+    emit: &mut impl FnMut(&str),
+) {
+    for word in raw.split('_') {
+        if word.is_empty() {
+            continue;
+        }
+        let sub_count = split_camel(word, |sub| {
+            if sub.chars().count() >= 2 {
                 buf.clear();
-                buf.extend(word.chars().flat_map(|c| c.to_lowercase()));
-                emit(&buf);
+                buf.extend(sub.chars().flat_map(|c| c.to_lowercase()));
+                emit(buf);
             }
+        });
+        // Whole identifier too, when it actually decomposed.
+        if whole_idents && sub_count > 1 && word.chars().count() >= 2 {
+            buf.clear();
+            buf.extend(word.chars().flat_map(|c| c.to_lowercase()));
+            emit(buf);
         }
     }
 }

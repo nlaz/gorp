@@ -168,6 +168,7 @@ fn build_unswapped(
         has_hnsw: opts.hnsw,
         sif: sif.is_some(),
         embed_preproc: opts.embed_preproc,
+        path_render: opts.path_render,
         files,
     };
     trace.time(Stage::BuildWrite, || publish(dir, &meta, &chunks, &bm25, sif.as_ref()))?;
@@ -204,7 +205,8 @@ fn index_pass(
     trace: &mut Trace,
 ) -> Result<IndexPass> {
     let t_pass = Instant::now();
-    let mut writer = EmbedWriter::create(dir, opts.hnsw, sif, opts.embed_preproc)?;
+    let mut writer =
+        EmbedWriter::create(dir, opts.hnsw, sif, opts.embed_preproc, opts.path_render)?;
     let mut bm25 = Bm25Index::new();
     let mut chunks: Vec<Chunk> = Vec::new();
     let mut stats = BuildStats { n_files: files.len(), ..Default::default() };

@@ -236,8 +236,9 @@ pub fn scope(
     // Delta vectors must live in the same space as the base matrix — same SIF
     // stats, same prose rendering. The raw doc stays raw for BM25 above.
     let pp = idx.meta.embed_preproc;
+    let pr = idx.meta.path_render;
     let rendered: Vec<std::borrow::Cow<'_, str>> =
-        texts.iter().map(|t| text::prose_render(t, pp)).collect();
+        texts.iter().map(|t| text::prose_render_doc(t, pp, pr)).collect();
     let mut vecs: Vec<[f32; crate::EMBED_DIM]> = match &idx.sif {
         Some(s) => rendered.iter().map(|t| text::embed_sif(t, s)).collect(),
         None => ese::encode(rendered.iter()),

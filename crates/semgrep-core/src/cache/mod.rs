@@ -225,19 +225,70 @@ pub fn write_cache_entry(
 /// `max_file_bytes` is not in the tag because it is not reachable from the CLI.
 /// If it ever becomes tunable it has to join this, or entries built with
 /// different size caps will collide.
+///
+/// A character budget gets a `c` tag rather than a `w` one. It has to: a
+/// budgeted entry and a line-windowed entry cut the same tree into different
+/// chunks, so sharing a directory name would let one answer a query posed
+/// against the other — which is exactly FIXES.md #10, one parameter later.
+/// The budget tag carries `window` as well, because in budget mode the overlap
+/// is `budget * overlap / window` — all three decide where the cuts land, and a
+/// tag that omits one makes an entry undiscoverable by the options that built
+/// it (the second search re-streams forever, silently).
 fn params_tag(params: &ChunkParams) -> String {
-    format!("w{}o{}", params.window, params.overlap)
+    match params.budget {
+        Some(b) => format!("c{}w{}o{}", b, params.window, params.overlap),
+        None => format!("w{}o{}", params.window, params.overlap),
+    }
 }
 
 /// Read back an entry's chunk parameters. `None` for an entry from a build that
 /// predates `params.txt`, which then matches nothing and is reclaimed as
-/// unreadable — the same degradation any other unusable entry gets.
+/// unreadable — the same degradation any other unusable entry gets. A binary
+/// without budget support reads a `c` tag the same way, which is the correct
+/// degradation rather than a mismatched hit.
 fn entry_params(dir: &Path) -> Option<ChunkParams> {
     let tag = std::fs::read_to_string(dir.join("params.txt")).ok()?;
-    let (window, overlap) = tag.trim().trim_start_matches('w').split_once('o')?;
+    let tag = tag.trim();
+    let (budget, rest) = match tag.strip_prefix('c') {
+        Some(rest) => {
+            let (b, rest) = rest.split_once('w')?;
+            (Some(b.parse().ok()?), rest)
+        }
+        None => (None, tag.strip_prefix('w')?),
+    };
+    let (window, overlap) = rest.split_once('o')?;
     Some(ChunkParams {
         window: window.parse().ok()?,
         overlap: overlap.parse().ok()?,
+        budget,
         ..Default::default()
     })
+}
+
+#[cfg(test)]
+mod params_tag_tests {
+    use super::*;
+
+    /// Round-trip, because the tag is the only record of an entry's chunking
+    /// and a tag that does not parse back is an entry that answers nothing.
+    #[test]
+    fn every_tag_parses_back_to_the_params_that_wrote_it() {
+        let dir = tempfile::tempdir().unwrap();
+        for params in [
+            ChunkParams::default(),
+            ChunkParams { window: 8, overlap: 2, ..Default::default() },
+            ChunkParams { budget: Some(800), ..Default::default() },
+            ChunkParams { window: 8, overlap: 2, budget: Some(200), ..Default::default() },
+        ] {
+            std::fs::write(dir.path().join("params.txt"), params_tag(&params)).unwrap();
+            assert_eq!(entry_params(dir.path()), Some(params), "{}", params_tag(&params));
+        }
+    }
+
+    #[test]
+    fn a_budget_and_a_line_window_never_share_a_tag() {
+        let lines = ChunkParams { window: 8, overlap: 2, ..Default::default() };
+        let budgeted = ChunkParams { budget: Some(8), ..lines };
+        assert_ne!(params_tag(&lines), params_tag(&budgeted));
+    }
 }

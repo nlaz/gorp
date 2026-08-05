@@ -313,13 +313,8 @@ fn resolve_mode(cli: &Cli) -> Result<(Mode, &'static str)> {
 
 fn options(cli: &Cli, mode: Mode) -> Result<SearchOptions> {
     let t = &cli.tuning;
-    let embed_preproc = semgrep_core::text::EmbedPreproc::parse(&t.embed_preproc)
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "unknown --embed-preproc {:?} (none|split|split-whole|split-nokw)",
-                t.embed_preproc
-            )
-        })?;
+    let embed_preproc = crate::cmd::index::parse_preproc(&t.embed_preproc)?;
+    let path_render = crate::cmd::index::parse_path_render(&t.chunk_path)?;
     Ok(SearchOptions {
         mode,
         k: cli.top,
@@ -340,7 +335,12 @@ fn options(cli: &Cli, mode: Mode) -> Result<SearchOptions> {
         maxsim_pool: t.maxsim_pool,
         maxsim_blend: t.maxsim_blend,
         maxsim_post: t.maxsim_post,
-        params: ChunkParams { window: t.window, overlap: t.overlap, ..Default::default() },
+        params: ChunkParams {
+            window: t.window,
+            overlap: t.overlap,
+            budget: crate::cmd::index::budget(t.chunk_budget),
+            ..Default::default()
+        },
         repair_max_drift: t.repair_max_drift,
         on_first_search: Some(announce_first_search),
         keyword: KeywordOptions {
@@ -349,6 +349,7 @@ fn options(cli: &Cli, mode: Mode) -> Result<SearchOptions> {
             max_hits: 0,
         },
         embed_preproc,
+        path_render,
     })
 }
 

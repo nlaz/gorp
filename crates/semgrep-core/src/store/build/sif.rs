@@ -23,8 +23,10 @@ pub fn count(root: &Path, files: &[FileMeta], opts: &super::BuildOptions) -> Sif
                 let mut s = SifStats::default();
                 if let Some(text) = corpus::read_text(&corpus::abs_path(root, fm)) {
                     // Frequencies must describe what the pooling will see:
-                    // a rendered corpus is counted rendered.
-                    s.count(&crate::text::prose_render(&text, opts.embed_preproc));
+                    // a rendered corpus is counted rendered. Body-only —
+                    // this is whole file text, with no `doc_text` path line
+                    // for `PathRender` to act on.
+                    s.count(&crate::text::prose_render_body(&text, opts.embed_preproc));
                 }
                 s
             })
@@ -70,7 +72,7 @@ fn common_component(
             let (_, first) = corpus::chunk_lines(0, &text, &opts.params).into_iter().next()?;
             let doc = corpus::doc_text(&fm.path, first);
             Some(crate::text::embed_sif(
-                &crate::text::prose_render(&doc, opts.embed_preproc),
+                &crate::text::prose_render_doc(&doc, opts.embed_preproc, opts.path_render),
                 stats,
             ))
         })

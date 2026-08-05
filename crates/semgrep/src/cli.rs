@@ -278,10 +278,20 @@ pub struct Tuning {
     pub maxsim_blend: f32,
 
     /// Prose-render text before embedding, cold path and write-through build
-    /// (RESEARCH.md §14.2). The warm path always follows the index's own
+    /// (RESEARCH.md §14.2, §20). The warm path always follows the index's own
     /// meta.json instead. Harness use: like --sif, isolate SEMGREP_CACHE_DIR.
     #[arg(long, hide = true, default_value = "none")]
     pub embed_preproc: String,
+
+    /// How the path line of a chunk is rendered before embedding:
+    /// full | dedupe | tail | scaled (RESEARCH.md §20.1)
+    #[arg(long, hide = true, default_value = "full")]
+    pub chunk_path: String,
+
+    /// Cut chunks to this many non-whitespace characters instead of --window
+    /// lines (RESEARCH.md §20.2). 0 = off, use lines.
+    #[arg(long, hide = true, default_value_t = 0)]
+    pub chunk_budget: u32,
 }
 
 #[derive(Subcommand)]
@@ -317,9 +327,18 @@ pub enum Cmd {
         #[arg(long, hide = true, requires = "sif")]
         sif_idf: bool,
         /// Prose-render chunk text before embedding: none | split |
-        /// split-whole | split-nokw (experimental, RESEARCH.md §14.2)
+        /// split-whole | split-nokw | prune-kw | prune-lex | prune-decl |
+        /// prune-soft | prune-uniq (experimental, RESEARCH.md §14.2, §20)
         #[arg(long, hide = true, default_value = "none")]
         embed_preproc: String,
+        /// How the chunk's path line is rendered: full | dedupe | tail |
+        /// scaled (experimental, RESEARCH.md §20.1)
+        #[arg(long, hide = true, default_value = "full")]
+        chunk_path: String,
+        /// Cut chunks to this many non-whitespace characters instead of
+        /// --window lines (experimental, RESEARCH.md §20.2). 0 = off.
+        #[arg(long, hide = true, default_value_t = 0)]
+        chunk_budget: u32,
         /// Report index freshness instead of rebuilding
         #[arg(long)]
         status: bool,

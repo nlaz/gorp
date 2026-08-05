@@ -13,7 +13,10 @@
 use semgrep_core::corpus::doc_text;
 use semgrep_core::rank::bm25::Bm25Index;
 use semgrep_core::rank::normalize;
-use semgrep_core::text::{EmbedPreproc, SifStats, embed_query, embed_sif, prose_render};
+use semgrep_core::text::{
+    EmbedPreproc, PathRender, SifStats, embed_query, embed_sif, prose_render_body,
+    prose_render_doc, prose_render_query,
+};
 use serde_json::json;
 
 const CHUNKS: [(&str, &str); 8] = [
@@ -76,7 +79,10 @@ fn toks(text: &str) -> Vec<(String, Vec<f32>)> {
 fn main() {
     let docs: Vec<String> = CHUNKS.iter().map(|(p, c)| doc_text(p, c)).collect();
     let rendered: Vec<String> =
-        docs.iter().map(|d| prose_render(d, EmbedPreproc::Split).into_owned()).collect();
+        docs
+        .iter()
+        .map(|d| prose_render_doc(d, EmbedPreproc::Split, PathRender::Full).into_owned())
+        .collect();
 
     // SIF stats over the rendered demo corpus PLUS the frozen tests/corpus
     // fixture: eight chunks alone give degenerate frequencies (every token is
@@ -93,7 +99,7 @@ fn main() {
             if p.is_dir() {
                 stack.push(p);
             } else if let Ok(text) = std::fs::read_to_string(&p) {
-                sif.count(&prose_render(&text, EmbedPreproc::Split));
+                sif.count(&prose_render_body(&text, EmbedPreproc::Split));
             }
         }
     }
@@ -110,7 +116,7 @@ fn main() {
         .collect();
     let query_texts: Vec<(String, String)> = SCENARIOS
         .iter()
-        .map(|&(q, _, _)| (q.to_string(), prose_render(q, EmbedPreproc::Split).into_owned()))
+        .map(|&(q, _, _)| (q.to_string(), prose_render_query(q, EmbedPreproc::Split).into_owned()))
         .collect();
     let mut query_vecs: Vec<Vec<Vec<f32>>> = query_texts
         .iter()
@@ -181,8 +187,8 @@ fn main() {
                 "scenario": si, "chunk": ci,
                 "raw": table(q, &docs[ci]),
                 "split": table(
-                    &prose_render(q, EmbedPreproc::Split),
-                    &prose_render(&docs[ci], EmbedPreproc::Split),
+                    &prose_render_query(q, EmbedPreproc::Split),
+                    &prose_render_doc(&docs[ci], EmbedPreproc::Split, PathRender::Full),
                 ),
             })
         })

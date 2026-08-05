@@ -836,7 +836,16 @@ fn cold_and_warm_agree_under_embed_preproc() {
     use semgrep_core::text::EmbedPreproc;
     let _cache = isolate_cache();
 
-    for pp in [EmbedPreproc::Split, EmbedPreproc::SplitWhole, EmbedPreproc::SplitNokw] {
+    for pp in [
+        EmbedPreproc::Split,
+        EmbedPreproc::SplitWhole,
+        EmbedPreproc::SplitNokw,
+        EmbedPreproc::PruneKw,
+        EmbedPreproc::PruneLex,
+        EmbedPreproc::PruneDecl,
+        EmbedPreproc::PruneSoft,
+        EmbedPreproc::PruneUniq,
+    ] {
         // A fresh scope per variant: cache entries are keyed by root and chunk
         // params, not by embed options, so reusing one scope would warm later
         // variants from the first one's index (the documented --sif tradeoff).
@@ -1455,4 +1464,92 @@ fn a_file_scope_does_not_write_a_cache_entry() {
     // simply switching write-through off.
     let r = search(dir.path(), "compute the backoff delay", &opts(Mode::Semantic)).unwrap();
     assert!(r.report.wrote_cache, "a directory scope must still write through");
+}
+
+
+/// cold == warm must survive path rendering too (RESEARCH.md §20.1). Separate
+/// from the tier loop because `PathRender` is the orthogonal axis: a bug that
+/// only shows up when the path is rewritten would hide inside a tier sweep.
+#[test]
+fn cold_and_warm_agree_under_path_render() {
+    use semgrep_core::text::{EmbedPreproc, PathRender};
+    let _cache = isolate_cache();
+
+    for pr in [PathRender::Dedupe, PathRender::Tail, PathRender::Scaled] {
+        let dir = tempfile::tempdir().unwrap();
+        fixture(dir.path());
+        for query in ["compute the backoff delay", "check whether a session token is valid"] {
+            let with = |o: SearchOptions| SearchOptions {
+                embed_preproc: EmbedPreproc::PruneLex,
+                path_render: pr,
+                rerank_maxsim: true,
+                ..o
+            };
+            let cold = search(dir.path(), query, &with(stream_opts(Mode::Semantic))).unwrap();
+            assert!(!cold.report.used_index);
+            let warm = search(dir.path(), query, &with(opts(Mode::Semantic))).unwrap();
+            assert!(warm.report.used_index);
+
+            let c: Vec<_> = cold.hits.iter().map(|h| (&h.path, h.start_line)).collect();
+            let w: Vec<_> = warm.hits.iter().map(|h| (&h.path, h.start_line)).collect();
+            assert_eq!(c, w, "cold != warm for {pr:?} {query:?}");
+        }
+    }
+}
+
+/// A character budget and a line window cut the same tree differently, so they
+/// must not share a cache entry — that is FIXES.md #10 one parameter later.
+#[test]
+fn a_budgeted_entry_never_answers_a_line_windowed_query() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+
+    let lines = SearchOptions {
+        params: ChunkParams { window: 8, overlap: 2, ..Default::default() },
+        ..opts(Mode::Semantic)
+    };
+    let budgeted = SearchOptions {
+        params: ChunkParams {
+            window: 8,
+            overlap: 2,
+            budget: Some(200),
+            ..Default::default()
+        },
+        ..opts(Mode::Semantic)
+    };
+    // Warm both, in that order. If they shared an entry the second would be
+    // served from the first's chunking and report a hit against the wrong ids.
+    search(dir.path(), "compute the backoff delay", &lines).unwrap();
+    let b = search(dir.path(), "compute the backoff delay", &budgeted).unwrap();
+    assert!(b.report.used_index);
+
+    // Chunk boundaries differ, so at least one hit must start on a different
+    // line — otherwise the two entries are indistinguishable and the guard is
+    // untested rather than passing.
+    let a = search(dir.path(), "compute the backoff delay", &lines).unwrap();
+    let starts = |r: &semgrep_core::search::SearchResult| -> Vec<(String, u32)> {
+        r.hits.iter().map(|h| (h.path.clone(), h.start_line)).collect()
+    };
+    assert_ne!(starts(&a), starts(&b), "budgeted and line-windowed chunking coincided");
+}
+
+/// A budgeted build must be reproducible cold, like every other chunking.
+#[test]
+fn cold_and_warm_agree_under_a_character_budget() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    let params = ChunkParams { window: 8, overlap: 2, budget: Some(200), ..Default::default() };
+    for query in ["compute the backoff delay", "check whether a session token is valid"] {
+        let cold =
+            search(dir.path(), query, &SearchOptions { params, ..stream_opts(Mode::Semantic) })
+                .unwrap();
+        let warm =
+            search(dir.path(), query, &SearchOptions { params, ..opts(Mode::Semantic) }).unwrap();
+        assert!(!cold.report.used_index && warm.report.used_index);
+        let c: Vec<_> = cold.hits.iter().map(|h| (&h.path, h.start_line)).collect();
+        let w: Vec<_> = warm.hits.iter().map(|h| (&h.path, h.start_line)).collect();
+        assert_eq!(c, w, "cold != warm under a budget for {query:?}");
+    }
 }

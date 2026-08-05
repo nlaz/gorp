@@ -97,6 +97,9 @@ pub struct SearchOptions {
     /// path and the write-through build; the warm path takes the index's own
     /// `meta.embed_preproc` instead — stored vectors dictate the space.
     pub embed_preproc: text::EmbedPreproc,
+    /// How the path line of `doc_text` is rendered (RESEARCH.md §20). Read from
+    /// `meta.path_render` on the warm path, for the same reason.
+    pub path_render: text::PathRender,
 }
 
 impl Default for SearchOptions {
@@ -122,6 +125,7 @@ impl Default for SearchOptions {
             on_first_search: None,
             keyword: KeywordOptions::default(),
             embed_preproc: text::EmbedPreproc::None,
+            path_render: text::PathRender::Full,
         }
     }
 }
@@ -371,6 +375,7 @@ fn build_through(root: &Path, opts: &SearchOptions, prelude: &mut Prelude) -> bo
     let build = store::BuildOptions {
         params: opts.params,
         embed_preproc: opts.embed_preproc,
+        path_render: opts.path_render,
         ..Default::default()
     };
     match cache::write_cache_entry(&canon, &build, |_, _| {}) {

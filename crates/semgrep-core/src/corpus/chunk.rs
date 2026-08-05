@@ -26,6 +26,10 @@ pub fn chunk_lines<'a>(
         return Vec::new();
     }
 
+    if let Some(budget) = params.budget {
+        return chunk_budgeted(file_id, text, &line_starts, n_lines, params, budget);
+    }
+
     let window = params.window.max(1) as usize;
     let stride = window.saturating_sub(params.overlap as usize).max(1);
     let mut chunks = Vec::new();
@@ -43,6 +47,63 @@ pub fn chunk_lines<'a>(
             break;
         }
         start += stride;
+    }
+    chunks
+}
+
+/// Line-aligned windows cut to a non-whitespace character budget.
+///
+/// Overlap is carried over as a *fraction* — `overlap/window`, 25% at the
+/// defaults — rather than as a line count, so `--chunk-budget 800` is a
+/// reparameterization of the shipped chunking rather than a second, silently
+/// different overlap policy.
+///
+/// One line may exceed the budget on its own (minified sources, generated
+/// tables). That line still becomes a chunk: the alternative is splitting
+/// mid-line, and `Chunk` cannot express it.
+fn chunk_budgeted<'a>(
+    file_id: u32,
+    text: &'a str,
+    line_starts: &[usize],
+    n_lines: usize,
+    params: &ChunkParams,
+    budget: u32,
+) -> Vec<(Chunk, &'a str)> {
+    let budget = budget.max(1) as usize;
+    let overlap = (budget as u64 * params.overlap as u64
+        / u64::from(params.window.max(1))) as usize;
+
+    // Cumulative non-whitespace characters through the end of each line, so a
+    // window's content cost is one subtraction and its end one binary search.
+    let mut cum: Vec<usize> = Vec::with_capacity(n_lines + 1);
+    cum.push(0);
+    for i in 0..n_lines {
+        let line = &text[line_starts[i]..line_starts[i + 1]];
+        let n = line.chars().filter(|c| !c.is_whitespace()).count();
+        cum.push(cum[i] + n);
+    }
+
+    let mut chunks = Vec::new();
+    let mut start = 0usize;
+    loop {
+        // First line index whose cumulative count reaches the budget. Clamped
+        // to at least one line so a run of blank lines cannot stall.
+        let target = cum[start] + budget;
+        let end = cum.partition_point(|&c| c < target).clamp(start + 1, n_lines);
+        let slice = &text[line_starts[start]..line_starts[end]];
+        if !slice.trim().is_empty() {
+            chunks.push((
+                Chunk { file_id, start_line: start as u32 + 1, end_line: end as u32 },
+                slice,
+            ));
+        }
+        if end == n_lines {
+            break;
+        }
+        // Step back far enough to leave `overlap` characters behind.
+        let keep = cum[end].saturating_sub(overlap);
+        let next = cum.partition_point(|&c| c < keep);
+        start = next.clamp(start + 1, end);
     }
     chunks
 }

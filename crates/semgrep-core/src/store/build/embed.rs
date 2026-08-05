@@ -5,7 +5,7 @@
 //! same working set. `ese` also parallelizes internally above 16 texts, so
 //! batches are the unit of that too.
 
-use crate::text::{self, EmbedPreproc, SemgrepHnsw, SifStats};
+use crate::text::{self, EmbedPreproc, PathRender, SemgrepHnsw, SifStats};
 use crate::trace::elapsed_ms;
 use anyhow::{Context, Result};
 use rayon::prelude::*;
@@ -36,6 +36,8 @@ pub struct EmbedWriter<'a> {
     /// Prose rendering applied to every doc before it is embedded — the query
     /// side reads the same choice back from `meta.json` (RESEARCH.md §14.2).
     preproc: EmbedPreproc,
+    /// How each doc's path line is rendered (RESEARCH.md §20).
+    path_render: PathRender,
     /// Built alongside the matrix when requested, from the same vectors.
     hnsw: Option<SemgrepHnsw>,
     rows: usize,
@@ -48,6 +50,7 @@ impl<'a> EmbedWriter<'a> {
         hnsw: bool,
         sif: Option<&'a SifStats>,
         preproc: EmbedPreproc,
+        path_render: PathRender,
     ) -> Result<Self> {
         let file = File::create(dir.join("emb.bin")).context("create emb.bin")?;
         Ok(Self {
@@ -55,6 +58,7 @@ impl<'a> EmbedWriter<'a> {
             pending: Vec::with_capacity(BATCH),
             sif,
             preproc,
+            path_render,
             hnsw: hnsw.then(text::new_hnsw),
             rows: 0,
             timings: EmbedTimings::default(),
@@ -96,8 +100,11 @@ impl<'a> EmbedWriter<'a> {
         let t_embed = Instant::now();
         // Rendered here, in the batch, so the (parallel) embedding pass pays
         // for it rather than the serial fold that queues the docs.
-        let rendered: Vec<std::borrow::Cow<'_, str>> =
-            self.pending.par_iter().map(|doc| text::prose_render(doc, self.preproc)).collect();
+        let rendered: Vec<std::borrow::Cow<'_, str>> = self
+            .pending
+            .par_iter()
+            .map(|doc| text::prose_render_doc(doc, self.preproc, self.path_render))
+            .collect();
         let mut vecs = match self.sif {
             Some(s) => rendered.par_iter().map(|doc| text::embed_sif(doc, s)).collect(),
             None => ese::encode(rendered.iter()),

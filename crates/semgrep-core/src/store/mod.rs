@@ -47,6 +47,11 @@ pub struct IndexMeta {
     /// never a flag. Absent in old metas = `none`, which is exact.
     #[serde(default)]
     pub embed_preproc: crate::text::EmbedPreproc,
+    /// How the path line of `doc_text` was rendered (RESEARCH.md §20). Same
+    /// contract as `embed_preproc`: absent in old metas = `full`, which is
+    /// exact, because `full` is what every index before §20 did.
+    #[serde(default)]
+    pub path_render: crate::text::PathRender,
 }
 
 #[derive(Debug, Default)]
@@ -78,6 +83,8 @@ pub struct BuildOptions {
     pub sif_idf: bool,
     /// Prose-render chunk text before embedding (RESEARCH.md §14.2).
     pub embed_preproc: crate::text::EmbedPreproc,
+    /// How the path line of `doc_text` is rendered (RESEARCH.md §20).
+    pub path_render: crate::text::PathRender,
 }
 
 impl Default for BuildOptions {
@@ -90,6 +97,7 @@ impl Default for BuildOptions {
             sif_center: false,
             sif_idf: false,
             embed_preproc: crate::text::EmbedPreproc::None,
+            path_render: crate::text::PathRender::Full,
         }
     }
 }

@@ -208,7 +208,7 @@ fn rank_semantic(
     // prose rendering: the index's own meta decides, never a flag — the stored
     // vectors dictate the space (RESEARCH.md §14.2).
     let q = trace.time(Stage::RankEmbedQuery, || {
-        let rendered = text::prose_render(query, idx.meta.embed_preproc);
+        let rendered = text::prose_render_query(query, idx.meta.embed_preproc);
         let mut q = match &idx.sif {
             Some(s) => text::embed_sif(&rendered, s),
             None => text::embed_query(&rendered),
@@ -294,7 +294,9 @@ fn rerank_maxsim(
         return ranked;
     }
     let pp = idx.meta.embed_preproc;
-    let query_tokens = text::token_vectors(&text::prose_render(query, pp), idx.sif.as_ref());
+    let pr = idx.meta.path_render;
+    let query_tokens =
+        text::token_vectors(&text::prose_render_query(query, pp), idx.sif.as_ref());
     if query_tokens.is_empty() {
         return ranked;
     }
@@ -312,7 +314,7 @@ fn rerank_maxsim(
                     .map(|text| {
                         let raw = corpus::doc_text(&path, &text);
                         let doc =
-                            text::token_vectors(&text::prose_render(&raw, pp), None);
+                            text::token_vectors(&text::prose_render_doc(&raw, pp, pr), None);
                         rank::maxsim(&query_tokens, &doc)
                     })
                     .unwrap_or(f32::NEG_INFINITY);

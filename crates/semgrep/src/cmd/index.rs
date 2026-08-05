@@ -15,10 +15,40 @@ pub struct Args {
     pub sif_center: bool,
     pub sif_idf: bool,
     pub embed_preproc: String,
+    pub chunk_path: String,
+    pub chunk_budget: u32,
     pub status: bool,
     pub window: u32,
     pub overlap: u32,
     pub stats_json: bool,
+}
+
+/// Parse `--embed-preproc`. Shared with `cmd::search` so the two verbs cannot
+/// drift into accepting different spellings of the same experiment.
+pub fn parse_preproc(s: &str) -> Result<semgrep_core::text::EmbedPreproc> {
+    semgrep_core::text::EmbedPreproc::parse(s).ok_or_else(|| {
+        anyhow::anyhow!(
+            "unknown --embed-preproc {s:?} ({})",
+            semgrep_core::text::EmbedPreproc::ALL.join("|")
+        )
+    })
+}
+
+/// Parse `--chunk-path`.
+pub fn parse_path_render(s: &str) -> Result<semgrep_core::text::PathRender> {
+    use semgrep_core::text::PathRender;
+    match s {
+        "full" => Ok(PathRender::Full),
+        "dedupe" => Ok(PathRender::Dedupe),
+        "tail" => Ok(PathRender::Tail),
+        "scaled" => Ok(PathRender::Scaled),
+        other => anyhow::bail!("unknown --chunk-path {other:?} (full|dedupe|tail|scaled)"),
+    }
+}
+
+/// `--chunk-budget 0` means "use lines", which is what `None` is.
+pub fn budget(n: u32) -> Option<u32> {
+    (n > 0).then_some(n)
 }
 
 pub fn run(args: Args) -> Result<i32> {
@@ -26,17 +56,13 @@ pub fn run(args: Args) -> Result<i32> {
     if args.status {
         return status(&root);
     }
-    let embed_preproc = semgrep_core::text::EmbedPreproc::parse(&args.embed_preproc)
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "unknown --embed-preproc {:?} (none|split|split-whole|split-nokw)",
-                args.embed_preproc
-            )
-        })?;
+    let embed_preproc = parse_preproc(&args.embed_preproc)?;
+    let path_render = parse_path_render(&args.chunk_path)?;
     let opts = BuildOptions {
         params: ChunkParams {
             window: args.window,
             overlap: args.overlap,
+            budget: budget(args.chunk_budget),
             ..Default::default()
         },
         hnsw: args.hnsw,
@@ -45,6 +71,7 @@ pub fn run(args: Args) -> Result<i32> {
         sif_center: args.sif_center,
         sif_idf: args.sif_idf,
         embed_preproc,
+        path_render,
     };
     let stats = store::build(&root, &opts, |done, total| {
         // Every 500 files: often enough to look alive on a big corpus, rare
