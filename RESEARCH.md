@@ -5493,3 +5493,73 @@ reaches parity with an unrendered index and no further. What §22 leaves behind
 is a scoring instrument that can see every agent search rather than half of
 them, and one design rule with evidence behind it — leave the agent's query
 alone.
+
+## 23 The powered agent-regime bound
+
+§21 and §22 each ran 854 queries over 186 instances and returned nulls. A null
+at that width bounds a rendering effect at roughly ±0.03, which is wider than
+any effect this project has ever shipped on. §23 buys the tighter bound with
+the corpus already on disk.
+
+### 23.1 Pre-registration (written before the first row)
+
+**Frame.** All `desc-*` conditions from `eval/data/locbench/runs/`: **7,657
+ranked queries over 467 instances** (`guesses-v1-desc-all.jsonl`), against
+§22's 854 over 186. **2.51× the instances**, so the cluster bootstrap narrows
+by ≈1.58× and §22's key interval [−0.030, +0.033] becomes ≈[−0.019, +0.021].
+467 of the dataset's 560 instances is effectively the whole benchmark.
+
+**Arms**, chosen to answer one question — *does any rendering beat the shipped
+default on real agent queries?*
+
+| arm | what it is |
+|---|---|
+| `default` | shipped: raw `doc_text`, no rendering |
+| `split` | the base of the §14/§20 ladder |
+| `champion` | `split`+`sif`, §14.4's offline winner and the standing recommendation |
+| `prune-kw-pos` | the repaired keyword lever (§22.1) |
+
+`prune-decl` is dropped: §21.2 and §22.2 both measured it at parity, and a
+third null on the same arm buys nothing. Modes semantic (shipped) and bm25
+(tripwire). Both scopes, both metrics (`rank`, `rank_func`).
+
+**Why pooling six description regimes is legitimate here.** The `desc-*` arms
+differ in identifier share (desc-v5 ≈ 45–50%, desc-v8/v9 ≈ 62–65%, §19.11), so
+they are not one query distribution. That widens the *population* the bound
+covers rather than confounding it: the claim under test is "no rendering moves
+retrieval on realistic agent queries", and a bound that holds across six
+description regimes is stronger than one that holds for desc-v9 alone.
+Registered check: report the per-condition cut, and if the arms disagree in
+*sign* across regimes, the pooled bound is withdrawn and reported per regime.
+
+**Registered predictions:**
+
+1. **No rendering beats `default` at this width.** Registered: every arm's
+   interval against `default` contains zero, on both metrics. *Kill:* an arm
+   whose interval excludes zero on the primary metric reopens the rendering
+   direction and is a shipping candidate — the outcome §20 through §22 kept
+   failing to produce.
+2. **The bound tightens as predicted.** Registered: the |CI| half-width on
+   `champion` − `default` shrinks by 1.4–1.8× against §22's. If it does not,
+   the queries are more clustered within instances than the design effect
+   assumed and every interval this project has published on this corpus is
+   optimistic.
+3. **`champion` is not distinguishable from `default`.** The standing
+   recommendation rests on §14.4's *offline* numbers. §14.5 already refused it
+   once on agent-query evidence and §21.2 measured −0.015 [−0.049, +0.017].
+   Registered: |Δ| < 0.02. **If `champion` loses at this width, the shipped
+   default should change** — that is the one actionable outcome available here,
+   and registering it in advance is what keeps it from being explained away.
+4. **File scopes stay discriminative.** ψ_offline > 0 on file-scoped rows at
+   function level, replicating §22.2's recovery on 2.5× the frame.
+5. **Tripwire — bm25.** |Δ| ≤ 0.005 on every arm except the MMR-mediated drift
+   §14.4 documented.
+6. **Tripwire — one binary** across every row.
+
+**What a clean null licenses.** "No document-side rendering moves retrieval on
+real agent queries by more than ±0.02, across 7,657 queries and 467 instances
+spanning six description regimes." That is a publishable bound and it closes
+the rendering direction properly rather than by exhaustion. It does **not**
+license any claim about agent *accuracy* (§11.5: unpurchasable here), about
+ranking or chunking levers (untested), or about descriptive-query retrieval,
+where §20.9's linux +0.090 [+0.035, +0.146] p=0.002 stands.

@@ -4,11 +4,23 @@
 worked examples showing what each actually returns, and the results with their
 caveats. This file is the operator's guide; REPORT.md is the findings.
 
+> **Which harness answers which question.** The retrieval evals below score
+> *generated* queries and **cannot referee a rendering or ranking change** —
+> RESEARCH.md §21.2 measured an offline effect of 0.15–0.28 at p<0.001 that was
+> worth −0.009 on real agent queries, and §22.2/§23 reproduced the pattern.
+> Generated queries hand the engine the gold identifier ~70% of the time; real
+> agent queries do it 0.6% of the time. Use `run_eval.py` for regression floors,
+> leakage cuts and corpus-level comparisons. Gate engine changes on
+> `locbench/guessplay.py` — it replays real harvested agent queries against real
+> gold files and functions, costs nothing, and is the instrument §14.5 and §22
+> both decided on.
+
 Two harnesses:
 
 - **Retrieval evals** (`generate.py`, `run_eval.py`) — LLM-generated query
   sets over the bench corpora, scored recall@k / MRR. Results in
-  `RESULTS.md` §3.
+  `RESULTS.md` §3. See the caveat above before using these to accept or reject
+  an engine change.
 - **Loc-Bench agent evals** (`locbench/`) — real GitHub issues, headless
   agents, one search-tool condition per run, full per-search provenance
   (wall time, tokens, cost, every invocation logged via PATH shims).
