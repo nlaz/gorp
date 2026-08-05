@@ -5329,3 +5329,87 @@ instrument does not measure. Nothing about renderings on descriptive queries —
 §20.9's linux +0.090 [+0.035, +0.146] p=0.002 stands. And nothing about the 46%
 of searches that are file-scoped, where no rendering can matter by construction;
 if that share is worth attacking, the lever is scope handling, not rendering.
+
+## 22 Rescuing the keyword lever, and making the file-scoped half measurable
+
+§21.2 produced two negatives that looked terminal: `prune-kw` was the worst arm
+on real agent queries (−0.022) despite two significant offline wins, and 46% of
+agent searches are file-scoped, where every arm returned Δ = exactly +0.000.
+Both are defects rather than findings.
+
+### 22.1 Pre-registration (written before the first row)
+
+**Root cause 1 — the table fires in the wrong position.** `prune-kw` deletes
+tokens that are *identifier components* in a real corpus, not just syntactic
+boilerplate. Measured against the 421 gold function names agents were hunting
+in §21:
+
+| rule | gold function names damaged |
+|---|---|
+| naive (drop the subtoken anywhere) | **20.9%** (88 of 421) |
+| positional (drop only a whole-run keyword) | **0.7%** (3 of 421) |
+
+`__init__` alone is 30 of the 88; the rest are `from_*`, `as_*`, `for_*`,
+`in_*`. When an agent searches `__init__`, `prune-kw` deletes `init` from the
+query *and* from every chunk, so the function is unfindable by the name it has.
+`prune-kw` stays frozen (§20.5/§20.9 published it); `prune-kw-pos` is the
+repair, and it also cuts queries less — 9.1% of agent query tokens against
+13.7%.
+
+**Root cause 2 — the file-scope zero is a metric artifact.** `guessplay` scored
+`rank_of_gold(hits, gold_files)`. Under a file scope every hit carries that one
+file's path, so the rank is 1-or-absent whatever order chunks come back in —
+the rank histogram over 2,928 file-scoped rows is exactly `{1: 1050, None:
+1878}`, no other value occurs. But the project's endpoint is
+`func_acc@10_tol`, and *within-file chunk order decides which functions the
+agent sees*. §22 scores those rows at function level: `SearchHit.line`
+containment → innermost `symbols.extract` span (`sig_line..end_line`) →
+`scoring.func_match(..., tolerant=True)`. Tolerant only: `symbols.extract`
+yields bare leaves and 704 of 1,149 gold quals are dotted, so
+`func_acc@*_strict` is not computable from leaves and is not reported.
+
+**The design is a 2×2** over {naive, positional} × {symmetric, query-untouched},
+which `default`, `prune-kw`, `prune-kw-pos` and `prune-kw-pos-q0` complete at
+zero cost. `split` and `prune-decl` ride along for continuity with §21.2.
+
+**Registered predictions:**
+
+1. **Positional beats naive.** Floor: `prune-kw-pos` − `prune-kw` ≥ **+0.02**
+   hit@5, cluster bootstrap over instances (4,000, seed 1). *Kill:* if it does
+   not, the identifier-component story is wrong and the keyword lever is closed
+   rather than re-tuned a third time.
+2. **The gain concentrates where the table was doing damage.** Registered: Δ on
+   the 21% of instances whose gold function name contains a table word is ≥ 2×
+   Δ on the remainder. A uniform gain means prediction 1 passed for the wrong
+   reason.
+3. **The query-side axis, registered without a preferred direction.** Two
+   credible mechanisms disagree. §20.6's dose law says the 9.1% unmirrored
+   share costs ≈ −0.02. Against it: chunk boilerplate is *obligatory* — the
+   grammar forces `def` into every function — while a query token is
+   *elective*, the agent having spent one of ~5 tokens on it. §20.6 was
+   measured on generated queries, and §21.2 showed that instrument mispredicts
+   this regime, so its authority here is exactly what is in doubt. Two-sided:
+   |Δ| ≥ 0.02 to call it either way. **A null is the most likely and most
+   useful outcome** — it would put 9.1% below the dose law's detection floor
+   here, and the simpler rule (do not touch the agent's query) then wins on
+   parsimony rather than on performance.
+4. **The `def`/`class` sub-test.** Those two tokens are 84% of the disputed
+   share (169 + 84 of ~300). Registered: if `prune-kw-pos-q0` wins, the gain
+   must **not** come predominantly from the 253 queries containing them — if it
+   does, the effect is about syntax mimicry rather than electiveness, and the
+   right lever is a two-word exception, not a policy change.
+5. **Function-level scoring makes file scopes discriminative.** Floor:
+   ψ_offline > 0 on file-scoped rows for at least one arm, against the current
+   exact 0.000. If it is still exactly zero, within-file ordering does not reach
+   the endpoint either and that half is closed on much stronger evidence.
+6. **Tripwire — bm25 unchanged.** Neither new variant may move bm25 beyond the
+   MMR-mediated drift §14.4 documented. The lexical tokenizer keeps its old
+   callback (`token::for_each_token_with` discards the positional flag), so a
+   movement means the widened `emit` leaked into BM25.
+7. **Tripwire — one binary.** A single `bin_sha256` across every row.
+
+**What a null on prediction 1 licenses.** That the keyword lever is closed: two
+repairs, both measured, neither transferring. It does **not** license any claim
+about renderings on descriptive queries — §20.9's linux +0.090 [+0.035, +0.146]
+p=0.002 stands — nor about agent *accuracy*, which this instrument does not
+measure (§11.5: unpurchasable on this benchmark at any n it can hold).

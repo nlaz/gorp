@@ -97,6 +97,30 @@ pub enum EmbedPreproc {
     /// query says `number` and `string` as readily as a chunk does. If
     /// mirroring recovers the loss, the stoplist was never the problem.
     PruneLexSym,
+    /// `PruneKw` with the keyword table fired **positionally**: a word is
+    /// dropped only when the subtoken is the entire `[A-Za-z0-9_]+` run it came
+    /// from (RESEARCH.md §22.1).
+    ///
+    /// `PruneKw`'s table deletes tokens that are *identifier components* in a
+    /// real corpus, not just syntactic boilerplate. Measured against the 421
+    /// gold function names agents were hunting in §21: the naive rule damages
+    /// **20.9%** of them, the positional rule **0.7%**. `__init__` alone is 30
+    /// of the 88 — when an agent searches `__init__`, `PruneKw` deletes `init`
+    /// from the query and from every chunk, so the function becomes unfindable
+    /// by the name it has. `def foo()` still loses `def`.
+    PruneKwPos,
+    /// `PruneKwPos` on documents, with the query left **untouched**
+    /// (RESEARCH.md §22.1).
+    ///
+    /// The other half of §22's 2x2. §20.6 established that pruning documents
+    /// but not queries costs recall, and the cost scales with the unmirrored
+    /// share — but that was measured on generated queries, and §21.2 showed
+    /// that instrument mispredicts the agent regime. Against it: chunk
+    /// boilerplate is *obligatory* (the grammar forces `def` into every
+    /// function) while a query token is *elective* — the agent spent one of
+    /// its ~5 tokens on it. Under positional pruning the disputed share is
+    /// 9.1% of query tokens either way; this arm keeps them.
+    PruneKwPosQ0,
     /// `PruneUniq` mirrored: low-signal table and dedupe both applied to the
     /// query (RESEARCH.md §20.7).
     ///
@@ -149,6 +173,8 @@ impl EmbedPreproc {
             "prune-decl" => Some(Self::PruneDecl),
             "prune-soft" => Some(Self::PruneSoft),
             "prune-uniq" => Some(Self::PruneUniq),
+            "prune-kw-pos" => Some(Self::PruneKwPos),
+            "prune-kw-pos-q0" => Some(Self::PruneKwPosQ0),
             "prune-lex-sym" => Some(Self::PruneLexSym),
             "prune-uniq-sym" => Some(Self::PruneUniqSym),
             _ => None,
@@ -166,6 +192,8 @@ impl EmbedPreproc {
             Self::PruneDecl => "prune-decl",
             Self::PruneSoft => "prune-soft",
             Self::PruneUniq => "prune-uniq",
+            Self::PruneKwPos => "prune-kw-pos",
+            Self::PruneKwPosQ0 => "prune-kw-pos-q0",
             Self::PruneLexSym => "prune-lex-sym",
             Self::PruneUniqSym => "prune-uniq-sym",
         }
@@ -182,6 +210,8 @@ impl EmbedPreproc {
         "prune-decl",
         "prune-soft",
         "prune-uniq",
+        "prune-kw-pos",
+        "prune-kw-pos-q0",
         "prune-lex-sym",
         "prune-uniq-sym",
     ];
@@ -197,6 +227,7 @@ impl EmbedPreproc {
         let base = Plan {
             whole_idents: false,
             keywords: Keywords::None,
+            positional: false,
             low_signal: false,
             decl: DeclMode::Off,
             dedupe: false,
@@ -230,6 +261,9 @@ impl EmbedPreproc {
             },
             Self::PruneLexSym => {
                 Plan { keywords: Keywords::Extended, low_signal: true, ..base }
+            }
+            Self::PruneKwPos | Self::PruneKwPosQ0 => {
+                Plan { keywords: Keywords::Extended, positional: true, ..base }
             }
         }
     }
@@ -267,7 +301,10 @@ impl EmbedPreproc {
             Self::PruneUniqSym => (true, true),
             _ => (false, false),
         };
-        Plan { low_signal, decl: DeclMode::Off, dedupe, ..p }
+        // The one variant that does not touch the query at all (§22.1 P3).
+        let keywords =
+            if self == Self::PruneKwPosQ0 { Keywords::None } else { p.keywords };
+        Plan { keywords, low_signal, decl: DeclMode::Off, dedupe, ..p }
     }
 }
 
@@ -275,6 +312,8 @@ impl EmbedPreproc {
 struct Plan {
     whole_idents: bool,
     keywords: Keywords,
+    /// Fire the keyword table only on a subtoken that is the whole run.
+    positional: bool,
     low_signal: bool,
     decl: DeclMode,
     dedupe: bool,
@@ -374,14 +413,19 @@ fn render_body_into(text: &str, plan: Plan, out: &mut Vec<String>) {
             continue;
         }
         let reps = if plan.decl == DeclMode::Boost && is_decl { 2 } else { 1 };
-        token::subtokens_of(&text[s..e], plan.whole_idents, &mut buf, &mut |tok: &str| {
-            if drops(tok, plan) {
-                return;
-            }
-            for _ in 0..reps {
-                out.push(tok.to_string());
-            }
-        });
+        token::subtokens_of(
+            &text[s..e],
+            plan.whole_idents,
+            &mut buf,
+            &mut |tok: &str, whole: bool| {
+                if drops(tok, whole, plan) {
+                    return;
+                }
+                for _ in 0..reps {
+                    out.push(tok.to_string());
+                }
+            },
+        );
     }
 }
 
@@ -405,9 +449,12 @@ fn render_path_into(
     let mut buf = String::with_capacity(32);
     let mut toks = Vec::new();
     for &(s, e) in word_ranges(source).iter() {
-        token::subtokens_of(&source[s..e], plan.whole_idents, &mut buf, &mut |tok: &str| {
-            toks.push(tok.to_string())
-        });
+        token::subtokens_of(
+            &source[s..e],
+            plan.whole_idents,
+            &mut buf,
+            &mut |tok: &str, _whole: bool| toks.push(tok.to_string()),
+        );
     }
     if path != PathRender::Full {
         dedupe(&mut toks);
@@ -439,13 +486,18 @@ fn dedupe(toks: &mut Vec<String>) {
     toks.retain(|t| seen.insert(t.clone()));
 }
 
-fn drops(tok: &str, plan: Plan) -> bool {
-    let kw = match plan.keywords {
-        Keywords::None => false,
-        Keywords::Legacy => is_keyword(tok),
-        Keywords::Extended => is_keyword(tok) || is_keyword_extra(tok),
-    };
-    if kw || (plan.keywords != Keywords::None && is_number(tok)) {
+fn drops(tok: &str, whole: bool, plan: Plan) -> bool {
+    // Positional: the table fires only on a token that WAS the whole run.
+    // `def` in `def foo()` is boilerplate; the `init` inside `__init__` is the
+    // name of the thing being searched for (§22.1).
+    let eligible = !plan.positional || whole;
+    let kw = eligible
+        && match plan.keywords {
+            Keywords::None => false,
+            Keywords::Legacy => is_keyword(tok),
+            Keywords::Extended => is_keyword(tok) || is_keyword_extra(tok),
+        };
+    if kw || (plan.keywords != Keywords::None && eligible && is_number(tok)) {
         return true;
     }
     plan.low_signal && is_low_signal(tok)
@@ -684,6 +736,19 @@ mod tests {
     }
 
     #[test]
+    fn as_str_round_trips_and_matches_the_serde_spelling() {
+        // meta.json stores the serde (kebab) form and the harness compares it
+        // against the flag string, so a variant whose as_str disagrees with its
+        // serde name builds an index the readback assertion then rejects.
+        for name in EmbedPreproc::ALL {
+            let v = EmbedPreproc::parse(name).unwrap_or_else(|| panic!("{name}"));
+            assert_eq!(v.as_str(), *name);
+            let json = serde_json::to_string(&v).unwrap();
+            assert_eq!(json, format!("\"{name}\""), "serde disagrees for {name}");
+        }
+    }
+
+    #[test]
     fn tables_are_sorted_for_binary_search() {
         for t in [KEYWORDS, KEYWORDS_EXTRA, LOW_SIGNAL, DECLARERS] {
             assert!(t.windows(2).all(|w| w[0] < w[1]), "unsorted: {:?}", t[0]);
@@ -864,6 +929,9 @@ mod tests {
         // beats keeping the word. Anything a query cannot mirror stays
         // document-side.
         let q = "python logging can not create file from a type of object";
+        // PruneKwPosQ0 is deliberately excluded: it is the arm that does NOT
+        // mirror, and §22.1 P3 is the experiment that decides whether §20.6's
+        // rule survives in the agent regime.
         for p in [EmbedPreproc::PruneKw, EmbedPreproc::PruneLex, EmbedPreproc::PruneDecl] {
             let r = render_query(q, p);
             for gone in ["not", "from", "type", "of", "object"] {
@@ -910,6 +978,54 @@ mod tests {
         let rep = "cache cache lookup";
         assert_eq!(render_query(rep, EmbedPreproc::PruneUniq).matches("cache").count(), 2);
         assert_eq!(render_query(rep, EmbedPreproc::PruneUniqSym).matches("cache").count(), 1);
+    }
+
+    #[test]
+    fn positional_keeps_identifier_components_and_still_drops_boilerplate() {
+        // The §22.1 regression: `PruneKw`'s table damaged 20.9% of the gold
+        // function names agents were hunting, because it fires on a subtoken
+        // wherever it appears. Positional fires only on a whole run.
+        let kept = |p: EmbedPreproc, text: &str, tok: &str| {
+            render_body(text, p).split(' ').any(|t| t == tok)
+        };
+        // The name of the thing being searched for survives.
+        assert!(!kept(EmbedPreproc::PruneKw, "__init__", "init"), "naive kept init");
+        assert!(kept(EmbedPreproc::PruneKwPos, "__init__", "init"));
+        for (text, tok) in [("from_dict", "from"), ("as_completed", "as"),
+                            ("get_object_or_404", "object"), ("for_each", "for")] {
+            assert!(kept(EmbedPreproc::PruneKwPos, text, tok), "{text} lost {tok}");
+        }
+        // ...and real boilerplate still goes.
+        for (text, tok) in [("def compute_backoff(x)", "def"), ("class Foo", "class"),
+                            ("self.value", "self"), ("x: type = None", "type")] {
+            assert!(!kept(EmbedPreproc::PruneKwPos, text, tok), "{text} kept {tok}");
+        }
+        // The compound survives even when its own subtoken is a keyword.
+        let r = render_body("self.default_type", EmbedPreproc::PruneKwPos);
+        assert!(r.contains("default") && r.contains("type"), "{r}");
+        assert!(!r.split(' ').any(|t| t == "self"), "{r}");
+    }
+
+    #[test]
+    fn q0_leaves_the_query_alone_but_still_prunes_documents() {
+        // §22.1 P3's arm: documents lose standalone keywords, queries lose
+        // nothing. The disputed share is 9.1% of agent query tokens either way.
+        let q = "def compute backoff class handler";
+        assert_eq!(render_query(q, EmbedPreproc::PruneKwPosQ0), q);
+        // ...while its documents still drop exactly those words.
+        let d = render_body("def compute_backoff()", EmbedPreproc::PruneKwPosQ0);
+        assert!(!d.split(' ').any(|t| t == "def"), "{d}");
+        assert!(d.contains("compute") && d.contains("backoff"), "{d}");
+        // Its symmetric twin renders documents identically - the arms differ
+        // on the query side only, or the 2x2 confounds two changes.
+        assert_eq!(
+            render_body("def compute_backoff()", EmbedPreproc::PruneKwPos),
+            d
+        );
+        assert_ne!(
+            render_query(q, EmbedPreproc::PruneKwPos),
+            render_query(q, EmbedPreproc::PruneKwPosQ0)
+        );
     }
 
     #[test]

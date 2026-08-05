@@ -22,7 +22,9 @@ pub(crate) fn for_each_token_with(
         if raw.is_empty() {
             continue;
         }
-        subtokens_of(raw, whole_idents, &mut buf, &mut emit);
+        // BM25 discards the positional flag: its tokenizer is unchanged, and
+        // the bm25 tripwire in §22.1 asserts it.
+        subtokens_of(raw, whole_idents, &mut buf, &mut |tok, _whole| emit(tok));
     }
 }
 
@@ -38,7 +40,7 @@ pub(crate) fn subtokens_of(
     raw: &str,
     whole_idents: bool,
     buf: &mut String,
-    emit: &mut impl FnMut(&str),
+    emit: &mut impl FnMut(&str, bool),
 ) {
     for word in raw.split('_') {
         if word.is_empty() {
@@ -48,14 +50,21 @@ pub(crate) fn subtokens_of(
             if sub.chars().count() >= 2 {
                 buf.clear();
                 buf.extend(sub.chars().flat_map(|c| c.to_lowercase()));
-                emit(buf);
+                // Is this subtoken the WHOLE run it came from? `def` in
+                // `def foo()` is; `init` in `__init__` is not, and neither is
+                // `from` in `from_dict`. Only the caller that prunes keywords
+                // cares, but only this function can tell — it is the one place
+                // that still holds `raw` (RESEARCH.md §22.1).
+                let whole = buf.len() == raw.len() && buf.eq_ignore_ascii_case(raw);
+                emit(buf, whole);
             }
         });
         // Whole identifier too, when it actually decomposed.
         if whole_idents && sub_count > 1 && word.chars().count() >= 2 {
             buf.clear();
             buf.extend(word.chars().flat_map(|c| c.to_lowercase()));
-            emit(buf);
+            let whole = buf.len() == raw.len() && buf.eq_ignore_ascii_case(raw);
+            emit(buf, whole);
         }
     }
 }
