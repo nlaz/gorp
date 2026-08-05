@@ -5413,3 +5413,83 @@ repairs, both measured, neither transferring. It does **not** license any claim
 about renderings on descriptive queries — §20.9's linux +0.090 [+0.035, +0.146]
 p=0.002 stands — nor about agent *accuracy*, which this instrument does not
 measure (§11.5: unpurchasable on this benchmark at any n it can hold).
+
+### 22.2 The repair works, and it buys nothing
+
+Run 2026-08-05, `guessplay-v2.jsonl`, one binary (`e09664634db0c898`), 854
+desc-v9 ranked queries over 186 instances, six configs, semantic + bm25, both
+metrics. 10,248 rows, perfectly balanced (1,708 per config).
+
+**P1 — passes, exactly at its floor.** `prune-kw-pos` − `prune-kw` =
+**+0.022, CI [+0.010, +0.035]**, the interval excluding zero. The registered
+floor was +0.02. This is the first positive result in the §20–§22 arc.
+
+**P2 — fails, and it invalidates P1's stated mechanism.** The gain was
+registered to concentrate on the instances whose gold function name the naive
+table was erasing, at ≥2× the remainder. Measured:
+
+| stratum | n | `prune-kw` | `prune-kw-pos` | Δ | 95% CI |
+|---|---|---|---|---|---|
+| gold name damaged | 123 | 0.423 | 0.447 | **+0.024** | [+0.000, +0.054] |
+| gold name intact | 338 | 0.426 | 0.447 | **+0.021** | [+0.007, +0.036] |
+
+1.14×, not 2×. The gain is uniform, so recovering `__init__` is *not* what
+happened — §22.1 registered that reading in advance: "a uniform gain means
+prediction 1 passed for the wrong reason."
+
+**What actually happened, and it is the finding.** Positional pruning simply
+deletes less, so it converges on not pruning at all:
+
+| arm | vs `default` (no rendering) | vs `split` (no keyword pruning) |
+|---|---|---|
+| `prune-kw` | −0.022 [−0.055, +0.012] | −0.015 [−0.043, +0.010] |
+| `prune-kw-pos` | **+0.000** [−0.030, +0.033] | **+0.007** [−0.018, +0.031] |
+
+`prune-kw-pos` is indistinguishable from doing nothing, on both baselines and on
+both metrics (function-level: −0.002 [−0.023, +0.017] vs default). **The +0.022
+is not a gain over the baseline; it is the removal of a self-inflicted loss.**
+The keyword table's whole measurable contribution on real agent queries is the
+damage it does, and repairing it returns to parity rather than past it.
+
+That closes the lever on its own registered terms. Two repairs — the 43 missing
+words (§20.1) and the positional rule (§22.1) — each fixed a real defect, and
+neither produced a rendering that beats an unrendered index in the regime this
+project optimizes for. §20.9's offline wins (linux +0.090 [+0.035, +0.146]
+p=0.002) stand as offline facts and remain the third instance of §9.7's rule.
+
+**P3 — the query axis is a null, and parsimony decides it.** `prune-kw-pos-q0`
+(query untouched) against `prune-kw-pos` (symmetric): −0.007 [−0.025, +0.010]
+file-level, +0.004 [−0.006, +0.016] function-level, both far inside the ±0.02
+needed to call it either way. §22.1 registered this outcome as the most likely
+and most useful: **9.1% of query tokens is below the dose law's detection floor
+in this regime**, so §20.6's rule does not extend here — not because it is
+wrong, but because the effect it predicts is too small to see at this share.
+The simpler rule wins on parsimony: **do not touch the agent's query.** An
+agent's tokens are elective and the engine gains nothing measurable by second-
+guessing them.
+
+**P4 — moot.** Registered conditionally on `prune-kw-pos-q0` winning; it did not.
+
+**P5 — passes, and it recovers half the corpus.** Function-level scoring makes
+file scopes discriminative for the first time: ψ_offline **0.050–0.058** against
+the exact 0.000 file-level scoring produced, with real discordance (3/4, 3/4,
+1/5). Function-level hit@5 on file scopes is **0.193**, *higher* than
+directory-scoped 0.157 — the half of agent behaviour §21.2 wrote off as
+unmeasurable is both measurable and more productive than the half we were
+scoring. Any future rendering or ranking work has 100% of the corpus available
+to it rather than 54%.
+
+**P6 — tripwire holds.** `prune-kw-pos` vs `prune-kw` in bm25 is **+0.000
+exactly**, both metrics, ψ=0: the widened `emit` callback did not leak into the
+lexical tokenizer. All arms sit at +0.002 [+0.000, +0.007] against `default`,
+the identical MMR-mediated drift §14.4 documented.
+
+**P7 — one binary** across all 10,248 rows.
+
+**Ledger for §22.** Two of seven predictions passed as stated (P1, P5), one
+failed and took P1's mechanism with it (P2), one is an informative null (P3),
+two are tripwires that held (P6, P7). The keyword lever is closed: repaired, it
+reaches parity with an unrendered index and no further. What §22 leaves behind
+is a scoring instrument that can see every agent search rather than half of
+them, and one design rule with evidence behind it — leave the agent's query
+alone.
