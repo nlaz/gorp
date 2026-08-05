@@ -5579,12 +5579,16 @@ only run under `default`).
 | `champion` (`split`+`sif`) | +0.005 | [−0.013, +0.023] | 0.098 | 16/21 |
 | `prune-kw-pos` | −0.007 | [−0.021, +0.007] | 0.063 | 8/16 |
 
-**P1 — holds, and hardens into something stronger.** No arm beats `default`;
-the kill condition (an interval excluding zero *upward*) did not fire. But
-`split` now excludes zero **downward**: −0.011 [−0.022, −0.002]. The base of
-the entire §14/§20 document-side ladder is not neutral on real agent queries,
-it is measurably worse than not rendering at all. Every rendering above it
-inherits that.
+**P1 — holds.** No arm beats `default`; the kill condition (an interval
+excluding zero *upward*) did not fire. `split` excludes zero **downward** at
+the pooled n: −0.011 [−0.022, −0.002].
+
+> **Amended by §23.3.** That significance is carried by the pooled sample, not
+> replicated in the clean half. The point estimate is stable — −0.011 pooled,
+> −0.012 post-fix, −0.011 pre-fix — but on post-fix data alone the interval is
+> [−0.024, +0.000] and touches zero. The honest claim is **"`split` is
+> consistently ≈−0.011 and reaches significance only at the pooled n"**, not
+> "`split` is a significant loss". See §23.3.
 
 **P2 — the bound tightened as registered.** §21.2's `champion` interval was
 [−0.049, +0.017], half-width 0.033; here it is [−0.013, +0.023], half-width
@@ -5633,3 +5637,78 @@ chunking, or scope handling, none of which this varied. And nothing about
 descriptive-query retrieval, where §20.9's linux +0.090 [+0.035, +0.146]
 p=0.002 stands — that result is real, it simply describes a different task,
 which is the whole finding of §21 through §23.
+
+### 23.3 Audit of §21–§23, and one correction
+
+Twelve checks against the raw artefacts rather than against the summaries.
+
+**What held.**
+
+- **Error symmetry.** 69 gids error (bad scope paths), and all 69 error in
+  **all four arms** — arm-independent, so an errored row penalizes every arm
+  identically. Zero pairing drops: 7,657 gids × 4 configs, all complete.
+- **Independent recomputation.** The headline was recomputed from raw rows with
+  fresh code and a different bootstrap seed (7, not 1). `split` −0.0113
+  [−0.0214, −0.0019], `champion` +0.0046 [−0.0133, +0.0214], `prune-kw-pos`
+  −0.0070 [−0.0211, +0.0071]. The published bound of 0.023 is the seed-1 upper
+  bound; seed 7 gives 0.021, so **the published figure is the conservative one**.
+- **Corpus provenance is exact.** 7,692 ranked `desc-*` invocations in the raw
+  shim logs, 7,657 in the replayed corpus, delta **35 — exactly the
+  empty-pattern residuals `harvest.py` reports**. No real query is silently
+  dropped. Five random rows traced back to their originating log line by hand.
+- **Replay fidelity: 98.0%.** For 500 post-fix invocations, rank-of-gold
+  computed from *the agent's own stored stdout* agrees with the replay's rank
+  on "gold in top-5". The 10 disagreements are tail-rank differences
+  (agent 5 / replay 6) from k-truncation, not systematic. **The instrument
+  reproduces what agents actually saw.**
+
+**What did not, and the correction it forces.**
+
+- **Half the corpus was typed against a broken tool.** `b49e818` (2026-08-03
+  16:03) fixed ranked search over a single-file scope returning nothing,
+  always. **50.1% of the §23 corpus predates it**, and 58.5% of those queries
+  are file-scoped — so those agents got nothing back from every file-scoped
+  search, and their subsequent queries are shaped by that. Replay fidelity on
+  the pre-fix half is **62.6%**, and every disagreement is the same signature:
+  agent found nothing, replay finds the gold at rank 1.
+- **Re-run on the clean half only** (3,821 queries, 232 instances):
+
+  | arm | pooled | post-fix only | pre-fix only |
+  |---|---|---|---|
+  | `split` | −0.0113 **[−0.0215, −0.0022]** | −0.0119 [−0.0244, **+0.0000**] | −0.0107 [−0.0236, +0.0019] |
+  | `champion` | +0.0046 [−0.0134, +0.0225] | −0.0060 [−0.0295, +0.0157] | +0.0169 [−0.0078, +0.0418] |
+  | `prune-kw-pos` | −0.0070 [−0.0212, +0.0067] | −0.0114 [−0.0302, +0.0055] | −0.0019 [−0.0205, +0.0166] |
+
+  The **point estimates replicate** across the confound — `split` at −0.011,
+  −0.012, −0.011 — so the effect is not an artefact of the broken half. What
+  does not replicate is the *significance*, which is a function of n (378
+  instances pooled against 194). §23.2's "`split` is a significant loss" is
+  therefore amended above to a claim about the pooled estimate.
+  **The ±0.023 bound is unaffected and in fact tightens post-fix** (champion's
+  upper bound 0.0157), so §23's headline stands.
+
+**Harness gaps found.**
+
+1. **Two definitions of "is this scope a file" in one file.** `compare()` uses a
+   dot-in-basename heuristic; `score()`/`_abs_hits` use `Path.is_file()` /
+   suffix. They disagree on exactly one scope in the corpus — `.github`, a
+   dotfile *directory* — affecting 4 rows of 30,628 (0.013%). Immaterial to
+   every number here, and a latent trap: scoring and reporting must not
+   disagree about what they are partitioning.
+2. **`bin_sha256` fingerprints the binary, not the source.** It changed between
+   the §22 and §23 runs with `crates/` byte-identical — a relink. The tripwire
+   can therefore false-alarm but never false-pass (equal bytes do imply equal
+   code), which is the safe direction; it should hash the source tree or record
+   the `crates/` git sha instead.
+3. **The pre/post-fix split is not recorded in the corpus.** Nothing in
+   `guesses-*.jsonl` marks which rows were produced by a broken tool. Any future
+   campaign over the harvested corpus inherits the same 50% contamination
+   silently. The corpus should carry the binary or commit that served each
+   query, exactly as `guessplay` rows now carry `bin_sha256`.
+
+**What this audit does not cover.** It validates the *replay* against agent
+stdout and the *arithmetic* against the raw rows. It does not validate
+`symbols.extract`'s function spans against ground truth — the function-level
+metric (§22.2, §23.2 P4) rests on a regex extractor that under-counts by
+design, so `rank_func` figures should be read as a lower bound on within-file
+discriminability rather than as a calibrated rate.
