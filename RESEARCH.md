@@ -6184,7 +6184,8 @@ moved ranked share 7%→98%), so it is held identical and `--full` runs
 null is ambiguous between "the format does not help" and "the agent did not know
 to expect it."
 
-**Frame: a plain random 280 of 560, seed-fixed and recorded** — deliberately not
+**Frame: a plain random 280 of 560, seed 25, recorded as
+`eval/data/locbench/display-frame-280.json` (sha256 `80bda274604a0062`)** — deliberately not
 `tierframe.py`'s equal strata, which exists because §19.2b predicted the
 description effect lives entirely in `blind`. No such prediction applies here,
 and the primary endpoint is continuous, so every instance contributes and the
@@ -6224,7 +6225,14 @@ inapplicable for the same reason: it buys McNemar power on binary accuracy.
    means the display changed how agents write queries, and every downstream
    reading is then conditional on that.
 
-**Budget: ~$317 at the measured $0.283/run mean, and that mean comes from arms
-printing 552 bytes.** `disp-full` will exceed it; $350–400 is the realistic
-total. The overage is registered measurement #2, to be recorded rather than
-absorbed.
+**Budget, re-priced on a 6-instance × 3-arm smoke before the frame was
+launched:** `disp-line` $0.280/run, `disp-head` $0.266 (0.95×), `disp-full`
+$0.359 (**1.28×**, not the 4.3× a single instance had suggested). With `rg` at
+its historical $0.283 that is **~$332 for 280 × 4**, inside the approved range.
+The overage is registered measurement #2 and is recorded rather than absorbed.
+
+The same smoke showed `disp-full` using *fewer* searches than the control
+(3.8 vs 6.7 over 6 instances) — directionally what P1 predicts, at a sample far
+too small to be evidence, and noted here only because it was visible before the
+frame ran and should not be presented afterwards as though it were a
+prediction.
