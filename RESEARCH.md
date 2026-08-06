@@ -6057,3 +6057,50 @@ pool remains a ceiling containing an unknown share of queries that point
 somewhere other than gold. What changed is that the direction §23 closed is not
 the only one, and the instrument can now see the half of agent behaviour that
 §21 wrote off.
+
+### 24.5 Reproducing §24
+
+`eval/data/` is gitignored, so the three campaign files are not in the tree.
+The commands that produce them are, and `--compare-by arm_flags` reads them
+back through the shipped harness rather than an ad-hoc script:
+
+```sh
+# §24.2 — the 2x2x2 (33,728 rows, ~35 min, no index builds)
+ARMS="--dedupe-overlap 0.0 --file-scope-window 0 --decl-boost 0.0"
+for d in 0.0 0.5; do for w in 0 12; do for b in 0.0 1.0; do
+  ARMS="$ARMS;--dedupe-overlap $d --file-scope-window $w --decl-boost $b"
+done; done; done
+python3 eval/locbench/guessplay.py \
+  --corpus eval/queries/guesses-v1-desc-all.jsonl \
+  --out eval/data/locbench/guessplay-v4.jsonl \
+  --file-scopes-only --configs default --modes semantic --scopes orig \
+  --extra-search-flags "$ARMS"
+
+# §24.2 P6 — the full-corpus confirmation (31,668 rows, both scopes, ~1 h)
+python3 eval/locbench/guessplay.py \
+  --corpus eval/queries/guesses-v1-desc-all.jsonl \
+  --out eval/data/locbench/guessplay-v5.jsonl \
+  --configs default --modes semantic,bm25 --scopes orig \
+  --extra-search-flags ";--decl-boost 1.0"
+
+# §24.3 — the weight sweep (21,080 rows, ~25 min)
+python3 eval/locbench/guessplay.py \
+  --corpus eval/queries/guesses-v1-desc-all.jsonl \
+  --out eval/data/locbench/guessplay-v6.jsonl \
+  --file-scopes-only --configs default --modes semantic --scopes orig \
+  --extra-search-flags ";--decl-boost 0.5;--decl-boost 1.0;--decl-boost 2.0;--decl-boost 4.0"
+
+# read any of them back, both metrics, both scopes
+python3 eval/locbench/guessplay.py --out eval/data/locbench/guessplay-v5.jsonl \
+  --compare ",--decl-boost 1.0" --compare-by arm_flags \
+  --compare-metrics rank,rank_func,rank_func_ovl
+```
+
+Two things the comparator does *not* do, and which the §24 tables above
+therefore state separately. It reports the whole scoped population, so its
+file-scope rates (0.347 → 0.371 overlap@5 on v5) are diluted by the 48% of
+file scopes that name a file holding no gold function and are `None` for every
+arm; §24.2's rates are the right-file subset. And it contrasts one arm against
+one base, so the *main effects* — each lever averaged over the other two, which
+is what a 2×2×2 is for — come from averaging the four paired contrasts per
+lever.
