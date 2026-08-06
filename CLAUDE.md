@@ -78,6 +78,17 @@ Its modules: `cli` (flags), `cmd/` (one file per verb), `out`
   queries by more than 0.023** (7,657 queries, 467 instances), `split` is
   0.011 *worse* than no rendering, and the standing `split`+`sif` recommendation
   is retired — the shipped `EmbedPreproc::None` stands.
+  **Score file scopes with both function metrics, never one** (§24.1):
+  `rank_func` (the chunk's best line falls inside the gold function) and
+  `rank_func_ovl` (the chunk overlaps it at all) differ by **14.2pp**, because
+  chunks are 32 lines and the median gold function is 12. That bracket is wider
+  than every effect §20–§23 tried to detect, so every §22/§23 file-scope number
+  is a lower bound — and a lever that moves the two in *opposite* directions is
+  changing chunk geometry rather than retrieval quality, which is how §24.2
+  told the finer-window arm apart from a win. `--file-scopes-only` skips the
+  index build those rows never read, which is what makes an arm ~10 minutes
+  instead of hours; it is blind to the directory half by construction, so a
+  candidate that passes still needs a full-corpus confirmation.
 - `eval/` — retrieval-quality harness. `run_eval.py` scores recall@k/MRR with
   paired bootstrap CIs + sign tests (`--baseline`, `--compare-modes`), cuts by
   `--stratify`/`--where`, and prints leakage above every table;

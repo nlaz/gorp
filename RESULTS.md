@@ -244,17 +244,73 @@ replicate across that split, significance does not, and §23.2 is amended
 accordingly. `guessplay.py` is the gate an engine change must clear; it is
 free and it replays real agent queries against real gold.
 
-## 6. Remaining roadmap
+## 6. Within-file ranking, and the first engine win since §19 (2026-08-06, §24)
 
-- **Within-file ranking** — 46% of real agent searches are file-scoped, they
-  are now instrumented for the first time (§22.2), and no lever has ever been
-  aimed at them. The most promising open direction.
+§5 closed document *rendering* with a powered bound. §24 aimed at document
+*ordering* inside the file an agent already chose, and found both a measurement
+error and a lever.
+
+**The metric was hiding the effect size.** `rank_func` credits a hit only when
+the chunk's best-matching *line* falls inside the gold function. Chunks are 32
+lines; the median gold function is 12. Scored both ways over 2,149 reproduced
+file-scoped agent searches:
+
+| | @5 |
+|---|---|
+| strict (what §22 and §23 publish) | 52.9% |
+| chunk overlap | 67.1% |
+| **bracket** | **14.2pp** |
+
++19.8pp on gold functions under 10 lines, +6.8pp over 30 — chunk granularity,
+not ranking. **14.2pp is larger than every effect §20–§23 tried to detect**, so
+every file-scope number in those sections is a lower bound. Both metrics are now
+emitted always, and a change that moves only one of them is a result about the
+metric rather than the engine.
+
+**Three candidates, measured factorially; one lived.**
+
+| lever | strict@5 | overlap@5 | |
+|---|---|---|---|
+| same-file dedupe by overlap fraction | −0.003 [−0.011, +0.005] | −0.009 [−0.017, −0.000] | killed on its floor |
+| finer chunk window at file scope | +0.008 [−0.013, +0.028] | −0.052 [−0.075, −0.030] | failed |
+| **declaration boost** | **+0.027 [+0.006, +0.049]** | **+0.033 [+0.013, +0.052]** | **shipped** |
+
+`--decl-boost` scales a chunk's fused score by the share of query tokens it
+*declares* rather than merely mentions. Confirmed independently on the full
+7,657-query corpus: **+0.039 strict / +0.048 overlap** on file scopes, **+0.017
+bm25** on directory scopes — it gains where the tripwire only required it not to
+lose. On by default at 0.5; costs 1.1–1.5 ms, flat in corpus size.
+
+**This is the first engine change since §19 to beat an unrendered index on real
+agent queries.** §20–§23 spent four sections on what a chunk is made of; this
+changed what a chunk is worth.
+
+**Both failures were argued from one vivid case, and floors written in advance
+caught them.** The dedupe was sized by `--overlap 0`, which measured +2.0pp but
+changes *chunking* — the proxy inverted the sign of the rule it stood in for.
+The finer window was right about its mechanism (+4.8pp strict on gold functions
+under 10 lines) and wrong about its value, and only the two-metric bracket could
+tell those apart.
+
+**What it does not claim.** Retrieval quality on replayed queries, not agent
+behaviour (§11.5 stands). The recoverable pool — right file, gold function
+outside the top 5 — is 9–13% of all agent searches and is a *ceiling*: an
+unknown share of it is the agent asking a different question than the benchmark
+grades.
+
+## 7. Remaining roadmap
+
+- **Bound the within-file ceiling** — label a sample of the recoverable pool for
+  whether the query points at the gold function at all. One afternoon, and it
+  decides how much of the remaining 9–13% is reachable by any ranker.
+- **The 48% that aim at the wrong file** — nearly half of file-scoped agent
+  searches name a file holding no gold function. No ranker reaches those; §19's
+  tool-description instruments are the right tool.
 - **Record provenance in the harvested corpus** — `guesses-*.jsonl` does not
   mark which rows a broken tool served, so any future campaign inherits §23.3's
   50% contamination silently. Rows should carry the serving binary or commit.
-- **Validate `symbols.extract` spans** — the function-level metric rests on a
-  regex extractor that under-counts by design, so `rank_func` is a lower bound
-  rather than a calibrated rate.
+- **Validate `symbols.extract` spans** — both function-level metrics rest on a
+  regex extractor that under-counts by design.
 - Persistent server / MCP mode with resident index (amortizes load; makes
   HNSW worthwhile; sub-10 ms warm queries plausible).
 - Two-pass streaming BM25 to cut the 916 MB cold-path RSS.
