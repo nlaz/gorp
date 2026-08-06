@@ -250,6 +250,11 @@ pub struct Tuning {
     #[arg(long, hide = true, default_value_t = SearchOptions::default().file_scope_window)]
     pub file_scope_window: u32,
 
+    /// Prefer chunks that DECLARE a query term over chunks that merely
+    /// mention it, weighted (0 = off, experimental RESEARCH.md §24.1)
+    #[arg(long, hide = true, default_value_t = SearchOptions::default().decl_boost)]
+    pub decl_boost: f32,
+
     /// Chunk window in lines (streaming path; indexed uses index params)
     #[arg(long, hide = true, default_value_t = ChunkParams::default().window)]
     pub window: u32,

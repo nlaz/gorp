@@ -151,6 +151,7 @@ stages! {
     RankAnn             => "rank:ann",              Rank;
     RankBrute           => "rank:brute",            Rank;
     RankMaxsim          => "rank:maxsim",           Rank;
+    RankDeclBoost       => "rank:decl-boost",       Rank;
     RankFuse            => "rank:fuse",             Rank;
     Candidates          => "candidates",            Rank;
 
@@ -198,6 +199,7 @@ pub const SCHEDULE_WARM: &[Stage] = &[
     Stage::RankBrute,
     Stage::RankMaxsim,
     Stage::RankFuse,
+    Stage::RankDeclBoost,
     Stage::Candidates,
     Stage::FinalizeDedupe,
     Stage::FinalizeVectors,
@@ -223,6 +225,7 @@ pub const SCHEDULE_COLD: &[Stage] = &[
     Stage::RankBm25,
     Stage::RankMaxsim,
     Stage::RankFuse,
+    Stage::RankDeclBoost,
     Stage::Candidates,
     Stage::FinalizeDedupe,
     Stage::FinalizeVectors,

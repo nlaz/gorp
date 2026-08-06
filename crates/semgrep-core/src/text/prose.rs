@@ -399,6 +399,35 @@ pub fn render_query(query: &str, p: EmbedPreproc) -> Cow<'_, str> {
     Cow::Owned(toks.join(" "))
 }
 
+/// The distinct subtokens of every identifier in *declaration* position — the
+/// declared name, its parameters, assignment left-hand sides.
+///
+/// Same scanner [`PruneDecl`](EmbedPreproc::PruneDecl) uses, put to the
+/// opposite purpose (RESEARCH.md §24.1). §22 measured deleting everything else
+/// and it bought nothing on real agent queries; this exposes the positions so a
+/// ranker can *prefer* the chunk that declares a name over the chunks that call
+/// it, which §24.0 found is a distinct failure — hits 1 and 2 for a query
+/// naming `update_sources` were both `self.update_sources()` call sites while
+/// no returned chunk reached the declaration.
+///
+/// No keyword or low-signal filtering: this answers "which tokens are declared
+/// here", and a query matching a declared `type` should still count.
+pub fn declaration_tokens(text: &str) -> std::collections::HashSet<String> {
+    let words = word_ranges(text);
+    let decl = declaration_sites(text, &words);
+    let mut out = std::collections::HashSet::new();
+    let mut buf = String::with_capacity(32);
+    for (i, &(s, e)) in words.iter().enumerate() {
+        if !decl.get(i).copied().unwrap_or(false) {
+            continue;
+        }
+        token::subtokens_of(&text[s..e], false, &mut buf, &mut |tok: &str, _whole: bool| {
+            out.insert(tok.to_string());
+        });
+    }
+    out
+}
+
 fn render_body_into(text: &str, plan: Plan, out: &mut Vec<String>) {
     let words = word_ranges(text);
     let decl = if plan.decl == DeclMode::Off {

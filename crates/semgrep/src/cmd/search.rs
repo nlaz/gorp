@@ -326,6 +326,7 @@ fn options(cli: &Cli, mode: Mode) -> Result<SearchOptions> {
         mmr_lambda: t.mmr_lambda,
         dedupe_overlap: t.dedupe_overlap,
         file_scope_window: t.file_scope_window,
+        decl_boost: t.decl_boost,
         prf_terms: t.prf,
         // MaxSim reranks the semantic candidate list before fusion, so it can
         // only pay off where that list decides the answer. In `--mode semantic`

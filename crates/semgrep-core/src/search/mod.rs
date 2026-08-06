@@ -42,6 +42,55 @@ pub(crate) fn candidate_width(k: usize) -> usize {
     k * 3
 }
 
+/// Declaration boost (RESEARCH.md §24.1): scale each fused score by
+/// `1 + w · (share of query tokens declared in that chunk)`.
+///
+/// One implementation, called from both paths at the same point, for the reason
+/// `rerank_maxsim` is: a scope that happens to be indexed must not answer a
+/// query differently from one that is not
+/// (`cold_and_warm_return_identical_results`).
+///
+/// Multiplicative because it has to work in three score spaces at once — raw
+/// BM25, cosine, and RRF, whose fused scores are ~1e-3. An additive boost sized
+/// for one of them swamps or vanishes in the others.
+///
+/// `text_of` returns the chunk body; a chunk whose text cannot be read scores
+/// its share as 0 rather than being dropped, since a missing file is already
+/// `materialize`'s problem and dropping here would silently change the pool.
+pub(crate) fn apply_decl_boost(
+    ranked: &mut [(u32, f32)],
+    query: &str,
+    opts: &SearchOptions,
+    text_of: impl Fn(u32) -> Option<String> + Sync,
+) {
+    if opts.decl_boost <= 0.0 || ranked.is_empty() {
+        return;
+    }
+    let qtokens: std::collections::HashSet<String> =
+        text::token::tokens(query).into_iter().collect();
+    if qtokens.is_empty() {
+        return;
+    }
+    use rayon::prelude::*;
+    let head = candidate_width(opts.k).min(ranked.len());
+    let shares: Vec<f32> = ranked[..head]
+        .par_iter()
+        .map(|&(id, _)| {
+            let Some(t) = text_of(id) else { return 0.0 };
+            let decl = text::declaration_tokens(&t);
+            if decl.is_empty() {
+                return 0.0;
+            }
+            let n = qtokens.iter().filter(|q| decl.contains(*q)).count();
+            n as f32 / qtokens.len() as f32
+        })
+        .collect();
+    for (slot, share) in ranked[..head].iter_mut().zip(shares) {
+        slot.1 *= 1.0 + opts.decl_boost * share;
+    }
+    ranked.sort_by(|a, b| b.1.total_cmp(&a.1));
+}
+
 /// Same, for a scope that is one file: everything (RESEARCH.md §24.1).
 ///
 /// `k * 3` is a corpus-scale economy — it bounds how many chunks pay for a
@@ -91,6 +140,14 @@ pub struct SearchOptions {
     /// [`candidate_width`] cap, which at k=10 admits only 30 chunks and can
     /// exclude the answer on a file that yields more.
     pub file_scope_window: u32,
+    /// Weight of the declaration boost (RESEARCH.md §24.1). 0 = off.
+    ///
+    /// A chunk that *declares* the identifier a query names and a chunk that
+    /// *calls* it currently score alike; §24.0 measured 85 searches where the
+    /// agent named the function, the call sites came back, and no returned
+    /// chunk reached the declaration. This scales each fused score by
+    /// `1 + w · share of query tokens declared in that chunk`.
+    pub decl_boost: f32,
     /// PRF (pseudo-relevance feedback): expand the query with this many
     /// discriminative terms from the first pass's top hits, then re-rank
     /// lexically (RESEARCH.md §9.3). 0 = off.
@@ -147,6 +204,7 @@ impl Default for SearchOptions {
             mmr_lambda: 0.75,
             dedupe_overlap: 0.5,
             file_scope_window: 0,
+            decl_boost: 0.0,
             prf_terms: 0,
             rerank_maxsim: false,
             maxsim_pool: 0,

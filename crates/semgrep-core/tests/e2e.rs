@@ -827,6 +827,54 @@ fn cold_and_warm_agree_with_maxsim_reranking() {
     }
 }
 
+/// cold == warm must hold with the declaration boost on (RESEARCH.md §24.1).
+///
+/// The same trap `cold_and_warm_agree_with_maxsim_reranking` was written for:
+/// the boost re-reads chunk text and rescores post-fusion on *both* paths, and
+/// a version living on only one of them would return a different order from a
+/// cached scope than from an uncached one while every other test passed. The
+/// weight is deliberately large so a one-sided implementation reorders
+/// something rather than sneaking through on ties.
+#[test]
+fn cold_and_warm_agree_with_the_declaration_boost() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+
+    let queries = [
+        "compute_backoff_delay",
+        "compute the backoff delay",
+        "check whether a session token is valid",
+        "verify_session_token",
+        "quantum chromodynamics lattice gauge",
+    ];
+
+    let mut moved = false;
+    for mode in [Mode::Bm25, Mode::Semantic, Mode::Hybrid] {
+        for query in queries {
+            let db = |o: SearchOptions| SearchOptions { decl_boost: 4.0, ..o };
+            let cold = search(dir.path(), query, &db(stream_opts(mode))).unwrap();
+            assert!(!cold.report.used_index);
+            let warm = search(dir.path(), query, &db(opts(mode))).unwrap();
+            assert!(warm.report.used_index);
+
+            let shape = |r: &semgrep_core::search::SearchResult| -> Vec<(String, u32)> {
+                r.hits.iter().map(|h| (h.path.clone(), h.start_line)).collect()
+            };
+            assert_eq!(
+                shape(&cold),
+                shape(&warm),
+                "cold != warm for {mode:?} {query:?} with decl_boost on"
+            );
+            // An inert boost would satisfy the equality above trivially, and
+            // this test would then be guarding nothing at all.
+            let plain = search(dir.path(), query, &opts(mode)).unwrap();
+            moved |= shape(&plain) != shape(&warm);
+        }
+    }
+    assert!(moved, "decl_boost changed no result on this fixture — the test is vacuous");
+}
+
 /// cold == warm must survive prose rendering (RESEARCH.md §14.2): the cold
 /// path renders inline, the warm path renders per the meta the write-through
 /// build persisted, and the two must be the same function of the same option.
