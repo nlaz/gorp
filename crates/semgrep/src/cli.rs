@@ -255,6 +255,16 @@ pub struct Tuning {
     #[arg(long, hide = true, default_value_t = SearchOptions::default().decl_boost)]
     pub decl_boost: f32,
 
+    /// Print every line of each hit's chunk, not just the matched line
+    /// (~22x the output; experimental, RESEARCH.md §25.1)
+    #[arg(long, hide = true)]
+    pub full: bool,
+
+    /// Prefix each hit with its span and the names it declares
+    /// (experimental, RESEARCH.md §25.1)
+    #[arg(long, hide = true)]
+    pub headers: bool,
+
     /// Chunk window in lines (streaming path; indexed uses index params)
     #[arg(long, hide = true, default_value_t = ChunkParams::default().window)]
     pub window: u32,

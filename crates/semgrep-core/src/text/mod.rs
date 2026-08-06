@@ -11,7 +11,8 @@ pub mod token;
 
 pub use embed::{SemgrepHnsw, embed_query, new_hnsw};
 pub use prose::{
-    EmbedPreproc, PathRender, declaration_tokens, render_body as prose_render_body,
+    EmbedPreproc, PathRender, declaration_tokens, declared_names,
+    render_body as prose_render_body,
     render_doc as prose_render_doc, render_query as prose_render_query,
 };
 pub use sif::{SIF_A, SifStats, embed_sif, token_vectors};

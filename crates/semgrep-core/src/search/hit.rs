@@ -80,7 +80,7 @@ pub fn finalize(
         let mut hits = Vec::with_capacity(opts.k);
         for i in order {
             let c = &kept[i];
-            if let Some(mut hit) = materialize(root, &c.path, c.chunk, c.score, &query_tokens) {
+            if let Some(mut hit) = materialize(root, &c.path, c.chunk, c.score, &query_tokens, opts) {
                 if !strip.is_empty()
                     && let Some(rest) = hit.path.strip_prefix(&format!("{strip}/"))
                 {
@@ -123,8 +123,15 @@ fn materialize(
     chunk: Chunk,
     score: f32,
     query_tokens: &HashSet<String>,
+    opts: &SearchOptions,
 ) -> Option<SearchHit> {
     let text = corpus::read_text(&corpus::resolve(root, rel_path))?;
+    // Both display extras are collected in this loop rather than by re-reading
+    // the file in the CLI: the chunk's text is already in hand exactly once
+    // here, and a second reader would be a second chance to disagree about
+    // which lines a chunk covers.
+    let mut lines: Option<Vec<String>> = opts.full_chunks.then(Vec::new);
+    let mut defines: Option<Vec<String>> = opts.defines.then(Vec::new);
     let mut best: Option<(usize, u32, &str)> = None;
     for (i, line) in text.lines().enumerate() {
         let line_no = i as u32 + 1;
@@ -133,6 +140,12 @@ fn materialize(
         }
         if line_no > chunk.end_line {
             break;
+        }
+        if let Some(v) = lines.as_mut() {
+            v.push(line.to_string());
+        }
+        if let Some(v) = defines.as_mut() {
+            v.extend(crate::text::declared_names(line));
         }
         if line.trim().is_empty() {
             continue;
@@ -156,5 +169,14 @@ fn materialize(
         line,
         text: line_text.to_string(),
         score,
+        lines,
+        // Dedupe late rather than while collecting: a name declared twice in
+        // one window says nothing a header should repeat, and the order the
+        // file declares them in is the order worth showing.
+        defines: defines.map(|mut v| {
+            let mut seen = HashSet::new();
+            v.retain(|n| seen.insert(n.clone()));
+            v
+        }),
     })
 }

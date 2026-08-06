@@ -172,6 +172,18 @@ pub struct SearchOptions {
     /// would let one declared token dominate a fused score in a corpus that
     /// would never show it.
     pub decl_boost: f32,
+    /// Carry every line of each hit's chunk, not just the best-matching one
+    /// (RESEARCH.md §25.1). Display only — ranking is untouched.
+    ///
+    /// The engine scores 32-line windows and shows one line, so "the answer was
+    /// in the window" and "the agent saw the answer" differ by 14 points
+    /// (§24.1). This closes that by construction, at ~22× the bytes.
+    pub full_chunks: bool,
+    /// Carry the names each hit's chunk declares (RESEARCH.md §25.1). Display
+    /// only. The cheaper half of the same idea — name what is in the window
+    /// rather than printing all of it: 314 bytes against 12,079, reaching 88%
+    /// of the same gap.
+    pub defines: bool,
     /// PRF (pseudo-relevance feedback): expand the query with this many
     /// discriminative terms from the first pass's top hits, then re-rank
     /// lexically (RESEARCH.md §9.3). 0 = off.
@@ -229,6 +241,8 @@ impl Default for SearchOptions {
             dedupe_overlap: 0.0,
             file_scope_window: 0,
             decl_boost: 0.5,
+            full_chunks: false,
+            defines: false,
             prf_terms: 0,
             rerank_maxsim: false,
             maxsim_pool: 0,
@@ -253,6 +267,17 @@ pub struct SearchHit {
     pub line: u32,
     pub text: String,
     pub score: f32,
+    /// Every line of the chunk, when the caller asked for them
+    /// ([`SearchOptions::full_chunks`], RESEARCH.md §25.1).
+    ///
+    /// `None` rather than an empty vec when off, and `skip_serializing_if` so
+    /// the JSON contract is unchanged for every existing consumer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lines: Option<Vec<String>>,
+    /// Names the chunk declares, when the caller asked for them
+    /// ([`SearchOptions::defines`]). Same absent-by-default contract.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub defines: Option<Vec<String>>,
 }
 
 #[derive(Debug, Default, Clone, serde::Serialize)]
@@ -538,6 +563,11 @@ fn keyword_search(
                 line: h.line as u32,
                 text: h.text,
                 score: 1.0,
+                // Exact mode has no chunk — its "span" is the matched line
+                // itself — so there is no window to print and nothing a
+                // header could say that the line does not already.
+                lines: None,
+                defines: None,
             })
             .collect()
     });

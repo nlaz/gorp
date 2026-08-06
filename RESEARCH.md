@@ -6104,3 +6104,122 @@ arm; §24.2's rates are the right-file subset. And it contrasts one arm against
 one base, so the *main effects* — each lever averaged over the other two, which
 is what a 2×2×2 is for — come from averaging the four paired contrasts per
 lever.
+
+## 25 What the agent is shown, not what the engine scored
+
+§24 shipped a ranking change and left a measurement question open. The engine
+scores 32-line windows and prints **one line** per hit, so "the answer was in
+the returned window" and "the agent saw the answer" are different claims that
+differ by 14 points (§24.1's bracket).
+
+Measured over 400 real file-scoped agent searches: of the 294 where the returned
+window contained the answer, **77 (26%) showed the agent a line belonging to
+something else** — median 7 lines away, and 64 of those inside a different
+function entirely. This section tests two ways to close that, on the only
+instrument that can see the difference: real agents.
+
+### 25.1 Pre-registration (written before the first paid run)
+
+**Neither candidate changes ranking, so `guessplay` cannot referee either.**
+Replaying queries offline measures which chunks come back; this question is
+about what the agent does with them. That is what makes this the first campaign
+in the project worth buying.
+
+**The two formats, costs re-measured at k=10 over 150 real agent searches:**
+
+| | median bytes | vs today |
+|---|---|---|
+| today — one line per hit | 552 | 1.0× |
+| `--headers` — span + declared names before each hit | 1,113 | **2.0×** |
+| `--full` — every line of all 10 chunks | 11,315 | **20.5×** |
+
+*(An earlier estimate put `--headers` at 314 bytes; that was derived from a k=3
+example and is corrected here. The k=10 figure is what the campaign runs.)*
+
+Full chunks never repeat a line: across 10,935 pairs of returned hits **zero
+overlapped**, because §24.2's kept dedupe rule drops any chunk sharing a line
+with a better one. That rule was retained on its own evidence; it happens to
+make this format coherent.
+
+**What is purchasable, computed before proposing the spend.** §11.5 and §19.10
+both concluded agent *accuracy* is unpurchasable here — ±0.038 at all 560
+instances against effects that are always ≤0.05. That has been the standing
+reason not to spend, and it still holds. But the endpoint these formats target
+is behavioural. Measured from the 3,502 transcripts already on disk:
+
+| endpoint | paired sd | instances for 80% power |
+|---|---|---|
+| **reads-after-search per run** | 1.47 | 68 at Δ=0.50, **280 at Δ=0.25** |
+| cost per run | $0.148 | 35 for a 25% change |
+| input+cache tokens | 270k | 96 for a 25% change |
+| `func_acc@10_tol` | — | 682 (§19.10) — never |
+
+Baseline is **1.98 reads-after-search per run**, so Δ=0.25 is a 13% reduction.
+
+**Design: four arms × 280 instances.** The three `sg` arms are byte-identical
+except for a flag `shim.py` injects invisibly — "appended to the real invocation
+but never shown to the agent — its commands and the logged argv stay clean" — so
+the contrast is display and nothing else.
+
+| arm | tool line | injected |
+|---|---|---|
+| `rg` | the rg line | — |
+| `disp-line` | desc-v9 (shipped) | *(none)* — internal control |
+| `disp-full` | desc-v9, identical | `--full` |
+| `disp-head` | desc-v9, identical | `--headers` |
+
+`disp-line` cannot be replaced by reusing existing desc-v9 rows: those came from
+a pre-§24 binary, and comparing across binaries is the §23.3 trap exactly.
+
+**Registered limitation.** desc-v9 tells the agent output is `path:line:text`,
+which under-describes `--full`. Changing the description per arm would confound
+display with the strongest lever this project has measured (§19: description
+moved ranked share 7%→98%), so it is held identical and `--full` runs
+*handicapped by a description that undersells it*. A win is therefore strong; a
+null is ambiguous between "the format does not help" and "the agent did not know
+to expect it."
+
+**Frame: a plain random 280 of 560, seed-fixed and recorded** — deliberately not
+`tierframe.py`'s equal strata, which exists because §19.2b predicted the
+description effect lives entirely in `blind`. No such prediction applies here,
+and the primary endpoint is continuous, so every instance contributes and the
+frame stays pooled-comparable to §16.9/§18. §11.5's discriminative screening is
+inapplicable for the same reason: it buys McNemar power on binary accuracy.
+
+**Registered predictions:**
+
+1. **Primary — `--full` reduces reads-after-search.** `disp-full` vs
+   `disp-line`, paired within instance, bootstrap CI over instances (4,000,
+   seed 1). Direction registered (a reduction), reported two-sided, powered to
+   **Δ=0.25**. *Kill:* a positive delta falsifies the mechanism — the agent
+   reading *more* despite being shown more.
+2. **Co-primary — cost and tokens, registered as an expected loss.** `--full`
+   will cost more per run; pricing it is half the point. Powered to a 25%
+   change at n=35/96, so both resolve. A cost increase with a null on P1 is the
+   clearest possible reject.
+3. **`--headers` buys most of it for a tenth of the bytes.** Registered:
+   `disp-head` achieves ≥ half of `disp-full`'s reduction at ~2× the output
+   rather than ~20×. If so, headers win on efficiency whichever reduces more.
+4. **Accuracy is a bounded secondary and is not powered.** `func_acc@10_tol`
+   over all pairs, Holm-corrected, with the detectable bound printed beside it.
+   Registered per §19.10 so a null is never read as an absence it cannot
+   support.
+5. **`disp-full` vs `rg`** — the product claim, secondary, same bound.
+6. **Tripwire — truncation.** Count runs whose search results appear truncated.
+   `out.rs` documents that the agent's tool-result limit silently deletes hits
+   ranked below a long one; at 20× bytes this is the specific way the treatment
+   backfires while looking healthy.
+7. **Tripwire — identical descriptions.** The three `sg` arms' recorded
+   `tool_line_text` must be byte-identical. `run.py` writes it per run for
+   exactly this purpose (§16 C2).
+8. **Tripwire — one binary** across the campaign, and `triage.py` clean per
+   tier.
+9. **Gate — did the arms change query *style*?** `queryshape.py` over the shim
+   logs. The intent is that arms differ only in what came *back*; a style shift
+   means the display changed how agents write queries, and every downstream
+   reading is then conditional on that.
+
+**Budget: ~$317 at the measured $0.283/run mean, and that mean comes from arms
+printing 552 bytes.** `disp-full` will exceed it; $350–400 is the realistic
+total. The overage is registered measurement #2, to be recorded rather than
+absorbed.

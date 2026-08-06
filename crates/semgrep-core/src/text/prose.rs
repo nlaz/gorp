@@ -412,6 +412,43 @@ pub fn render_query(query: &str, p: EmbedPreproc) -> Cow<'_, str> {
 ///
 /// No keyword or low-signal filtering: this answers "which tokens are declared
 /// here", and a query matching a declared `type` should still count.
+/// The name each `DECLARERS` keyword on this line introduces, in order.
+///
+/// Deliberately narrower than [`declaration_tokens`], which is a scoring signal
+/// and therefore also marks parameters and assignment left-hand sides. This
+/// answers a *display* question — what does this region define? — where `self`,
+/// `frames` and every local would be noise (RESEARCH.md §25.1).
+///
+/// One line at a time, and no brace tracking: a header says what a 32-line
+/// window declares, and a scanner that had to be right about nesting to be
+/// right about that would be a parser. `def f(g=h)` yields `f`, not `g`.
+///
+/// Modifier chains stay armed, so `pub async fn read_at` yields `read_at`
+/// rather than `async`. [`MODIFIERS`] exists because [`DECLARERS`] cannot be
+/// extended for this: it is consumed by `declaration_sites`, which drives the
+/// measured `PruneDecl` renderings, and adding a word there would silently
+/// change what §20–§24 published.
+pub fn declared_names(line: &str) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    let mut armed = false;
+    for &(s, e) in word_ranges(line).iter() {
+        let word = &line[s..e];
+        let lower = word.to_ascii_lowercase();
+        if is_declarer(word) {
+            armed = true;
+        } else if armed && MODIFIERS.binary_search(&lower.as_str()).is_ok() {
+            // Still a modifier, still waiting for the name.
+        } else if armed {
+            armed = false;
+            // A number is never a name: `const 4` is not a declaration.
+            if !word.starts_with(|c: char| c.is_ascii_digit()) {
+                out.push(word.to_string());
+            }
+        }
+    }
+    out
+}
+
 pub fn declaration_tokens(text: &str) -> std::collections::HashSet<String> {
     let words = word_ranges(text);
     let decl = declaration_sites(text, &words);
@@ -684,6 +721,18 @@ const LOW_SIGNAL: &[&str] = &[
 /// Keywords that introduce a name. A superset of the declaring subset of
 /// [`KEYWORDS`]/[`KEYWORDS_EXTRA`] — `export` and `public` declare in the
 /// sense that matters here (the next identifier is being defined). Sorted.
+/// Words that sit between a declarer and the name it introduces, and are never
+/// the name themselves. Sorted — `binary_search`.
+///
+/// Separate from [`DECLARERS`] on purpose: that table feeds
+/// `declaration_sites`, which drives the measured `PruneDecl` renderings, so a
+/// word added there would change numbers §20–§24 already published. This one is
+/// display-only ([`declared_names`], RESEARCH.md §25.1).
+const MODIFIERS: &[&str] = &[
+    "async", "extern", "final", "inline", "mut", "override", "sealed", "synchronized", "unsafe",
+    "virtual",
+];
+
 const DECLARERS: &[&str] = &[
     "abstract", "class", "const", "def", "enum", "export", "fn", "func", "function", "impl",
     "interface", "let", "module", "namespace", "object", "package", "private", "protected", "pub",
@@ -779,7 +828,7 @@ mod tests {
 
     #[test]
     fn tables_are_sorted_for_binary_search() {
-        for t in [KEYWORDS, KEYWORDS_EXTRA, LOW_SIGNAL, DECLARERS] {
+        for t in [KEYWORDS, KEYWORDS_EXTRA, LOW_SIGNAL, DECLARERS, MODIFIERS] {
             assert!(t.windows(2).all(|w| w[0] < w[1]), "unsorted: {:?}", t[0]);
         }
     }
@@ -869,6 +918,22 @@ mod tests {
         sorted.sort_unstable();
         sorted.dedup();
         assert_eq!(toks.len(), sorted.len(), "duplicate survived: {r}");
+    }
+
+    #[test]
+    fn declared_names_take_the_name_not_the_parameters() {
+        // The display scanner (§25.1) is narrower than the scoring one: a
+        // header saying `defines: f, g, h` for `def f(g, h)` would be noise.
+        assert_eq!(declared_names("    def _format_list(self, frames):"), ["_format_list"]);
+        assert_eq!(declared_names("class Controller(QObject):"), ["Controller"]);
+        // Modifier chains collapse to the one name they introduce.
+        assert_eq!(declared_names("pub async fn read_at(off: u64)"), ["read_at"]);
+        assert_eq!(declared_names("export function computeBackoff(attempt) {"), ["computeBackoff"]);
+        // Two declarations on one line are two names.
+        assert_eq!(declared_names("let a = 1; let b = 2;"), ["a", "b"]);
+        // Not declarations: a call, and a keyword with a number after it.
+        assert!(declared_names("self.update_sources()").is_empty());
+        assert!(declared_names("const 4").is_empty());
     }
 
     #[test]

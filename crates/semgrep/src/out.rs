@@ -153,6 +153,36 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
             println!("{}", serde_json::to_string(&shaped).expect("SearchHit serializes"));
             continue;
         }
+        // A header naming the region and what it declares, before the hit
+        // (RESEARCH.md §25.1). `#`-prefixed so a line-oriented consumer can
+        // skip it, and printed only when the caller asked for `defines` —
+        // stdout is still data, just data with a comment in it.
+        if let Some(defs) = hit.defines.as_ref().filter(|d| !d.is_empty()) {
+            println!(
+                "# {}:{}-{}  defines: {}",
+                quote_path(&hit.path),
+                hit.start_line,
+                hit.end_line,
+                defs.join(", ")
+            );
+        }
+        // Full chunks: every line of the window, in the same `path:line:text`
+        // shape, so the block is still parseable line by line rather than
+        // being a second format. `clip` still applies per line — full-chunk
+        // mode multiplies the 374 KB-line problem rather than escaping it.
+        if let Some(body) = hit.lines.as_ref() {
+            for (i, line) in body.iter().enumerate() {
+                let n = hit.start_line + i as u32;
+                let text = clip(line.trim_start(), opts.max_columns);
+                if opts.with_path {
+                    println!("{}:{}:{}", quote_path(&hit.path), n, text);
+                } else {
+                    println!("{n}:\t{text}");
+                }
+            }
+            println!();
+            continue;
+        }
         // The frame is read before the hit line is printed because the amount to
         // dedent by is a property of the whole block, and the hit line is the
         // first line of it out the door.
