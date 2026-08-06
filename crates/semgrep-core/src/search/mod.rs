@@ -150,13 +150,27 @@ pub struct SearchOptions {
     /// [`candidate_width`] cap, which at k=10 admits only 30 chunks and can
     /// exclude the answer on a file that yields more.
     pub file_scope_window: u32,
-    /// Weight of the declaration boost (RESEARCH.md §24.1). 0 = off.
+    /// Weight of the declaration boost (RESEARCH.md §24.2). 0 = off.
     ///
     /// A chunk that *declares* the identifier a query names and a chunk that
-    /// *calls* it currently score alike; §24.0 measured 85 searches where the
+    /// *calls* it used to score alike; §24.0 measured 85 searches where the
     /// agent named the function, the call sites came back, and no returned
     /// chunk reached the declaration. This scales each fused score by
     /// `1 + w · share of query tokens declared in that chunk`.
+    ///
+    /// **On by default at 0.5** — the first engine change since §20 to beat an
+    /// unrendered index on real agent queries, and it does so everywhere it was
+    /// measured: file scopes +0.039 strict / +0.048 overlap, directory scopes
+    /// +0.017 bm25, replicated across two independent campaigns. Costs ~1.4 ms,
+    /// which is the 30 candidate chunks it re-reads and is flat in corpus size
+    /// (3% of a kernel query, ~9% of a small one).
+    ///
+    /// 0.5 rather than a larger weight by §24.3's registered parsimony rule:
+    /// the effect is flat from 0.5 to 4.0 (+0.046 to +0.045, every CI excluding
+    /// zero), so the boost acts as a reordering signal rather than a magnitude,
+    /// and the smallest weight that buys it is the safest default — a large `w`
+    /// would let one declared token dominate a fused score in a corpus that
+    /// would never show it.
     pub decl_boost: f32,
     /// PRF (pseudo-relevance feedback): expand the query with this many
     /// discriminative terms from the first pass's top hits, then re-rank
@@ -214,7 +228,7 @@ impl Default for SearchOptions {
             mmr_lambda: 0.75,
             dedupe_overlap: 0.0,
             file_scope_window: 0,
-            decl_boost: 0.0,
+            decl_boost: 0.5,
             prf_terms: 0,
             rerank_maxsim: false,
             maxsim_pool: 0,

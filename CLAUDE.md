@@ -192,6 +192,12 @@ that involve embeddings all moved, BM25 and keyword did not.
   and compare via `report.py --against` — single samples here mislead.
 - warm queries: bm25 88 ms, semantic 53 ms, hybrid 115 ms (halving dims
   halved the embedding scan; the old f32 scan was fault/IO-bound at ~3-4 s)
+- the declaration boost (`--decl-boost`, on by default since §24.3) costs
+  **1.1–1.5 ms** and is flat in corpus size — it re-reads the `k*3` candidate
+  chunks, so the cost is 30 file reads whether the corpus is vscode or the
+  kernel. ~3% of a warm kernel query and ~9% of a small-corpus one. It buys
+  +0.039 strict / +0.048 overlap on file-scoped agent queries and +0.017 bm25
+  on directory-scoped ones (RESEARCH.md §24.2)
 - corpus walk (parallel since FIXES.md #24): 272 ms on the 84k-file kernel,
   19 ms on vscode, ~5 ms on tokio/jekyll. Paid by a build, by `--check-stale`,
   and — the reason it was worth parallelizing — by read-repair on every warm

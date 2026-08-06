@@ -5957,3 +5957,103 @@ P8), one is killed on its own floor and reverts a default (P2), one is moot
 (P3), one fails as a lever while confirming its mechanism (P4), one is a
 tripwire that held (P7), one is outstanding (P6). Two candidates die; one
 ships, pending the directory half.
+
+### 24.3 The weight sweep (registered before the run)
+
+§24.2 measured `--decl-boost` at **w = 1.0**, which was a first guess and never
+tuned. P6 is now discharged and the lever is a shipping candidate, so the weight
+gets chosen deliberately. Arms: 0.0 (control), 0.5, 1.0, 2.0, 4.0, on the 2,188
+paired file-scoped queries, one binary, semantic mode.
+
+**A sweep over the corpus that established the effect cannot also establish its
+size.** Selecting the argmax of five arms on the same 2,188 queries biases the
+winner's effect estimate upward by construction — the same trap §12 audited
+this project for. Two commitments follow, registered here:
+
+1. **The effect is already established and is not re-estimated by this run.**
+   Its size is the independent full-corpus confirmation of §24.2 at w = 1.0:
+   +0.039 [+0.015, +0.062] strict and +0.048 [+0.024, +0.072] overlap on file
+   scopes, +0.017 [+0.007, +0.029] bm25 on directory scopes. Whatever the sweep
+   picks, **those remain the published numbers for the lever**, and a larger
+   figure produced by the selected arm is a selection artifact and is reported
+   as one.
+2. **The rule is parsimony, not argmax.** Take the *smallest* weight whose
+   overlap@5 gain has a CI excluding zero and whose point estimate is within
+   0.01 of the best arm. A bigger weight that buys nothing measurable is a
+   worse default: the boost is multiplicative, so a large w lets a single
+   declared token dominate a fused score, and nothing in this corpus would show
+   that failure.
+
+*Kill:* if no weight clears zero on this binary, the §24.2 result does not
+replicate on a re-run and the lever is withdrawn rather than tuned.
+
+**Result: flat, and 0.5 wins on parsimony.** Run 2026-08-06,
+`guessplay-v6.jsonl`, one binary (`8bc13ebc1071f3e4`), 21,080 rows, the same
+2,188 paired file-scoped queries.
+
+| w | strict@5 | overlap@5 | Δ overlap vs w=0 |
+|---|---|---|---|
+| 0.0 | 52.4% | 66.8% | (control) |
+| **0.5** | **56.6%** | 71.3% | **+0.046 [+0.025, +0.067]** |
+| 1.0 | 56.3% | 71.6% | +0.048 [+0.023, +0.072] |
+| 2.0 | 55.8% | 71.4% | +0.047 [+0.021, +0.072] |
+| 4.0 | 56.4% | 71.3% | +0.045 [+0.018, +0.071] |
+
+Every arm clears zero, so the kill does not fire and §24.2 replicates on a
+second binary. The spread across an **8× range of w is 0.003** — inside the
+noise of every individual interval. Registered rule takes 0.5: the smallest
+weight clearing zero and within 0.01 of the best.
+
+The flatness is the finding, not an inconvenience. A multiplicative boost whose
+effect is invariant to its own magnitude is acting as a **reordering signal**,
+not a score adjustment: what matters is that declaring chunks sort above calling
+chunks, not by how much. That is the mechanism §24.0 described, and it also
+makes the default safe — the failure mode of a large `w` (one declared token
+dominating a fused score) is real but never fires here, and choosing the
+smallest effective weight means it cannot start firing on a corpus this one
+does not resemble.
+
+Per §24.3's first commitment, **the published effect for the lever remains the
+independent full-corpus confirmation at w = 1.0** — +0.039 [+0.015, +0.062]
+strict, +0.048 [+0.024, +0.072] overlap, +0.017 [+0.007, +0.029] bm25 on
+directory scopes. The 56.6% strict in the table above is the argmax of five
+arms on the corpus that selected it and is not quoted as the effect size.
+
+**Shipped**: `decl_boost` defaults to 0.5. Cost 1.1–1.5 ms, flat in corpus size
+(the `k*3` candidate chunks it re-reads), ~3% of a warm kernel query. Snapshot
+re-recorded — 78 of 114 cases move.
+
+### 24.4 Ledger
+
+| # | prediction | outcome |
+|---|---|---|
+| 1 | the bracket is real and sized | **pass** — +14.4pp, 2.75× on short functions |
+| 2 | #1 dedupe ≥ +0.02 | **killed** — −0.009 [−0.017, −0.000]; default reverted |
+| 3 | #1's gain concentrates | moot (conditional on P2) |
+| 4 | #3 finer window ≥ +0.02 | **fails as a lever, mechanism confirmed** |
+| 5 | #2 recovers ≥20 named misses | **pass** — 58 of 92, and both query halves gain |
+| 6 | directory half loses ≤ 0.01 | **pass** — it *gains*, +0.017 bm25 |
+| 7 | one binary, one arm_flags | **pass**, verified live |
+| 8 | cold == warm | **pass** |
+
+Two candidates died on floors written before the data existed, and the one that
+lived did so on every cut it was measured against. Worth recording *why* the two
+died, because both were argued for from a single vivid case:
+
+- **#1 was sized by a proxy that measured something else.** `--overlap 0` was
+  worth +2.0pp and looked like evidence for the dedupe rule; it changes
+  chunking, and the real rule is −0.009. The proxy inverted the sign of the
+  thing it stood in for.
+- **#3 was right about its mechanism and wrong about its value.** Finer chunks
+  demonstrably fix dilution (+4.8pp strict on gold functions under 10 lines)
+  and cost more than that elsewhere (−0.052 overlap). Only the two-metric
+  bracket §24.1 built could tell those apart — under either metric alone, #3
+  reads as a clean result in one direction or the other.
+
+**What §24 does not claim.** Every number here is retrieval quality on replayed
+queries. §11.5 stands: whether this changes what an agent *does* is not
+purchasable on this benchmark at any n it can hold, and the 9–13% recoverable
+pool remains a ceiling containing an unknown share of queries that point
+somewhere other than gold. What changed is that the direction §23 closed is not
+the only one, and the instrument can now see the half of agent behaviour that
+§21 wrote off.
