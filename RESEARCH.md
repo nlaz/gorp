@@ -6149,12 +6149,17 @@ is behavioural. Measured from the 3,502 transcripts already on disk:
 
 | endpoint | paired sd | instances for 80% power |
 |---|---|---|
-| **reads-after-search per run** | 1.47 | 68 at Δ=0.50, **280 at Δ=0.25** |
+| **reads-after-search per run** | 1.48 | 69 at Δ=0.50, **275 at Δ=0.25** |
 | cost per run | $0.148 | 35 for a 25% change |
 | input+cache tokens | 270k | 96 for a 25% change |
 | `func_acc@10_tol` | — | 682 (§19.10) — never |
 
-Baseline is **1.98 reads-after-search per run**, so Δ=0.25 is a 13% reduction.
+Baseline is **1.85 reads-after-search per run** on the shipped arm, so Δ=0.25
+is a 14% reduction. *(Corrected before the run: an earlier pass counted a search
+by any of the four shimmed tool names and got 1.98. `displaycmp.py` counts only
+searches by the arm's **own** tool, because an arm told to type `sg` that emits
+`semgrep` is escaping its treatment and must not be scored as if it had not. The
+paired sd is 1.48 either way, so the registered power is unchanged.)*
 
 **Design: four arms × 280 instances.** The three `sg` arms are byte-identical
 except for a flag `shim.py` injects invisibly — "appended to the real invocation
