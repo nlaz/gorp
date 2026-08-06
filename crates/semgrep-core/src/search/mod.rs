@@ -121,13 +121,23 @@ pub struct SearchOptions {
     /// MMR lambda: 1.0 = pure relevance, 0.0 = pure diversity.
     pub mmr_lambda: f32,
     /// How much two same-file chunks must overlap, as a share of the shorter
-    /// span, before the lower-scoring one is dropped as a near-duplicate
-    /// (RESEARCH.md §24.1). 0 = the pre-§24 rule: any shared line at all.
+    /// span, before the lower-scoring one is dropped as a near-duplicate.
+    /// 0 (the default) = any shared line at all.
     ///
-    /// Chunks are strided, so every chunk overlaps its neighbours and the old
-    /// rule thinned a single file's results to a greedy non-overlapping subset
-    /// — deleting the chunk that held the answer whenever a neighbour holding a
-    /// *call site* outscored it.
+    /// **Measured and not adopted** (RESEARCH.md §24.2). Chunks are strided, so
+    /// every chunk overlaps its neighbours and the default rule thins a single
+    /// file's results to a greedy non-overlapping subset — which really does
+    /// delete answers: on the §24 `update_sources` case the chunk holding the
+    /// declaration is dropped because two higher-scoring neighbours each
+    /// contain a *call site*, and 0.5 brings it back at rank 3.
+    ///
+    /// That case is not the population. Over 2,188 real file-scoped agent
+    /// queries the main effect of 0.5 is −0.003 [−0.011, +0.005] strict and
+    /// **−0.009 [−0.017, −0.000] overlap** — a small significant *loss*,
+    /// against a registered floor of +0.02. The single-case rescue does not
+    /// generalize: keeping neighbours crowds the top-k with one file's chunks
+    /// more often than it rescues the right one. Kept as a flag because it is
+    /// measured, and because the §24.1 kill condition was written in advance.
     pub dedupe_overlap: f32,
     /// Chunk window to use when the scope *is* one file, in lines. 0 = off,
     /// use [`params`](Self::params) as given (RESEARCH.md §24.1).
@@ -202,7 +212,7 @@ impl Default for SearchOptions {
             sem_weight: 0.2,
             diversify: true,
             mmr_lambda: 0.75,
-            dedupe_overlap: 0.5,
+            dedupe_overlap: 0.0,
             file_scope_window: 0,
             decl_boost: 0.0,
             prf_terms: 0,

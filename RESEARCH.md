@@ -5859,3 +5859,101 @@ having asked a different question than the benchmark grades: when a query reads
 gold is `_send_message`, the engine was right and the query pointed elsewhere.
 Separating the two needs query-intent labelling, which nothing in the harness
 does. No result below should be read as if the ceiling were the target.
+
+### 24.2 One of three, and the two that died on their own floors
+
+Run 2026-08-06, `guessplay-v4.jsonl`, one binary (`ef37824e9d3b71e8`), 33,728
+rows: a full 2×2×2 over the three candidates on the file-scoped half of the
+desc-all corpus, 402 instances, semantic mode. 17,504 rows land on a file that
+holds a gold function; 2,188 queries (331 instances) are paired across all
+eight arms and carry every contrast below.
+
+**Main effects, each lever averaged over the other two** (four paired
+contrasts each, cluster bootstrap over instances, 4,000, seed 1):
+
+| lever | strict@5 | overlap@5 |
+|---|---|---|
+| #1 dedupe 0.5 | −0.003 [−0.011, +0.005] | **−0.009 [−0.017, −0.000]** |
+| #3 file-window 12 | +0.008 [−0.013, +0.028] | **−0.052 [−0.075, −0.030]** |
+| #2 decl-boost 1.0 | **+0.027 [+0.006, +0.049]** | **+0.033 [+0.013, +0.052]** |
+
+**P1 — passes, both clauses.** The bracket on the control arm is **+14.4pp**
+(52.4% strict, 66.8% overlap) against a registered floor of +10.0pp, and it is
++19.8pp on gold functions under 10 lines against +7.2pp on those over 30 — a
+2.75× ratio against a registered 2×. The metric fix is sound, and every number
+in §22 and §23 about file scopes is a lower bound by roughly this much.
+
+**P2 — killed, and it takes the default with it.** `--dedupe-overlap 0.5` was
+registered at ≥ +0.02 overlap@5 with a kill below +0.01. Measured: **−0.009
+[−0.017, −0.000]**, a small *significant loss*. The mechanism from §24.1 is
+real — on the `update_sources` case the declaration chunk is deleted before
+ranking and 0.5 brings it back at rank 3 — but the case is not the population.
+Keeping neighbours crowds the top-k with one file's chunks more often than it
+rescues the right one, which is the trade the snapshot showed plainly when 85
+of 114 cases moved and three `native/ring.c` chunks took slots other files had.
+**The default is reverted to 0.0 and the snapshot is byte-identical to its
+pre-§24 state.** The flag stays because the arm is measured.
+
+*What misled the plan.* §24.1 sized this lever from `--overlap 0`, which was
+worth +2.0pp [−0.001, +0.043]. That proxy changes *chunking* — it makes chunks
+non-overlapping — and only incidentally changes what the dedupe drops. The
+gain belonged to the chunking, not to the rule under test, and the proxy
+inverted the sign of the thing it was standing in for. A one-case rescue plus a
+proxy is not evidence; the 2,188-query arm is.
+
+**P3 — moot.** Registered conditionally on P2, which failed.
+
+**P4 — the mechanism confirms while the lever fails.** `--file-scope-window 12`
+was registered at ≥ +0.02 strict@5. Measured +0.008 [−0.013, +0.028]: null.
+But the discriminating clause passes cleanly — the strict gain is **+4.8pp on
+gold functions under 10 lines against −1.1pp on those over 30**. Dilution is
+real and finer chunks do address it. They also cost more than they pay:
+overlap@5 falls **−0.052 [−0.075, −0.030]**, because a 12-line chunk brushes a
+gold function far less often than a 32-line one does.
+
+That opposite movement is the most useful thing the metric fix bought. Under
+strict scoring alone #3 reads as a modest win; under overlap alone it reads as
+a clear loss; it is neither, and no single number could have said so. **A lever
+that moves the two metrics in opposite directions is changing chunk geometry,
+not retrieval quality** — and §22/§23 had no way to see that distinction.
+
+**P5 — passes, and on both halves.** `--decl-boost 1.0` recovers **58 of the 92
+named rows** the control missed at overlap@5, against a registered floor of 20.
+The registration was two-sided on the describe half because over-weighting
+signatures could plausibly hurt it. It does not:
+
+| | n | Δ overlap@5 |
+|---|---|---|
+| query names the gold function | 685 | **+0.069 [+0.025, +0.117]** |
+| query describes it instead | 1,503 | **+0.039 [+0.009, +0.066]** |
+
+Both intervals exclude zero. The best arm in the factorial is decl-boost alone
+— **56.3% strict / 71.6% overlap** against the control's 52.4% / 66.8%.
+
+**This is the first engine change in §20–§24 to beat an unrendered index on
+real agent queries.** §20–§23 spent four sections on what a chunk is *made of*
+and found a bound of 0.023; this changes what a chunk is *worth* and clears it.
+The reason is visible in the §24.0 failure it was built from: a chunk that
+declares an identifier and a chunk that calls it were scored alike, and for a
+query that names a function those are not the same answer.
+
+**P6 — the directory half. Pending the confirmation run.** The factorial ran
+`--file-scopes-only` and is blind to directory scopes by construction. That is
+what §24.1's tripwire is for and it is not yet discharged.
+
+**P7 — one binary** (`ef37824e9d3b71e8`) across all 33,728 rows, and one
+`arm_flags` per arm, now part of the resume key. Verified live rather than
+assumed: on the first 750 paired queries each lever changed 15–28% of rows
+against the control, so no arm was a silently-unwired null.
+
+**P8 — cold == warm** holds with the boost on, asserted by
+`cold_and_warm_agree_with_the_declaration_boost`, which also asserts the boost
+reorders something on the fixture — an inert boost would satisfy the equality
+trivially and the test would guard nothing, which is exactly how the MaxSim
+version of this bug survived until that test was written after the fact.
+
+**Ledger for §24 so far.** Three of eight predictions pass as stated (P1, P5,
+P8), one is killed on its own floor and reverts a default (P2), one is moot
+(P3), one fails as a lever while confirming its mechanism (P4), one is a
+tripwire that held (P7), one is outstanding (P6). Two candidates die; one
+ships, pending the directory half.

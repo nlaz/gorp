@@ -61,23 +61,23 @@ fn dedupe_case(a: (u32, u32), b: (u32, u32), frac: f32) -> Vec<crate::search::Se
 }
 
 #[test]
-fn any_overlap_collapses_at_frac_zero() {
-    // The pre-§24 rule, kept reachable as the campaign's control arm: two
-    // chunks sharing 8 of 32 lines are one hit, higher rank wins.
+fn any_overlap_collapses_at_the_default() {
+    // The shipped rule: two chunks sharing 8 of 32 lines are one hit, higher
+    // rank wins. §24.2 measured the alternative and did not adopt it.
     let hits = dedupe_case((1, 32), (25, 56), 0.0);
     assert_eq!(hits.len(), 1, "any shared line should collapse at frac 0");
     assert_eq!(hits[0].start_line, 1);
 }
 
 #[test]
-fn neighbouring_chunks_survive_at_the_default_threshold() {
-    // The §24 fix. Chunks are strided, so *every* chunk overlaps its
-    // neighbours: at window 32 / overlap 8 they share 25%, well under the 50%
-    // that makes them near-duplicates. Collapsing them thinned a single file's
-    // results to a greedy non-overlapping subset and deleted the chunk holding
-    // the answer whenever a neighbour holding a call site outscored it.
+fn a_threshold_lets_neighbouring_chunks_survive() {
+    // Chunks are strided, so *every* chunk overlaps its neighbours: at window
+    // 32 / overlap 8 they share 25%, under a 50% threshold. This is the §24.1
+    // arm — it does rescue the declaration chunk on the `update_sources` case,
+    // and it still lost 0.009 overlap@5 across 2,188 real agent queries by
+    // crowding the top-k with one file. Kept measurable, not default.
     let hits = dedupe_case((1, 32), (25, 56), 0.5);
-    assert_eq!(hits.len(), 2, "8 of 32 shared lines is not a near-duplicate");
+    assert_eq!(hits.len(), 2, "8 of 32 shared lines is under a 0.5 threshold");
 }
 
 #[test]
