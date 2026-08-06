@@ -38,16 +38,23 @@ pub fn finalize(
     trace: &mut Trace,
     vec_of: impl Fn(&Candidate) -> Option<Vec<f32>>,
 ) -> Vec<SearchHit> {
-    // Drop candidates whose line span overlaps an already-kept, higher-ranked
-    // candidate in the same file — overlapping windows are near-duplicates.
+    // Drop candidates that overlap an already-kept, higher-ranked candidate in
+    // the same file by at least `opts.dedupe_overlap` of the shorter span —
+    // near-duplicates, which is what this is for.
+    //
+    // It used to drop on *any* overlap, and that deletes answers. Chunks are
+    // strided (window 32, overlap 8 by default), so every chunk overlaps its
+    // neighbours by construction; within one file the rule therefore thins the
+    // result set to a greedy non-overlapping subset. On the §24 `update_sources`
+    // case that meant `ranked top 16 of 37 candidates`, with the chunk holding
+    // the declaration dropped because two higher-scoring neighbours each
+    // contained a *call site* of it — the answer removed before ranking rather
+    // than ranked low. At 25% neighbour overlap a 0.5 threshold keeps neighbours
+    // and still collapses true duplicates.
     let kept: Vec<Candidate> = trace.time(Stage::FinalizeDedupe, || {
         let mut kept: Vec<Candidate> = Vec::with_capacity(cands.len());
         for c in cands.drain(..) {
-            let dup = kept.iter().any(|k| {
-                k.path == c.path
-                    && c.chunk.start_line <= k.chunk.end_line
-                    && c.chunk.end_line >= k.chunk.start_line
-            });
+            let dup = kept.iter().any(|k| k.path == c.path && overlaps(k, &c, opts.dedupe_overlap));
             if !dup {
                 kept.push(c);
             }
@@ -87,6 +94,24 @@ pub fn finalize(
         }
         hits
     })
+}
+
+/// Do two same-file chunks overlap by at least `frac` of the shorter span?
+///
+/// `frac <= 0` reproduces the original rule exactly — any shared line at all is
+/// a duplicate — so the pre-§24 behaviour stays reachable as a control arm.
+fn overlaps(a: &Candidate, b: &Candidate, frac: f32) -> bool {
+    let lo = a.chunk.start_line.max(b.chunk.start_line);
+    let hi = a.chunk.end_line.min(b.chunk.end_line);
+    if lo > hi {
+        return false;
+    }
+    let shared = (hi - lo + 1) as f32;
+    if frac <= 0.0 {
+        return true;
+    }
+    let span = |c: &Candidate| (c.chunk.end_line - c.chunk.start_line + 1) as f32;
+    shared >= frac * span(a).min(span(b))
 }
 
 /// Turn a ranked chunk into a displayable hit: re-read the file and pick the

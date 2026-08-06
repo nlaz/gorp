@@ -240,6 +240,11 @@ pub struct Tuning {
     #[arg(long, hide = true, default_value_t = SearchOptions::default().mmr_lambda)]
     pub mmr_lambda: f32,
 
+    /// Overlap share of the shorter span at which two same-file chunks count
+    /// as near-duplicates (0 = the pre-§24 rule: any shared line)
+    #[arg(long, hide = true, default_value_t = SearchOptions::default().dedupe_overlap)]
+    pub dedupe_overlap: f32,
+
     /// Chunk window in lines (streaming path; indexed uses index params)
     #[arg(long, hide = true, default_value_t = ChunkParams::default().window)]
     pub window: u32,

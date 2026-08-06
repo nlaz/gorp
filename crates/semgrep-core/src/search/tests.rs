@@ -44,27 +44,50 @@ fn mmr_prefers_diverse_over_redundant() {
     assert_eq!(order, vec![0, 2]);
 }
 
-#[test]
-fn overlapping_spans_dedupe_keeps_higher_rank() {
+/// `finalize` over two same-file spans at a given dedupe threshold.
+fn dedupe_case(a: (u32, u32), b: (u32, u32), frac: f32) -> Vec<crate::search::SearchHit> {
     let dir = tempfile::tempdir().unwrap();
-    std::fs::write(dir.path().join("x.rs"), "fn alpha() {}\n".repeat(60)).unwrap();
-    let cands = vec![
-        Candidate {
-            id: 0,
-            chunk: Chunk { file_id: 0, start_line: 1, end_line: 32 },
-            path: "x.rs".into(),
-            score: 1.0,
-        },
-        Candidate {
-            id: 1,
-            chunk: Chunk { file_id: 0, start_line: 25, end_line: 56 },
-            path: "x.rs".into(),
-            score: 0.9,
-        },
-    ];
-    let opts = SearchOptions { k: 2, ..Default::default() };
+    std::fs::write(dir.path().join("x.rs"), "fn alpha() {}\n".repeat(80)).unwrap();
+    let span = |id, (s, e), score| Candidate {
+        id,
+        chunk: Chunk { file_id: 0, start_line: s, end_line: e },
+        path: "x.rs".into(),
+        score,
+    };
+    let cands = vec![span(0, a, 1.0), span(1, b, 0.9)];
+    let opts = SearchOptions { k: 2, dedupe_overlap: frac, ..Default::default() };
     let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
-    let hits = finalize(dir.path(), "alpha", cands, &opts, "", &mut trace, |_| None);
-    assert_eq!(hits.len(), 1, "overlapping same-file spans should collapse");
+    finalize(dir.path(), "alpha", cands, &opts, "", &mut trace, |_| None)
+}
+
+#[test]
+fn any_overlap_collapses_at_frac_zero() {
+    // The pre-§24 rule, kept reachable as the campaign's control arm: two
+    // chunks sharing 8 of 32 lines are one hit, higher rank wins.
+    let hits = dedupe_case((1, 32), (25, 56), 0.0);
+    assert_eq!(hits.len(), 1, "any shared line should collapse at frac 0");
     assert_eq!(hits[0].start_line, 1);
+}
+
+#[test]
+fn neighbouring_chunks_survive_at_the_default_threshold() {
+    // The §24 fix. Chunks are strided, so *every* chunk overlaps its
+    // neighbours: at window 32 / overlap 8 they share 25%, well under the 50%
+    // that makes them near-duplicates. Collapsing them thinned a single file's
+    // results to a greedy non-overlapping subset and deleted the chunk holding
+    // the answer whenever a neighbour holding a call site outscored it.
+    let hits = dedupe_case((1, 32), (25, 56), 0.5);
+    assert_eq!(hits.len(), 2, "8 of 32 shared lines is not a near-duplicate");
+}
+
+#[test]
+fn containment_collapses_at_every_threshold() {
+    // A chunk wholly inside another really is redundant, and stays so however
+    // the threshold moves — otherwise the fix would trade one failure for the
+    // duplicate-results failure the dedupe exists to prevent.
+    for frac in [0.0, 0.5, 1.0] {
+        let hits = dedupe_case((1, 32), (5, 20), frac);
+        assert_eq!(hits.len(), 1, "contained span should collapse at frac {frac}");
+        assert_eq!(hits[0].start_line, 1);
+    }
 }

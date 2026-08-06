@@ -61,6 +61,15 @@ pub struct SearchOptions {
     pub diversify: bool,
     /// MMR lambda: 1.0 = pure relevance, 0.0 = pure diversity.
     pub mmr_lambda: f32,
+    /// How much two same-file chunks must overlap, as a share of the shorter
+    /// span, before the lower-scoring one is dropped as a near-duplicate
+    /// (RESEARCH.md §24.1). 0 = the pre-§24 rule: any shared line at all.
+    ///
+    /// Chunks are strided, so every chunk overlaps its neighbours and the old
+    /// rule thinned a single file's results to a greedy non-overlapping subset
+    /// — deleting the chunk that held the answer whenever a neighbour holding a
+    /// *call site* outscored it.
+    pub dedupe_overlap: f32,
     /// PRF (pseudo-relevance feedback): expand the query with this many
     /// discriminative terms from the first pass's top hits, then re-rank
     /// lexically (RESEARCH.md §9.3). 0 = off.
@@ -115,6 +124,7 @@ impl Default for SearchOptions {
             sem_weight: 0.2,
             diversify: true,
             mmr_lambda: 0.75,
+            dedupe_overlap: 0.5,
             prf_terms: 0,
             rerank_maxsim: false,
             maxsim_pool: 0,
