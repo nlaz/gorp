@@ -5712,3 +5712,150 @@ stdout and the *arithmetic* against the raw rows. It does not validate
 metric (§22.2, §23.2 P4) rests on a regex extractor that under-counts by
 design, so `rank_func` figures should be read as a lower bound on within-file
 discriminability rather than as a calibrated rate.
+
+## 24 The within-file gap, and the metric that was hiding it
+
+§23 closed the document-rendering direction with a powered bound: no rendering
+improves retrieval on real agent queries by more than 0.023. What that work left
+behind is an instrument that can see file-scoped searches for the first time, and
+a gap nothing has ever been aimed at. §23.3 ended by warning that `rank_func`
+"should be read as a lower bound rather than as a calibrated rate". This section
+measures how much of a lower bound, and then tests three candidates against the
+corrected instrument.
+
+### 24.0 What the reproduction established
+
+All 2,188 file-scoped agent searches from `guessplay-v3.jsonl` were re-executed
+live against files restored from the pinned git mirrors at each instance's
+`base_commit`. 2,149 completed, and **all 2,149 reproduce their recorded
+`rank_func` exactly** — so the harness is faithful even though `bin_sha256` has
+moved since (§23.3 finding 2: the fingerprint tracks relinks, not behaviour).
+
+The funnel, on the shipped default (`EmbedPreproc::None`, semantic):
+
+| | n | share |
+|---|---|---|
+| ranked agent searches | 7,657 | |
+| — scoped to one file | 4,216 | **55.1%** |
+| — — aimed at a file holding no gold function | 2,028 | 48.1% of file-scoped |
+| — — aimed right | 2,188 | 51.9% of file-scoped |
+| — scoped to a directory or the repo root | 3,441 | 44.9% |
+
+Of the 2,188 that aim right, the gold function is in the top 5 **52.9%** of the
+time. Of the 803 that never surface it, **801 had file-level rank 1**: the engine
+returned chunks, from the right file, and none were credited to the right
+function.
+
+**The cut that matters.** Splitting by whether the query contains the gold
+function's own name is the only cut tested that separates them, and it survives
+both metrics:
+
+| | n | share | strict@5 | chance@5 | lift | overlap@5 |
+|---|---|---|---|---|---|---|
+| names the function | 670 | 31% | 76.1% | 23.5% | **3.2×** | 87.3% |
+| describes it instead | 1,479 | 69% | 42.4% | 26.5% | **1.6×** | 58.0% |
+
+Chance is computed exactly per file, `1 − (1 − p)⁵` over the union of gold spans.
+The median file-scoped query is *two words*. **69% of the traffic describes, and
+there the engine is barely above chance.**
+
+Three mechanisms were tested and ruled out. **Not name ambiguity** — the gold
+name appears a median 3 times in the file when the engine finds it and 4 when it
+misses, and the top-5 rate does not fall monotonically with occurrence count.
+**Not the extractor going blind** — all 648 distinct (instance, scoped file, gold
+function) triples were pulled from the mirrors and `symbols.extract` resolves the
+gold function in **100%** of them. **Not big files** — measured as lift the engine
+*improves* with size, reaching 8.7× chance above 2,000 lines, because chance falls
+faster than the engine does.
+
+### 24.1 Pre-registration (written before the first campaign row)
+
+**The metric is the first finding, and it changes what the rest can measure.**
+`rank_func` credits a hit only when the chunk's best-matching *line* falls inside
+the gold function. Chunks are 32 lines; the median gold function is 12. Scoring
+the same 2,149 searches by whether a returned chunk *overlaps* the gold function:
+
+| | @5 |
+|---|---|
+| strict (`rank_func`, what §22 and §23 publish) | 52.9% |
+| overlap (`rank_func_ovl`) | 67.1% |
+| **bracket** | **14.2pp** |
+
+with the spread +19.8pp on gold functions under 10 lines and +6.8pp on 30–99
+line ones — the signature of chunk granularity, not of ranking. Of 160 named
+top-5 misses, **75 are recovered by overlap (the measurement) and 85 are
+genuine**. §22.1 chose strict deliberately, because overlap credit "would blunt
+the very ordering this is built to measure", and that reasoning still holds.
+What it did not anticipate is the *size* of the understatement: 14.2pp is larger
+than every effect §20–§23 tried to detect. **Neither number is the truth** —
+strict under-credits short functions, overlap over-credits a window that merely
+brushes one — so both are emitted always, and a result that moves only one of
+them is a result about the metric.
+
+**Three candidates, each an independent flag, measured factorially.**
+
+- **#1 — the same-file dedupe.** `hit.rs` drops any candidate whose span
+  overlaps an already-kept candidate in the same file. Verified on the
+  `update_sources` case: `ranked top 16 of 37 candidates`, and the chunk holding
+  the declaration overlaps two higher-scoring neighbours that each contain a
+  *call site*, so it is removed before ranking. Under `--overlap 0` it goes from
+  absent to **rank 2**. That crude proxy is worth **+2.0pp overlap@5,
+  CI [−0.001, +0.043]** across all 1,542 distinct file-scoped queries — real but
+  modest, and it conflates the dedupe with a chunking change. MMR is *not* the
+  cause: `--no-diversify` swaps two ranks and rescues nothing.
+- **#3 — a finer, wider pass at file scope.** A file scope never resolves an
+  index (`cache::discover` bails on a non-directory root), so it is always the
+  streaming path — 44.7 ms over 37 chunks, with `candidate_width(k) = k*3`
+  capping the pool at 30. Both the window and the cap are affordable to change
+  there and nowhere else.
+- **#2 — declaration-aware scoring.** `prose::declaration_sites()` exists,
+  built for `PruneDecl`. §22 showed using it to *delete* tokens buys nothing;
+  using it as a ranking feature is untested.
+
+**Registered predictions:**
+
+1. **The bracket is real and sized.** Floor: overlap@5 − strict@5 ≥ **+0.10** on
+   file-scoped right-file rows, and ≥2× larger on gold functions under 10 lines
+   than over 30. *This is a check on the metric fix itself* — a failure means
+   the reproduction is wrong, not the engine.
+2. **#1 beats its own control.** Floor: `--dedupe-overlap 0.5` −
+   `--dedupe-overlap 0.0` ≥ **+0.02** overlap@5, cluster bootstrap over
+   instances (4,000, seed 1). *Kill:* below +0.01 the dedupe is not the lever
+   the single case suggested, and #1 ships only if it is free elsewhere.
+3. **#1's gain is concentrated where the mechanism says.** Registered: the gain
+   on rows where a higher-scoring neighbour chunk overlaps the gold span is ≥2×
+   the gain on the remainder. A uniform gain means something else moved and
+   prediction 2 passed for the wrong reason — the same discriminating shape
+   §22.1's P2 used, and the one that caught P1 there.
+4. **#3 helps, and helps short functions most.** Floor: ≥ **+0.02** strict@5,
+   with the gain larger on gold functions under 10 lines than over 30. A flat
+   profile across function length falsifies the dilution mechanism even if the
+   total moves.
+5. **#2 addresses the named residue.** Registered on the 85 genuine named
+   misses: ≥ **20** recovered. **Two-sided on the describe half** — a
+   declaration boost could plausibly hurt descriptive queries by over-weighting
+   signatures, and that must not be reported as a wash.
+6. **Tripwire — the directory half.** No arm may lose more than 0.01 file-level
+   `rank@5` on directory scopes in the confirmation run. #1 changes ranked
+   output corpus-wide and the iterate loop is blind to that by construction.
+7. **Tripwire — one binary** per campaign, asserted by `bin_sha256`, and one
+   `arm_flags` value per arm, which is now part of the resume key.
+8. **Tripwire — cold == warm.** #3 is file-scope-only and therefore cold-only;
+   #2 is not, and must be mirrored on both paths or
+   `cold_and_warm_return_identical_results` fails.
+
+**What a null on all three licenses.** That within-file ranking is not reachable
+by candidate-set or scoring changes of this kind, and the remaining lever is the
+*query* side — the 69% who describe rather than name. It does **not** license a
+claim about the 48% of file-scoped searches aimed at the wrong file, which no
+ranker reaches and which §19's tool-description instruments are the right tool
+for.
+
+**What this cannot settle.** The recoverable pool — right file, gold function
+outside the top 5 — is **9–13% of all agent searches** depending on the metric,
+and that is a *ceiling, not a backlog*. Some unknown share of it is the agent
+having asked a different question than the benchmark grades: when a query reads
+`periodic task maintenance loop` and the engine returns `_loop_coroutine` while
+gold is `_send_message`, the engine was right and the query pointed elsewhere.
+Separating the two needs query-intent labelling, which nothing in the harness
+does. No result below should be read as if the ceiling were the target.
