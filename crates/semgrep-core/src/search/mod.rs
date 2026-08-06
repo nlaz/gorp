@@ -42,6 +42,16 @@ pub(crate) fn candidate_width(k: usize) -> usize {
     k * 3
 }
 
+/// Same, for a scope that is one file: everything (RESEARCH.md §24.1).
+///
+/// `k * 3` is a corpus-scale economy — it bounds how many chunks pay for a
+/// vector and a dedupe comparison when the pool is millions. A single file
+/// yields a median 56 chunks, so at k=10 the cap can drop the chunk holding
+/// the answer before dedupe or MMR ever sees it. There is nothing to save.
+pub(crate) fn file_scope_candidate_width() -> usize {
+    usize::MAX
+}
+
 #[derive(Debug, Clone)]
 pub struct SearchOptions {
     pub mode: Mode,
@@ -70,6 +80,17 @@ pub struct SearchOptions {
     /// — deleting the chunk that held the answer whenever a neighbour holding a
     /// *call site* outscored it.
     pub dedupe_overlap: f32,
+    /// Chunk window to use when the scope *is* one file, in lines. 0 = off,
+    /// use [`params`](Self::params) as given (RESEARCH.md §24.1).
+    ///
+    /// The 32-line window is sized for corpus-scale indexing; the median gold
+    /// function agents hunt is 12 lines, so a chunk routinely pools the target
+    /// with several of its neighbours. A file scope can afford better — it
+    /// never resolves an index, so this can never key a cache entry, and the
+    /// whole search is ~45 ms over a few dozen chunks. Also lifts the
+    /// [`candidate_width`] cap, which at k=10 admits only 30 chunks and can
+    /// exclude the answer on a file that yields more.
+    pub file_scope_window: u32,
     /// PRF (pseudo-relevance feedback): expand the query with this many
     /// discriminative terms from the first pass's top hits, then re-rank
     /// lexically (RESEARCH.md §9.3). 0 = off.
@@ -125,6 +146,7 @@ impl Default for SearchOptions {
             diversify: true,
             mmr_lambda: 0.75,
             dedupe_overlap: 0.5,
+            file_scope_window: 0,
             prf_terms: 0,
             rerank_maxsim: false,
             maxsim_pool: 0,
@@ -257,6 +279,23 @@ pub fn search(root: &Path, query: &str, opts: &SearchOptions) -> Result<SearchRe
     if opts.mode == Mode::Keyword {
         return keyword_search(root, query, opts, t0);
     }
+
+    // A file scope is a different search, and cheap enough to do better
+    // (RESEARCH.md §24.1). 55% of real agent searches name a single file, the
+    // whole search is ~45 ms over a few dozen chunks, and `cache::discover`
+    // bails on a non-directory root — so this can neither cost anything at
+    // corpus scale nor key a cache entry, and there is no warm file scope for
+    // `cold_and_warm_return_identical_results` to disagree with.
+    let file_opts;
+    let opts = if opts.file_scope_window > 0 && root.is_file() {
+        file_opts = SearchOptions {
+            params: opts.params.with_window(opts.file_scope_window),
+            ..opts.clone()
+        };
+        &file_opts
+    } else {
+        opts
+    };
 
     // The index is a cache (RESEARCH.md §8): resolve one for this scope —
     // local, ancestor, or central — and on a full miss, write-through: the

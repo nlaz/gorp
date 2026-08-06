@@ -245,6 +245,11 @@ pub struct Tuning {
     #[arg(long, hide = true, default_value_t = SearchOptions::default().dedupe_overlap)]
     pub dedupe_overlap: f32,
 
+    /// Chunk window in lines when the scope is a single file, which also
+    /// lifts the candidate cap there (0 = off, use --window)
+    #[arg(long, hide = true, default_value_t = SearchOptions::default().file_scope_window)]
+    pub file_scope_window: u32,
+
     /// Chunk window in lines (streaming path; indexed uses index params)
     #[arg(long, hide = true, default_value_t = ChunkParams::default().window)]
     pub window: u32,

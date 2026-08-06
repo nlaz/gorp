@@ -63,7 +63,15 @@ pub fn run(
     };
 
     let cands = trace.time(Stage::Candidates, || {
-        candidates(ranked, &pass.chunks, &files, super::candidate_width(opts.k))
+        // A file scope takes every chunk; see `file_scope_candidate_width`.
+        // Only reachable here — a file scope never resolves an index, so the
+        // warm path cannot be asked the same question.
+        let width = if opts.file_scope_window > 0 && root.is_file() {
+            super::file_scope_candidate_width()
+        } else {
+            super::candidate_width(opts.k)
+        };
+        candidates(ranked, &pass.chunks, &files, width)
     });
     // No embedding matrix here, so candidate vectors are recomputed on demand.
     // At most a few thousand texts, which is nothing beside the pass just done —

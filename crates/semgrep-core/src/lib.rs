@@ -57,6 +57,26 @@ impl Default for ChunkParams {
     }
 }
 
+impl ChunkParams {
+    /// The same chunking at a different window, with the overlap held at the
+    /// same *share* of the window rather than the same line count.
+    ///
+    /// Overlap exists so a match is not split across a boundary, which is a
+    /// property of the window it sits in; carrying 8 lines onto a 12-line
+    /// window would overlap by two thirds and trip the near-duplicate rule in
+    /// `hit::finalize` on every neighbour. Clears `budget`, which measures the
+    /// same thing in a different unit and would otherwise silently win.
+    pub fn with_window(self, window: u32) -> Self {
+        let share = if self.window == 0 { 0.0 } else { self.overlap as f32 / self.window as f32 };
+        Self {
+            window,
+            overlap: (window as f32 * share).round() as u32,
+            budget: None,
+            ..self
+        }
+    }
+}
+
 /// A chunk is a line window into one file. Text is never stored — it is
 /// re-read from the file when a chunk surfaces as a result.
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]

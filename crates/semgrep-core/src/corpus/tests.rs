@@ -19,6 +19,22 @@ fn chunking_covers_all_lines_with_overlap() {
 }
 
 #[test]
+fn with_window_holds_the_overlap_share_not_the_line_count() {
+    // Overlap stops a match being split across a boundary, which is a property
+    // of the window it sits in. Carrying the default 8 lines onto a 12-line
+    // window would overlap by two thirds — over `hit::finalize`'s 0.5
+    // near-duplicate threshold, so every neighbour would collapse and §24's
+    // finer file-scope pass would return fewer results rather than more.
+    let p = ChunkParams::default().with_window(12);
+    assert_eq!(p.window, 12);
+    assert_eq!(p.overlap, 3, "8/32 of 12 rounds to 3, a quarter as before");
+    assert!((p.overlap as f32 / p.window as f32) < 0.5, "must stay under the dedupe threshold");
+    // A budget measures the same thing in a different unit and would silently
+    // win over the window we just set.
+    assert_eq!(ChunkParams { budget: Some(900), ..Default::default() }.with_window(12).budget, None);
+}
+
+#[test]
 fn short_file_is_one_chunk() {
     let chunks = chunk_lines(0, "a\nb\n", &ChunkParams::default());
     assert_eq!(chunks.len(), 1);
