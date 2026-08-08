@@ -6236,3 +6236,149 @@ The same smoke showed `disp-full` using *fewer* searches than the control
 too small to be evidence, and noted here only because it was visible before the
 frame ran and should not be presented afterwards as though it were a
 prediction.
+
+### 25.2 Full chunks change what agents do; headers change nothing
+
+Run 2026-08-06/08, `results-display.jsonl`, 1,156 rows over the registered
+280-instance frame, **278 instances complete in all four arms** — the frame
+delivered its registered power (detectable Δ=0.249 against a registered 0.25).
+Spend **$295.76**, under the $317 the plan estimated and well under the $406 an
+early-rows projection had feared; the tail is cheaper than the head, because
+the opening chunks carry the retries.
+
+**P1 — passes, at three times the registered effect.** Reads-after-search per
+run, `disp-full` against `disp-line`, paired over 280 instances:
+
+| endpoint | control | `--full` | Δ | 95% CI |
+|---|---|---|---|---|
+| **reads after a search** | 1.729 | 0.921 | **−0.807** | [−1.007, −0.611] |
+| reads (all) | 3.293 | 1.821 | −1.471 | [−1.764, −1.189] |
+| searches | 3.418 | 2.789 | −0.629 | [−0.932, −0.354] |
+| turns | 9.13 | 6.99 | **−2.14** | [−2.72, −1.58] |
+| median search bytes | 609 | 12,630 | +12,021 | [+11,150, +12,927] |
+
+The agent opens the file after a search **47% less often**, and the whole
+trajectory shortens: two fewer turns, and it searches less as well as reads
+less. The registration was powered for 0.25 and the effect is 0.81.
+
+**P2 — the cost is real, and it is not where it was expected.** `--full` costs
+**+$0.042/run [+0.024, +0.059]**, about 18%. But it is not paying for volume:
+
+| usage | control | `--full` | Δ |
+|---|---|---|---|
+| output tokens | 2,692 | 2,325 | **−367** [−645, −78] |
+| cache **read** tokens | 272,524 | 261,316 | −11,207 (null) |
+| cache **creation** tokens | 17,684 | 26,106 | **+8,421** [+6,464, +10,417] |
+
+Twenty times the bytes per search produces *no* significant change in total
+tokens read and *fewer* output tokens, because the shorter trajectory cancels
+the bigger results. The entire premium is **cache creation**: each large tool
+result is a new block that has to be written to the cache, and writes are the
+expensive direction. §2.1's framing survives intact — "fewer, better
+round-trips beat cheaper individual round-trips" — and this is that trade
+priced: **2.14 fewer round-trips for 18% more dollars.**
+
+**P3 — fails, and it is the most interesting failure here.** `--headers` was
+registered to deliver ≥ half of `--full`'s reduction (so ≤ −0.40) at a tenth of
+the bytes. Measured: **−0.007 [−0.175, +0.168]** on reads-after-search, +0.179
+on reads, 0.000 on searches. A flat null on every behavioural endpoint, at 1.9×
+the bytes.
+
+That is a direct refutation of the reasoning that motivated it. §25.1 sized
+headers from the finding that naming a chunk's declarations would surface the
+gold function in **88%** of the cases where the shown line missed it. That
+number was about *availability*, and it was correct. It predicted nothing,
+because **an agent that is told the answer is nearby still opens the file.**
+Only being handed the code removes the reason to. Availability is not use, and
+88% of a gap closed on paper bought exactly zero behaviour.
+
+**P4 — accuracy unmoved, and bounded rather than implied.** `func_acc@10_tol`:
+`--full` **+0.000 [−0.032, +0.032]**, `--headers` −0.011, `rg` −0.011; McNemar
+p = 1.000/0.648/0.629. `file_acc@5` likewise null. Per §19.10's rule the bound
+is published beside the null: this frame resolves ±0.032, so an accuracy effect
+smaller than that is not excluded and is not claimed either way. **The display
+format changes the route, not the destination.**
+
+**P5 — `--full` beats `rg` on every efficiency endpoint**, paired over 280:
+reads-after-search **−0.504 [−0.682, −0.339]**, reads −0.721 [−0.964, −0.496],
+searches −0.696 [−1.007, −0.386]. Note `rg` also beats the *control* on
+reads-after-search (−0.304): one line of grep output is a weaker invitation to
+open a file than one line of ranked output, presumably because grep's line is
+the literal match. Full chunks beat both.
+
+**P6 — truncation tripwire holds, and this is not a small thing.** Zero
+truncated search results in any arm, including 12.6 KB medians. The specific
+way this treatment could have backfired invisibly — the agent's tool-result
+limit deleting hits ranked below a long one, which `out.rs` documents from a
+659 KB incident — did not occur once in 280 runs.
+
+**P7 — descriptions byte-identical** across the three `sg` arms
+(`tool_line_sha256`, one distinct value).
+
+**P8 — fired, and benign on inspection.** Two tripwires went off:
+
+- *Binaries.* Eight distinct `semgrep_sha256` on a naive count, which collapses
+  to **two** once historical runs on the same instances are excluded. No commit
+  touched `crates/` during the campaign, and the two hashes are distributed
+  near-identically across all four arms (248/41, 249/41, 253/44, 248/40). These
+  are relinks of frozen source — §23.3's finding 2 exactly, that the fingerprint
+  tracks the link and not the code, and can false-alarm but never false-pass.
+- *Triage.* `triage.py` failed three checks at the 63-row mark: one unknown flag
+  (`--iC`, an agent typo against a short compat surface), one instance whose
+  every search used a nonexistent path ("tool correct"), and four non-ok rows.
+  The errors were **arm-symmetric** (rg 2, line 1, full 2, head 2) with five of
+  seven from a single instance failing in every arm, and a historical campaign
+  fails the same gate. Recorded as fired rather than quietly passed. The check
+  that would have implicated the treatment — ranked searches returning nothing,
+  the §16.11 signature — was 0 of 213.
+
+**P9 — the gate passes: agents did not change how they write.** `queryshape.py`
+over the campaign's shim logs gives `disp-full` vs `disp-line` identifier share
+67% vs 67%, plain-word 25% vs 27%, paraphrase 3% vs 3%. Mean words/query is
++0.42. The arms differ in what came *back*, which is what the design intended,
+so the behavioural readings are not downstream of a style shift.
+
+**Ledger.** Seven of nine as registered (P1, P2, P4, P5, P6, P7, P9), one
+decisive failure (P3), one tripwire fired and diagnosed (P8).
+
+**What ships, and what does not.** `--full` is the first change in this project
+measured to alter agent behaviour: half the file-reopening, two fewer turns,
+same accuracy, 18% more cost. That is a genuine trade rather than a free win,
+and it is a *default* question rather than a *feature* question — the flag
+exists either way. `--headers` is measured and not adopted: it costs 1.9× the
+bytes and buys nothing an agent does differently.
+
+**What this does not settle.** Accuracy is bounded at ±0.032 and untouched, so
+none of this is evidence that agents *solve more*. What it buys is a shorter
+route to the same answer, and the 18% is charged on a cache-write behaviour that
+is a property of this harness's caching, not of the format. A different client
+that does not cache tool results this way would see the token null and not the
+dollar cost.
+
+### 25.3 Three analysis bugs, caught before the data existed
+
+Every one of these would have produced a confident wrong answer on a $296
+campaign, and all three were found by running the analyser on partial data
+rather than waiting for the frame:
+
+1. **The sign was inverted against its own label.** `boot_ci` returns
+   `mean(first) − mean(second)`; pairs were passed `(base, cand)` under headings
+   reading `cand − base`. The primary effect would have published as **+0.81
+   reads-after-search — an increase — when it is −0.81.**
+2. **It swept in the smoke runs.** Same arms, same binary, not the registered
+   frame; n would have grown with instances chosen after the fact.
+3. **It paired on `(run, instance)`.** A resumed campaign writes a new run
+   directory each time, so an instance's arms routinely land in different runs.
+   That silently discarded **53 of 278 instances** — a fifth of what was paid
+   for — and the fix is `ab_analyze.load`'s own rule: key by instance, latest
+   run wins.
+
+A fourth was a crash rather than a wrong answer: an interrupted run writes a
+line whose `message` is a bare string, and the walker died on it — on exactly
+the campaigns worth analysing.
+
+The general lesson is the one §12 already drew and this section pays for again:
+**the analysis path deserves the same pre-run verification as the treatment.**
+A registered prediction protects against choosing the hypothesis after the fact.
+It does nothing about an arithmetic error, and three of the four above would
+have survived any amount of pre-registration.
