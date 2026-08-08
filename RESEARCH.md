@@ -6494,3 +6494,94 @@ enough nulls to know the difference. At n=140 and the measured paired sd of
    clean — §25's fired on arm-symmetric noise and the same is expected again.
 8. **Gate — `queryshape.py`.** Query style must not shift between arms; a shift
    means the display changed how agents write rather than only what they read.
+
+### 26.2 Eighteen lines is worse, and the economy it was for does not exist
+
+Run 2026-08-08, `results-passage.jsonl`, 579 rows, **138 of 140 instances
+complete in all four arms** — the frame delivered its registered power exactly
+(margin 0.353 against a registered 0.35). Spend **$140.02**, under the $157
+estimated.
+
+**P1 — fails, by 0.014.** Registered: the 95% CI on (`pl-18` − `pl-full`)
+reads-after-search must exclude **+0.35**. Measured **+0.243 [+0.121,
++0.364]** — the upper bound clears the margin by fourteen thousandths.
+
+Two things about that failure, and the second matters more than the first.
+It is *not* merely a power shortfall: the interval **excludes zero**, so 18
+lines is measurably worse than the whole passage rather than unproven against
+it. And the point estimate says 18 lines retains 70% of the effect, while the
+interval cannot rule out 55%. Both readings are in the data; the registered
+test asked one question and got one answer.
+
+| arm | reads after a search | vs control | vs `pl-full` | bytes | cost |
+|---|---|---|---|---|---|
+| `pl-1` | 1.564 | — | +0.800 | 605 | — |
+| `pl-18k5` | 1.107 | −0.457 [−0.664, −0.250] | **+0.343 [+0.171, +0.529]** | 3,435 | **−12%** |
+| `pl-18` | 1.007 | −0.557 [−0.779, −0.343] | **+0.243 [+0.121, +0.364]** | 7,167 | −3% |
+| `pl-full` | 0.764 | −0.800 [−1.050, −0.564] | — | 11,636 | +5% |
+
+**A clean dose-response.** More lines, more effect, monotonically, with every
+contrast against control excluding zero. That is the shape of a real mechanism
+and it is the opposite of what the coverage curve implied: 18 lines holds 94% of
+the whole passage's *coverage* and only **70% of its behaviour**. §25's lesson
+lands a second time — availability predicted behaviour and was wrong again,
+this time about a quantity rather than a kind.
+
+**P2 — passes.** `pl-18` beats the control by −0.557 [−0.779, −0.343], so both
+arms did something and the primary is a comparison between two live treatments.
+
+**P3 — fails clearly.** `pl-18k5` gives back +0.343 [+0.171, +0.529], well past
+the margin. Registered as the weaker arm and it is.
+
+**P4 — the prediction fails and the mechanism survives, which is the most
+useful result here.** Registered: cost premium proportional to output bytes via
+cache creation — `pl-18` ~10%, `pl-18k5` ~5%. Measured:
+
+| | bytes | cache creation | output tokens | cost |
+|---|---|---|---|---|
+| `pl-18k5` | 5.7× | **−3,207** [−4,679, −1,661] | −240 | **−12%** [−0.046, −0.007] |
+| `pl-18` | 11.8× | +915 [−981, +2,940] | −467 | −3% (null) |
+| `pl-full` | 19.2× | **+5,635** [+3,065, +8,256] | −687 | +5% (null) |
+
+Cache creation scales with bytes exactly as §25.2 said. **Cost does not**,
+because the shorter trajectory's output-token saving cancels it. Passages are
+not expensive: the whole passage is **+5% [−4%, +13%]**, a null, and both
+shortened arms are *cheaper than showing one line*.
+
+That is a failure to replicate §25.2's headline +18% [+2.4%, +5.9%]. The
+intervals barely overlap. §25 ran 278 instances and §26 ran 138 disjoint ones
+with the same binary and the same measurement, so the honest reading is that
+the cost premium is smaller and noisier than one campaign suggested — and that
+**the entire economic case for shortening was built on a number that did not
+hold.** The lever was chosen to buy something that was not for sale.
+
+**P5 — accuracy unmoved and bounded.** `func_acc@10_tol`: `pl-18` +0.014
+[−0.022, +0.051], `pl-full` −0.007 [−0.036, +0.022], `pl-18k5` +0.000
+[−0.036, +0.036]. All null at a resolution of ±0.045, per §19.10.
+
+**P6 — truncation zero** in all four arms, as registered.
+
+**P7 — tool lines byte-identical** across the four `sg` arms, one binary.
+
+**P8 — query style unchanged**, so the arms differ in what came back.
+
+**The registered response, applied.** §26.1 said: *"If the campaign shows 18
+lines loses the effect, the registered response is to move the default to the
+whole passage, not to explain the result."* It did, so **the default is the
+whole passage.** `--passage-lines` stays as the knob, and 18 remains reachable
+for anyone who wants the trade.
+
+Writing that rule in advance was worth the whole exercise. The temptation with
++0.364 against a 0.35 margin is to observe that it misses by 0.014, that 18
+lines keeps 70% of the effect at 62% of the bytes, and to keep it. Both of those
+statements are true. Neither is the test that was agreed to, and the cost
+argument that would have justified bending it turned out to be measuring noise.
+
+**Ledger.** Six of eight as registered (P2, P5, P6, P7, P8, and P4's mechanism),
+two decisive failures (P1, P3), and one prediction inside P4 falsified in a way
+worth more than the arm that produced it.
+
+**What §26 leaves.** A default that is now measured rather than inferred, a
+knob that makes the trade available, and a second, sharper instance of the
+availability trap: it is not only that naming a thing fails to change behaviour
+(§25's labels) — *showing 94% of it changes only 70% as much.*

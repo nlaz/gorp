@@ -97,7 +97,7 @@ fn a_passage_reports_where_it_actually_starts() {
 }
 
 #[test]
-fn one_passage_line_is_the_pre_26_behaviour() {
+fn one_passage_line_is_the_pre_25_behaviour() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("x.rs"), "fn a() {}\nfn alpha() {}\nfn b() {}\n").unwrap();
     let cands = vec![Candidate {

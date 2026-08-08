@@ -21,6 +21,13 @@ use anyhow::Result;
 use std::path::Path;
 use std::time::Instant;
 
+/// `passage_lines` meaning "every line of the chunk", which is the default.
+///
+/// A sentinel rather than the chunk size, because the chunk size is itself a
+/// parameter (`--window`) and a default that had to track it would be a second
+/// place for the two to disagree.
+pub const WHOLE_PASSAGE: u32 = u32::MAX;
+
 /// How many candidates each ranked engine contributes to fusion.
 pub(crate) const FUSION_POOL: usize = 128;
 
@@ -173,7 +180,8 @@ pub struct SearchOptions {
     /// would never show it.
     pub decl_boost: f32,
     /// How many lines of each hit to show, centred on the best-matching line
-    /// and clamped to the chunk. **Default 18** (RESEARCH.md §26).
+    /// and clamped to the chunk. **Default [`WHOLE_PASSAGE`]** (RESEARCH.md
+    /// §26.2 — 18 shipped first and the campaign took it back).
     ///
     /// One monotone integer rather than a boolean plus a width, so every value
     /// is a real display and no caller has to combine two flags to describe
@@ -182,9 +190,17 @@ pub struct SearchOptions {
     ///
     /// §25.2 measured the whole passage against a single line over 1,120 agent
     /// sessions: file-reopening fell 1.729 → 0.921 and sessions ran two turns
-    /// shorter, at 20× the output and +18% cost. 18 lines is the point on that
-    /// curve where the marginal price triples — it holds 94% of the coverage
-    /// for 46% of the bytes.
+    /// shorter. §26.2 then measured 18 lines against the whole passage and
+    /// **18 lines is worse** — it gives back +0.243 [+0.121, +0.364] of that
+    /// reduction, an interval excluding zero, so the shortening is a measured
+    /// loss rather than an equivalent. The coverage curve that motivated 18
+    /// (94% of the coverage for 46% of the bytes) predicted behaviour and did
+    /// not deliver it, which is §25's own lesson a second time.
+    ///
+    /// The economy it was meant to buy also turned out not to exist: over 138
+    /// paired instances the whole passage costs **+5% [−4%, +13%]** — a null,
+    /// not §25's +18% — because the shorter trajectory's output-token saving
+    /// offsets the cache writes.
     pub passage_lines: u32,
     /// Carry the names each hit's chunk declares (RESEARCH.md §25.1). Display
     /// only. The cheaper half of the same idea — name what is in the window
@@ -248,7 +264,7 @@ impl Default for SearchOptions {
             dedupe_overlap: 0.0,
             file_scope_window: 0,
             decl_boost: 0.5,
-            passage_lines: 18,
+            passage_lines: WHOLE_PASSAGE,
             defines: false,
             prf_terms: 0,
             rerank_maxsim: false,
