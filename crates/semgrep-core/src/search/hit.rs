@@ -96,6 +96,64 @@ pub fn finalize(
     })
 }
 
+/// What one printed line costs beyond its own text: a line number and its
+/// separators.
+///
+/// Charged because a budget that counts only content does not control output.
+/// Measured over three corpora at a 600-character content budget, the kernel
+/// spent 5,694 bytes a search and Wikipedia 1,826 — the *inverse* of the
+/// problem the budget was added to fix, because 30-character C lines buy 20
+/// lines of `path:line:` overhead where 180-character prose lines buy 2.
+/// Roughly half of real output is this tax, and a content budget is blind to
+/// it (RESEARCH.md §26.4).
+///
+/// A known under-count: when the caller searched a directory the CLI also
+/// prefixes each line with its path, which the engine cannot size because it
+/// does not know whether the CLI will print one. Under-charging under-fills,
+/// which is the safe direction.
+const LINE_OVERHEAD: u32 = 12;
+
+/// Grow a window outward from `at` until the next line would exceed `budget`
+/// characters, and return its inclusive bounds.
+///
+/// Line-aligned because half a line of code is not a thing worth showing, and
+/// symmetric because §26.1 measured a forward bias and it loses coverage. The
+/// matched line is always included even when it alone exceeds the budget: a
+/// hit that returns nothing is worse than a hit that returns one long line,
+/// and `max_columns` already bounds how long that line can print.
+///
+/// Costs each line by its length in the *file*, not by what will be printed.
+/// The CLI clips long lines separately (`out::MAX_COLUMNS`), so a budget spent
+/// on a 5,000-character minified line buys one line here and prints ~200
+/// characters. That under-fills rather than over-fills, which is the safe
+/// direction: the two caps compose to a bound, never to a surprise. Keeping
+/// the print width out of the engine also keeps one display concern in one
+/// place instead of two that can disagree.
+fn grow_to_budget(lines: &[String], at: usize, budget: u32) -> (usize, usize) {
+    let cost = |s: &String| s.chars().count() as u32 + LINE_OVERHEAD;
+    let (mut lo, mut hi) = (at, at);
+    let mut used = cost(&lines[at]);
+    loop {
+        let mut grew = false;
+        // After first, then before, so an odd character of slack lands below
+        // the match — the same asymmetry the line budget uses.
+        if hi + 1 < lines.len() && used + cost(&lines[hi + 1]) <= budget {
+            hi += 1;
+            used += cost(&lines[hi]);
+            grew = true;
+        }
+        if lo > 0 && used + cost(&lines[lo - 1]) <= budget {
+            lo -= 1;
+            used += cost(&lines[lo]);
+            grew = true;
+        }
+        if !grew {
+            break;
+        }
+    }
+    (lo, hi)
+}
+
 /// Do two same-file chunks overlap by at least `frac` of the shorter span?
 ///
 /// `frac <= 0` reproduces the original rule exactly — any shared line at all is
@@ -133,7 +191,7 @@ fn materialize(
     // Every line of the chunk is collected even when only a window will be
     // shown: the window is centred on the best-matching line, and which line
     // that is only becomes known once the loop below has finished.
-    let want_lines = opts.passage_lines > 1;
+    let want_lines = opts.passage_lines > 1 || (opts.passage_lines == 0 && opts.passage_chars > 0);
     let mut lines: Option<Vec<String>> = want_lines.then(Vec::new);
     let mut defines: Option<Vec<String>> = opts.defines.then(Vec::new);
     let mut best: Option<(usize, u32, &str)> = None;
@@ -174,16 +232,20 @@ fn materialize(
     let (lines, lines_from) = match lines {
         None => (None, None),
         Some(all) => {
-            let before = (opts.passage_lines.saturating_sub(1)) / 2;
-            // The odd line out goes AFTER the match: measured over 232 real
-            // agent searches, 8-before/9-after scores 57.3% against 53.9% for
-            // 6/11 and 50.0% for 0/17 (RESEARCH.md §26). Leaning forward past
-            // one line costs coverage rather than buying it.
-            let from = line.saturating_sub(before).max(chunk.start_line);
-            let take = opts.passage_lines as usize;
-            let skip = (from - chunk.start_line) as usize;
-            let cut: Vec<String> = all.into_iter().skip(skip).take(take).collect();
-            (Some(cut), Some(from))
+            let first = chunk.start_line;
+            let at = (line - first) as usize;
+            let (lo, hi) = if opts.passage_lines > 0 {
+                // Legacy line budget, kept so §26's campaign arms reproduce
+                // under their own flag. 8 before / 9 after at 18: measured,
+                // not chosen — a stronger forward bias loses coverage (§26.1).
+                let before = ((opts.passage_lines - 1) / 2) as usize;
+                let lo = at.saturating_sub(before);
+                (lo, (lo + opts.passage_lines as usize - 1).min(all.len() - 1))
+            } else {
+                grow_to_budget(&all, at, opts.passage_chars)
+            };
+            let cut: Vec<String> = all[lo..=hi].to_vec();
+            (Some(cut), Some(first + lo as u32))
         }
     };
     Some(SearchHit {

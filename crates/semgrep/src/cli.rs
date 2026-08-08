@@ -255,9 +255,15 @@ pub struct Tuning {
     #[arg(long, hide = true, default_value_t = SearchOptions::default().decl_boost)]
     pub decl_boost: f32,
 
-    /// Lines shown per result, centred on the match (1 = the matched line
-    /// alone; the default shows the whole chunk — RESEARCH.md §26.2)
-    #[arg(long = "passage-lines", default_value_t = SearchOptions::default().passage_lines)]
+    /// Characters shown per result, grown around the match (0 = the matched
+    /// line alone). A budget in characters rather than lines because a line
+    /// of prose is not a line of code — RESEARCH.md §26.4
+    #[arg(long = "passage-chars", default_value_t = SearchOptions::default().passage_chars)]
+    pub passage_chars: u32,
+
+    /// Lines shown per result instead of a character budget (0 = use
+    /// --passage-chars). Kept so §26's campaign arms reproduce
+    #[arg(long = "passage-lines", hide = true, default_value_t = SearchOptions::default().passage_lines)]
     pub passage_lines: u32,
 
     /// Show the whole chunk for each result — an alias for a passage wider

@@ -96,6 +96,42 @@ fn a_passage_reports_where_it_actually_starts() {
     assert_eq!(body[17], "fn filler49() {}");
 }
 
+/// A character budget spends itself on content, so a file of long lines gets
+/// fewer of them and a file of short lines gets more — which is the point.
+#[test]
+fn a_character_budget_buys_content_not_lines() {
+    let dir = tempfile::tempdir().unwrap();
+    // Two files, same byte size per line-group: 40 short lines vs 4 long ones.
+    std::fs::write(dir.path().join("short.rs"),
+        (1..=40).map(|i| if i == 20 { "fn alpha() {}\n".to_string() }
+                         else { format!("fn s{i}() {{}}\n") }).collect::<String>()).unwrap();
+    std::fs::write(dir.path().join("long.rs"),
+        (1..=40).map(|i| if i == 20 { format!("fn alpha() {{}} {}\n", "x".repeat(300)) }
+                         else { format!("fn l{i}() {{}} {}\n", "y".repeat(300)) }).collect::<String>()).unwrap();
+
+    let run = |file: &str| {
+        let cands = vec![Candidate {
+            id: 0,
+            chunk: Chunk { file_id: 0, start_line: 1, end_line: 40 },
+            path: file.into(),
+            score: 1.0,
+        }];
+        let opts = SearchOptions { k: 1, passage_lines: 0, passage_chars: 800, ..Default::default() };
+        let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
+        let hits = finalize(dir.path(), "alpha", cands, &opts, "", &mut trace, |_| None);
+        let h = &hits[0];
+        let body = h.lines.clone().expect("a passage");
+        (body.len(), body.iter().map(|l| l.chars().count() + 12).sum::<usize>())
+    };
+    let (n_short, cost_short) = run("short.rs");
+    let (n_long, cost_long) = run("long.rs");
+
+    assert!(n_short > n_long * 4, "short lines should buy far more of them: {n_short} vs {n_long}");
+    // Both land under the budget, which is the property a line budget lacks.
+    assert!(cost_short <= 800, "short file over budget: {cost_short}");
+    assert!(cost_long <= 800 || n_long == 1, "long file over budget: {cost_long}");
+}
+
 #[test]
 fn one_passage_line_is_the_pre_25_behaviour() {
     let dir = tempfile::tempdir().unwrap();
@@ -106,7 +142,7 @@ fn one_passage_line_is_the_pre_25_behaviour() {
         path: "x.rs".into(),
         score: 1.0,
     }];
-    let opts = SearchOptions { k: 1, passage_lines: 1, ..Default::default() };
+    let opts = SearchOptions { k: 1, passage_lines: 1, passage_chars: 0, ..Default::default() };
     let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
     let hits = finalize(dir.path(), "alpha", cands, &opts, "", &mut trace, |_| None);
     // No passage at all, so the CLI prints exactly the one line it always did.

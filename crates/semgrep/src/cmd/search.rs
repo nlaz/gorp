@@ -327,8 +327,10 @@ fn options(cli: &Cli, mode: Mode) -> Result<SearchOptions> {
         dedupe_overlap: t.dedupe_overlap,
         file_scope_window: t.file_scope_window,
         decl_boost: t.decl_boost,
-        // `--full` wins when both are given: it is the coarser request.
+        // `--full` wins over both: it is the coarsest request, and it is a
+        // line budget so it bypasses the character one.
         passage_lines: if t.full { u32::MAX } else { t.passage_lines },
+        passage_chars: t.passage_chars,
         defines: t.headers,
         prf_terms: t.prf,
         // MaxSim reranks the semantic candidate list before fusion, so it can

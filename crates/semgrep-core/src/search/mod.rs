@@ -111,6 +111,15 @@ pub(crate) fn file_scope_candidate_width() -> usize {
 #[derive(Debug, Clone)]
 pub struct SearchOptions {
     pub mode: Mode,
+    /// Results returned. **5 since §26.3**, down from 10.
+    ///
+    /// Ten one-line results was the shape before passages existed. With a
+    /// passage attached to each, results 6-10 carry half the payload and
+    /// about a tenth of the value — §25 measured ranks 6-10 adding 10 points
+    /// of coverage (71.3% → 81.4%) against rank 1's 41. Cutting to five with
+    /// an 18-line passage is the only configuration measured that beats the
+    /// old one-line default on **cost, turns, latency and accuracy at once**
+    /// (§26.3): −12% per run, 8.01 turns against 9.17, and accuracy tied.
     pub k: usize,
     /// Force the streaming path even when a .semgrep index exists.
     pub no_index: bool,
@@ -180,8 +189,7 @@ pub struct SearchOptions {
     /// would never show it.
     pub decl_boost: f32,
     /// How many lines of each hit to show, centred on the best-matching line
-    /// and clamped to the chunk. **Default [`WHOLE_PASSAGE`]** (RESEARCH.md
-    /// §26.2 — 18 shipped first and the campaign took it back).
+    /// and clamped to the chunk. **Default 18** (RESEARCH.md §26.3).
     ///
     /// One monotone integer rather than a boolean plus a width, so every value
     /// is a real display and no caller has to combine two flags to describe
@@ -197,11 +205,56 @@ pub struct SearchOptions {
     /// (94% of the coverage for 46% of the bytes) predicted behaviour and did
     /// not deliver it, which is §25's own lesson a second time.
     ///
-    /// The economy it was meant to buy also turned out not to exist: over 138
-    /// paired instances the whole passage costs **+5% [−4%, +13%]** — a null,
-    /// not §25's +18% — because the shorter trajectory's output-token saving
-    /// offsets the cache writes.
+    /// §26.3 then changed the question. Scored on **cost at constant accuracy**
+    /// rather than on file-reopening, 18 lines at `k=5` is the cheapest thing
+    /// measured: −16% against the whole passage [−0.060, −0.015] and −12%
+    /// against the pre-§26 single line, with accuracy tied in every contrast.
+    /// So the default is 18 again, for a different reason than it was 18 the
+    /// first time — **it is worse at the endpoint §26.1 registered and better
+    /// at the one the tool is actually for.** Both are true and the second is
+    /// the one being optimised.
+    ///
+    /// That reversal was an endpoint switch made after seeing the data, which
+    /// is what pre-registration exists to prevent. It is recorded as such in
+    /// §26.3 rather than presented as the plan all along, and the cost claim
+    /// behind it is one campaign on an endpoint that has already failed to
+    /// replicate once (§25's +18% became §26's +5%).
+    ///
+    /// **0 defers to [`passage_chars`], which is the shipped mechanism.** A
+    /// line budget survives only so §26's arms reproduce under their own flag.
     pub passage_lines: u32,
+    /// Characters of each hit to show, grown line by line around the match
+    /// until the next line would exceed the budget. **Default 800**
+    /// (RESEARCH.md §26.4). 0 shows the matched line alone.
+    ///
+    /// A line is not a unit of content, and budgeting by lines prices prose
+    /// and code differently for the same nominal window. Measured at 18 lines
+    /// per hit, k=5, with the per-line cap active: the kernel spends 2,761
+    /// bytes a search, vscode 4,165 and Wikipedia **10,048** — a 3.6× spread
+    /// for output that is nominally identical. At 600 characters the same
+    /// three spend 5,492 / 8,413 / **2,321** — prose falls by 83% and the
+    /// worst corpus by 38%, because prose gets ~4 lines where C gets ~20 and
+    /// both get the same amount to *read*.
+    ///
+    /// It does not equalise the three, and the first attempt at this assumed
+    /// it would. Roughly half of printed output is the per-line `path:line:`
+    /// prefix, which scales with line count rather than content, so a content
+    /// budget hands short-line C more lines and more overhead. Charging
+    /// [`LINE_OVERHEAD`] recovers part of that and the path part is not
+    /// knowable here. The goal this serves is a **bounded worst case**, which
+    /// it delivers; a flat cost across languages it does not.
+    ///
+    /// 800 because it is the **equivalence point**, not because it is the
+    /// cheapest: over 109 real agent searches at k=5 it scores 51.4% with
+    /// 2,880 bytes a search against 18 lines' 51.4% with 2,853 — the same
+    /// behaviour, to the search. 600 costs 2,140 and scores 48.6%, three
+    /// searches fewer on 109, which is noise and might well be free. It is
+    /// not taken, because changing the *unit* and the *effective size*
+    /// together would leave the next campaign unable to say which one moved.
+    /// Re-tuning the size is a separate question with its own answer.
+    ///
+    /// The same unit as [`ChunkParams::budget`], for the same reason (§20.2).
+    pub passage_chars: u32,
     /// Carry the names each hit's chunk declares (RESEARCH.md §25.1). Display
     /// only. The cheaper half of the same idea — name what is in the window
     /// rather than printing all of it: 314 bytes against 12,079, reaching 88%
@@ -254,7 +307,7 @@ impl Default for SearchOptions {
             // Semantic-first: RESEARCH.md §14. Hybrid stays available as an
             // explicit mode; it returns as default when semantic carries it.
             mode: Mode::Semantic,
-            k: 10,
+            k: 5,
             no_index: false,
             use_hnsw: true,
             check_stale: false,
@@ -264,7 +317,8 @@ impl Default for SearchOptions {
             dedupe_overlap: 0.0,
             file_scope_window: 0,
             decl_boost: 0.5,
-            passage_lines: WHOLE_PASSAGE,
+            passage_lines: 0,
+            passage_chars: 800,
             defines: false,
             prf_terms: 0,
             rerank_maxsim: false,

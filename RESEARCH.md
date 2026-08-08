@@ -6585,3 +6585,90 @@ worth more than the arm that produced it.
 knob that makes the trade available, and a second, sharper instance of the
 availability trap: it is not only that naming a thing fails to change behaviour
 (§25's labels) — *showing 94% of it changes only 70% as much.*
+
+### 26.3 The endpoint changes, and so does the answer
+
+§26.2 scored the campaign on file-reopening because that is what §26.1
+registered. **That was the wrong objective.** The tool exists to make an agent
+cheaper and faster at constant accuracy; reads-after-search was chosen because
+it was the *powerable* endpoint, and powerable is not the same as important.
+
+Re-scored on cost, over the same 138 paired tasks:
+
+| arm | cost/run | vs default | turns | wall | accuracy |
+|---|---|---|---|---|---|
+| whole passage, k=10 | $0.236 | — | 6.56 | 29.3 s | 0.609 |
+| 18 lines, k=10 | $0.218 | −8% [−0.040, +0.002] | 7.23 | 32.8 s | +0.022 |
+| **18 lines, k=5** | **$0.199** | **−16% [−0.060, −0.015]** | 8.01 | 36.3 s | +0.007 |
+| one line, k=10 | $0.225 | −5% [−0.030, +0.008] | 9.17 | 39.1 s | +0.007 |
+
+Accuracy is tied everywhere, on 3–6 discordant pairs.
+
+**18 lines at k=5 dominates the pre-§25 default outright** — 12% cheaper, 8.01
+turns against 9.17, 36.3 s against 39.1, accuracy tied. No tradeoff argument is
+needed for that comparison; it is better on every axis at once. Against the
+whole passage it *is* a trade: **16% cheaper for 1.5 turns and 7 seconds.**
+
+The mechanism is the one §25.2 found, read the other way. Richer results
+monotonically cut what the model reads (269,729 → 226,623 tokens) and writes
+(2,624 → 1,937) because the session shortens; what rises is **cache writes**
+(17,248 → 22,883), and those are the expensive direction. `k=5` is the only arm
+with *fewer* cache writes than the control (14,041): it shortens the session
+without inflating each result.
+
+**Shipped: `k=5`, `passage_lines=18`.** And this is an endpoint switch made
+after seeing the data, which is exactly what pre-registration prevents. Cost was
+registered as a co-primary so it is not a fished result, but the *decision rule*
+was written on reads-after-search and is being overridden. Recorded here rather
+than presented as the plan. Two things temper it: the −16% interval excludes
+zero comfortably, and cost is nonetheless the endpoint that already failed to
+replicate once (§25's +18% became §26's +5%), so a confirmation on an
+independent frame is owed before the number is quoted as settled.
+
+`desc-v9` still says "top 10" and now returns 5. The mismatch is *as measured* —
+the `pl-18k5` arm ran with that description — so the description stays frozen
+under its own name (§20.1's rule). A `desc-v10` saying "top 5" is a separate
+arm, not an edit.
+
+### 26.4 A line is not a unit of cost
+
+A line budget prices prose and code differently for output that is nominally
+identical. At 18 lines, k=5, with the per-line cap active:
+
+| corpus | median line | bytes/search at 18 lines |
+|---|---|---|
+| linux (C) | 30 chars | 4,668 |
+| vscode (TS) | 33 | 10,875 |
+| wikipedia (prose) | **180** | **13,470** |
+
+Nearly 3× for the same nominal window, and the worst single passage was 14,358
+characters before clipping. `--passage-chars` budgets content instead, growing
+line by line around the match until the next line would exceed it — the same
+unit `ChunkParams::budget` already uses for chunking, for the same reason
+(§20.2).
+
+**800 characters, because it is the equivalence point.** Over 109 real agent
+searches at k=5 it scores **51.4% at 2,880 bytes** against 18 lines' **51.4% at
+2,853** — the same behaviour, to the search. 600 costs 2,140 and scores 48.6%:
+three searches fewer out of 109, which is noise and may well be free. It is not
+taken, because changing the unit *and* the effective size together would leave
+the next campaign unable to say which one moved.
+
+What it buys, across the three corpora: **5,492 / 8,413 / 2,321** — prose falls
+**83%** and the worst corpus **38%**.
+
+**What it does not buy, and the first attempt assumed it would.** It does not
+equalise cost across languages; the spread stays ~3.5×. Roughly half of printed
+output is the per-line `path:line:` prefix, which scales with *line count*
+rather than content, so a content budget hands short-line C more lines and more
+overhead — the first measurement at 600 characters actually *inverted* the
+problem, making the kernel dearer than Wikipedia. Charging a `LINE_OVERHEAD`
+recovers part of it; the path part is not knowable in the engine, which cannot
+tell whether the CLI will print one. **The property delivered is a bounded worst
+case, not a flat cost**, and saying otherwise would be claiming the thing that
+was tried and failed.
+
+Unmeasured, and it should be said plainly: every number in §26.4 is coverage
+and bytes. Whether 4 lines of prose is *enough to act on* where 20 lines of C
+is has not been tested on an agent, and §25's labels are the standing warning
+about exactly that inference.

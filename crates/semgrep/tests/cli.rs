@@ -380,7 +380,9 @@ fn a_bare_k_asks_for_more_rather_than_failing() {
     // "more than the default" are different statements and keep different
     // answers.
     let absent = sg.run(&["session token", "--passage-lines", "1"]);
-    assert_eq!(absent.lines().len(), 10, "no -k means the engine default");
+    // Five since §26.3, not ten: with a passage attached to every result,
+    // ranks 6-10 carried half the payload and a tenth of the value.
+    assert_eq!(absent.lines().len(), 5, "no -k means the engine default");
 
     // And an explicit value still wins over both — the common real form.
     let explicit = sg.run(&["session token", "-k", "5", "--passage-lines", "1"]);
