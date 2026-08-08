@@ -172,13 +172,20 @@ pub struct SearchOptions {
     /// would let one declared token dominate a fused score in a corpus that
     /// would never show it.
     pub decl_boost: f32,
-    /// Carry every line of each hit's chunk, not just the best-matching one
-    /// (RESEARCH.md §25.1). Display only — ranking is untouched.
+    /// How many lines of each hit to show, centred on the best-matching line
+    /// and clamped to the chunk. **Default 18** (RESEARCH.md §26).
     ///
-    /// The engine scores 32-line windows and shows one line, so "the answer was
-    /// in the window" and "the agent saw the answer" differ by 14 points
-    /// (§24.1). This closes that by construction, at ~22× the bytes.
-    pub full_chunks: bool,
+    /// One monotone integer rather than a boolean plus a width, so every value
+    /// is a real display and no caller has to combine two flags to describe
+    /// one: `1` is the matched line alone (what shipped before §26), `18` is
+    /// the default, and anything ≥ the chunk size is the whole passage.
+    ///
+    /// §25.2 measured the whole passage against a single line over 1,120 agent
+    /// sessions: file-reopening fell 1.729 → 0.921 and sessions ran two turns
+    /// shorter, at 20× the output and +18% cost. 18 lines is the point on that
+    /// curve where the marginal price triples — it holds 94% of the coverage
+    /// for 46% of the bytes.
+    pub passage_lines: u32,
     /// Carry the names each hit's chunk declares (RESEARCH.md §25.1). Display
     /// only. The cheaper half of the same idea — name what is in the window
     /// rather than printing all of it: 314 bytes against 12,079, reaching 88%
@@ -241,7 +248,7 @@ impl Default for SearchOptions {
             dedupe_overlap: 0.0,
             file_scope_window: 0,
             decl_boost: 0.5,
-            full_chunks: false,
+            passage_lines: 18,
             defines: false,
             prf_terms: 0,
             rerank_maxsim: false,
@@ -267,13 +274,21 @@ pub struct SearchHit {
     pub line: u32,
     pub text: String,
     pub score: f32,
-    /// Every line of the chunk, when the caller asked for them
-    /// ([`SearchOptions::full_chunks`], RESEARCH.md §25.1).
+    /// The passage shown for this hit, when the caller asked for more than one
+    /// line ([`SearchOptions::passage_lines`], RESEARCH.md §26).
     ///
     /// `None` rather than an empty vec when off, and `skip_serializing_if` so
     /// the JSON contract is unchanged for every existing consumer.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lines: Option<Vec<String>>,
+    /// File line number of `lines[0]`, and `None` exactly when `lines` is.
+    ///
+    /// Equal to `start_line` only when the passage happens to begin at the
+    /// chunk boundary, which is why it exists: numbering a cut passage from
+    /// `start_line` misnumbers every line of it. Skipped in JSON when absent,
+    /// so a consumer that asked for no passage sees the schema it always saw.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lines_from: Option<u32>,
     /// Names the chunk declares, when the caller asked for them
     /// ([`SearchOptions::defines`]). Same absent-by-default contract.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -564,9 +579,10 @@ fn keyword_search(
                 text: h.text,
                 score: 1.0,
                 // Exact mode has no chunk — its "span" is the matched line
-                // itself — so there is no window to print and nothing a
-                // header could say that the line does not already.
+                // itself — so there is no passage to cut and nothing a header
+                // could say that the line does not already.
                 lines: None,
+                lines_from: None,
                 defines: None,
             })
             .collect()

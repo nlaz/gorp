@@ -255,8 +255,13 @@ pub struct Tuning {
     #[arg(long, hide = true, default_value_t = SearchOptions::default().decl_boost)]
     pub decl_boost: f32,
 
-    /// Print every line of each hit's chunk, not just the matched line
-    /// (~22x the output; experimental, RESEARCH.md §25.1)
+    /// Lines of context shown per result, centred on the match (1 = the
+    /// matched line alone; anything past the chunk size shows the whole chunk)
+    #[arg(long = "passage-lines", default_value_t = SearchOptions::default().passage_lines)]
+    pub passage_lines: u32,
+
+    /// Show the whole chunk for each result — an alias for a passage wider
+    /// than any chunk, kept because RESEARCH.md §25's arms were run with it
     #[arg(long, hide = true)]
     pub full: bool,
 

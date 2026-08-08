@@ -62,7 +62,14 @@ record() {
 
   for mode in bm25 semantic hybrid; do
     for path in cold warm; do
-      local flags=(--mode "$mode" -k 10 --json)
+      # `--passage-lines 1` pins the DISPLAY so this stays a *ranking*
+      # tripwire. Since §26 the default is an 18-line passage, and recording
+      # that would (a) bloat every case 18x and (b) make the file move whenever
+      # the fixture's text changes, even with ranking identical. The §26 display
+      # shape is pinned instead by `the_default_result_is_an_eighteen_line_passage`
+      # in crates/semgrep/tests/cli.rs. Keeping this flag also means the file
+      # stays byte-comparable with every recording since §20.
+      local flags=(--mode "$mode" -k 10 --json --passage-lines 1)
       [ "$path" = cold ] && flags+=(--no-index)
       for q in "${RANKED[@]}"; do
         echo "### mode=$mode path=$path query=$q"

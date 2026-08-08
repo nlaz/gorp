@@ -166,13 +166,19 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
                 defs.join(", ")
             );
         }
-        // Full chunks: every line of the window, in the same `path:line:text`
-        // shape, so the block is still parseable line by line rather than
-        // being a second format. `clip` still applies per line — full-chunk
-        // mode multiplies the 374 KB-line problem rather than escaping it.
+        // The passage: each line in the same `path:line:text` shape, so the
+        // block is still parseable line by line rather than being a second
+        // format. `clip` still applies per line — a passage multiplies the
+        // 374 KB-line problem rather than escaping it, and at 18 lines x 10
+        // results the worst case is ~36 KB.
+        //
+        // Numbered from `lines_from`, NOT `start_line`: the passage is a window
+        // cut around the matched line, so it usually begins partway into the
+        // chunk. Numbering from the chunk start would misnumber every line of
+        // every result, and the line number is the thing a caller navigates by.
         if let Some(body) = hit.lines.as_ref() {
             for (i, line) in body.iter().enumerate() {
-                let n = hit.start_line + i as u32;
+                let n = hit.lines_from.unwrap_or(hit.start_line) + i as u32;
                 let text = clip(line.trim_start(), opts.max_columns);
                 if opts.with_path {
                     println!("{}:{}:{}", quote_path(&hit.path), n, text);

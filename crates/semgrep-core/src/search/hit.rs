@@ -130,7 +130,11 @@ fn materialize(
     // the file in the CLI: the chunk's text is already in hand exactly once
     // here, and a second reader would be a second chance to disagree about
     // which lines a chunk covers.
-    let mut lines: Option<Vec<String>> = opts.full_chunks.then(Vec::new);
+    // Every line of the chunk is collected even when only a window will be
+    // shown: the window is centred on the best-matching line, and which line
+    // that is only becomes known once the loop below has finished.
+    let want_lines = opts.passage_lines > 1;
+    let mut lines: Option<Vec<String>> = want_lines.then(Vec::new);
     let mut defines: Option<Vec<String>> = opts.defines.then(Vec::new);
     let mut best: Option<(usize, u32, &str)> = None;
     for (i, line) in text.lines().enumerate() {
@@ -162,6 +166,26 @@ fn materialize(
         }
     }
     let (_, line, line_text) = best?;
+    // Cut the collected chunk down to `passage_lines` centred on the match, and
+    // report where the cut starts. `out.rs` numbers printed lines from
+    // `lines_from`, not from `start_line` — without that the whole passage is
+    // misnumbered, which is worse than showing nothing, since the line number
+    // is what the caller navigates by.
+    let (lines, lines_from) = match lines {
+        None => (None, None),
+        Some(all) => {
+            let before = (opts.passage_lines.saturating_sub(1)) / 2;
+            // The odd line out goes AFTER the match: measured over 232 real
+            // agent searches, 8-before/9-after scores 57.3% against 53.9% for
+            // 6/11 and 50.0% for 0/17 (RESEARCH.md §26). Leaning forward past
+            // one line costs coverage rather than buying it.
+            let from = line.saturating_sub(before).max(chunk.start_line);
+            let take = opts.passage_lines as usize;
+            let skip = (from - chunk.start_line) as usize;
+            let cut: Vec<String> = all.into_iter().skip(skip).take(take).collect();
+            (Some(cut), Some(from))
+        }
+    };
     Some(SearchHit {
         path: rel_path.to_string(),
         start_line: chunk.start_line,
@@ -170,6 +194,7 @@ fn materialize(
         text: line_text.to_string(),
         score,
         lines,
+        lines_from,
         // Dedupe late rather than while collecting: a name declared twice in
         // one window says nothing a header should repeat, and the order the
         // file declares them in is the order worth showing.

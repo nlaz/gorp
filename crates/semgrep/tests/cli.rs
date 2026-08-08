@@ -158,10 +158,50 @@ fn stdout_is_parseable_and_advice_goes_to_stderr() {
     assert!(!r.stdout.contains("semgrep:"), "stdout must carry only results");
 }
 
+/// The §26 default: each result is an 18-line passage, results are separated by
+/// a blank line, and every non-blank line is still `path:line:text`.
+///
+/// Pinned because three tests in this file counted stdout lines to count
+/// results, and all three broke when the default changed — which is exactly
+/// what a downstream consumer doing the same thing will experience. The shape
+/// is now asserted somewhere rather than only implied by whatever else fails.
+#[test]
+fn the_default_result_is_an_eighteen_line_passage() {
+    let sg = Sg::new();
+    let r = sg.run(&["how is the retry delay computed", "-k", "2"]);
+    assert_eq!(r.code, 0, "stderr: {}", r.stderr);
+
+    let blocks: Vec<Vec<&str>> = r
+        .stdout
+        .split("\n\n")
+        .map(|b| b.lines().filter(|l| !l.trim().is_empty()).collect::<Vec<_>>())
+        .filter(|b: &Vec<&str>| !b.is_empty())
+        .collect();
+    assert_eq!(blocks.len(), 2, "one block per result, blank-line separated");
+    for b in &blocks {
+        assert!(b.len() <= 18, "a passage is at most 18 lines, got {}", b.len());
+        // Line numbers inside a passage must be consecutive and real, which is
+        // what `lines_from` exists to get right.
+        let nums: Vec<u32> = b
+            .iter()
+            .map(|l| l.split(':').nth(1).unwrap_or("x").parse().unwrap_or(0))
+            .collect();
+        assert!(nums.iter().all(|&n| n > 0), "every line carries a real number: {b:?}");
+        assert!(
+            nums.windows(2).all(|w| w[1] == w[0] + 1),
+            "passage lines must be consecutive: {nums:?}"
+        );
+    }
+    assert!(!r.stdout.contains("semgrep:"), "stdout stays data-only");
+}
+
 #[test]
 fn ranked_search_also_keeps_stdout_clean() {
     let sg = Sg::new();
-    let r = sg.run(&["how is the retry delay computed", "-k", "5"]);
+    // `--passage-lines 1` because this asserts the *result* count and, since
+    // §26, one result is 18 lines rather than one. Counting stdout lines would
+    // be counting passages.
+    let r = sg.run(&["how is the retry delay computed", "-k", "5", "--passage-lines", "1"]);
     assert_eq!(r.code, 0, "stderr: {}", r.stderr);
     assert!(r.lines().len() <= 5, "-k caps the result count");
     assert!(!r.stdout.contains("semgrep:"));
@@ -327,18 +367,18 @@ fn a_bare_k_asks_for_more_rather_than_failing() {
     // are followed by a number and 2 by nothing at all, and none by a path.
     let dir = corpus();
     let path = dir.to_str().expect("utf-8 corpus path");
-    let bare = sg.run_bare(&["session token", path, "-k"]);
+    let bare = sg.run_bare(&["session token", path, "--passage-lines", "1", "-k"]);
     assert_eq!(bare.code, 0, "stderr: {}", bare.stderr);
     assert_eq!(bare.lines().len(), 20, "bare -k means 20");
 
     // The flag's absence still means the engine's default: "no opinion" and
     // "more than the default" are different statements and keep different
     // answers.
-    let absent = sg.run(&["session token"]);
+    let absent = sg.run(&["session token", "--passage-lines", "1"]);
     assert_eq!(absent.lines().len(), 10, "no -k means the engine default");
 
     // And an explicit value still wins over both — the common real form.
-    let explicit = sg.run(&["session token", "-k", "5"]);
+    let explicit = sg.run(&["session token", "-k", "5", "--passage-lines", "1"]);
     assert_eq!(explicit.lines().len(), 5, "-k N is unchanged");
 }
 
@@ -839,7 +879,8 @@ fn multiple_paths_search_all_of_them_and_nothing_else() {
     assert_eq!(out.status.code(), Some(0), "stderr: {}", String::from_utf8_lossy(&out.stderr));
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(!stdout.is_empty(), "multi-path search returned nothing");
-    for line in stdout.lines() {
+    for line in stdout.lines().filter(|l| !l.trim().is_empty()) {
+        // Blank lines separate passages since §26 and carry no path.
         let path = line.split(':').next().unwrap_or("");
         assert!(
             path.starts_with("src/") || path.starts_with("docs/"),

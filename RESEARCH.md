@@ -6382,3 +6382,109 @@ The general lesson is the one §12 already drew and this section pays for again:
 A registered prediction protects against choosing the hypothesis after the fact.
 It does nothing about an arithmetic error, and three of the four above would
 have survived any amount of pre-registration.
+
+## 26 Passages by default, at eighteen lines
+
+§25 established that showing the whole 32-line passage instead of one line is
+the first change in this project to alter agent behaviour: file-reopening fell
+**1.729 → 0.921** over 1,120 sessions, sessions ran **2.14 turns** shorter,
+accuracy did not move (±0.032), and it cost **+18%** — entirely in cache
+*writes*, since the model read no more and wrote less.
+
+It also killed the cheap alternative and left the most transferable lesson in
+the arc. Region headers, sized from a finding that naming a passage's
+declarations would surface the answer in **88%** of the cases a single line
+missed, moved **nothing** (−0.007 [−0.175, +0.168]). **Availability is not
+use**: being told the answer is nearby does not stop an agent opening the file,
+and only being handed the code does.
+
+That leaves 20× output as the price of a real win. §26 ships the cheaper point
+on that curve and buys the campaign that says whether it holds.
+
+### 26.1 Pre-registration (written before the first paid run)
+
+**The shipped default is an 18-line passage, 8 before the match and 9 after.**
+Chosen from a coverage/bytes curve over 232 real agent searches: 18 lines holds
+**94% of the whole passage's coverage for 46% of its bytes**, and the two steps
+beyond it cost 1,520 and 1,921 bytes per point gained against ~460 below.
+
+The extra line goes *after* on measurement, not intuition. "A declaration is
+followed by its body" is a plausible reason to lean forward and it is wrong:
+8/9 scores 57.3%, 6/11 and 4/13 both 53.9%, and 0/17 falls to 50.0%. One line
+of forward bias is the whole of it.
+
+**Output costs, measured on 150 real searches with the shipped binary** —
+the plan's estimates were derived in Python without the line-number prefix and
+are corrected here to what the tool actually emits:
+
+| arm | flags | median bytes | vs control |
+|---|---|---|---|
+| `pl-1` | `--passage-lines 1` | 556 | 1.0× — the pre-§26 default |
+| `pl-18` | `--passage-lines 18` | 5,874 | **10.6×** — the new default |
+| `pl-18k5` | `--passage-lines 18 -k 5` | 2,917 | 5.2× |
+| `pl-full` | `--full` | 10,796 | 19.4× — §25's measured winner |
+
+**Shipping before measuring, and why that is defensible here.** The default
+rests on a coverage curve, which is the evidence class that failed for labels.
+The difference is that this is a *reduction from a measured winner* rather than
+a new idea: the mechanism §25 proved — the agent can read the code and stop —
+is preserved at 18 lines, and only its sufficiency is unknown. Labels removed
+the code entirely; 18 lines does not. **If the campaign shows 18 lines loses the
+effect, the registered response is to move the default to the whole passage,
+not to explain the result.**
+
+**What changed for every caller**, recorded rather than discovered later: output
+is ~10× larger; results are separated by a blank line; a consumer *counting*
+output lines now sees ~180 rather than 10, though every non-blank line is still
+`path:line:text` and parses as it always did. Three CLI tests counted lines to
+count results and all three failed — the canary for exactly that breakage, now
+fixed to assert what they meant. `MAX_COLUMNS` still clips every line, so the
+worst case is ~36 KB against the ~64 KB of the 32-line arm where §25's
+truncation tripwire measured **zero truncated results in 1,120 sessions**.
+
+`tools/snapshot.sh` pins `--passage-lines 1` rather than re-recording. It is a
+*ranking* tripwire; recording passages would bloat every case tenfold and make
+it move whenever the fixture's text changes with ranking identical. The file
+stays byte-comparable with every recording since §20, and that identity is also
+the proof that `pl-1` reproduces the pre-§26 output exactly — which the control
+arm depends on. The new display shape is pinned instead by
+`the_default_result_is_an_eighteen_line_passage`.
+
+**Design: four arms × 140 instances, ~$157** at the $0.28/run §25 measured.
+Every arm passes an explicit `--passage-lines`, so no arm inherits the new
+default and the contrast cannot drift with it. Frame: a fresh random 140 of the
+560, **seed 26**, sha256 recorded before the first run — deliberately *not*
+§25's frame, so this is an independent sample rather than a re-read of the one
+that produced the estimate.
+
+**The primary test is non-inferiority, and the margin is what n buys.** Asking
+"do 18 and 32 differ" and answering "not significantly" is how an underpowered
+null becomes a false claim of equivalence, and this project has published
+enough nulls to know the difference. At n=140 and the measured paired sd of
+1.48, the margin is **0.35**.
+
+1. **Primary — `pl-18` is non-inferior to `pl-full`.** The 95% CI on
+   (`pl-18` − `pl-full`) reads-after-search must exclude **+0.35**. Against
+   full's −0.807 that is "18 lines retains at least 57% of it". *Kill:* if the
+   CI includes +0.35, 18 lines is not established and the default moves to the
+   whole passage.
+2. **Sanity — `pl-18` beats the control.** `pl-18` − `pl-1` negative with a CI
+   excluding zero. A primary that passes while this fails means neither arm did
+   anything and the campaign measured noise.
+3. **`pl-18k5` — the same non-inferiority test at five results.** Registered
+   separately and expected weaker: §25 measured ranks 6–10 carrying 10 points
+   of coverage (71.3% → 81.4%).
+4. **Co-primary — cost, as a prediction rather than a measurement.** `pl-18`
+   should cost ~**10%** over control and `pl-18k5` ~5%, because §25.2
+   established the premium is proportional to output bytes through cache
+   creation. A cost that does not scale with bytes falsifies that mechanism and
+   is worth more than the arm it came from.
+5. **Accuracy, bounded and not powered.** `func_acc@10_tol` across all pairs
+   with the detectable bound printed beside it (~±0.045 at n=140), per §19.10.
+6. **Tripwire — truncation.** Zero expected: every arm is smaller than the
+   32-line arm that already measured zero.
+7. **Tripwire — one binary, identical descriptions** across the four arms
+   (`tool_line_sha256`), and `triage.py` run and *recorded* rather than assumed
+   clean — §25's fired on arm-symmetric noise and the same is expected again.
+8. **Gate — `queryshape.py`.** Query style must not shift between arms; a shift
+   means the display changed how agents write rather than only what they read.
