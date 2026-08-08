@@ -6452,10 +6452,16 @@ arm depends on. The new display shape is pinned instead by
 
 **Design: four arms × 140 instances, ~$157** at the $0.28/run §25 measured.
 Every arm passes an explicit `--passage-lines`, so no arm inherits the new
-default and the contrast cannot drift with it. Frame: a fresh random 140 of the
-560, **seed 26**, sha256 recorded before the first run — deliberately *not*
-§25's frame, so this is an independent sample rather than a re-read of the one
-that produced the estimate.
+default and the contrast cannot drift with it. Frame: **140 drawn at seed 26 from the
+280 instances §25 never ran** — `passage-frame-140.json`, sha256
+`3a8962d12634dbce`, recorded before the first run. Zero overlap with §25's
+frame, by construction rather than by luck: a plain random 140 of 560 would
+share about half of it, and "independent sample" should mean what it says.
+
+*(Overlap would not in fact threaten the primary test, which is a within-campaign
+paired contrast between `pl-18` and `pl-full` and re-measures both. §25's
+estimate only sets the margin. The complement is used because the claim was
+made, not because the alternative was unsound.)*
 
 **The primary test is non-inferiority, and the margin is what n buys.** Asking
 "do 18 and 32 differ" and answering "not significantly" is how an underpowered
