@@ -271,11 +271,20 @@ pub fn footer(mode: Mode, result: &SearchResult, shown: usize, suggested: bool) 
     // and shim.py already carries the scar ("silence that looks like a real
     // answer"). A floor whose signal is suppressed only ever subtracts.
     if result.report.floored {
+        // Names no flag, deliberately. The first version ended "or pass
+        // --min-score 0 to see weak results", and §30's R1 caught an agent
+        // doing exactly that — typing `--min-score` with no value, exiting 2,
+        // and spiralling into three consecutive empty searches. That is
+        // §16.10 again (naming `-e` in a footer moved ranked share 7% → 98%):
+        // a footer is a treatment, and an agent will act on any flag it
+        // names. The behaviour this message exists to induce is *rephrasing*,
+        // so it says only that. `--min-score` stays discoverable in --help,
+        // where a human who wants it will look.
         let best = result.report.best_signal.unwrap_or(0.0);
         eprintln!(
-            "semgrep: no matches · best candidate scored {best:.2}, under the \
-             --min-score floor · likely not covered here — rephrase, or pass \
-             --min-score 0 to see weak results"
+            "semgrep: no matches · nothing here scored above {best:.2}, which is \
+             too weak to be worth reading · this scope may not cover it — try \
+             different wording, or a wider scope"
         );
         return;
     }

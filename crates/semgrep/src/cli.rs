@@ -58,6 +58,18 @@ pub struct Cli {
     /// common ancestor and results are filtered back to the paths given.
     pub paths: Vec<PathBuf>,
 
+    /// Same as a positional path; accepted because agents keep typing it
+    ///
+    /// `sg "query" --path pkg/` is a real invocation shape: §28.1 caught it
+    /// once in 484 searches, and §30's R1 caught it four times in 511 — the
+    /// rise is desc-v10's own doing, since telling an agent to "add a path
+    /// argument" invites a named flag on an interface that takes a
+    /// positional. Failing that with "unexpected argument" spends a turn to
+    /// teach argv trivia. Repeatable and merged with the positionals, so
+    /// `--path a --path b` behaves like `a b`.
+    #[arg(long = "path", value_name = "PATH", hide = true)]
+    pub path_flag: Vec<PathBuf>,
+
     /// Exact regex matching, grep semantics: every match, exit 1 on none
     #[arg(short = 'e', long)]
     pub exact: bool,

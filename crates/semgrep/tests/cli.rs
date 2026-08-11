@@ -204,6 +204,24 @@ fn the_default_result_is_a_fine_window_passage() {
 /// A floored search is a refusal, not a miss: empty stdout, exit 1, and a
 /// stderr line naming the floor — the "colder, try again" signal §28.2 found
 /// grep sends for free and ranked search never did.
+/// `--path X` is accepted as a positional path, because agents type it.
+///
+/// §28.1 caught it once in 484 searches and §30's R1 four times in 511 — the
+/// rise is desc-v10's own doing, since telling an agent to "add a path
+/// argument" invites a named flag on an interface that takes a positional.
+/// Failing it spends one of the agent's turns teaching argv trivia.
+#[test]
+fn the_path_flag_is_an_alias_for_a_positional_path() {
+    let sg = Sg::new();
+    let bare = sg.run(&["how is the retry delay computed", "-k", "3"]);
+    let flagged = sg.run_bare(&[
+        "how is the retry delay computed", "-k", "3",
+        "--path", corpus().to_str().unwrap(),
+    ]);
+    assert_eq!(flagged.code, 0, "stderr: {}", flagged.stderr);
+    assert_eq!(bare.stdout, flagged.stdout, "--path must match the positional form");
+}
+
 #[test]
 fn a_floored_search_exits_one_with_an_explanation() {
     let sg = Sg::new();
@@ -211,8 +229,15 @@ fn a_floored_search_exits_one_with_an_explanation() {
     assert_eq!(r.code, 1, "a floored search exits like a miss");
     assert!(r.stdout.is_empty(), "stdout stays data-only: {}", r.stdout);
     assert!(
-        r.stderr.contains("under the --min-score floor"),
+        r.stderr.contains("too weak to be worth reading"),
         "stderr explains the refusal: {}",
+        r.stderr
+    );
+    // §16.10: a footer that names a flag is a treatment. R1 caught an agent
+    // typing `--min-score` with no value after reading this very message.
+    assert!(
+        !r.stderr.contains("--min-score"),
+        "the refusal must not name a flag for the agent to fumble: {}",
         r.stderr
     );
 }
@@ -235,7 +260,7 @@ fn the_floor_still_explains_itself_with_hints_off() {
     assert_eq!(r.code, 1);
     assert!(r.stdout.is_empty());
     assert!(
-        r.stderr.contains("under the --min-score floor"),
+        r.stderr.contains("too weak to be worth reading"),
         "NO_HINTS must not silence a refusal: {:?}",
         r.stderr
     );

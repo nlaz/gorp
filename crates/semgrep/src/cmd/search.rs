@@ -18,7 +18,10 @@ pub fn run(cli: &Cli, query: &str) -> Result<i32> {
     // (exit 1): an agent reads "no results" as *the code is not there*, when in
     // fact the path was simply wrong. `exists`, not `is_dir`, because a single
     // file is a legitimate scope that the streaming path handles.
-    let paths = paths_with_stdin(&cli.paths)?;
+    // `--path` merges into the positionals so both spellings reach one code
+    // path; see `Cli::path_flag` for why the alias exists at all.
+    let given: Vec<PathBuf> = cli.paths.iter().chain(cli.path_flag.iter()).cloned().collect();
+    let paths = paths_with_stdin(&given)?;
     for p in &paths {
         if !p.exists() {
             anyhow::bail!("{}: no such file or directory", p.display());
@@ -66,7 +69,7 @@ pub fn run(cli: &Cli, query: &str) -> Result<i32> {
     } else {
         result.hits.len()
     };
-    out::hits(&root, &result.hits, shown, &print_opts(cli));
+    out::hits(&root, &result.hits, shown, &print_opts(cli, &given));
     if dropped {
         // Name the filter that actually dropped them. Saying "the paths given"
         // when `--lines` did the cutting sends the caller to widen a scope that
@@ -275,7 +278,7 @@ fn parse_lines(spec: &str) -> Result<(u32, u32)> {
     Ok((lo, hi))
 }
 
-fn print_opts(cli: &Cli) -> out::Print {
+fn print_opts(cli: &Cli, given: &[PathBuf]) -> out::Print {
     out::Print {
         json: cli.json,
         paths_only: cli.files_with_matches,
@@ -288,7 +291,7 @@ fn print_opts(cli: &Cli) -> out::Print {
         with_path: cli.compat.with_filename
             || cli.json
             || cli.files_with_matches
-            || !(cli.paths.len() == 1 && cli.paths[0].is_file()),
+            || !(given.len() == 1 && given[0].is_file()),
     }
 }
 

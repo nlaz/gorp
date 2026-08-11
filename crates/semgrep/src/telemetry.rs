@@ -253,6 +253,13 @@ pub fn search_envelope(
                 // who searched the wrong directory from a tool that is broken.
                 "files_walked": r.files_walked,
                 "stale_files": r.stale_files,
+                // A refused search and an empty scope both report n_hits=0 and
+                // exit 1, and only these two fields tell them apart. §30.1
+                // registers the floored rate as a headline diagnostic, so it
+                // has to be readable from the envelope rather than recovered
+                // by grepping stderr out of the search dumps.
+                "floored": r.floored,
+                "best_signal": r.best_signal,
                 "exit_code": exit_code,
             },
             // getrusage(RUSAGE_SELF) never resets, so this is a high-water mark
