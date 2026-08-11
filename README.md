@@ -199,10 +199,12 @@ into your agent's system prompt:
 ```
 The only code search tool available is `sg`, a ranked code search you run
 with Bash. Give it anything — an identifier, a phrase, or a question: `sg
-"query" [path]` returns the most relevant locations as path:line:text (top
-10; `-k N` for more). Example: sg "retry_backoff backoff_delay
-compute_delay" → src/net/retry.rs:142:fn backoff_delay(attempt: u32).
-Ranked, not exhaustive — if the answer isn't there, rephrase.
+"query"` searches the whole repository and returns the most relevant
+locations as path:line:text (top 5; `-k N` for more). Start wide: add a
+path argument only to narrow further after a wide search has pointed
+somewhere. Example: sg "retry_backoff backoff_delay compute_delay" →
+src/net/retry.rs:142:fn backoff_delay(attempt: u32). Ranked, not
+exhaustive — if the answer isn't there, rephrase.
 ```
 
 **Why the example is names and not a question.** semgrep embeds with a static
