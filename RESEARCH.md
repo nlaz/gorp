@@ -7677,3 +7677,49 @@ replay runs; a failure is reported as the §24.2 shape — a plausible
 single-case feature losing on the population — and the syntax stays
 unadvertised dead code rather than reverting, since its no-pipe path is the
 old path exactly.
+
+### 31.2 The gate ran, and the answer is no (2026-08-11)
+
+`pairplay.py` mined 573 consecutive same-scope ranked pairs from the s27/s31
+sessions, replayed the 201 with surviving checkouts, and scored the 161 where
+the sequential pair had found gold:
+
+| condition | registered bar | measured | verdict |
+|---|---|---|---|
+| merged top-5 covers the sequential union | ≥95% | **68.9%** (111/161) | **FAIL** |
+| verbatim `\|` queries not worse than pooled | not worse | 6/6 same (survivors) | pass |
+
+The failure is not slot arithmetic. The obvious excuse — five merged slots
+against ten sequential ones — was tested directly: at `-k 10`, an equal
+output budget, the merged call rescues only 23 of the 51 failures (≈83%
+total, still under the bar). The merged *ranking* degrades relative to two
+independent searches.
+
+**The mechanism is about agents, not ranking, and it generalises.**
+Consecutive same-scope searches in real sessions are frequently
+*reformulations* — query `a` missed, query `b` corrected it — not
+complementary halves of one intent. Merging them re-imports the abandoned
+mistake as a live phrase, and the §31 representation pass then *guarantees
+the mistake a slot*, displacing a gold hit of the corrected query. The
+feature's model ("two searches = two wants, OR them") is wrong about the
+temporal structure of search sequences: an agent's second query often
+supersedes its first rather than extending it. ripgrep alternation never had
+this problem because a human types `a|b` in one intentional breath; a mined
+pair of an agent's consecutive attempts is not that.
+
+**Disposition, per the registration.** The §24.2 shape, reported as such: a
+plausible feature that loses on the population it was built from. The syntax
+**stays, unadvertised** — its no-pipe path is the pre-§31 path exactly
+(snapshot byte-identical), the six surviving real-pipe queries score
+identically split or pooled, `||`-protection makes pasted code safe, and an
+agent that types alternation *deliberately, in one breath* gets the per-phrase
+floor verdicts, which remain the one genuinely new capability. No description
+ever mentions it; the desc-v11 routing clause ("candidate spellings in one
+query rather than a regex") stands as written. If shim logs ever show
+deliberate single-breath alternation becoming common, the gate can be re-run
+on that population — which is the one the feature was actually designed for
+and the one this mining could not isolate.
+
+One harness defect found and fixed while gating: `pairplay.py` keyed its
+checkpoint on Python's salted `hash()`, so no key survived a process restart
+— every resume would silently re-run and re-pay everything. `hashlib` now.
