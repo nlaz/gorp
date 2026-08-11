@@ -438,7 +438,15 @@ fn materialize(
         || (opts.passage_lines == 0 && opts.passage_chars > 0);
     let mut lines: Option<Vec<String>> = want_lines.then(Vec::new);
     let mut defines: Option<Vec<String>> = opts.defines.then(Vec::new);
-    let mut best: Option<(usize, u32, &str)> = None;
+    // Ranked by (query-token overlap, carries a word at all), first line
+    // winning ties. The second term exists because the fine rerank made the
+    // first one tie far more often: over a 32-line chunk some line almost
+    // always shared a token with the query, but inside a 4-line window the
+    // overlap is frequently zero everywhere, and the old first-wins fallback
+    // then anchored the hit on whatever led the window — a bare `{` or `)`
+    // in 8.3% of recorded snapshot hits. Overlap still dominates, so a line
+    // that genuinely matches is never passed over for a prettier one.
+    let mut best: Option<((usize, bool), u32, &str)> = None;
     for (i, line) in text.lines().enumerate() {
         let line_no = i as u32 + 1;
         if line_no < chunk.start_line {
@@ -462,9 +470,10 @@ fn materialize(
                 overlap += 1;
             }
         });
+        let rank = (overlap, line.chars().any(|c| c.is_alphanumeric()));
         match &best {
-            Some((b, _, _)) if *b >= overlap => {}
-            _ => best = Some((overlap, line_no, line)),
+            Some((b, _, _)) if *b >= rank => {}
+            _ => best = Some((rank, line_no, line)),
         }
     }
     let (_, line, line_text) = best?;

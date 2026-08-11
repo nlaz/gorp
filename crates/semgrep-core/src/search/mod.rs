@@ -43,10 +43,23 @@ pub(crate) fn fused_width(pool: usize) -> usize {
     pool * 2
 }
 
-/// How many fused rows become candidates. Three per requested hit, so span
-/// dedupe and MMR have something to choose between.
+/// How many fused rows become candidates. **Six per requested hit** — 30 at
+/// the default k=5 — so span dedupe, the fine rerank and MMR have something to
+/// choose between.
+///
+/// Was three per hit, which was sized for a stage that only *reordered* whole
+/// chunks. The fine rerank (§29.1) changed what the pool is for: it re-scores
+/// each candidate down to its best few lines, so a chunk whose coarse rank is
+/// mediocre because 28 of its 32 lines are irrelevant is exactly the chunk the
+/// fine pass exists to rescue — and at `k * 3` it never reached the pass. A
+/// wider pool is where that rescue has room to happen.
+///
+/// The cost is per-candidate file reads, paid twice: the declaration boost
+/// re-reads this same head (they share this width deliberately, so the boost
+/// acts on exactly the rows that become candidates), and the fine rerank reads
+/// them again. Measured below in `SearchOptions::fine_rerank`'s doc.
 pub(crate) fn candidate_width(k: usize) -> usize {
-    k * 3
+    k * 6
 }
 
 /// Declaration boost (RESEARCH.md §24.1): scale each fused score by
@@ -100,10 +113,11 @@ pub(crate) fn apply_decl_boost(
 
 /// Same, for a scope that is one file: everything (RESEARCH.md §24.1).
 ///
-/// `k * 3` is a corpus-scale economy — it bounds how many chunks pay for a
-/// vector and a dedupe comparison when the pool is millions. A single file
-/// yields a median 56 chunks, so at k=10 the cap can drop the chunk holding
-/// the answer before dedupe or MMR ever sees it. There is nothing to save.
+/// [`candidate_width`] is a corpus-scale economy — it bounds how many chunks
+/// pay for a vector and a dedupe comparison when the pool is millions. A
+/// single file yields a median 56 chunks, so the cap can drop the chunk
+/// holding the answer before dedupe or MMR ever sees it. There is nothing to
+/// save.
 pub(crate) fn file_scope_candidate_width() -> usize {
     usize::MAX
 }
@@ -163,8 +177,8 @@ pub struct SearchOptions {
     /// with several of its neighbours. A file scope can afford better — it
     /// never resolves an index, so this can never key a cache entry, and the
     /// whole search is ~45 ms over a few dozen chunks. Also lifts the
-    /// [`candidate_width`] cap, which at k=10 admits only 30 chunks and can
-    /// exclude the answer on a file that yields more.
+    /// [`candidate_width`] cap, which can otherwise exclude the answer on a
+    /// file that yields more chunks than the cap admits.
     pub file_scope_window: u32,
     /// Weight of the declaration boost (RESEARCH.md §24.2). 0 = off.
     ///
