@@ -7785,3 +7785,66 @@ that is what makes the contrast about the tools again.
   result. Cheaper at equal accuracy is the endpoint §26.3 already decided
   this tool is for.
 - Gates between rungs are harness health only. No alpha is spent.
+
+### 32.1a Amendment, made after seeing R1's delivery — intention-to-treat
+
+§32.1 registered delivery as a **premise**: below ~90%, the accuracy endpoints
+"describe a different agent rather than a different engine" and must be
+reported as diluted. R1 came in at **72%** for the sg arm, and this amendment
+changes how that number is read. **It was written after seeing it**, which is
+disclosed here rather than folded in silently.
+
+What changed is the frame, not the test. With shell grep available in both
+arms — the §30.3 leveller — the arms are no longer "one search tool each".
+They are:
+
+| arm | what the agent has |
+|---|---|
+| `sub-rg` | ripgrep + shell grep — two lexical tools |
+| `sub-sg` | semgrep + shell grep — a semantic tool with a lexical fallback |
+
+So the contrast is **"is a semantic search tool available?"**, holding a
+lexical capability constant, in a setting where an agent always has more than
+one way to search a codebase — which is what a real deployment looks like.
+Under that framing an agent choosing grep over sg is **part of the treatment
+effect, not a leak in it**: the product question is what happens when the tool
+is *available*, and a tool nobody reaches for delivers nothing, which is a
+true fact about the tool rather than a defect in the measurement.
+
+This is an intention-to-treat design where §32.1 had written a per-protocol
+premise. Concretely:
+
+- **The primary endpoint, its test, its MDE and its one-computation rule are
+  unchanged**, so no alpha moves and no analysis decision is being made on
+  seen data.
+- **Delivery is reported as an outcome**, beside the endpoints, not as a
+  validity gate. 72% is a finding: with a lexical alternative present, a
+  third of sessions never invoke ranked search at all.
+- **The per-protocol read is still reported**, as a secondary and clearly
+  labelled cut: the same contrast restricted to instances where the sg arm
+  actually invoked sg. Both numbers, neither hidden — the ITT answers "should
+  I ship this tool", the per-protocol answers "does it work when used".
+
+The honest cost of the amendment: an ITT null is compatible with a tool that
+works well and is simply under-adopted, and this design cannot separate those.
+§32.2 must say so where it reports the result.
+
+### 32.1b Two gate calibrations, both the "punishing the tool for being right" shape
+
+R1's gate fired on two checks that turned out to be classification errors in
+the *harness*, both specific to the grep-unblocked regime, both fixed before
+R2 rather than overridden:
+
+1. `sg -e "->numslots = 0" src/cluster_legacy.c` was filed as **unknown
+   flag** — the compat-surface alarm — when the dash-leading token is the
+   agent's *query*, sitting behind a perfectly good `-e`. `classify_usage`
+   only checked the first token. It now scans all of them and returns the
+   existing "query starts with a dash (needs `--`)" verdict, which is already
+   a caller-mistake category.
+2. `tokio-rs__tokio-4867` tripped **"every search was empty"** on a single sg
+   call that the score floor refused. With grep unblocked an agent may make
+   very few sg calls, so one deliberate refusal reads as 100% empty. A ranked
+   search exiting 1 is by construction the floor (top-k always has k
+   candidates), so the distress filter now excludes it — the same fix §30.2
+   applied to the empty-ranked counter, now applied to the distress check that
+   shares its blind spot.
