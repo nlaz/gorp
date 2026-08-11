@@ -7723,3 +7723,65 @@ and the one this mining could not isolate.
 One harness defect found and fixed while gating: `pairplay.py` keyed its
 checkpoint on Python's salted `hash()`, so no key survived a process restart
 — every resume would silently re-run and re-pay everything. `hashlib` now.
+
+## 32 The powered campaign, take two: the repaired bundle against ripgrep (2026-08-11)
+
+§30 halted at its gate rung. §30.3 then reattributed nearly all of the
+unfavourable interim to the experiment rather than the tool — the harness's
+own grep block cost the sg arm ~1.3 turns/session, and the floor's message
+taught an agent to fumble a flag. Every finding became a fix, and §31's
+multi-phrase work landed alongside. This section runs the repaired bundle.
+
+### 32.0 What changed since §30.1, and why this is a new registration
+
+| layer | change | origin |
+|---|---|---|
+| engine | fine rerank at pool 30; the `(overlap, carries-a-word)` anchor fix | §29.1, §30.2 |
+| engine | floor 0.42, refusal reworded to name no flag, audible under `NO_HINTS` | §29.2, §30.2 |
+| engine | function chunking; `--path` accepted; §31 multi-phrase (silent) | §29.3, §30.2, §31 |
+| treatment | **desc-v11** — wide-by-default plus the routed `-e` clause | §30.4 |
+| treatment | **shell grep unblocked in both arms**, still shim-logged | §30.3 |
+| process | no interim analysis; exact-share tripwire; floored rate in envelopes | §30.2, §30.3 |
+
+The last two treatment rows are why this is **§32 and not a §30 re-run**: the
+grep unblock and the `-e` clause change what the bundle *is*. Reusing §30.1's
+registration would be registering one experiment and running another.
+
+`sub-rg` remains the control and remains untouched by every engine change —
+ripgrep never calls our code. The grep unblock applies to **both** arms
+symmetrically, which is the point: §30.3 showed a substitutive design
+subsidises the arm whose treatment resembles the removed tool, and levelling
+that is what makes the contrast about the tools again.
+
+### 32.1 Pre-registration, written before R1 is funded
+
+- **Primary**: `hitRegion@5`, `sub-sg − sub-rg`, paired `boot_ci` (4,000
+  resamples, seed 1), computed **once**, on the pooled 848. MDE 0.012 at
+  §27's measured paired sd 0.126. `campaign.sh` now refuses to compute
+  endpoints at intermediate rungs, which is the §30.3 disclosure made
+  structurally impossible.
+- **Co-primary — turns and cost.** §30.3's dose–response (+1.18 turns per
+  blocked grep; −0.54 where exposure was equal) predicts the turns gap
+  collapses once the block is gone. Registered: **|Δturns| < 0.5**, cost
+  parity within ±5%.
+- **Secondary, Holm**: `hitFile@5`, `ctxEff`, `nDCG@500`, `recall@100`,
+  `precision`.
+- **Diagnostics, all reported before any accuracy claim:**
+  - delivery per arm (premise ≈90%+);
+  - **exact-share** of sg invocations — §30.4's tripwire. If agents collapse
+    onto `-e`, desc-v11 dies and the accuracy read is reported as §16.10
+    replicating in a new regime, not as a tool result;
+  - **grep-passthrough per arm** — the §30.3 mechanism check. Grep use in the
+    sg arm should now cost nothing. If it *substitutes* for sg (delivery
+    falling as grep rises), that is a finding about the tool, not the harness;
+  - floored-search rate, from the trace envelopes;
+  - path-scoped share (`queryshape.py`), against §30's 50% / 89%.
+- **Registered expectation**: accuracy parity, |Δ| < 0.02. §30's −0.023 was
+  measured under the blocked-grep tax, sat at its own MDE with a
+  non-significant sign test, and §28's ladder decayed +0.062 → +0.002 as n
+  grew — regression toward zero is the base case, not a hope. A null is
+  reported as a bound with delivery attached.
+- **Registered response to a cost win at accuracy parity**: report it as the
+  result. Cheaper at equal accuracy is the endpoint §26.3 already decided
+  this tool is for.
+- Gates between rungs are harness health only. No alpha is spent.
