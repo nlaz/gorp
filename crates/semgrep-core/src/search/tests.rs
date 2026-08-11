@@ -338,3 +338,39 @@ fn merge_interleave_unions_retrievers_and_normalizes_per_phrase() {
     // Scores normalized within each phrase's list: both rank-1s become 1.0.
     assert!((merged[0].score - 1.0).abs() < 1e-6);
 }
+
+/// Fuzz the split rule with a deterministic LCG: whatever the input, the
+/// invariants hold — never empty, never more than MAX_PHRASES, no empty
+/// phrase, and a pipe-free query is returned byte-identical.
+#[test]
+fn split_phrases_never_panics_and_holds_its_invariants() {
+    use crate::search::{MAX_PHRASES, split_phrases};
+    let alphabet: Vec<char> =
+        "ab |\\|_()'\"$.*^[]{}?!:;/#@-=+~%&<>,\u{0}\u{FF5C}é中".chars().collect();
+    let mut state: u64 = 0x5EED_CAFE;
+    let mut next = move || {
+        state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        (state >> 33) as usize
+    };
+    for _ in 0..5000 {
+        let len = next() % 40;
+        let q: String = (0..len).map(|_| alphabet[next() % alphabet.len()]).collect();
+        let phrases = split_phrases(&q);
+        assert!(!phrases.is_empty(), "empty split for {q:?}");
+        assert!(phrases.len() <= MAX_PHRASES, "over cap for {q:?}");
+        if !q.contains('|') {
+            // Identity outranks the other invariants: a pipe-free query must
+            // reach the engine byte-for-byte, exactly as it did pre-§31 —
+            // including the empty query, whose one "phrase" is empty.
+            assert_eq!(phrases, vec![q.clone()], "pipe-free must be identity");
+        } else {
+            // A piped query yields non-empty phrases (a lone "|b" trims to
+            // one clean phrase), or falls back to itself whole when nothing
+            // survives the split.
+            assert!(
+                phrases.iter().all(|p| !p.is_empty()) || phrases == vec![q.clone()],
+                "piped: {q:?} -> {phrases:?}"
+            );
+        }
+    }
+}

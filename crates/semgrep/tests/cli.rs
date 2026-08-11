@@ -322,6 +322,33 @@ fn a_dead_phrase_is_named_on_stderr() {
     assert!(!r.stderr.contains("--min-score"), "no flag in the verdict");
 }
 
+/// §31's free win, made deliberate: an exact-mode miss on a grep-style
+/// alternation gets multi-phrase ranked suggestions — the suggestion path
+/// runs a full ranked search, which now splits the pattern the agent typed.
+#[test]
+fn an_exact_alternation_miss_suggests_across_both_phrases() {
+    let sg = Sg::new();
+    // The suggestion only fires when an index already covers the scope, so
+    // warm it first — the same precondition a real session meets by its
+    // second search.
+    sg.run(&["retry", "-k", "1"]);
+    // Neither name exists literally (case mismatch), so -e misses; the ranked
+    // suggestion should still reach both concepts' homes.
+    let r = sg.run(&["-e", r"Compute_Backoff_Delay\|Validate_Session_Token"]);
+    assert_eq!(r.code, 1, "an exact miss is still exit 1");
+    assert!(r.stdout.is_empty(), "suggestions stay on stderr");
+    assert!(
+        r.stderr.contains("ranked search for the same terms finds"),
+        "the suggestion fired: {}",
+        r.stderr
+    );
+    assert!(
+        r.stderr.contains("retry.rs") && r.stderr.contains("auth.rs"),
+        "both phrases' homes suggested: {}",
+        r.stderr
+    );
+}
+
 // ---------------------------------------------------------------------------
 // exact mode == grep semantics
 // ---------------------------------------------------------------------------
