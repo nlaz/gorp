@@ -260,6 +260,12 @@ pub fn search_envelope(
                 // by grepping stderr out of the search dumps.
                 "floored": r.floored,
                 "best_signal": r.best_signal,
+                // §31: how the query split and how each phrase fared. In the
+                // results block, not opts — the split happens inside the
+                // engine and the CLI never knows it.
+                "n_phrases": r.n_phrases,
+                "phrase_signals": r.phrase_signals,
+                "floored_mask": r.floored_mask,
                 "exit_code": exit_code,
             },
             // getrusage(RUSAGE_SELF) never resets, so this is a high-water mark

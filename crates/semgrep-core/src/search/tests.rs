@@ -12,6 +12,7 @@ fn cand(id: u32, path: &str, start: u32, score: f32) -> Candidate {
         chunk: Chunk { file_id: 0, start_line: start, end_line: start + 7 },
         path: path.to_string(),
         score,
+        phrases: 1,
         fine: None,
     }
 }
@@ -54,12 +55,13 @@ fn dedupe_case(a: (u32, u32), b: (u32, u32), frac: f32) -> Vec<crate::search::Se
         chunk: Chunk { file_id: 0, start_line: s, end_line: e },
         path: "x.rs".into(),
         score,
+        phrases: 1,
         fine: None,
     };
     let cands = vec![span(0, a, 1.0), span(1, b, 0.9)];
     let opts = SearchOptions { k: 2, dedupe_overlap: frac, ..Default::default() };
     let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
-    finalize(dir.path(), "alpha", cands, &opts, "", &mut trace, |_| None).hits
+    finalize(dir.path(), &crate::search::Query::parse("alpha"), cands, &opts, "", &mut trace, |_| None).hits
 }
 
 /// A passage is a window cut around the matched line, so it usually starts
@@ -81,11 +83,12 @@ fn a_passage_reports_where_it_actually_starts() {
         chunk: Chunk { file_id: 0, start_line: 1, end_line: 60 },
         path: "x.rs".into(),
         score: 1.0,
+        phrases: 1,
         fine: None,
     }];
     let opts = SearchOptions { k: 1, passage_lines: 18, passage_override: true, ..Default::default() };
     let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
-    let hits = finalize(dir.path(), "alpha", cands, &opts, "", &mut trace, |_| None).hits;
+    let hits = finalize(dir.path(), &crate::search::Query::parse("alpha"), cands, &opts, "", &mut trace, |_| None).hits;
 
     let h = &hits[0];
     assert_eq!(h.line, 40, "the match is line 40");
@@ -121,11 +124,12 @@ fn a_character_budget_buys_content_not_lines() {
             chunk: Chunk { file_id: 0, start_line: 1, end_line: 40 },
             path: file.into(),
             score: 1.0,
+            phrases: 1,
             fine: None,
         }];
         let opts = SearchOptions { k: 1, passage_lines: 0, passage_chars: 800, passage_override: true, ..Default::default() };
         let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
-        let hits = finalize(dir.path(), "alpha", cands, &opts, "", &mut trace, |_| None).hits;
+        let hits = finalize(dir.path(), &crate::search::Query::parse("alpha"), cands, &opts, "", &mut trace, |_| None).hits;
         let h = &hits[0];
         let body = h.lines.clone().expect("a passage");
         (body.len(), body.iter().map(|l| l.chars().count() + 12).sum::<usize>())
@@ -148,11 +152,12 @@ fn one_passage_line_is_the_pre_25_behaviour() {
         chunk: Chunk { file_id: 0, start_line: 1, end_line: 3 },
         path: "x.rs".into(),
         score: 1.0,
+        phrases: 1,
         fine: None,
     }];
     let opts = SearchOptions { k: 1, passage_lines: 1, passage_chars: 0, passage_override: true, ..Default::default() };
     let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
-    let hits = finalize(dir.path(), "alpha", cands, &opts, "", &mut trace, |_| None).hits;
+    let hits = finalize(dir.path(), &crate::search::Query::parse("alpha"), cands, &opts, "", &mut trace, |_| None).hits;
     // No passage at all, so the CLI prints exactly the one line it always did.
     assert!(hits[0].lines.is_none(), "passage_lines=1 must carry no passage");
     assert_eq!(hits[0].line, 2);
@@ -201,11 +206,12 @@ fn a_short_chunk_is_its_own_fine_window() {
         chunk: Chunk { file_id: 0, start_line: 1, end_line: 2 },
         path: "x.rs".into(),
         score: 1.0,
+        phrases: 1,
         fine: None,
     }];
     let opts = SearchOptions { k: 1, ..Default::default() };
     let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
-    let hits = finalize(dir.path(), "alpha", cands, &opts, "", &mut trace, |_| None).hits;
+    let hits = finalize(dir.path(), &crate::search::Query::parse("alpha"), cands, &opts, "", &mut trace, |_| None).hits;
     assert_eq!((hits[0].start_line, hits[0].end_line), (1, 2));
     assert_eq!(hits[0].chunk_start_line, Some(1), "fine ran even on a short chunk");
 }
@@ -229,13 +235,14 @@ fn neighbours_electing_the_same_window_collapse() {
         chunk: Chunk { file_id: 0, start_line: s, end_line: e },
         path: "x.rs".into(),
         score,
+        phrases: 1,
         fine: None,
     };
     let cands = vec![span(0, (1, 32), 1.0), span(1, (25, 56), 0.9)];
     let opts = SearchOptions { k: 2, dedupe_overlap: 0.5, ..Default::default() };
     let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
     let hits =
-        finalize(dir.path(), "compute backoff delay", cands, &opts, "", &mut trace, |_| None).hits;
+        finalize(dir.path(), &crate::search::Query::parse("compute backoff delay"), cands, &opts, "", &mut trace, |_| None).hits;
     assert_eq!(hits.len(), 1, "the same elected window must not appear twice");
 }
 
@@ -253,12 +260,81 @@ fn the_fine_rerank_is_deterministic() {
             chunk: Chunk { file_id: 0, start_line: 1, end_line: 40 },
             path: "x.rs".into(),
             score: 1.0,
+            phrases: 1,
             fine: None,
         }];
         let opts = SearchOptions { k: 1, ..Default::default() };
         let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
-        let hits = finalize(dir.path(), "route a job to a handler", cands, &opts, "", &mut trace, |_| None).hits;
+        let hits = finalize(dir.path(), &crate::search::Query::parse("route a job to a handler"), cands, &opts, "", &mut trace, |_| None).hits;
         (hits[0].start_line, hits[0].end_line, hits[0].score)
     };
     assert_eq!(run(), run());
+}
+
+// ---------------------------------------------------------------------------
+// §31: the phrase split rule
+// ---------------------------------------------------------------------------
+
+#[test]
+fn phrases_split_on_bare_and_grep_escaped_pipes() {
+    use crate::search::split_phrases;
+    assert_eq!(split_phrases("retry backoff | session token"),
+               vec!["retry backoff", "session token"]);
+    // The grep spelling, verbatim from the s27 logs (§31): the escape is
+    // separator syntax and must not leak into the left phrase.
+    assert_eq!(split_phrases(r"def dup_add\|def dup_sub\|def dup_mul"),
+               vec!["def dup_add", "def dup_sub", "def dup_mul"]);
+}
+
+#[test]
+fn double_pipe_is_code_not_a_separator() {
+    use crate::search::split_phrases;
+    // Verbatim from the s31 logs: a pasted line whose || is JavaScript's OR.
+    let pasted = "typeof vnode === 'string' || typeof vnode === 'number'";
+    assert_eq!(split_phrases(pasted), vec![pasted]);
+    // And || wins over an adjacent escape reading.
+    assert_eq!(split_phrases(r"a\||b"), vec![r"a\||b"]);
+}
+
+#[test]
+fn degenerate_pipe_queries_never_yield_nothing() {
+    use crate::search::split_phrases;
+    assert_eq!(split_phrases("|"), vec!["|"]);
+    assert_eq!(split_phrases(" | | "), vec![" | | "]);
+    assert_eq!(split_phrases("a |  | b"), vec!["a", "b"]);
+    // A no-pipe query is byte-preserved, trailing backslash and all.
+    assert_eq!(split_phrases(r"foo\"), vec![r"foo\"]);
+}
+
+#[test]
+fn phrase_count_is_capped_at_the_bitmask_bound() {
+    use crate::search::{MAX_PHRASES, split_phrases};
+    let q = (0..12).map(|i| format!("p{i}")).collect::<Vec<_>>().join(" | ");
+    assert_eq!(split_phrases(&q).len(), MAX_PHRASES);
+}
+
+#[test]
+fn merge_interleave_unions_retrievers_and_normalizes_per_phrase() {
+    use crate::search::merge_interleave;
+    let c = |id: u32, score: f32| Candidate {
+        id,
+        chunk: Chunk { file_id: 0, start_line: 1, end_line: 4 },
+        path: format!("f{id}.rs"),
+        score,
+        phrases: 1,
+        fine: None,
+    };
+    // Phrase 0 ranks [1, 2]; phrase 1 ranks [2, 3] on a wildly different
+    // score scale — chunk 2 is retrieved by both.
+    let merged = merge_interleave(vec![
+        vec![c(1, 9.0), c(2, 5.0)],
+        vec![c(2, 0.019), c(3, 0.011)],
+    ]);
+    let ids: Vec<u32> = merged.iter().map(|m| m.id).collect();
+    assert_eq!(ids, vec![1, 2, 3], "round-robin by rank, deduped");
+    assert_eq!(merged[1].phrases, 0b11, "the shared chunk answers for both phrases");
+    assert_eq!(merged[0].phrases, 0b01);
+    assert_eq!(merged[2].phrases, 0b10);
+    // Scores normalized within each phrase's list: both rank-1s become 1.0.
+    assert!((merged[0].score - 1.0).abs() < 1e-6);
 }

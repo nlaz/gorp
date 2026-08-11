@@ -7615,3 +7615,65 @@ Surfaces: `DESC_CONDITIONS["desc-v11"]` (locbench), `SG_LINE_V11` +
 README until v11 is measured. Verified: `-e` composes with the injected
 campaign flags (`--chunking function --min-score 0.42` parse cleanly in
 keyword mode and change nothing there).
+
+## 31 Multi-phrase ranked search: giving the alternation habit a surface (2026-08-11)
+
+Agents trained on ripgrep spell OR-intent as alternation, and they bring it
+to sg: 17 of 2,049 real ranked invocations across s27/s31 contain a pipe —
+today dead syntax (the tokenizer and the wordpiece encoder both drop `|`, so
+`"a | b"` scores identically to the pooled `"a b"`; verified byte-identical).
+Every one of those 17 silently degraded to a single averaged centroid. The
+shapes, verbatim from the shim logs:
+
+| shape | n | example |
+|---|---|---|
+| grep-escaped alternation of exact names | 14 | `def dup_add\b\|def dup_sub\b\|def dup_mul\b` · `_sympystr\|def __str__` · `func (d \*Dispenser) File\|func (d \*Dispenser) Line` |
+| pasted code line, `\|\|` is the language's OR | 2 | `typeof vnode === 'string' \|\| typeof vnode === 'number'` |
+| names + an import-line phrase | 1 | `format_languages\|import_utils\|from openlibrary.catalog.utils` |
+
+Mostly 2–3 alternates, usually file-scoped, exact declaration heads — §30.3's
+blocked-grep intents wearing ranked-search clothes. So: `sg "a | b"` (and the
+grep spelling `"a\|b"`) now runs each phrase as its own ranked search — own
+centroid, own coarse scan, own BM25 list — and interleaves. This fixes the
+§29.1-noted dilution for unrelated candidates: three concepts no longer
+average into a centroid near none of them. `||` never splits (it is code, not
+a separator — shape 2); `-e` keeps regex `|`; keyword mode is untouched; a
+query with no pipes takes exactly the old code path, which is what keeps the
+snapshot byte-identical.
+
+Design decisions worth their ink: coarse scores min-max normalize *within
+each phrase* before any cross-phrase comparison (RRF is rank-based and not
+comparable across lists); both dedupe sites union the retriever bitmask into
+the survivor, or a phrase whose only representative dies by stride accident
+reads spuriously floored; the fine window is scored against *its own
+retrieving phrase* (embed each window once, dot per retriever) and per-phrase
+floor maxes are tracked during that scoring; final order is fine-score + MMR
+with a representation pass — a non-floored phrase absent from the top-k pins
+its best hit in, one bounded slot, and a floored phrase never pins. The floor
+goes per-phrase: "nothing matched 'X'" names the dead branch on stderr while
+the live phrases still answer — a refusal that tells the agent *which*
+candidate to abandon, which no prior behaviour of this tool or of grep could.
+The footer names no flag (§30.2). No description change ships with the
+mechanism: 0.8% of invocations already type the syntax unprompted, muscle
+memory is the discovery channel, and advertising waits on §31.1.
+
+### 31.1 Registered gate: the pair-replay, before any description advertises
+
+The claim to test is "combines multiple searches into its results", and the
+provenance to test it on already exists. `eval/swexplore/pairplay.py` mines
+consecutive same-session ranked sg call pairs (same scope, no `-e`) from the
+s27/s31 shim logs, replays `a`, `b`, and `"a | b"` against the surviving
+checkouts, and scores:
+
+- **union-coverage@5** — the merged call's top-5 contains the gold files that
+  the two sequential top-5s contained, per `bench.jsonl` ground truth;
+- **turn-saved** — merged top-5 covers what took two calls.
+
+Plus the direct before/after: the 14 real `\|` queries replayed verbatim
+(today they run pooled; under §31 they run split). Gate: merged
+union-coverage within 0.05 of the sequential union on the mined pairs, and
+the verbatim-14 not worse than their pooled behaviour. Registered before the
+replay runs; a failure is reported as the §24.2 shape — a plausible
+single-case feature losing on the population — and the syntax stays
+unadvertised dead code rather than reverting, since its no-pipe path is the
+old path exactly.

@@ -17,7 +17,7 @@ use std::time::Instant;
 
 pub fn run(
     d: &cache::Discovered,
-    query: &str,
+    q: &super::Query,
     opts: &SearchOptions,
     prelude: &Prelude,
 ) -> Result<SearchResult> {
@@ -47,37 +47,53 @@ pub fn run(
     }
     let rows = Rows::new(&idx, repair, &d.prefix);
 
-    let lexical = trace.time(Stage::RankBm25, || rank_lexical(&idx, &rows, query, opts, pool));
-    let lexical = expand_query(&idx, &rows, query, lexical, opts, d, pool, &mut trace);
-    let (semantic, used_hnsw) = rank_semantic(&idx, &rows, query, opts, d, pool, &mut trace);
-    let ranked = trace.time(Stage::RankFuse, || {
-        rank::fuse(opts.mode, lexical, semantic, super::fused_width(pool), opts.sem_weight)
-    });
-    // Post-fusion variant: MaxSim reorders the FUSED list. The pre-fusion call
-    // inside rank_semantic is skipped in this mode, so the rerank happens once
-    // either way.
-    let ranked = if opts.maxsim_post && opts.rerank_maxsim {
-        rerank_fused(&rows, query, ranked, opts, d, &idx, &mut trace)
+    // Per-phrase pipeline (RESEARCH.md §31): every stage below already takes
+    // one query string, so a phrase runs exactly the single-query path — which
+    // is also the parity story, per phrase, on both paths. A single-phrase
+    // query is one iteration and byte-identical to the pre-§31 flow.
+    let mut per_phrase: Vec<Vec<hit::Candidate>> = Vec::with_capacity(q.phrases.len());
+    let mut used_hnsw = false;
+    for query in &q.phrases {
+        let query = query.as_str();
+        let lexical =
+            trace.time(Stage::RankBm25, || rank_lexical(&idx, &rows, query, opts, pool));
+        let lexical = expand_query(&idx, &rows, query, lexical, opts, d, pool, &mut trace);
+        let (semantic, hnsw) = rank_semantic(&idx, &rows, query, opts, d, pool, &mut trace);
+        used_hnsw |= hnsw;
+        let ranked = trace.time(Stage::RankFuse, || {
+            rank::fuse(opts.mode, lexical, semantic, super::fused_width(pool), opts.sem_weight)
+        });
+        // Post-fusion variant: MaxSim reorders the FUSED list. The pre-fusion
+        // call inside rank_semantic is skipped in this mode, so the rerank
+        // happens once either way.
+        let ranked = if opts.maxsim_post && opts.rerank_maxsim {
+            rerank_fused(&rows, query, ranked, opts, d, &idx, &mut trace)
+        } else {
+            ranked
+        };
+
+        // Declaration boost, post-fusion. `stream` applies it at the same
+        // point and through the same function, because a scope that happens to
+        // be indexed must not answer differently from one that is not.
+        let mut ranked = ranked;
+        trace.time(Stage::RankDeclBoost, || {
+            super::apply_decl_boost(&mut ranked, query, opts, |id| {
+                let (chunk, path) = rows.chunk(id);
+                corpus::lines(&d.root, &path, &chunk)
+            })
+        });
+
+        per_phrase.push(trace.time(Stage::Candidates, || {
+            candidates(&rows, ranked, &d.prefix, super::candidate_width(opts.k))
+        }));
+    }
+    let cands = if q.is_multi() {
+        super::merge_interleave(per_phrase)
     } else {
-        ranked
+        per_phrase.pop().expect("one phrase")
     };
-
-    // Declaration boost, post-fusion. `stream` applies it at the same point and
-    // through the same function, because a scope that happens to be indexed
-    // must not answer differently from one that is not.
-    let mut ranked = ranked;
-    trace.time(Stage::RankDeclBoost, || {
-        super::apply_decl_boost(&mut ranked, query, opts, |id| {
-            let (chunk, path) = rows.chunk(id);
-            corpus::lines(&d.root, &path, &chunk)
-        })
-    });
-
-    let cands = trace.time(Stage::Candidates, || {
-        candidates(&rows, ranked, &d.prefix, super::candidate_width(opts.k))
-    });
     let fin =
-        hit::finalize(&d.root, query, cands, opts, &d.prefix, &mut trace, |c| rows.vector(c.id));
+        hit::finalize(&d.root, q, cands, opts, &d.prefix, &mut trace, |c| rows.vector(c.id));
 
     Ok(SearchResult {
         report: SearchReport {
@@ -93,6 +109,10 @@ pub fn run(
             repair: repair_outcome,
             floored: fin.floored,
             best_signal: fin.best_signal,
+            n_phrases: q.phrases.len(),
+            phrase_signals: fin.phrase_signals,
+            phrases: q.is_multi().then(|| q.phrases.clone()),
+            floored_mask: fin.floored_mask,
             stages: trace.finish(),
             ..Default::default()
         },
@@ -359,7 +379,8 @@ fn candidates(
         .into_iter()
         .filter_map(|(id, score)| {
             let (chunk, path) = rows.chunk(id);
-            in_scope(&path).then_some(hit::Candidate { id, chunk, path, score, fine: None })
+            in_scope(&path)
+                .then_some(hit::Candidate { id, chunk, path, score, phrases: 1, fine: None })
         })
         .take(limit)
         .collect()

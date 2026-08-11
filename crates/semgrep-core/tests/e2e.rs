@@ -1831,3 +1831,90 @@ fn repair_recuts_a_drifted_file_the_way_a_build_would() {
     };
     assert_eq!(shape(&repaired), shape(&fresh), "repair cut differently than a build");
 }
+
+/// Multi-phrase queries (§31) must hold the parity invariant like everything
+/// else: each phrase runs the single-query pipeline per path, and the merge
+/// and finalize are shared, so cold == warm per phrase by construction — this
+/// is the tripwire that keeps it true.
+#[test]
+fn cold_and_warm_agree_on_multi_phrase_queries() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    let queries = [
+        "compute the backoff delay | validate a session token",
+        r"compute_backoff_delay\|validate_session_token",
+        "backoff | session token | idle connections",
+    ];
+    for mode in [Mode::Bm25, Mode::Semantic, Mode::Hybrid] {
+        for query in queries {
+            let cold = search(dir.path(), query, &stream_opts(mode)).unwrap();
+            assert!(!cold.report.used_index);
+            let warm = search(dir.path(), query, &opts(mode)).unwrap();
+            assert!(warm.report.used_index);
+            let shape = |r: &semgrep_core::search::SearchResult| -> Vec<(String, u32, u32)> {
+                r.hits.iter().map(|h| (h.path.clone(), h.start_line, h.end_line)).collect()
+            };
+            assert_eq!(shape(&cold), shape(&warm), "cold != warm for {mode:?} {query:?}");
+            assert_eq!(cold.report.n_phrases, warm.report.n_phrases);
+        }
+    }
+}
+
+/// Every phrase that retrieved anything gets representation in the top-k
+/// (§31): the interleave builds the pool and the representation pass
+/// guarantees the display — otherwise one hot phrase eats all five slots an
+/// agent submits from.
+#[test]
+fn each_phrase_is_represented_in_the_top_k() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    let r = search(
+        dir.path(),
+        "compute the backoff delay | validate a session token",
+        &opts(Mode::Semantic),
+    )
+    .unwrap();
+    let phrases: std::collections::HashSet<_> =
+        r.hits.iter().filter_map(|h| h.phrase).collect();
+    assert!(phrases.contains(&0) && phrases.contains(&1),
+            "both phrases must be represented: {:?}",
+            r.hits.iter().map(|h| (&h.path, h.phrase)).collect::<Vec<_>>());
+    let homes: std::collections::HashSet<_> =
+        r.hits.iter().map(|h| h.path.as_str()).collect();
+    assert!(homes.contains("src/retry.rs"), "backoff's home surfaced");
+    assert!(homes.contains("src/auth.rs"), "the token phrase's home surfaced");
+}
+
+/// The per-phrase floor (§31): a dead phrase is refused BY NAME while the
+/// live one still answers — and only all-phrases-floored refuses outright.
+#[test]
+fn a_floored_phrase_is_named_and_the_rest_still_answer() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    let o = SearchOptions { min_score: 0.42, ..opts(Mode::Semantic) };
+    let r = search(
+        dir.path(),
+        "compute the backoff delay | quantum chromodynamics lattice gauge",
+        &o,
+    )
+    .unwrap();
+    assert!(!r.hits.is_empty(), "the live phrase answers");
+    assert!(!r.report.floored, "a partial floor is not a refusal");
+    assert_eq!(r.report.floored_mask, 0b10, "the nonsense phrase is the floored one");
+    let signals = r.report.phrase_signals.as_ref().expect("multi + floor => signals");
+    assert!(signals[0] >= 0.42 && signals[1] < 0.42, "signals: {signals:?}");
+    assert!(r.hits.iter().all(|h| h.phrase == Some(0)), "no hit from the dead phrase");
+
+    // Both dead: the refusal shape of §29.2, with per-phrase detail.
+    let r2 = search(
+        dir.path(),
+        "quantum chromodynamics | lattice gauge boson",
+        &o,
+    )
+    .unwrap();
+    assert!(r2.hits.is_empty() && r2.report.floored);
+    assert_eq!(r2.report.floored_mask, 0b11);
+}

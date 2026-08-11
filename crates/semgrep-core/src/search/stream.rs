@@ -18,7 +18,7 @@ use std::time::Instant;
 
 pub fn run(
     root: &Path,
-    query: &str,
+    q: &super::Query,
     opts: &SearchOptions,
     prelude: &Prelude,
 ) -> Result<SearchResult> {
@@ -28,68 +28,90 @@ pub fn run(
 
     let files = trace.time(Stage::Walk, || corpus::walk(root, &opts.params))?;
 
-    let pass = corpus_pass(root, &files, query, opts, pool, &mut trace);
-    let lexical = trace.time(Stage::RankBm25, || match pass.bm25 {
-        Some(mut b) => {
+    // ONE pass over the corpus regardless of phrase count (RESEARCH.md §31):
+    // the pass is the whole cost of a cold search, and the Embedder scores
+    // every batch row against each phrase's vector — an extra dot per phrase,
+    // against a file read it already paid for.
+    let mut pass = corpus_pass(root, &files, &q.phrases, opts, pool, &mut trace);
+    trace.time(Stage::RankBm25, || {
+        if let Some(b) = pass.bm25.as_mut() {
             b.finalize();
-            b.query(query, pool)
         }
-        None => Vec::new(),
     });
-    let semantic = pass.nearest.map(TopK::into_sorted).unwrap_or_default();
-    // The MaxSim rerank has to happen on this path too, and before fusion, or
-    // cold and warm answer the same question differently — the invariant
-    // `cold_and_warm_return_identical_results` exists for. `indexed` reranks
-    // here; this mirrors it against the same chunk texts.
-    let semantic = if opts.maxsim_post {
-        semantic
-    } else {
-        rerank_maxsim(root, &files, &pass.chunks, query, semantic, opts, &mut trace)
-    };
-    let ranked = trace.time(Stage::RankFuse, || {
-        rank::fuse(opts.mode, lexical, semantic, super::fused_width(pool), opts.sem_weight)
-    });
-    // Post-fusion placement, mirroring `indexed`. Both paths must rerank at the
-    // same point or a cached scope answers differently from an uncached one.
-    // Same sign conversion as `indexed::rerank_fused`: fuse emits
-    // higher-is-better, blend_head speaks lower-is-better.
-    let ranked = if opts.maxsim_post && opts.rerank_maxsim {
-        let as_dist: Vec<(u32, f32)> = ranked.iter().map(|&(id, s)| (id, -s)).collect();
-        let o = SearchOptions { maxsim_post: false, ..opts.clone() };
-        rerank_maxsim(root, &files, &pass.chunks, query, as_dist, &o, &mut trace)
-            .into_iter().map(|(id, pd)| (id, -pd)).collect()
-    } else {
-        ranked
-    };
+    let mut nearest = pass.nearest.take();
 
-    // Declaration boost, post-fusion, mirroring `indexed`. Both paths must
-    // apply it at the same point or a cached scope answers differently from an
-    // uncached one — the same contract `rerank_maxsim` above is bound by.
-    let mut ranked = ranked;
-    trace.time(Stage::RankDeclBoost, || {
-        super::apply_decl_boost(&mut ranked, query, opts, |id| {
-            let chunk = pass.chunks[id as usize];
-            let fm = &files[chunk.file_id as usize];
-            corpus::lines(root, &fm.path, &chunk)
-        })
-    });
-
-    let cands = trace.time(Stage::Candidates, || {
-        // A file scope takes every chunk; see `file_scope_candidate_width`.
-        // Only reachable here — a file scope never resolves an index, so the
-        // warm path cannot be asked the same question.
-        let width = if opts.file_scope_window > 0 && root.is_file() {
-            super::file_scope_candidate_width()
+    let mut per_phrase: Vec<Vec<hit::Candidate>> = Vec::with_capacity(q.phrases.len());
+    for (p, query) in q.phrases.iter().enumerate() {
+        let query = query.as_str();
+        let lexical = trace.time(Stage::RankBm25, || match pass.bm25.as_ref() {
+            Some(b) => b.query(query, pool),
+            None => Vec::new(),
+        });
+        let semantic = nearest
+            .as_mut()
+            .map(|heaps| std::mem::replace(&mut heaps[p], TopK::new(0)).into_sorted())
+            .unwrap_or_default();
+        // The MaxSim rerank has to happen on this path too, and before fusion,
+        // or cold and warm answer the same question differently — the
+        // invariant `cold_and_warm_return_identical_results` exists for.
+        // `indexed` reranks here; this mirrors it against the same chunk
+        // texts.
+        let semantic = if opts.maxsim_post {
+            semantic
         } else {
-            super::candidate_width(opts.k)
+            rerank_maxsim(root, &files, &pass.chunks, query, semantic, opts, &mut trace)
         };
-        candidates(ranked, &pass.chunks, &files, width)
-    });
+        let ranked = trace.time(Stage::RankFuse, || {
+            rank::fuse(opts.mode, lexical, semantic, super::fused_width(pool), opts.sem_weight)
+        });
+        // Post-fusion placement, mirroring `indexed`. Both paths must rerank
+        // at the same point or a cached scope answers differently from an
+        // uncached one. Same sign conversion as `indexed::rerank_fused`: fuse
+        // emits higher-is-better, blend_head speaks lower-is-better.
+        let ranked = if opts.maxsim_post && opts.rerank_maxsim {
+            let as_dist: Vec<(u32, f32)> = ranked.iter().map(|&(id, s)| (id, -s)).collect();
+            let o = SearchOptions { maxsim_post: false, ..opts.clone() };
+            rerank_maxsim(root, &files, &pass.chunks, query, as_dist, &o, &mut trace)
+                .into_iter().map(|(id, pd)| (id, -pd)).collect()
+        } else {
+            ranked
+        };
+
+        // Declaration boost, post-fusion, mirroring `indexed`. Both paths must
+        // apply it at the same point or a cached scope answers differently
+        // from an uncached one — the same contract `rerank_maxsim` above is
+        // bound by.
+        let mut ranked = ranked;
+        trace.time(Stage::RankDeclBoost, || {
+            super::apply_decl_boost(&mut ranked, query, opts, |id| {
+                let chunk = pass.chunks[id as usize];
+                let fm = &files[chunk.file_id as usize];
+                corpus::lines(root, &fm.path, &chunk)
+            })
+        });
+
+        per_phrase.push(trace.time(Stage::Candidates, || {
+            // A file scope takes every chunk; see `file_scope_candidate_width`.
+            // Only reachable here — a file scope never resolves an index, so
+            // the warm path cannot be asked the same question.
+            let width = if opts.file_scope_window > 0 && root.is_file() {
+                super::file_scope_candidate_width()
+            } else {
+                super::candidate_width(opts.k)
+            };
+            candidates(ranked, &pass.chunks, &files, width)
+        }));
+    }
+    let cands = if q.is_multi() {
+        super::merge_interleave(per_phrase)
+    } else {
+        per_phrase.pop().expect("one phrase")
+    };
     // No embedding matrix here, so candidate vectors are recomputed on demand.
     // At most a few thousand texts, which is nothing beside the pass just done —
     // but it lands in `finalize:vectors`, which is therefore a much larger
     // number cold than warm under the same name.
-    let fin = hit::finalize(root, query, cands, opts, "", &mut trace, |c| {
+    let fin = hit::finalize(root, q, cands, opts, "", &mut trace, |c| {
         let fm = &files[c.chunk.file_id as usize];
         let text = corpus::lines(root, &fm.path, &c.chunk)?;
         let doc = corpus::doc_text(&fm.path, &text);
@@ -109,6 +131,10 @@ pub fn run(
             files_walked: files.len(),
             floored: fin.floored,
             best_signal: fin.best_signal,
+            n_phrases: q.phrases.len(),
+            phrase_signals: fin.phrase_signals,
+            phrases: q.is_multi().then(|| q.phrases.clone()),
+            floored_mask: fin.floored_mask,
             stages: trace.finish(),
             ..Default::default()
         },
@@ -121,16 +147,18 @@ pub fn run(
 struct Pass {
     chunks: Vec<Chunk>,
     bm25: Option<Bm25Index>,
-    /// The k nearest chunks seen so far. A heap, not a matrix — this is what
-    /// keeps a cold semantic search's memory independent of corpus size.
-    nearest: Option<TopK>,
+    /// The k nearest chunks seen so far, one heap per phrase. Heaps, not a
+    /// matrix — this is what keeps a cold semantic search's memory
+    /// independent of corpus size, and per-phrase because each phrase is its
+    /// own retrieval (RESEARCH.md §31).
+    nearest: Option<Vec<TopK>>,
 }
 
 /// Read, chunk, tokenize, and embed the corpus, keeping only the query's answer.
 fn corpus_pass(
     root: &Path,
     files: &[FileMeta],
-    query: &str,
+    phrases: &[String],
     opts: &SearchOptions,
     pool: usize,
     trace: &mut Trace,
@@ -145,8 +173,11 @@ fn corpus_pass(
     // a path whose entire job is embedding.
     let mut embedder = trace.time(Stage::RankEmbedQuery, || {
         want_sem.then(|| {
-            let q = text::embed_query(&text::prose_render_query(query, opts.embed_preproc));
-            Embedder::new(q, pool, opts.embed_preproc, opts.path_render)
+            let qs: Vec<[f32; crate::EMBED_DIM]> = phrases
+                .iter()
+                .map(|p| text::embed_query(&text::prose_render_query(p, opts.embed_preproc)))
+                .collect();
+            Embedder::new(qs, pool, opts.embed_preproc, opts.path_render)
         })
     });
 
@@ -190,9 +221,12 @@ fn corpus_pass(
 /// "the index is a cache" would be false for semantic search. Quantizing costs a
 /// multiply and a round per dimension, against an embedding per chunk.
 struct Embedder {
-    query: Vec<i8>,
+    /// One quantized query per phrase; each batch row is dotted against all
+    /// of them — an extra 256-wide dot per phrase against a file read the
+    /// pass already paid for (RESEARCH.md §31).
+    queries: Vec<Vec<i8>>,
     pending: Vec<(u32, String)>,
-    nearest: TopK,
+    nearest: Vec<TopK>,
     embed_ms: f64,
     /// Same rendering the build side applies, or cold and warm diverge.
     preproc: text::EmbedPreproc,
@@ -205,17 +239,22 @@ impl Embedder {
     const BATCH: usize = 1024;
 
     fn new(
-        query: [f32; crate::EMBED_DIM],
+        queries: Vec<[f32; crate::EMBED_DIM]>,
         k: usize,
         preproc: text::EmbedPreproc,
         path_render: text::PathRender,
     ) -> Self {
-        let mut q = query;
-        rank::normalize(&mut q);
+        let n = queries.len();
         Self {
-            query: rank::quantize_i8(&q),
+            queries: queries
+                .into_iter()
+                .map(|mut q| {
+                    rank::normalize(&mut q);
+                    rank::quantize_i8(&q)
+                })
+                .collect(),
             pending: Vec::with_capacity(Self::BATCH),
-            nearest: TopK::new(k),
+            nearest: (0..n).map(|_| TopK::new(k)).collect(),
             path_render,
             embed_ms: 0.0,
             preproc,
@@ -229,8 +268,8 @@ impl Embedder {
         }
     }
 
-    /// The heap, and the milliseconds spent embedding.
-    fn finish(mut self) -> (TopK, f64) {
+    /// The heaps, and the milliseconds spent embedding.
+    fn finish(mut self) -> (Vec<TopK>, f64) {
         self.flush();
         (self.nearest, self.embed_ms)
     }
@@ -250,7 +289,10 @@ impl Embedder {
             // Exactly what store::build writes into emb.bin, so the two paths
             // score the same numbers.
             rank::normalize(v);
-            self.nearest.push(*id, rank::dot_distance_i8(&self.query, &rank::quantize_i8(v)));
+            let v_i8 = rank::quantize_i8(v);
+            for (q, heap) in self.queries.iter().zip(self.nearest.iter_mut()) {
+                heap.push(*id, rank::dot_distance_i8(q, &v_i8));
+            }
         }
         self.embed_ms += elapsed_ms(start);
         self.pending.clear();
@@ -274,6 +316,7 @@ fn candidates(
                 chunk,
                 path: files[chunk.file_id as usize].path.clone(),
                 score,
+                phrases: 1,
                 fine: None,
             }
         })

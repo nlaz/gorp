@@ -433,6 +433,11 @@ pub struct SearchHit {
     pub chunk_start_line: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chunk_end_line: Option<u32>,
+    /// Which phrase of a multi-phrase query this hit answers (RESEARCH.md
+    /// §31), 0-based into `SearchReport::phrases`. `None` for single-phrase
+    /// queries — not `Some(0)` — so their JSON is byte-identical to before.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub phrase: Option<u32>,
     /// The passage shown for this hit, when the caller asked for more than one
     /// line ([`SearchOptions::passage_lines`], RESEARCH.md §26).
     ///
@@ -487,6 +492,23 @@ pub struct SearchReport {
     /// on success so a calibration campaign can join score to outcome without
     /// re-running anything.
     pub best_signal: Option<f32>,
+    /// How many phrases the query split into (RESEARCH.md §31). 1 for every
+    /// query without a pipe. Lives here and not in the options envelope
+    /// because the split happens inside the engine — the CLI never knows it.
+    pub n_phrases: usize,
+    /// Per-phrase floor signals, `Some` only for a multi-phrase query with a
+    /// floor set; index-aligned with [`SearchReport::phrases`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub phrase_signals: Option<Vec<f32>>,
+    /// The phrase strings, `Some` only when the query split — the footer's
+    /// per-phrase verdicts read from here rather than re-running the split.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub phrases: Option<Vec<String>>,
+    /// Which phrases the floor refused (bit i = phrase i). The engine's
+    /// decision, exported — the footer cannot re-derive it without the
+    /// threshold, and re-deriving decisions is how displays drift from
+    /// engines.
+    pub floored_mask: u8,
     /// Performance provenance: every stage on this path's schedule, in order,
     /// zero-filled where a stage did not run. Fixed shape, so two runs are
     /// comparable without special-casing which optional stages fired.
@@ -563,11 +585,115 @@ impl std::error::Error for DriftTooLarge {}
 /// the query it delayed rather than only in `total_ms`.
 pub(crate) type Prelude = Vec<(Stage, f64)>;
 
+/// The most phrases one query may carry. Bounds the retriever bitmask (`u8`)
+/// and the quadratic dedupe; real usage is 2–3 alternates (RESEARCH.md §31).
+pub const MAX_PHRASES: usize = 8;
+
+/// Split a ranked query into phrases on `|` and the grep spelling `\|`
+/// (RESEARCH.md §31). `||` never splits — in every observed case it was a
+/// pasted code line's OR operator, not a separator. Empty parts drop; a query
+/// that yields nothing (all pipes) falls back to itself whole, because a
+/// worse answer is still better than a panic on `sg "|"`.
+///
+/// Public and used by the CLI-side never, deliberately: the split happens
+/// inside [`search`], so a library caller and the CLI cannot disagree about
+/// what a pipe means. Exposed for tests and the eval harness's replay.
+pub fn split_phrases(query: &str) -> Vec<String> {
+    // No pipe, no parsing: the common case must be byte-preserving, including
+    // a legitimate trailing backslash that the splitter below would eat.
+    if !query.contains('|') {
+        return vec![query.to_string()];
+    }
+    // Argv strings cannot contain NUL, so it is a safe sentinel.
+    const SENTINEL: &str = "\u{0}\u{0}";
+    let protected = query.replace("||", SENTINEL);
+    let parts: Vec<&str> = protected.split('|').collect();
+    let split_happened = parts.len() > 1;
+    let mut phrases: Vec<String> = parts
+        .into_iter()
+        // "a\|b" splits into ["a\", "b"]: the escape rides the left part and
+        // is separator syntax, not content. Only stripped when a split
+        // actually happened, so a lone "foo\" stays itself.
+        .map(|p| if split_happened { p.strip_suffix('\\').unwrap_or(p) } else { p })
+        .map(|p| p.replace(SENTINEL, "||"))
+        .map(|p| p.trim().to_string())
+        .filter(|p| !p.is_empty())
+        .collect();
+    if phrases.is_empty() {
+        phrases.push(query.to_string());
+    }
+    phrases.truncate(MAX_PHRASES);
+    phrases
+}
+
+/// A parsed ranked query: the raw string (BM25 tokenization of the whole, the
+/// snapshot identity) and its phrases. `phrases.len() == 1` is the promise
+/// that everything downstream takes the pre-§31 code path exactly.
+pub(crate) struct Query {
+    pub raw: String,
+    pub phrases: Vec<String>,
+}
+
+impl Query {
+    pub fn parse(raw: &str) -> Self {
+        Self { raw: raw.to_string(), phrases: split_phrases(raw) }
+    }
+
+    pub fn is_multi(&self) -> bool {
+        self.phrases.len() > 1
+    }
+}
+
+/// Merge per-phrase candidate lists into one pool: round-robin by per-phrase
+/// rank, deduped by chunk id with retriever masks unioned (RESEARCH.md §31).
+///
+/// Coarse scores min-max normalize *within each phrase's list first*, because
+/// they are not comparable across lists — hybrid's RRF scores are pure
+/// functions of rank — and both `fine_blend < 1` and the `--no-fine` MMR
+/// fallback read `Candidate::score` across the merged pool. Interleaving by
+/// rank rather than by score is the same fact from the other side: rank is
+/// the only cross-phrase ordering the coarse stage can honestly claim.
+pub(crate) fn merge_interleave(mut per_phrase: Vec<Vec<hit::Candidate>>) -> Vec<hit::Candidate> {
+    for (p, list) in per_phrase.iter_mut().enumerate() {
+        let (lo, hi) = list
+            .iter()
+            .fold((f32::INFINITY, f32::NEG_INFINITY), |(l, h), c| (l.min(c.score), h.max(c.score)));
+        for c in list.iter_mut() {
+            c.score = if hi > lo { (c.score - lo) / (hi - lo) } else { 1.0 };
+            c.phrases = 1 << p;
+        }
+    }
+    let mut out: Vec<hit::Candidate> = Vec::new();
+    let mut seen: std::collections::HashMap<u32, usize> = std::collections::HashMap::new();
+    let longest = per_phrase.iter().map(Vec::len).max().unwrap_or(0);
+    for rank in 0..longest {
+        for list in per_phrase.iter_mut() {
+            if rank >= list.len() {
+                continue;
+            }
+            let c = list[rank].clone();
+            match seen.get(&c.id) {
+                Some(&j) => out[j].phrases |= c.phrases,
+                None => {
+                    seen.insert(c.id, out.len());
+                    out.push(c);
+                }
+            }
+        }
+    }
+    out
+}
+
 pub fn search(root: &Path, query: &str, opts: &SearchOptions) -> Result<SearchResult> {
     let t0 = Instant::now();
     if opts.mode == Mode::Keyword {
         return keyword_search(root, query, opts, t0);
     }
+    // The phrase split lives here — after the keyword return, so `-e` keeps
+    // regex `|`, and before path selection, so a cached scope and an uncached
+    // one parse one query the same way (RESEARCH.md §31).
+    let query = Query::parse(query);
+    let query = &query;
 
     // A file scope is a different search, and cheap enough to do better
     // (RESEARCH.md §24.1). 55% of real agent searches name a single file, the
@@ -751,6 +877,7 @@ fn keyword_search(
                 score: 1.0,
                 chunk_start_line: None,
                 chunk_end_line: None,
+                phrase: None,
                 // Exact mode has no chunk — its "span" is the matched line
                 // itself — so there is no passage to cut and nothing a header
                 // could say that the line does not already.

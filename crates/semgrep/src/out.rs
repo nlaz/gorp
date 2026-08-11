@@ -288,6 +288,25 @@ pub fn footer(mode: Mode, result: &SearchResult, shown: usize, suggested: bool) 
         );
         return;
     }
+    // Partial floor on a multi-phrase query (§31): some phrases answered,
+    // these did not. Naming the dead branch is the whole point — the agent
+    // learns WHICH candidate to abandon, which a bare result list cannot say.
+    // Printed above the hint suppression for the same reason the full refusal
+    // is: a per-phrase verdict is a result. Verbatim, clipped — the footer
+    // echoes what the agent can rephrase, not a normalization it never typed.
+    if result.report.floored_mask != 0
+        && let Some(phrases) = &result.report.phrases
+    {
+        for (i, p) in phrases.iter().enumerate() {
+            if result.report.floored_mask & (1 << i) != 0 {
+                let shown: String = p.chars().take(60).collect();
+                eprintln!(
+                    "semgrep: nothing matched '{shown}' strongly enough — that \
+                     part of the query may not be covered here"
+                );
+            }
+        }
+    }
     // Ranked footers do not name `-e`. They used to, with the caller's own
     // query interpolated, and that one line was the strongest posture lever
     // measured in this project: suppressing it moved an agent's ranked share

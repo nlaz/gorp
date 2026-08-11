@@ -279,6 +279,49 @@ fn ranked_search_also_keeps_stdout_clean() {
     assert!(r.stderr.contains("semgrep:"));
 }
 
+/// §31: a multi-phrase query keeps the stdout contract — every line is still
+/// `path:line:text` — and the JSON grows a `phrase` field ONLY at K>1, so a
+/// single-phrase consumer sees the schema it always saw.
+#[test]
+fn multi_phrase_queries_keep_the_output_contract() {
+    let sg = Sg::new();
+    let r = sg.run(&["compute the backoff delay | validate a session token", "-k", "4"]);
+    assert_eq!(r.code, 0, "stderr: {}", r.stderr);
+    for line in r.lines().into_iter().filter(|l| !l.trim().is_empty()) {
+        let mut parts = line.splitn(3, ':');
+        parts.next();
+        assert!(
+            parts.next().map(|n| n.parse::<u32>().is_ok()).unwrap_or(false),
+            "still path:line:text: {line:?}"
+        );
+    }
+    let j = sg.run(&["compute the backoff delay | validate a session token", "--json", "-k", "4"]);
+    assert!(j.stdout.contains("\"phrase\":"), "multi-phrase JSON carries the phrase index");
+    let j1 = sg.run(&["compute the backoff delay", "--json", "-k", "4"]);
+    assert!(!j1.stdout.contains("\"phrase\":"), "single-phrase JSON is unchanged");
+}
+
+/// §31 + §29.2: the partial-floor verdict names the dead phrase on stderr and
+/// survives SEMGREP_NO_HINTS, because a verdict is a result, not a hint.
+#[test]
+fn a_dead_phrase_is_named_on_stderr() {
+    let sg = Sg::new();
+    let r = sg.run_in_env(
+        &["compute the backoff delay | quantum chromodynamics lattice gauge",
+          "--min-score", "0.42"],
+        &corpus(),
+        &[("SEMGREP_NO_HINTS", "1")],
+    );
+    assert_eq!(r.code, 0, "the live phrase still answers: {}", r.stderr);
+    assert!(!r.stdout.is_empty());
+    assert!(
+        r.stderr.contains("nothing matched 'quantum chromodynamics lattice gauge'"),
+        "the dead phrase is named: {}",
+        r.stderr
+    );
+    assert!(!r.stderr.contains("--min-score"), "no flag in the verdict");
+}
+
 // ---------------------------------------------------------------------------
 // exact mode == grep semantics
 // ---------------------------------------------------------------------------

@@ -16,6 +16,12 @@ pub struct Candidate {
     pub chunk: Chunk,
     pub path: String,
     pub score: f32,
+    /// Which phrases of the query retrieved this candidate, as a bitmask over
+    /// `Query::phrases` (bit 0 = first phrase). Single-phrase queries set bit
+    /// 0 everywhere. Every dedupe that drops a candidate must union its mask
+    /// into the survivor (RESEARCH.md §31): a phrase whose only representative
+    /// dies by stride accident would otherwise read spuriously floored.
+    pub phrases: u8,
     /// The best few-line window inside this chunk, once the fine rerank has
     /// scored it. `None` until then, and stays `None` when the rerank is off
     /// or the file could not be re-read.
@@ -24,13 +30,17 @@ pub struct Candidate {
 
 /// The fine rerank's verdict on one candidate: the sub-window of its chunk
 /// that matches the query best, and how well (cosine in the fine space,
-/// [-1, 1], comparable across queries).
+/// [-1, 1], comparable across queries — and across phrases, which is what
+/// lets a merged multi-phrase pool be ordered by one number).
 #[derive(Debug, Clone, Copy)]
 pub struct Fine {
     /// 1-based, inclusive, blank edges already trimmed.
     pub start_line: u32,
     pub end_line: u32,
     pub score: f32,
+    /// Index of the phrase this window scored best against (0 for a
+    /// single-phrase query).
+    pub phrase: u8,
 }
 
 /// What finalization produced, and whether the score floor refused it.
@@ -40,6 +50,13 @@ pub struct Finalized {
     pub hits: Vec<SearchHit>,
     pub floored: bool,
     pub best_signal: Option<f32>,
+    /// Per-phrase best signals, `Some` only for a multi-phrase query with a
+    /// floor set — the footer's "nothing matched 'X'" reads from this.
+    pub phrase_signals: Option<Vec<f32>>,
+    /// Which phrases the floor refused, as a bitmask aligned with
+    /// `Query::phrases`. The decision is made here, once — the footer must
+    /// not re-derive it, because it does not know the threshold.
+    pub floored_mask: u8,
 }
 
 /// Shared tail of both search paths. `vec_of` supplies the embedding for a
@@ -56,7 +73,7 @@ pub struct Finalized {
 #[allow(clippy::too_many_arguments)]
 pub fn finalize(
     root: &Path,
-    query: &str,
+    q: &super::Query,
     mut cands: Vec<Candidate>,
     opts: &SearchOptions,
     strip: &str,
@@ -79,34 +96,84 @@ pub fn finalize(
     let mut kept: Vec<Candidate> = trace.time(Stage::FinalizeDedupe, || {
         let mut kept: Vec<Candidate> = Vec::with_capacity(cands.len());
         for c in cands.drain(..) {
-            let dup = kept.iter().any(|k| k.path == c.path && overlaps(k, &c, opts.dedupe_overlap));
-            if !dup {
-                kept.push(c);
+            match kept
+                .iter_mut()
+                .find(|k| k.path == c.path && overlaps(k, &c, opts.dedupe_overlap))
+            {
+                // The dropped near-duplicate's retrievers survive on its
+                // killer (§31): two phrases hitting adjacent strided chunks
+                // of one function collapse to one candidate that still
+                // answers for both.
+                Some(k) => k.phrases |= c.phrases,
+                None => kept.push(c),
             }
         }
         kept
     });
 
     // Fine rerank: pick the best few-line window inside each surviving chunk
-    // and let the windows' scores order the list (RESEARCH.md §28.2). Between
-    // dedupe and MMR because dedupe is a property of the chunks and MMR must
-    // rank what will actually be shown.
-    let relevance: Option<Vec<f32>> = trace.time(Stage::FinalizeFine, || {
+    // and let the windows' scores order the list (RESEARCH.md §28.2, §31).
+    // Between dedupe and MMR because dedupe is a property of the chunks and
+    // MMR must rank what will actually be shown.
+    let fine_out: Option<(Vec<f32>, Vec<f32>)> = trace.time(Stage::FinalizeFine, || {
         (opts.fine_rerank && opts.fine_lines >= 1)
-            .then(|| fine_rerank(root, query, &mut kept, opts))
+            .then(|| fine_rerank(root, &q.phrases, &mut kept, opts))
     });
+    let mut relevance: Option<Vec<f32>> = fine_out.as_ref().map(|(r, _)| r.clone());
 
-    // The score floor (§28.2): set-level, before MMR and truncation, on the
-    // best candidate's cross-query-comparable signal. Judged here — the tail
+    // The score floor (§28.2, per-phrase since §31): judged here — the tail
     // both paths share — so a cached scope refuses exactly what an uncached
-    // one refuses.
-    let best_signal = (opts.min_score > 0.0 && !kept.is_empty())
-        .then(|| trace.time(Stage::FinalizeFine, || pool_signal(query, &kept, &relevance, &vec_of)))
-        .flatten();
-    if let Some(s) = best_signal
-        && s < opts.min_score
-    {
-        return Finalized { hits: Vec::new(), floored: true, best_signal };
+    // one refuses. A floored phrase's exclusive candidates drop while the
+    // other phrases still answer; only all-phrases-floored refuses outright.
+    let mut phrase_signals: Option<Vec<f32>> = None;
+    let mut best_signal: Option<f32> = None;
+    let mut kept_floored_mask: u8 = 0;
+    if opts.min_score > 0.0 && !kept.is_empty() {
+        let signals = match &fine_out {
+            Some((_, per_phrase)) => per_phrase.clone(),
+            None => trace.time(Stage::FinalizeFine, || {
+                pool_signal_coarse(&q.phrases, &kept, &vec_of)
+            }),
+        };
+        let finite_max =
+            signals.iter().copied().filter(|s| s.is_finite()).fold(f32::NEG_INFINITY, f32::max);
+        best_signal = finite_max.is_finite().then_some(finite_max);
+        // A phrase with no finite signal (nothing scorable) abstains rather
+        // than counting as floored — refusing on no evidence is worse than
+        // answering weakly.
+        let floored_mask: u8 = signals
+            .iter()
+            .enumerate()
+            .filter(|(_, s)| s.is_finite() && **s < opts.min_score)
+            .fold(0u8, |m, (i, _)| m | (1 << i));
+        let all_mask: u8 = (0..q.phrases.len()).fold(0u8, |m, i| m | (1 << i));
+        if q.is_multi() {
+            phrase_signals = Some(signals);
+        }
+        if floored_mask == all_mask && best_signal.is_some() {
+            return Finalized {
+                hits: Vec::new(),
+                floored: true,
+                best_signal,
+                phrase_signals,
+                floored_mask,
+            };
+        }
+        kept_floored_mask = floored_mask;
+        if floored_mask != 0 {
+            // Candidates only a floored phrase retrieved carry nothing the
+            // surviving phrases asked for. The relevance vector filters in
+            // lockstep — recomputing it would lose the blended semantics
+            // `fine_rerank` already resolved.
+            let keep_idx: Vec<bool> =
+                kept.iter().map(|c| c.phrases & !floored_mask != 0).collect();
+            let mut it = keep_idx.iter();
+            kept.retain(|_| *it.next().expect("aligned"));
+            if let Some(r) = relevance.as_mut() {
+                let mut it = keep_idx.iter();
+                r.retain(|_| *it.next().expect("aligned"));
+            }
+        }
     }
 
     // MMR: greedily pick relevant-but-dissimilar candidates so the top-k
@@ -126,52 +193,113 @@ pub fn finalize(
     };
 
     let hits = trace.time(Stage::FinalizeMaterialize, || {
-        let query_tokens: HashSet<String> = tokenize::tokens(query).into_iter().collect();
+        // One token set per phrase, so the best-line anchor inside a hit is
+        // chosen by the phrase that retrieved it, not by a union that could
+        // anchor phrase A's window on phrase B's word.
+        let phrase_tokens: Vec<HashSet<String>> =
+            q.phrases.iter().map(|p| tokenize::tokens(p).into_iter().collect()).collect();
+        let materialize_one = |c: &Candidate| -> Option<SearchHit> {
+            let toks = &phrase_tokens[c.fine.map_or(0, |f| f.phrase as usize)];
+            let mut hit = materialize(root, c, toks, opts)?;
+            if !strip.is_empty()
+                && let Some(rest) = hit.path.strip_prefix(&format!("{strip}/"))
+            {
+                hit.path = rest.to_string();
+            }
+            if q.is_multi() {
+                hit.phrase = c.fine.map(|f| f.phrase as u32);
+            }
+            Some(hit)
+        };
         let mut hits = Vec::with_capacity(opts.k);
+        let mut used: Vec<usize> = Vec::new();
         for i in order {
-            let c = &kept[i];
-            if let Some(mut hit) = materialize(root, c, &query_tokens, opts) {
-                if !strip.is_empty()
-                    && let Some(rest) = hit.path.strip_prefix(&format!("{strip}/"))
-                {
-                    hit.path = rest.to_string();
-                }
+            if let Some(hit) = materialize_one(&kept[i]) {
                 hits.push(hit);
+                used.push(i);
             }
             if hits.len() == opts.k {
                 break;
             }
         }
+        // Representation pass (§31): a phrase that retrieved candidates and
+        // was not floored deserves at least its best hit in the top-k —
+        // otherwise one hot phrase eats every slot an agent will read. One
+        // bounded swap per absent phrase, replacing a hit of the
+        // most-represented phrase, lowest-ranked first.
+        if q.is_multi() {
+            for p in 0..q.phrases.len() as u8 {
+                if kept_floored_mask & (1 << p) != 0 {
+                    continue; // a floored phrase never pins (§31)
+                }
+                let present = hits
+                    .iter()
+                    .any(|h| h.phrase == Some(p as u32));
+                if present {
+                    continue;
+                }
+                let Some(best) = (0..kept.len())
+                    .filter(|i| !used.contains(i))
+                    .filter(|&i| kept[i].fine.is_some_and(|f| f.phrase == p))
+                    .max_by(|&a, &b| {
+                        let fa = kept[a].fine.expect("filtered").score;
+                        let fb = kept[b].fine.expect("filtered").score;
+                        fa.total_cmp(&fb)
+                    })
+                else {
+                    continue;
+                };
+                let Some(hit) = materialize_one(&kept[best]) else { continue };
+                if hits.len() < opts.k {
+                    hits.push(hit);
+                    used.push(best);
+                    continue;
+                }
+                // Evict the lowest-ranked hit of the most-represented phrase.
+                let mut counts = std::collections::HashMap::new();
+                for h in &hits {
+                    *counts.entry(h.phrase).or_insert(0usize) += 1;
+                }
+                let Some((victim_idx, _)) = hits
+                    .iter()
+                    .enumerate()
+                    .max_by_key(|(i, h)| (counts[&h.phrase], *i))
+                else {
+                    continue;
+                };
+                hits[victim_idx] = hit;
+                used.push(best);
+            }
+        }
         hits
     });
-    Finalized { hits, floored: false, best_signal }
+    Finalized { hits, floored: false, best_signal, phrase_signals, floored_mask: kept_floored_mask }
 }
 
-/// The floor's signal for the pool: the best fine-window cosine when the fine
-/// rerank ran, else the best chunk-embedding cosine through the same stored
-/// quantization MMR diversifies with. `None` when nothing was scorable —
-/// every file unreadable — in which case the floor abstains rather than
-/// refusing on no evidence.
-fn pool_signal(
-    query: &str,
+/// The floor's fallback signal when the fine rerank is off: per-phrase best
+/// chunk-embedding cosine, each phrase judged only against the candidates it
+/// retrieved, through the same stored quantization MMR diversifies with.
+/// `NEG_INFINITY` for a phrase with nothing scorable, and the caller treats
+/// that as abstention — refusing on no evidence is worse than answering.
+fn pool_signal_coarse(
+    phrases: &[String],
     kept: &[Candidate],
-    relevance: &Option<Vec<f32>>,
     vec_of: &impl Fn(&Candidate) -> Option<Vec<f32>>,
-) -> Option<f32> {
-    let s = if relevance.is_some() {
-        kept.iter()
-            .filter_map(|c| c.fine.map(|f| f.score))
-            .fold(f32::NEG_INFINITY, f32::max)
-    } else {
-        let mut q = text::embed_query(query);
-        rank::normalize(&mut q);
-        let q = rank::as_stored(&q);
-        kept.iter()
-            .filter_map(vec_of)
-            .map(|v| 1.0 - rank::distance(&q, &v))
-            .fold(f32::NEG_INFINITY, f32::max)
-    };
-    s.is_finite().then_some(s)
+) -> Vec<f32> {
+    phrases
+        .iter()
+        .enumerate()
+        .map(|(p, phrase)| {
+            let mut q = text::embed_query(phrase);
+            rank::normalize(&mut q);
+            let q = rank::as_stored(&q);
+            kept.iter()
+                .filter(|c| c.phrases & (1 << p) != 0)
+                .filter_map(vec_of)
+                .map(|v| 1.0 - rank::distance(&q, &v))
+                .fold(f32::NEG_INFINITY, f32::max)
+        })
+        .collect()
 }
 
 /// Score every `fine_lines`-tall window of each candidate's chunk against the
@@ -188,24 +316,36 @@ fn pool_signal(
 /// the tail in its original relative order — the same "unscorable sinks, is
 /// not dropped" rule the MaxSim head uses, because dropping here would
 /// silently change the pool that dedupe already shaped.
+/// Returns `(relevance for MMR, per-phrase best signals)`, both the products
+/// of one scoring pass. The per-phrase maxes must be tracked *here*, across
+/// every (candidate, retriever) evaluation — `Fine` keeps only each
+/// candidate's winning phrase, so a phrase that always came second would
+/// otherwise read spuriously floored (§31).
 fn fine_rerank(
     root: &Path,
-    query: &str,
+    phrases: &[String],
     kept: &mut Vec<Candidate>,
     opts: &SearchOptions,
-) -> Vec<f32> {
-    let q_i8 = {
-        let mut q = text::embed_query(query);
-        rank::normalize(&mut q);
-        rank::quantize_i8(&q)
-    };
-    use rayon::prelude::*;
-    let fines: Vec<Option<Fine>> = kept
-        .par_iter()
-        .map(|c| best_window(root, c, &q_i8, opts.fine_lines as usize))
+) -> (Vec<f32>, Vec<f32>) {
+    let queries: Vec<Vec<i8>> = phrases
+        .iter()
+        .map(|p| {
+            let mut q = text::embed_query(p);
+            rank::normalize(&mut q);
+            rank::quantize_i8(&q)
+        })
         .collect();
-    for (c, fine) in kept.iter_mut().zip(fines) {
+    use rayon::prelude::*;
+    let scored: Vec<(Option<Fine>, Vec<f32>)> = kept
+        .par_iter()
+        .map(|c| best_window(root, c, &queries, opts.fine_lines as usize))
+        .collect();
+    let mut per_phrase = vec![f32::NEG_INFINITY; phrases.len()];
+    for ((c, (fine, maxes))) in kept.iter_mut().zip(scored) {
         c.fine = fine;
+        for (p, m) in maxes.into_iter().enumerate() {
+            per_phrase[p] = per_phrase[p].max(m);
+        }
     }
 
     // Order: scored candidates by blended score, unscored after them in their
@@ -232,17 +372,20 @@ fn fine_rerank(
 
     // Two strided neighbours can elect the *same* lines from their shared
     // region; showing both restates one answer twice. Same-file windows that
-    // overlap by half the shorter span collapse to the higher-ranked one.
+    // overlap by half the shorter span collapse to the higher-ranked one —
+    // which inherits the dropped window's retrievers (§31), same rule as the
+    // chunk dedupe and for the same reason.
     let mut survivors: Vec<Candidate> = Vec::with_capacity(kept.len());
     for c in kept.drain(..) {
-        let dup = c.fine.is_some_and(|f| {
-            survivors.iter().any(|s| {
+        let killer = c.fine.and_then(|f| {
+            survivors.iter().position(|s| {
                 s.path == c.path
                     && s.fine.is_some_and(|sf| window_overlaps(&sf, &f))
             })
         });
-        if !dup {
-            survivors.push(c);
+        match killer {
+            Some(j) => survivors[j].phrases |= c.phrases,
+            None => survivors.push(c),
         }
     }
     *kept = survivors;
@@ -256,7 +399,8 @@ fn fine_rerank(
         .fold(f32::INFINITY, f32::min);
     let base = if scored_min.is_finite() { scored_min } else { 0.0 };
     let mut tail = 0;
-    kept.iter()
+    let relevance = kept
+        .iter()
         .map(|c| {
             if c.fine.is_some() {
                 blended(c)
@@ -265,20 +409,35 @@ fn fine_rerank(
                 base - 0.001 * tail as f32
             }
         })
-        .collect()
+        .collect();
+    (relevance, per_phrase)
 }
 
-/// The best `fine_lines`-tall window of one chunk, scored against the
-/// pre-quantized query vector. Ties go to the earliest window, and the winner
-/// is trimmed of blank edge lines before its span is recorded.
-fn best_window(root: &Path, c: &Candidate, q_i8: &[i8], w: usize) -> Option<Fine> {
-    let body = corpus::lines(root, &c.path, &c.chunk)?;
+/// The best `fine_lines`-tall window of one chunk, scored against every
+/// phrase that retrieved this candidate — each window embedded ONCE and
+/// dotted per retriever, so a doubly-retrieved chunk does not pay double
+/// embedding. Ties go to the earliest window, and the winner is trimmed of
+/// blank edge lines before its span is recorded.
+///
+/// Also returns this candidate's best score per phrase (NEG_INFINITY for
+/// phrases that did not retrieve it), which `fine_rerank` folds into the
+/// per-phrase floor signals.
+fn best_window(
+    root: &Path,
+    c: &Candidate,
+    queries: &[Vec<i8>],
+    w: usize,
+) -> (Option<Fine>, Vec<f32>) {
+    let mut maxes = vec![f32::NEG_INFINITY; queries.len()];
+    let Some(body) = corpus::lines(root, &c.path, &c.chunk) else {
+        return (None, maxes);
+    };
     let lines: Vec<&str> = body.lines().collect();
     if lines.is_empty() {
-        return None;
+        return (None, maxes);
     }
     let w = w.min(lines.len());
-    let mut best: Option<(usize, f32)> = None;
+    let mut best: Option<(usize, u8, f32)> = None;
     for start in 0..=lines.len() - w {
         let window = &lines[start..start + w];
         if window.iter().all(|l| l.trim().is_empty()) {
@@ -286,13 +445,22 @@ fn best_window(root: &Path, c: &Candidate, q_i8: &[i8], w: usize) -> Option<Fine
         }
         let mut v = text::embed_query(&window.join("\n"));
         rank::normalize(&mut v);
-        let score = 1.0 - rank::dot_distance_i8(q_i8, &rank::quantize_i8(&v));
-        match best {
-            Some((_, s)) if s >= score => {}
-            _ => best = Some((start, score)),
+        let v_i8 = rank::quantize_i8(&v);
+        for (p, q_i8) in queries.iter().enumerate() {
+            if c.phrases & (1 << p) == 0 {
+                continue;
+            }
+            let score = 1.0 - rank::dot_distance_i8(q_i8, &v_i8);
+            maxes[p] = maxes[p].max(score);
+            match best {
+                Some((_, _, s)) if s >= score => {}
+                _ => best = Some((start, p as u8, score)),
+            }
         }
     }
-    let (start, score) = best?;
+    let Some((start, phrase, score)) = best else {
+        return (None, maxes);
+    };
     let mut lo = start;
     let mut hi = start + w - 1;
     while lo < hi && lines[lo].trim().is_empty() {
@@ -301,11 +469,13 @@ fn best_window(root: &Path, c: &Candidate, q_i8: &[i8], w: usize) -> Option<Fine
     while hi > lo && lines[hi].trim().is_empty() {
         hi -= 1;
     }
-    Some(Fine {
+    let fine = Fine {
         start_line: c.chunk.start_line + lo as u32,
         end_line: c.chunk.start_line + hi as u32,
         score,
-    })
+        phrase,
+    };
+    (Some(fine), maxes)
 }
 
 /// Do two fine windows in the same file share at least half the shorter one?
@@ -519,6 +689,9 @@ fn materialize(
         score: c.fine.map_or(c.score, |f| f.score),
         chunk_start_line: c.fine.map(|_| chunk.start_line),
         chunk_end_line: c.fine.map(|_| chunk.end_line),
+        // The caller (finalize) overwrites this for a multi-phrase query; a
+        // single-phrase hit stays None so its JSON is unchanged.
+        phrase: None,
         lines,
         lines_from,
         // Dedupe late rather than while collecting: a name declared twice in
