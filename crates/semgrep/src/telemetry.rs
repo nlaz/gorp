@@ -138,6 +138,7 @@ fn opts_block(opts: &SearchOptions) -> Value {
             "window": opts.params.window,
             "overlap": opts.params.overlap,
             "max_file_bytes": opts.params.max_file_bytes,
+            "function": opts.params.function,
         },
         "keyword": {
             "case_insensitive": opts.keyword.case_insensitive,

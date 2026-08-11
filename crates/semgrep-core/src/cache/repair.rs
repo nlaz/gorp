@@ -224,7 +224,7 @@ pub fn scope(
         // index is an obvious optimization; this is what keeps it from
         // resurrecting the bug.
         let Some(text) = corpus::read_text(&corpus::resolve(&d.root, path)) else { continue };
-        for (chunk, slice) in corpus::chunk_lines(0, &text, &idx.meta.params) {
+        for (chunk, slice) in corpus::chunk_lines(0, path, &text, &idx.meta.params) {
             let doc = corpus::doc_text(path, slice);
             delta.bm25.add_doc(&doc);
             delta.chunks.push(chunk);

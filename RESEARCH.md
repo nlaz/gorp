@@ -6672,3 +6672,683 @@ Unmeasured, and it should be said plainly: every number in §26.4 is coverage
 and bytes. Whether 4 lines of prose is *enough to act on* where 20 lines of C
 is has not been tested on an agent, and §25's labels are the standing warning
 about exactly that inference.
+
+## 27 Claude Code with semgrep enabled, on SWE-Explore (2026-08-08)
+
+Every agent-scale result this project has — §16 through §26 — was measured on
+Loc-Bench, and measuring the measuring instrument found three limits that bound
+all of them.
+
+**It is 100% Python.** All 1,149 gold files across 560 instances are `.py`. The
+whole-passage win (§25), the 800-character budget (§26.4) and desc-v9 are
+Python results carrying a cross-language recommendation.
+
+**A sixth of every campaign was inert.** Across 5,394 ok rows, **922 (17.1%)
+never invoked the search tool at all** — and they *out*-score the ones that did,
+0.868 against 0.771 on `file_acc@5`. Inertness tracks the issue-text tier
+exactly: 23.0% in `named`, 12.8% in `partial`, 6.3% in `blind`. A session that
+never searches cannot respond to a search change, so this is very likely the
+mechanism behind §19.10's "agent accuracy is unpurchasable at ±0.038". That was
+read as an instrument limit; a good part of it is frame composition.
+
+**And the benchmark forces a choice nobody faces.** `run.py` removes `Grep`
+from the agent entirely, so §16–§26 measured semgrep *instead of* ripgrep. The
+product question — does semgrep help an agent that **still has grep** — has
+never been asked here.
+
+SWE-Explore (arXiv 2606.07297, June 2026) answers all three. 848 issues over
+203 repositories in **10 languages**; the task is a ranked list of
+`(path, start, end)` at K=5, which is literally semgrep's output shape; and the
+gold is line-level regions derived from what *successful repair trajectories
+actually read*, intersected across ≥2 trajectories and manually audited. Its
+published `claude_code` explorer is stock Claude Code with ripgrep-backed
+`Grep` — the control this project has never run.
+
+### 27.0 What the setup cost, and the four defects it found
+
+Three things about the dataset had to be established before any design was
+possible, and two of them changed it.
+
+**Checkouts are per-instance.** `fetch_repos.py` downloads one tree per
+`instance_id` at its own `base_commit`, so gold line numbers are valid. This
+was the gate that would have invalidated everything and it passes.
+
+**The issue text is not in the dataset.** Upstream resolves it from a
+`unify_trajs/` directory that is not in the repo and not published anywhere we
+could find; without it no agent arm can run. Rebuilt from the three sets the
+instances were drawn from — SWE-bench Verified (451), SWE-bench Multilingual
+(182), SWE-bench Pro (215, after stripping its `instance_` id prefix) —
+**848/848**. That is better provenance than a trajectory dump, and it surfaced
+that Pro's statements are rewritten ("# Description:", curly quotes) rather than
+raw issues, which is a query-distribution difference worth stratifying on.
+
+**No prefetch is possible.** 19 checkouts sampled across all ten languages
+average **32.1 MB** (1.2 MB axum → 113 MB teleport), extrapolating to **26.6 GB**
+for 848 — against 21 GiB free, before indexes, which live inside the checkout.
+So the runner fetches, indexes, runs all three arms and evicts, under a
+byte-capped LRU. An LRU and not a refcount because `eval_runner.py`'s loop is
+explorer-major: each instance is visited once per arm in three separate passes,
+and a refcount freeing after the last arm would never free during the first.
+
+Two properties of the gold are worth recording because they shape which metrics
+mean anything. Core regions per instance: median 4, mean 4.7. Core region
+*size*: **median 5 lines, p90 1,037, max 9,705** — 59.4% are ≤32 lines and
+**29.8% are over 200**, because the trajectories the gold is built from include
+whole-file reads. So `Rec_ℓ` is dominated by the giant regions and `HitRegion`
+by the small ones, and the two answer different questions.
+
+#### The four harness defects
+
+The harness is SWE-Explore's own, patched: their dataset, their prompt, their
+`eval.py`, plus a 98-line purely-additive patch to `eval_runner.py` and three
+new files. Four defects surfaced across four smoke runs costing about four
+dollars. **Every one of them would have produced a clean, publishable, wrong
+number.**
+
+1. **32 leaked MCP tools.** The first smoke exposed 36 tools to the agent, 32
+   of them MCP servers from the operator's own config — Google Drive, Gmail,
+   Playwright. Contamination three ways: capabilities the benchmark never
+   granted, a system prompt inflated by 32 tool schemas, and a configuration
+   nobody else could reproduce. The middle one is the worst, because prompt
+   size *is* cache-creation tokens, which is the co-primary endpoint. Fixed
+   with `--strict-mcp-config` and `--setting-sources ""`; cost per run fell
+   from $0.09–0.51 to $0.03–0.16.
+2. **`--permission-mode dontAsk` does not enforce `--allowedTools`.** It means
+   "do not prompt", not "restrict". With Bash enabled the agent ran
+   `grep -n "n_jobs" sklearn/...` directly and never touched its own tool.
+   locbench never relied on the allowlist for this — it blocks `grep`/`git`
+   with PATH shims (`run.py:477-494`) — and dropping those shims was an error
+   made here. Left in, every Bash-enabled arm does lexical search without
+   invoking its treatment, all three arms converge on shell grep, and the
+   campaign reports a null that means nothing.
+3. **Upstream's prompt steers away from the treatment.** `EXPLORE_PROMPT` says
+   "Use Glob, Grep, and Read tools to explore the codebase." Measured
+   consequence: `bash_calls` was **0** in every arm on every instance, all
+   three arms returned identical answers, and the treatment was simply never
+   delivered. An appended system prompt saying a tool exists does not survive a
+   user prompt naming three others — §25's *availability is not use*, one level
+   up, at the tool surface rather than the passage. The clause is now amended
+   per arm, one tool name added in the same position, with `cc` keeping
+   upstream's prompt byte-for-byte and an assertion that fires if upstream
+   rewords it.
+4. **Silent skips.** Transient archive-API failures under four workers dropped
+   **29 of 31** instances from a pass: the fetch returned `None`, the runner
+   skipped, and the arm simply came back short. Silent skips are the worst
+   failure mode available here because they cost money *and* select which
+   instances get measured. Now retried with backoff.
+
+#### A correction to the paper's own numbers
+
+The tables were first read through an automated HTML fetch, and several model
+labels came back garbled. Checked against the PDF, every quoted number holds —
+Claude Code at HitReg 0.531, HitFile 0.667, CtxEff 0.829, 48.0% downstream
+resolve — but the models do not. The real set is **GPT-5.4**, GPT-5.4-mini,
+Kimi-K2.6, Sonnet-4.5, GLM-4.7, Gemini-3-Pro, and "all agentic explorers are
+driven by GPT-5.4".
+
+**So their "Claude Code" row is the Claude Code *scaffold* routed to GPT-5.4,
+not a Claude model**, and a Sonnet arm cannot reproduce it. Their own Table 5
+prices the swap under a fixed scaffold: GPT-5.4 → Sonnet-4.5 moves HitReg
+0.516 → 0.428 and CtxEff 0.771 → 0.715. The calibration gate is therefore
+retargeted at the Sonnet row and read as a band, not an equality.
+
+### 27.1 The pilot (n=31, exploratory)
+
+Three arms — `cc` (Read, Glob, Grep: upstream's baseline), `cc-rg` (+ `Bash(rg *)`),
+`cc-sg` (+ `Bash(sg *)`) — over a language-stratified 31 that deliberately
+oversamples non-Python (6 Python of 31). Paired, `boot_ci`, 4,000 resamples,
+seed 1.
+
+| endpoint | cc | cc-rg | cc-sg | sg − cc | rg − cc |
+|---|---|---|---|---|---|
+| hitRegion@5 | 0.432 | 0.436 | 0.494 | **+0.062 [+0.020,+0.105]** | +0.004 [−0.032,+0.044] |
+| hitFile@5 | 0.505 | 0.496 | 0.556 | **+0.051 [+0.005,+0.100]** | −0.009 [−0.048,+0.032] |
+| ctxEff | 0.883 | 0.937 | 0.933 | +0.051 [−0.006,+0.112] | **+0.055 [+0.005,+0.111]** |
+| nDCG@500 | 0.950 | 0.955 | 0.975 | +0.025 [+0.002,+0.062] | +0.005 [−0.011,+0.021] |
+| recall@100 | 0.127 | 0.114 | 0.144 | +0.017 [−0.004,+0.042] | −0.013 [−0.031,+0.001] |
+| precision | 0.715 | 0.736 | 0.688 | −0.026 [−0.134,+0.067] | +0.021 [−0.055,+0.091] |
+| cost $ | 0.182 | 0.193 | 0.195 | +0.013 [−0.025,+0.045] | +0.011 [−0.023,+0.038] |
+| turns | 8.32 | 8.77 | 9.36 | +1.03 [−0.55,+2.61] | +0.45 [−0.84,+1.55] |
+
+**The third arm has already paid for itself twice.** It clears the coverage
+result — Bash alone is +0.004 and −0.009, flat — so semgrep's +0.062 is not a
+shell effect. And it *takes one away*: **ctxEff is a Bash effect, not a semgrep
+effect** (+0.055 for `cc-rg`, +0.051 for `cc-sg`, indistinguishable). Run as two
+arms, semgrep would have been credited with the context-efficiency gain, and
+since CtxEff is the metric the paper's own Table 4 ranks highest (Pearson +0.950
+against downstream resolve), that is exactly the claim most likely to have been
+published.
+
+Only **1 of 31** instances produced identical regions across `cc` and `cc-sg`,
+so the arms genuinely diverge; the earlier 4-instance smoke that suggested
+convergence was small-sample noise.
+
+**Invocation rate**, the tripwire that decides whether any of this is
+measurable: `cc-rg` 16/31 (52%), `cc-sg` 14/31 (45%), at 2.4 and 1.2 calls per
+session respectively. Not the registered 70% floor — that floor was wrong and is
+restated in §27.2 as a dilution factor — but far from the 0% the pre-fix smokes
+measured. Per language, `sg` usage: Go 3/3, Rust 2/3, C 2/3, JS 2/3, TS 2/3,
+Python 2/6, Java 1/3, Ruby 0/3, PHP 0/3.
+
+**None of the above is a result, and §18.6 is the reason to say so.** There, an
+independent second small tier reversed a sign, and the note reads: "had tier 1a
+run alone, +0.050 would have looked like a result." The starred endpoints here
+rest on 8–11 discordant pairs; nine endpoints carry no multiplicity correction;
+the frame is not population-weighted; and `precision` moves *opposite* to
+recall, which is §24.1's signature of a geometry change rather than a quality
+one.
+
+One number deserves more suspicion than the rest. Split by whether the tool was
+actually invoked, `hitRegion` gains **+0.072 [+0.010,+0.142]** where `sg` ran
+(n=14) and **+0.054 [−0.000,+0.110]** where it did not (n=17). A tool that is
+never called cannot cause the second figure. Either it is noise at n=17, or the
+amended prompt clause is doing work on its own — and the split is
+post-treatment conditioning either way, so it is descriptive, not causal. Both
+readings are testable at n=848, and until then the headline is soft.
+
+**Power.** From the pilot's own paired standard deviations (hitRegion 0.126,
+cost 0.097), at 80%:
+
+| n | hitRegion MDE | cost MDE | turns MDE |
+|---|---|---|---|
+| 150 | 0.029 | 0.022 | 1.00 |
+| 400 | 0.018 | 0.014 | 0.61 |
+| **848** | **0.012** | **0.009** | **0.42** |
+
+### 27.2 Pre-registration for the powered run (n=848)
+
+**Provenance of this registration, stated because it matters.** The endpoints,
+thresholds and analysis below were fixed in the approved plan before R1 ran and
+are transcribed here unchanged. What is *not* clean: R1's interim (n=150) has
+been seen, because the plan explicitly registered the independent-subset check
+as something that would be computed and reported. It was registered as
+descriptive and non-stopping, and it has not moved a single threshold here.
+Recording that is the difference between a registration and a rationalisation.
+
+**The ladder.** One run id (`s27`) across all rungs, each rung a longer prefix
+of `bench-ladder.jsonl` (seed 27, sha `fe88b90f`), so nothing already paid for
+is re-run and every rung pools. R0 n=31 → R1 n=150 → R2 n=848. Gates are
+**harness health only** (`triage_swex.py`, nonzero exit); no stopping rule reads
+an endpoint, so there is no sequential-testing alpha to spend.
+
+**Primary.** `hitRegion@5`, `cc-sg − cc`, paired bootstrap (`ab_analyze.boot_ci`,
+4,000 resamples, seed 1, resampling instances). MDE 0.012 at n=848, from a
+paired sd of 0.126 measured on the pilot and independently confirmed at 0.128
+by the full-vs-full retest control.
+
+**Co-primary — cost.** `total_cost_usd` and `num_turns`, paired. §25.2's
+registered mechanism predicted +5–10% cost with turns *flat or down*. R1
+measured **+11% cost and +0.83 turns**, both with p<0.001 on the sign test, so
+the turns half of that prediction is already contradicted and is recorded here
+as a **failed prediction**, not adjusted to fit.
+
+**Confound.** `cc-rg − cc` printed beside every endpoint. R1 has it flat on
+coverage (+0.001 hitRegion) and *not* flat on cost (+$0.0136, +0.43 turns), so
+most of the cost increase is the Bash tool rather than semgrep — the
+semgrep-specific increment is about +$0.005.
+
+**Secondary**, Holm-corrected as a family: `hitFile@5`, `ctxEff`, `nDCG@500`,
+`recall@100`, `precision`. `nDCG@500` (0.971) and `FUH` (0.974) are near ceiling
+and will be underpowered; the bound is printed rather than the null asserted.
+
+**Per-language**, exploratory and population-reweighted. Every stratum was
+unpowered at n=150 (Go 15, all others ≤8); at n=848 only Python (547) and Go
+(84) will be, and C++ (1) never will be. Strata under n=8 are not reported.
+
+**Tripwires.** Invocation rate is a **dilution factor, not a floor** — the
+registered 70% was wrong and is withdrawn; R0 measured 45% and R1 35%, and an
+effect over all instances is diluted by the non-invoking share. Truncation = 0.
+`cc`'s user prompt sha256 equal to upstream's. Malformed-output rate symmetric
+across arms. One binary sha256 throughout.
+
+**Calibration** is retargeted at the paper's Sonnet-4.5 row (HitReg 0.428,
+CtxEff 0.715), not its Claude Code row, because §27.0 established that every
+agentic explorer there is driven by GPT-5.4. Read as a band, not an equality.
+
+**Registered expectation, written before the pooled result.** R1's independent
+119 gave **+0.010 [−0.0095, +0.0305], w/l 15/13** on the primary — the pilot's
++0.062 did not replicate, exactly as its at-MDE flag predicted. The honest
+expectation for n=848 is therefore **a small positive or a null**, and the
+likely deliverable is a *bound*: enabling semgrep improves region coverage by no
+more than roughly 0.012 while costing about 11% more. That is a useful result
+and §23.2 is the precedent for publishing one.
+
+**Registered response to a null.** Report it as a bound with the conservative
+bias attached — the gold is what grep-driven agents read, so a region semgrep
+surfaces that those trajectories never needed scores as noise, and the
+detectable effect is a lower bound. Do **not** re-cut for a stratum that moved.
+§17.5 and §26.3 are both in the record as cases where the obvious follow-up was
+the wrong move.
+
+### 27.3 The result: a powered null on quality, at 18% more cost
+
+848 instances, three arms, 2,544 sessions, **$444.26**. Every arm complete, zero
+non-ok rows, paired on all 848.
+
+**Primary — `hitRegion@5`, `cc-sg − cc`: +0.0018 [−0.0079, +0.0113]**, 118 wins
+against 121 losses, p=0.897, MDE 0.0137. **Enabling semgrep alongside `Grep`
+does not improve region coverage.** The interval is tight enough to be a bound
+rather than a shrug: the true effect is no larger than about **±0.011**.
+
+Every other quality endpoint agrees. `hitFile@5` +0.007 [−0.003, +0.017],
+`ctxEff` +0.001, `nDCG@500` −0.005, `precision` +0.010. `recall@100` is +0.0047
+(p=0.032 raw) and dies at Holm 0.158, flagged at its own MDE.
+
+#### What it costs
+
+| | sg − cc | rg − cc | **sg − rg** |
+|---|---|---|---|
+| cost | +$0.0286 (**+18.1%**) | +$0.0214 (+13.5%) | +$0.0072 (**+4.5%**) |
+| turns | +1.225 [+0.947,+1.535] | +0.747 | +0.479 |
+
+Both are overwhelming on the sign test — cost 626/222, turns 460/197, p<0.001.
+And the confound arm earns its keep one last time: **most of the price is having
+a Bash tool at all, not semgrep.** Of the 18.1%, 13.5 points are `rg`'s too;
+semgrep's own increment over ripgrep is **+4.5% and half a turn**.
+
+This also finishes off §25.2's registered prediction. It forecast +5–10% cost
+with turns *flat or down*. Cost came in at 18% and turns went **up** by 1.2. The
+mechanism — output bytes drive cache creation — survives in direction, but the
+prediction about turns was simply wrong, and §27.2 registered it as such before
+this number existed.
+
+#### The ladder, which is the methodological result
+
+| rung | n | `hitRegion@5`, sg − cc |
+|---|---|---|
+| R0 pilot | 31 | **+0.0624** [+0.0196, +0.1051] |
+| R1 independent | 119 | +0.0100 [−0.0098, +0.0306] |
+| R2 new only | 698 | −0.0023 [−0.0131, +0.0092] |
+| **pooled** | **848** | **+0.0018** [−0.0079, +0.0113] |
+
+A monotone decay from a starred, CI-excludes-zero, p=0.022 "finding" to nothing.
+Every rung was consistent with the next; only the first was worth publishing,
+and it was the only one that was wrong. The pilot's estimate sat exactly at its
+own detection limit and `analyze.py` printed *"~at MDE, expect regression to the
+mean"* beside it before R1 ran. **That flag was worth more than the number it
+annotated**, and it is now the standing reason this project does not report an
+effect whose magnitude equals its MDE.
+
+Two pilot sub-findings also evaporated. ctxEff, which at n=31 looked like a
++0.055 *Bash* effect and was written up as one, is +0.0056 at n=848. And the
+worrying +0.054 among sessions that never invoked the tool is, at scale,
++0.0058 — noise, as suspected.
+
+#### The dilution argument does not survive either
+
+41% of `cc-sg` sessions invoked `sg` (350/848), so the honest question is
+whether the null is diluted by the 59% that could not respond. It is not:
+
+    sg invoked      n=350   -0.0039 [-0.0184, +0.0108]
+    sg not invoked  n=498   +0.0058 [-0.0069, +0.0188]
+
+Among the sessions that **actually used the tool**, the point estimate is
+*negative*. There is no hidden effect being averaged away. (Post-treatment
+conditioning, so descriptive only — but it can only weaken the dilution case,
+never strengthen it.)
+
+#### Cross-language: the reason this benchmark was chosen, and it is null too
+
+Every stratum spans zero, including the ones Loc-Bench could never test:
+Python +0.001 (n=547), Go +0.000 (84), JavaScript +0.005 (40), TypeScript
+−0.006 (38), Rust −0.015 (31), Java +0.018 (30), PHP +0.020 (28), C −0.017 (27),
+Ruby +0.027 (22). The hypothesis that semgrep would earn its place outside
+Python — the standing gap since §26.4 — is not supported.
+
+**Calibration.** Our `cc` scores HitReg 0.457 against the paper's Sonnet-4.5 row
+at 0.428 — inside the band, which is all §27.0 claimed it could be given the
+scaffold and date differ. CtxEff 0.931 against 0.715 is far higher, and that
+gap is unexplained; it is a reason to treat our CtxEff as non-comparable to
+theirs rather than to read it as an improvement.
+
+#### What this is, and what it is not
+
+It is a powered answer to the product question §16–§26 never asked: **adding
+semgrep to an agent that already has ripgrep-backed `Grep` buys no measurable
+retrieval quality and costs 18% more.** For a tool whose case has always been
+"a better primitive inside the loop" (§3.2), that is the strongest disconfirming
+evidence this project has produced.
+
+It is *not* a verdict on semgrep as a replacement for grep. Every §16–§26 result
+stands: those measured semgrep *instead of* ripgrep with `Grep` removed, which
+is a different question with a different answer.
+
+Two limits are structural and were registered before the run. The gold is what
+grep-driven agents read, so a region semgrep surfaces that those trajectories
+never needed scores as noise — the measurable effect is a **lower bound**. And
+`FUH` (0.974) and `nDCG@500` (0.965) sit near ceiling, where nothing this size
+could move them.
+
+#### Harness ledger
+
+Four defects, each of which would have produced a clean and wrong number, and
+three of whose defining property was **silence**: leaked MCP tools, an allowlist
+that did not bind, a prompt that suppressed the treatment, and silent skips
+(§27.0). Two more surfaced during the run itself:
+
+- **The LRU never evicted, for an entire rung.** It tracked only what its own
+  process fetched, and a `--resume`d instance never requests a checkout — so R1's
+  150 trees were an invisible floor. 215 checkouts and 9.0 GB while reporting
+  under a 5 GB cap. It said nothing, which is why it survived $81 of spending.
+- **The evictor deleted the working directory of live agents.** It protected
+  only the instance it was ensuring, not the four running in other threads.
+  **432 of 848 `cc-sg` rows died at 2.7 s with 1 turn** — 51% of the treatment
+  arm, and non-randomly, since it struck hardest where eviction pressure was
+  highest. This one was *not* silent: `triage_swex.py` failed the run and
+  refused the analysis. Compounding it, `eval_runner`'s `--resume` keys on
+  instance id regardless of status, so those 432 dead cells would have been
+  treated as complete had they not been stripped by hand.
+
+The gate also fired once on the tool itself: one `sg` invocation in 484 used a
+flag that does not exist (`sg "query" --path lucene-core`). The agent recovered,
+ran three good searches and scored 0.6 on that instance. **The gate was
+overridden deliberately and it is recorded here rather than quietly passed** —
+0.2% of invocations, with no effect on any endpoint. It is still a real finding
+about the compat surface: agents reach for `--path`.
+
+## 28 Grep removed: semgrep against ripgrep, head to head (2026-08-09)
+
+§27 answered the *additive* question and got a powered null. But the mechanism
+behind that null is a **choice the agent makes**, not a property of the tool,
+and three independent measurements now say the same thing about that choice:
+
+| regime | semgrep usage |
+|---|---|
+| Loc-Bench `both` — rg + semgrep, routing advice in the description | **0.00 calls/session** (rg 3.51) |
+| §27 `cc-sg` — semgrep + native `Grep`, tool named in the prompt | 41% of sessions, 1.4 calls |
+| §27 pre-fix — semgrep available, prompt named `Grep` instead | **0%** |
+
+With any lexical tool present, agents reach for it. §27 also showed they *add*
+semgrep rather than substitute it — `Grep` usage fell only 0.48 of 3.45 while
+total searching rose — so the treatment was diluted by construction and the
+null was measured at ~41% delivery.
+
+§28 removes the choice. Two arms, `Grep` gone from both, exactly one Bash search
+tool each.
+
+### 28.0 Design, and what is already known
+
+| arm | `--tools` | allowlist | status |
+|---|---|---|---|
+| `cc` | `Read,Glob,Grep` | — | **already run** (§27, 848 rows, $133.97) |
+| `sub-rg` | `Read,Glob,Bash` | `Bash(rg *)` | new |
+| `sub-sg` | `Read,Glob,Bash` | `Bash(sg *)` | new |
+
+Three contrasts: **`sub-sg − sub-rg`** (primary — the head-to-head with no
+native tool to fall back on), **`sub-sg − cc`** (semgrep-only against stock
+Claude Code, the product question), and **`sub-rg − cc`** (does removing native
+`Grep` cost anything by itself — the control that keeps the other two
+interpretable, exactly as `cc-rg` did in §27).
+
+`RG_LINE`/`SG_LINE` are reused verbatim so the tool descriptions do not become a
+second variable. The prompt clause drops `Grep` for the new arms, because naming
+a tool the arm does not have would send the agent at something it cannot call.
+Removal is enforced in **two** places and needs both: `Grep` out of `--tools`
+takes away the native tool, and the PATH shims block shell
+`grep`/`egrep`/`fgrep`. `--allowedTools` enforces nothing under
+`--permission-mode dontAsk`, which §27.0 learned the hard way.
+
+**The substitutive regime is not new; only this benchmark is.** Loc-Bench ran it
+at scale and it was parity:
+
+| contrast | n | delivery | file_acc@5 | func_acc@10_tol |
+|---|---|---|---|---|
+| desc-v5 − rg | 560 | 80% | +0.0018 [−0.0179, +0.0214] | +0.0018 [−0.0196, +0.0232] |
+| desc-v9 − rg | 204 | 91% | −0.0196 [−0.0539, +0.0147] | −0.0392 [−0.0833, +0.0049] |
+
+MDEs 0.027 and 0.030 on the first row. And §27's held-Bash contrast
+(`cc-sg − cc-rg`, `Grep` present) was −0.003 [−0.013, +0.006]. **The registered
+expectation is therefore parity**, |Δ| < 0.012 — recorded here before the run so
+that a null is a prediction rather than a rationalisation.
+
+What §28 genuinely adds over that prior: multi-language line-level gold instead
+of Python function names, delivery near 100% instead of ~45%, and the
+`sub-sg − cc` contrast nobody has measured on any benchmark.
+
+**Harness changes, and the two that would have failed silently.** Adding arms
+touched five places; two of them were latent bugs rather than new work.
+`campaign.sh`'s `count_ok()` globbed every arm file under the run id, so a
+two-arm rung under `s27` would have started at 2,544 ok rows against a target of
+1,696, printed "rung complete" and exited **having run nothing** — a no-op that
+reports success. And `triage_swex.py` gates against the *registered* arm set, so
+five arms in one results directory would have failed both the "unexpected arm
+labels" and "registered arms absent" checks. Both are now scoped by an explicit
+`--arms`, and `analyze.py` gained `--arms`/`--contrasts` — its arm intersection
+previously ignored unknown arms in silence, so it would have cheerfully
+re-reported §27 while §28's rows sat unread beside it. Verified by byte-comparing
+every number the parameterised analyser produces against the §27 defaults.
+
+### 28.1 Pre-registration for the powered run, written after the R1 gate
+
+**R1 (n=120, both arms, $53.08) passed its gate**, and its one registered
+diagnostic is the premise of the whole section:
+
+| arm | sessions using its tool | calls/session |
+|---|---|---|
+| `sub-rg` | **113/120 (94%)** | 5.2 |
+| `sub-sg` | **112/120 (93%)** | 3.4 |
+
+Against §27's 47% and 41%. Removing the choice more than doubled delivery, so
+§28 measures the tools rather than the agent's preference between them. **No
+endpoint has been looked at**; R1's job was harness health and delivery, and
+that is all that has been computed.
+
+**Primary**: `hitRegion@5`, `sub-sg − sub-rg`, paired `boot_ci` (4,000
+resamples, seed 1). MDE 0.012 at n=848 on §27's measured paired sd 0.126.
+
+**Co-primary — cost and turns.** §27 put semgrep's own increment over ripgrep
+at +4.5% and +0.48 turns *with* `Grep` present. R1's per-session mean is
+**$0.221** against §27's $0.158–0.187, so the registered prediction is that
+**removing native `Grep` is itself expensive** and that `sub-rg − cc` will carry
+most of it — the smoke measured `sub-rg` at +42% over `cc-rg` on identical
+instances at equal turn count. The mechanism to test is §27's: raw `rg` through
+Bash averages 25 KB a call and floods, while the native tool bounds its output.
+
+**Secondary, Holm-corrected**: `hitFile@5`, `ctxEff`, `nDCG@500`, `recall@100`,
+`precision`. `nDCG@500` and `FUH` are near ceiling — print the bound.
+
+**Registered expectation: parity on quality.** Loc-Bench's substitutive
+comparison was +0.002 [−0.018, +0.021] at n=560, and §27's held-Bash contrast
+was −0.003 [−0.013, +0.006]. The prediction is |Δ| < 0.012, and the interesting
+result is expected to be **cost, not accuracy**.
+
+**Registered response to a null**: report as a bound with the conservative bias
+attached, and do not re-cut for a stratum that moved.
+
+**A gate gap fixed before R2, not overridden.** R1 failed once, on
+`php-cs-fixer-8064`: the agent made a single search against a path absent at
+that base commit, semgrep exited 2 with "no such file or directory", and the
+distress gate counted "every search empty". `classify_usage` already labels that
+case *bad path (tool correct)*, but the all-empty check never consulted it.
+triage.py's own principle is that "a gate that punishes the tool for being right
+is a gate nobody can pass", so the filter now applies to the distress check as
+well — for distress only, since classifying those rows is `check_tool`'s job.
+Fixing it rather than overriding it matters because R2 is seven times larger and
+a gate overridden every run is not a gate.
+
+### 28.2 R2 interrupted by the credit ceiling, and a mechanism read on the 456 clean pairs (2026-08-10)
+
+**What happened to R2.** The 848-rung launched with both arms and ran
+`sub-rg` essentially to completion — 822 rows, 820 ok, the other 26 instances
+still stuck on cold-cache download failures — and then hit the API's five-hour
+credit ceiling partway through `sub-sg`: 848 rows on disk, **484 ok and 364
+`agent_error`**, every failed row a rate-limit rejection ("out of credits"),
+median duration 0 s, median cost $0. The gate GATED OFF on exactly this
+(366 non-ok rows, 392 partial instances) — which is the gate doing its job,
+not a harness defect. The dead cells cost nothing and are resumable;
+**the registered pooled-848 analysis has not been run** and still gets
+computed once, on the full frame, after recovery.
+
+**A look at the primary on partial data, declared.** What follows was run at
+the operator's request to understand *mechanism*, on the 456 instances where
+both arms have clean rows. It saw the partial-data primary:
+`sub-sg − sub-rg = −0.0073` (sd 0.134, w/l 52/73, **331 exact ties**),
+consistent with the registered parity expectation (|Δ| < 0.012). §28.1 has no
+stopping rule on endpoints — gates are harness-health only — so this look
+changes no decision, but it is a look and it is recorded as one. The 456 are
+approximately a ladder prefix (passes run in frame order), which the
+interleave-by-repo construction keeps roughly balanced; they are still not a
+random subsample, and nothing below is a registered result.
+Reproduce with `eval/swexplore/mechanism.py`.
+
+**Discovery is at ceiling; the entire contest is line-range margins.** On
+454/456 pairs *both* arms land at least one gold region. File-level discovery
+discordance is symmetric — sg's agent missed a gold file rg's had on 43
+instances and found one rg missed on 38, worth −9.50 and +9.07 rate-points
+respectively, a wash. SWE-Explore issues carry identifier anchors (error
+strings, function names) that exact match resolves as well as ranking does,
+so the vocabulary-mismatch case semantic search exists for almost never binds
+here. What remains is *which lines* get submitted, and that is where the whole
+net −3.33 lives.
+
+**The bucket accounting.** Every lost region attributed to a cause from the
+session's own shim log and captured output; an instance's lost score is
+distributed proportionally, so buckets sum to the gap. Both directions,
+because a bucket is only a tool finding if the other tool does not lose the
+same way:
+
+| bucket | sg lost | % of sg gap | rg lost | net sg-specific |
+|---|---|---|---|---|
+| line precision — right file, wrong lines | 4.37 | **27.3%** | 1.88 | **−2.49** |
+| — within 32 lines (chunk edge) | 1.55 | 9.7% | 0.95 | −0.60 |
+| — beyond 32 lines (wrong area) | 2.82 | 17.6% | 0.93 | −1.89 |
+| noise the tool showed — submitted a non-gold file its output displayed | 2.77 | **17.3%** | 1.33 | **−1.44** |
+| gold surfaced in output, never submitted | 2.29 | 14.3% | 1.82 | −0.47 |
+| gold scoped away — file-scoped queries only, never surfaced | 2.81 | 17.6% | 4.80 | **+1.99 (rg worse)** |
+| gold rank miss despite a repo-wide query | 1.27 | 7.9% | 0.57 | −0.70 |
+| never invoked the tool | 1.27 | 7.9% | 0.40 | −0.87 |
+| noise from the agent's own guess | 1.04 | 6.5% | 1.27 | +0.23 |
+
+Three findings, in order of what they are worth:
+
+1. **Line precision is the sg-specific deficit — 27% of sg's losses, 2.3×
+   rg's rate.** `hit_region_rate` scores exact overlap; `rg` prints
+   `path:line:text` and agents copy the line into their range, while sg prints
+   a ~32-line window the agent anchors to. The pure chunk-edge case is only a
+   third of the bucket (jq-2650: sg walked the agent to `parser.c:3443`, gold
+   at 3456, one window short; fluentd-3917: sg's agent submitted
+   `yaml_parser.rb 1–40` against gold 47–51 while rg's agent, shown the match
+   line, submitted 24–53). The larger share is >32 lines off — a plausible
+   chunk in the wrong part of the right file, accepted as the answer.
+
+2. **sg's always-answer behavior converts to noise submissions at 2× rg's
+   rate.** 99% of sg's 1,437 calls exited 0 with content; 17% of rg's 1,854
+   exited 1 with nothing, and the agent reformulated on the spot. A weak match
+   that fills the screen reads as an answer: 42 submitted regions in
+   non-gold files that sg itself had displayed, against rg's 18.
+
+3. **Single-file scoping is real but it is an agent behavior, not an sg
+   defect — rg loses more to it than sg does.** "Gold scoped away" is 17.6%
+   of sg's gap and **37.8% of rg's**, the largest rg bucket; scoping rates are
+   identical in sg's winning and losing sessions (67% vs 64% file-scoped).
+   Agents scope both tools to guessed paths and lose when the guess is wrong —
+   and sg's repo-wide ranked search is precisely the surface that wins those
+   points back. Query styles differ as expected: sg gets 4.5-word phrases,
+   70% file-scoped; rg gets 1.9-word patterns, 90% path-scoped, alternation
+   (`a|b|c`, often across several files in one call) on half of all calls.
+
+Cost on the same 456: `sub-sg` $0.240/session vs `sub-rg` $0.192 (+25%),
++0.4 turns — consistent with §28.1's registered prediction that the
+interesting result is cost, not accuracy.
+
+**What this buys the tool, ranked:** (1) surface the best-matching *line*
+inside each chunk, not just the window — the deficit is anchoring, and the
+`--decl-boost` machinery already re-reads candidate chunks cheaply; (2) make a
+weak match look weak — some "no strong match" signal where rg's exit 1 now
+does the agent's reformulation prompting; (3) leave repo-wide ranked search
+alone — it is the bucket where sg is already winning. Caveats: "appeared in
+output" is a substring match on captured stdout (common basenames can
+overcount), attribution within an instance is proportional rather than causal,
+and all of it is descriptive, on 54% of the frame, outside the registration.
+
+## 29 Acting on §28.2: fine answers, a floor, wide-by-default, and function chunking again (2026-08-10)
+
+§28.2's bucket accounting turned into four engine changes, built in one arc.
+Everything here is *mechanism landed*; the measurements that would flip the
+remaining defaults are §29.4's and have not run yet.
+
+### 29.1 The fine rerank (shipped, default on)
+
+Line precision was sg's one clearly tool-specific deficit — 27.3% of its §28
+losses, 2.3× ripgrep's rate, because agents anchor submitted ranges to the
+span the tool prints and a 32-line chunk window ends lines away from the
+target. `finalize` now scores every 4-line window of each candidate chunk by
+cosine against the query (raw text both sides, i8-quantized both sides — a
+pure function of query string and file bytes, so cold==warm holds with no
+index state threaded in), and the best window becomes the hit's span, its
+passage, and its score. Windows re-rank the candidate pool (`--fine-blend`,
+1.0 = pure fine); same-file windows electing the same lines collapse;
+`--no-fine` reproduces the old output byte for byte and is the control arm.
+Costs ~0.5 ms, timed as `finalize:fine`.
+
+Two consequences worth naming. Scores stopped being decorative: the maxsim
+head normalization made every rank-1 fused score exactly 2.0, and the fine
+cosine is the first cross-query-comparable number the pipeline emits — which
+is what makes §29.2 possible at all. And at blend 1.0 the fine order *owns*
+the list, which makes the §24 declaration boost invisible inside the pool
+(it still gates who reaches the k×3 candidates). The decl-boost parity test
+now pins fine off for exactly that reason; whether blend 1.0 is the right
+default against 0.7-ish is a §29.4 question, registered before looking.
+
+### 29.2 The score floor (mechanism shipped, default off)
+
+sg answered with content on 99% of 1,437 real §28 calls; agents submitted
+non-gold files sg itself had displayed at 2× rg's rate, while rg's loud
+empty misses (17% of calls) are what prompted rephrasing. `--min-score` is
+that missing "colder, try again": set-level (the floor asks whether the
+scope contains the concept at all — a weak tail behind a strong head is
+normal ranked output), judged in the shared finalize tail, zero hits + exit
+1 + a footer line naming the refused score. Signal = best fine cosine
+(`--no-fine`: best chunk cosine via the MMR vectors).
+
+Default 0 = off, deliberately: a floor that cries wolf teaches agents to
+ignore it. `best_signal` is reported in the envelope on success too, so
+calibration joins score→outcome from existing artifacts: replay
+`eval/queries/guesses-*.jsonl` through guessplay plus the 1,437 captured s27
+sub-sg invocations, take the largest floor with ≤2% false-floor rate on
+gold-hitting queries, ship that number with its measured true-negative rate.
+
+### 29.3 desc-v10, and function chunking rebuilt (opt-in)
+
+**desc-v10** models the pathless call as *the* way to search ("start wide;
+add a path only to narrow further") and fixes the stale top-10. Grounds:
+agents file-scoped ~70% of sg calls, "gold scoped away" was 17.6% of sg's
+§28 losses and 37.8% of rg's, and no prior description ever said when a path
+belongs. The §19.2b example and tripwires carry unchanged. The SWE-Explore
+arms keep the *registered* SG_LINE — the v10 text sits beside it un-wired
+(`SG_LINE_V10`) until a campaign registers arms on it, because 364
+rate-limited sub-sg cells still owe completion under the old treatment.
+
+**Function chunking returns** (`--chunking function`, cap `--chunk-cap` 96),
+five weeks after §11.4 removed it — because §11.5's verdict was that the
+*instrument* couldn't resolve the effect, and SWE-Explore's line-level gold
+plus guessplay now can. The §11 design is kept where it was measured and
+simplified where it wasn't: one `leaf_defs` table per language (9 grammars,
+PHP added; everything else recurses, which makes containers, export
+wrappers, and decorated definitions fall out for free — decorators reattach
+via Rule B's `@` prefix); definitions ≤ cap emit whole, never recursed, so
+closures stay in context; §11.2's Rule B verbatim (prefix table, ≤20 lines,
+≤1 blank — the 0%-wrong-code rule); a 5-line min-merge for packed accessors
+(§11.1's +76% chunk-count case); gaps and over-cap interiors fall to
+non-overlapping window cuts, so function mode is fully disjoint — the
+§11.3 postings shrink, kept. Parse failure or any ERROR node falls back to
+line windows; no parser timeout ever (a timeout makes the cut a function of
+machine load, which breaks cold==warm). Cache entries tag as
+`f{cap}w{w}o{o}`; a grammarless build (`--no-default-features`) names them
+but never parses them back, reclaiming instead of mis-serving — the `c`-tag
+degradation, one mode later. `Chunk` stayed three u32s, so no format bump.
+Binary cost measured: 39.0 → **46.5 MiB** (+7.5 for 9 grammars; §11.3 paid
++6.6 for 8). On the frozen test corpus, function mode cuts 104 chunks where
+window mode cuts 39, and a warm query stays ~4 ms.
+
+### 29.4 What is registered to happen next, before any default flips
+
+In order, all offline and cheap: (1) guessplay A/B — fine vs `--no-fine`,
+function vs window, on the harvested real-query sets; (2) floor calibration
+as specified in §29.2; (3) `--fine-blend` sweep only if (1) shows the pure
+fine order losing what the §24 boost bought. Function chunking's default
+flip additionally requires re-measuring §11.3's cold-index cost on django
+and a snapshot re-record reviewed case by case. A SWE-Explore rung with the
+new binary comes only after those gates, and its arms register the v10
+description at the same time. Nulls are reported as bounds; no default
+flips on a stratum cut.

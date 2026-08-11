@@ -9,6 +9,8 @@
 
 mod chunk;
 mod diff;
+#[cfg(feature = "func-chunk")]
+mod funcchunk;
 mod pass;
 
 pub use chunk::{chunk_lines, lines};

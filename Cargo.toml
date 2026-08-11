@@ -21,6 +21,19 @@ grep-searcher = "0.1"
 clap = { version = "4", features = ["derive"] }
 memmap2 = "0.9"
 libc = "0.2"
+# Function-boundary chunking (RESEARCH.md §11, §29). Nine grammars covering
+# 99.9% of the SWE-Explore corpus by instance share; all speak the stable
+# LanguageFn ABI, so grammar-crate minors need not track the runtime's.
+tree-sitter = "0.25"
+tree-sitter-python = "0.25"
+tree-sitter-javascript = "0.25"
+tree-sitter-typescript = "0.23"
+tree-sitter-rust = "0.24"
+tree-sitter-go = "0.25"
+tree-sitter-c = "0.24"
+tree-sitter-java = "0.23"
+tree-sitter-ruby = "0.23"
+tree-sitter-php = "0.24"
 
 [profile.release]
 lto = "thin"

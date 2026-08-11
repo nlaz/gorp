@@ -23,6 +23,8 @@ pub fn dispatch(cli: Cli) -> Result<i32> {
             status,
             window,
             overlap,
+            chunking,
+            chunk_cap,
         }) => index::run(index::Args {
             path: path.clone(),
             hnsw: *hnsw,
@@ -33,6 +35,8 @@ pub fn dispatch(cli: Cli) -> Result<i32> {
             embed_preproc: embed_preproc.clone(),
             chunk_path: chunk_path.clone(),
             chunk_budget: *chunk_budget,
+            chunking: chunking.clone(),
+            chunk_cap: *chunk_cap,
             status: *status,
             window: *window,
             overlap: *overlap,

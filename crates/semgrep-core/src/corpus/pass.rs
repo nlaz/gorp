@@ -96,7 +96,7 @@ pub fn process_file(
     let Some(text) = read_text(&abs_path(root, fm)) else {
         return FileWork { bytes: 0, docs: Vec::new() };
     };
-    let docs = chunk_lines(file_id, &text, params)
+    let docs = chunk_lines(file_id, &fm.path, &text, params)
         .into_iter()
         .map(|(chunk, slice)| {
             let doc = doc_text(&fm.path, slice);

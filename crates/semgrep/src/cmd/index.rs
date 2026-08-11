@@ -17,6 +17,8 @@ pub struct Args {
     pub embed_preproc: String,
     pub chunk_path: String,
     pub chunk_budget: u32,
+    pub chunking: String,
+    pub chunk_cap: u32,
     pub status: bool,
     pub window: u32,
     pub overlap: u32,
@@ -51,6 +53,31 @@ pub fn budget(n: u32) -> Option<u32> {
     (n > 0).then_some(n)
 }
 
+/// Parse `--chunking`. Shared with `cmd::search` for the same no-drift reason
+/// as `parse_preproc`. A build without grammars rejects `function` loudly —
+/// silently window-cutting under an `f`-tagged entry would poison the cache
+/// for every build that does have them.
+pub fn chunking(mode: &str, cap: u32) -> Result<Option<u32>> {
+    match mode {
+        "window" => Ok(None),
+        "function" => {
+            #[cfg(feature = "func-chunk")]
+            {
+                Ok(Some(cap.max(1)))
+            }
+            #[cfg(not(feature = "func-chunk"))]
+            {
+                let _ = cap;
+                anyhow::bail!(
+                    "--chunking function is not in this build (compiled without the \
+                     func-chunk feature)"
+                )
+            }
+        }
+        other => anyhow::bail!("unknown --chunking {other:?} (window|function)"),
+    }
+}
+
 pub fn run(args: Args) -> Result<i32> {
     let root = args.path.clone().unwrap_or_else(|| PathBuf::from("."));
     if args.status {
@@ -63,6 +90,7 @@ pub fn run(args: Args) -> Result<i32> {
             window: args.window,
             overlap: args.overlap,
             budget: budget(args.chunk_budget),
+            function: chunking(&args.chunking, args.chunk_cap)?,
             ..Default::default()
         },
         hnsw: args.hnsw,

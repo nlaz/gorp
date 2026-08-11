@@ -354,6 +354,7 @@ fn options(cli: &Cli, mode: Mode) -> Result<SearchOptions> {
             window: t.window,
             overlap: t.overlap,
             budget: crate::cmd::index::budget(t.chunk_budget),
+            function: crate::cmd::index::chunking(&t.chunking, t.chunk_cap)?,
             ..Default::default()
         },
         repair_max_drift: t.repair_max_drift,

@@ -8,7 +8,7 @@ use crate::{Chunk, ChunkParams, FileMeta};
 fn chunking_covers_all_lines_with_overlap() {
     let text = (1..=100).map(|i| format!("line {i}\n")).collect::<String>();
     let params = ChunkParams { window: 32, overlap: 8, ..Default::default() };
-    let chunks = chunk_lines(0, &text, &params);
+    let chunks = chunk_lines(0, "x.rs", &text, &params);
     assert_eq!(chunks[0].0.start_line, 1);
     assert_eq!(chunks[0].0.end_line, 32);
     assert_eq!(chunks[1].0.start_line, 25);
@@ -36,15 +36,15 @@ fn with_window_holds_the_overlap_share_not_the_line_count() {
 
 #[test]
 fn short_file_is_one_chunk() {
-    let chunks = chunk_lines(0, "a\nb\n", &ChunkParams::default());
+    let chunks = chunk_lines(0, "x.rs", "a\nb\n", &ChunkParams::default());
     assert_eq!(chunks.len(), 1);
     assert_eq!(chunks[0].1, "a\nb\n");
 }
 
 #[test]
 fn empty_and_blank_files_yield_nothing() {
-    assert!(chunk_lines(0, "", &ChunkParams::default()).is_empty());
-    assert!(chunk_lines(0, "\n\n  \n", &ChunkParams::default()).is_empty());
+    assert!(chunk_lines(0, "x.rs", "", &ChunkParams::default()).is_empty());
+    assert!(chunk_lines(0, "x.rs", "\n\n  \n", &ChunkParams::default()).is_empty());
 }
 
 // -----------------------------------------------------------------------

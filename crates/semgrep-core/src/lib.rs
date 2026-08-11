@@ -26,6 +26,12 @@ pub mod trace;
 
 pub const EMBED_DIM: usize = ese::DIMENSIONS;
 
+/// Default max chunk span for function-boundary chunking, in lines
+/// (RESEARCH.md §11.1: 89% of functions are ≤32 lines; ≤96 covers the tail).
+/// Lives here rather than in the feature-gated module so the CLI's flag
+/// default exists — and cannot drift from the engine's — in every build.
+pub const FUNC_CAP_DEFAULT: u32 = 96;
+
 /// Chunking parameters shared by index build and cold search.
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize, PartialEq)]
 pub struct ChunkParams {
@@ -49,11 +55,30 @@ pub struct ChunkParams {
     /// `corpus::lines` re-reads by line number.
     #[serde(default)]
     pub budget: Option<u32>,
+    /// Function-boundary chunking with this max chunk span in lines
+    /// (RESEARCH.md §11, §29). `None` = line windows; wins over
+    /// [`budget`](Self::budget) when both are set.
+    ///
+    /// §11.1 measured why: a 32-line window rarely cuts a function in half
+    /// (11%) but *swallows ~3 whole functions* — the defect is dilution, not
+    /// truncation. When set, supported languages cut one chunk per
+    /// definition (leading comment attached, §11.2's Rule B), gaps between
+    /// definitions fall to `window`-sized cuts, and anything unparseable
+    /// falls back to line windows. Not feature-gated in serde: every binary
+    /// must round-trip a meta.json that carries it, grammars or not.
+    #[serde(default)]
+    pub function: Option<u32>,
 }
 
 impl Default for ChunkParams {
     fn default() -> Self {
-        Self { window: 32, overlap: 8, max_file_bytes: 4 * 1024 * 1024, budget: None }
+        Self {
+            window: 32,
+            overlap: 8,
+            max_file_bytes: 4 * 1024 * 1024,
+            budget: None,
+            function: None,
+        }
     }
 }
 
@@ -64,14 +89,16 @@ impl ChunkParams {
     /// Overlap exists so a match is not split across a boundary, which is a
     /// property of the window it sits in; carrying 8 lines onto a 12-line
     /// window would overlap by two thirds and trip the near-duplicate rule in
-    /// `hit::finalize` on every neighbour. Clears `budget`, which measures the
-    /// same thing in a different unit and would otherwise silently win.
+    /// `hit::finalize` on every neighbour. Clears `budget` and `function`,
+    /// which measure the same thing in different units and would otherwise
+    /// silently win.
     pub fn with_window(self, window: u32) -> Self {
         let share = if self.window == 0 { 0.0 } else { self.overlap as f32 / self.window as f32 };
         Self {
             window,
             overlap: (window as f32 * share).round() as u32,
             budget: None,
+            function: None,
             ..self
         }
     }

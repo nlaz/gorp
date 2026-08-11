@@ -357,6 +357,18 @@ pub struct Tuning {
     /// lines (RESEARCH.md §20.2). 0 = off, use lines.
     #[arg(long, hide = true, default_value_t = 0)]
     pub chunk_budget: u32,
+
+    /// Chunking mode: window (default) | function — cut at definition
+    /// boundaries via tree-sitter, leading comments attached, gaps
+    /// window-cut (RESEARCH.md §11, §29). Streaming path; indexed scopes
+    /// key their cache entries by it.
+    #[arg(long, hide = true, default_value = "window")]
+    pub chunking: String,
+
+    /// Max chunk span in lines under --chunking function; an over-cap
+    /// definition recurses and window-splits
+    #[arg(long, hide = true, default_value_t = semgrep_core::FUNC_CAP_DEFAULT)]
+    pub chunk_cap: u32,
 }
 
 #[derive(Subcommand)]
@@ -411,6 +423,12 @@ pub enum Cmd {
         window: u32,
         #[arg(long, default_value_t = ChunkParams::default().overlap)]
         overlap: u32,
+        /// Chunking mode: window (default) | function (RESEARCH.md §11, §29)
+        #[arg(long, default_value = "window")]
+        chunking: String,
+        /// Max chunk span in lines under --chunking function
+        #[arg(long, default_value_t = semgrep_core::FUNC_CAP_DEFAULT)]
+        chunk_cap: u32,
     },
     /// Inspect or reclaim the search cache
     Cache {

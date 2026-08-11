@@ -561,8 +561,12 @@ pub fn search(root: &Path, query: &str, opts: &SearchOptions) -> Result<SearchRe
     // bails on a non-directory root — so this can neither cost anything at
     // corpus scale nor key a cache entry, and there is no warm file scope for
     // `cold_and_warm_return_identical_results` to disagree with.
+    // Not under function chunking: the 12-line-median-gold dilution this
+    // override patches (§24.1) is exactly the defect definition-boundary
+    // chunks remove at the source, and `with_window` would clear `function`
+    // and silently re-window the one mode that does not need it.
     let file_opts;
-    let opts = if opts.file_scope_window > 0 && root.is_file() {
+    let opts = if opts.file_scope_window > 0 && root.is_file() && opts.params.function.is_none() {
         file_opts = SearchOptions {
             params: opts.params.with_window(opts.file_scope_window),
             ..opts.clone()

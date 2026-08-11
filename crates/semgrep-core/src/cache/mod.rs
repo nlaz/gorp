@@ -234,10 +234,17 @@ pub fn write_cache_entry(
 /// is `budget * overlap / window` — all three decide where the cuts land, and a
 /// tag that omits one makes an entry undiscoverable by the options that built
 /// it (the second search re-streams forever, silently).
+/// Function mode gets an `f` tag for the same reason budget gets a `c` one,
+/// and it carries `window`/`overlap` because gap regions between definitions
+/// are still window-cut. Emitted unconditionally — even a grammarless build
+/// must *name* function params deterministically — but only parsed back
+/// behind the feature, so a build without grammars reclaims `f` entries
+/// instead of serving them with the wrong cutter.
 fn params_tag(params: &ChunkParams) -> String {
-    match params.budget {
-        Some(b) => format!("c{}w{}o{}", b, params.window, params.overlap),
-        None => format!("w{}o{}", params.window, params.overlap),
+    match (params.function, params.budget) {
+        (Some(f), _) => format!("f{}w{}o{}", f, params.window, params.overlap),
+        (None, Some(b)) => format!("c{}w{}o{}", b, params.window, params.overlap),
+        (None, None) => format!("w{}o{}", params.window, params.overlap),
     }
 }
 
@@ -249,6 +256,17 @@ fn params_tag(params: &ChunkParams) -> String {
 fn entry_params(dir: &Path) -> Option<ChunkParams> {
     let tag = std::fs::read_to_string(dir.join("params.txt")).ok()?;
     let tag = tag.trim();
+    #[cfg(feature = "func-chunk")]
+    if let Some(rest) = tag.strip_prefix('f') {
+        let (f, rest) = rest.split_once('w')?;
+        let (window, overlap) = rest.split_once('o')?;
+        return Some(ChunkParams {
+            window: window.parse().ok()?,
+            overlap: overlap.parse().ok()?,
+            function: Some(f.parse().ok()?),
+            ..Default::default()
+        });
+    }
     let (budget, rest) = match tag.strip_prefix('c') {
         Some(rest) => {
             let (b, rest) = rest.split_once('w')?;
@@ -274,12 +292,18 @@ mod params_tag_tests {
     #[test]
     fn every_tag_parses_back_to_the_params_that_wrote_it() {
         let dir = tempfile::tempdir().unwrap();
-        for params in [
+        let mut cases = vec![
             ChunkParams::default(),
             ChunkParams { window: 8, overlap: 2, ..Default::default() },
             ChunkParams { budget: Some(800), ..Default::default() },
             ChunkParams { window: 8, overlap: 2, budget: Some(200), ..Default::default() },
-        ] {
+        ];
+        #[cfg(feature = "func-chunk")]
+        cases.extend([
+            ChunkParams { function: Some(crate::FUNC_CAP_DEFAULT), ..Default::default() },
+            ChunkParams { window: 8, overlap: 2, function: Some(48), ..Default::default() },
+        ]);
+        for params in cases {
             std::fs::write(dir.path().join("params.txt"), params_tag(&params)).unwrap();
             assert_eq!(entry_params(dir.path()), Some(params), "{}", params_tag(&params));
         }
@@ -290,5 +314,18 @@ mod params_tag_tests {
         let lines = ChunkParams { window: 8, overlap: 2, ..Default::default() };
         let budgeted = ChunkParams { budget: Some(8), ..lines };
         assert_ne!(params_tag(&lines), params_tag(&budgeted));
+    }
+
+    /// The three modes are three tag prefixes; none can serve another's query.
+    /// Function-over-budget precedence is part of the identity: params carrying
+    /// both must tag as function, matching what the cutter does with them.
+    #[test]
+    fn a_function_entry_never_shares_a_tag_with_either_other_mode() {
+        let lines = ChunkParams { window: 8, overlap: 2, ..Default::default() };
+        let f = ChunkParams { function: Some(96), ..lines };
+        assert_ne!(params_tag(&lines), params_tag(&f));
+        assert_ne!(params_tag(&ChunkParams { budget: Some(96), ..lines }), params_tag(&f));
+        let both = ChunkParams { budget: Some(800), function: Some(96), ..lines };
+        assert!(params_tag(&both).starts_with('f'), "function wins over budget in the tag");
     }
 }

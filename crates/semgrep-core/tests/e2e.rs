@@ -1713,3 +1713,121 @@ fn cold_and_warm_agree_under_a_character_budget() {
         assert_eq!(c, w, "cold != warm under a budget for {query:?}");
     }
 }
+
+/// Function-mode entries live under their own `f` tag (§29.3): the template
+/// is `a_budgeted_entry_never_answers_a_line_windowed_query`, one mode later.
+/// Fine rerank off — these tests read hit spans as chunk geometry, and the
+/// fine window would narrow every span to a few lines regardless of cutter.
+#[cfg(feature = "func-chunk")]
+#[test]
+fn a_function_entry_never_answers_a_window_query() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+
+    let lines = SearchOptions {
+        fine_rerank: false,
+        params: ChunkParams { window: 8, overlap: 2, ..Default::default() },
+        ..opts(Mode::Semantic)
+    };
+    let function = SearchOptions {
+        fine_rerank: false,
+        params: ChunkParams {
+            window: 8,
+            overlap: 2,
+            function: Some(semgrep_core::FUNC_CAP_DEFAULT),
+            ..Default::default()
+        },
+        ..opts(Mode::Semantic)
+    };
+    search(dir.path(), "compute the backoff delay", &lines).unwrap();
+    let f = search(dir.path(), "compute the backoff delay", &function).unwrap();
+    assert!(f.report.used_index);
+
+    let a = search(dir.path(), "compute the backoff delay", &lines).unwrap();
+    // Full spans, not just starts: a function chunk and an 8-line window can
+    // begin at the same line (a def at the top of a file does), but a cutter
+    // that ends at the function's brace and one that ends 8 lines in cannot
+    // agree everywhere unless the entries were shared.
+    let spans = |r: &semgrep_core::search::SearchResult| -> Vec<(String, u32, u32)> {
+        r.hits.iter().map(|h| (h.path.clone(), h.start_line, h.end_line)).collect()
+    };
+    assert_ne!(spans(&a), spans(&f), "function and window chunking coincided");
+}
+
+/// Function chunking must be reproducible cold, like every other chunking —
+/// the parse is a pure function of the file bytes, and both paths cut through
+/// the same `corpus::chunk_lines`.
+#[cfg(feature = "func-chunk")]
+#[test]
+fn cold_and_warm_agree_under_function_chunking() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    let params = ChunkParams {
+        window: 8,
+        overlap: 2,
+        function: Some(semgrep_core::FUNC_CAP_DEFAULT),
+        ..Default::default()
+    };
+    for query in ["compute the backoff delay", "check whether a session token is valid"] {
+        let cold = search(
+            dir.path(),
+            query,
+            &SearchOptions { params, ..stream_opts(Mode::Semantic) },
+        )
+        .unwrap();
+        assert!(!cold.report.used_index);
+        let warm =
+            search(dir.path(), query, &SearchOptions { params, ..opts(Mode::Semantic) }).unwrap();
+        assert!(warm.report.used_index);
+        let shape = |r: &semgrep_core::search::SearchResult| -> Vec<(String, u32, u32)> {
+            r.hits.iter().map(|h| (h.path.clone(), h.start_line, h.end_line)).collect()
+        };
+        assert_eq!(shape(&cold), shape(&warm), "cold != warm under function chunking: {query}");
+    }
+}
+
+/// Read-repair re-cuts a drifted file from `meta.params` alone (§29.3): under
+/// function mode the repaired chunks must equal what a fresh build would cut,
+/// or a warm entry answers with different spans than a rebuild — the exact
+/// drift the params tag exists to prevent, one layer down.
+#[cfg(feature = "func-chunk")]
+#[test]
+fn repair_recuts_a_drifted_file_the_way_a_build_would() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    let params = ChunkParams {
+        window: 8,
+        overlap: 2,
+        function: Some(semgrep_core::FUNC_CAP_DEFAULT),
+        ..Default::default()
+    };
+    let o = SearchOptions { fine_rerank: false, params, ..opts(Mode::Semantic) };
+    let query = "compute the backoff delay";
+    search(dir.path(), query, &o).unwrap();
+
+    // Drift the gold file: a new function above the old one moves every span.
+    let target = dir.path().join("src/retry.rs");
+    let old = std::fs::read_to_string(&target).unwrap();
+    std::fs::write(
+        &target,
+        format!("/// Added later.\nfn added_later(x: u32) -> u32 {{\n    x + 1\n}}\n\n{old}"),
+    )
+    .unwrap();
+
+    // TTL 0 in tests, so the next warm query repairs around the drift.
+    let repaired = search(dir.path(), query, &o).unwrap();
+    assert!(repaired.report.used_index, "the entry should be patched, not discarded");
+    let fresh = search(
+        dir.path(),
+        query,
+        &SearchOptions { no_index: true, ..o.clone() },
+    )
+    .unwrap();
+    let shape = |r: &semgrep_core::search::SearchResult| -> Vec<(String, u32, u32)> {
+        r.hits.iter().map(|h| (h.path.clone(), h.start_line, h.end_line)).collect()
+    };
+    assert_eq!(shape(&repaired), shape(&fresh), "repair cut differently than a build");
+}

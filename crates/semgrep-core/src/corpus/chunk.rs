@@ -4,10 +4,19 @@ use super::read_text;
 use crate::{Chunk, ChunkParams};
 use std::path::Path;
 
-/// Split file text into overlapping line-window chunks, yielding the chunk
-/// record and its text slice bounds so callers can avoid copying.
+/// Split file text into chunks, yielding the chunk record and its text slice
+/// bounds so callers can avoid copying. Line windows by default; a character
+/// budget under [`ChunkParams::budget`]; definition-boundary cuts under
+/// [`ChunkParams::function`], which wins over both and falls back to windows
+/// for anything a grammar cannot cut (RESEARCH.md §11, §29).
+///
+/// `rel_path` exists for the function mode's language dispatch and is
+/// otherwise unused; it is threaded from every caller regardless so all three
+/// paths that cut — build, cold search, read-repair — stay one function of
+/// the same inputs.
 pub fn chunk_lines<'a>(
     file_id: u32,
+    rel_path: &str,
     text: &'a str,
     params: &ChunkParams,
 ) -> Vec<(Chunk, &'a str)> {
@@ -26,7 +35,25 @@ pub fn chunk_lines<'a>(
         return Vec::new();
     }
 
-    if let Some(budget) = params.budget {
+    #[cfg(feature = "func-chunk")]
+    if let Some(cap) = params.function
+        && let Some(ranges) =
+            super::funcchunk::cut(rel_path, text, n_lines, cap.max(1), params.window)
+    {
+        return ranges
+            .into_iter()
+            .filter_map(|(s, e)| {
+                let slice = &text[line_starts[s]..line_starts[e]];
+                (!slice.trim().is_empty()).then(|| {
+                    (Chunk { file_id, start_line: s as u32 + 1, end_line: e as u32 }, slice)
+                })
+            })
+            .collect();
+    }
+    #[cfg(not(feature = "func-chunk"))]
+    let _ = rel_path;
+
+    if let Some(budget) = params.budget.filter(|_| params.function.is_none()) {
         return chunk_budgeted(file_id, text, &line_starts, n_lines, params, budget);
     }
 

@@ -19,8 +19,12 @@ path = "src/main.rs"
 name = "semgrep"
 path = "src/main.rs"
 
+[features]
+default = ["func-chunk"]
+func-chunk = ["semgrep-core/func-chunk"]
+
 [dependencies]
-semgrep-core = { path = "../semgrep-core" }
+semgrep-core = { path = "../semgrep-core", default-features = false }
 anyhow = { workspace = true }
 clap = { workspace = true }
 serde_json = { workspace = true }
