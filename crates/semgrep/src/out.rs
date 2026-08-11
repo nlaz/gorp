@@ -263,6 +263,22 @@ impl Default for Print {
 }
 
 pub fn footer(mode: Mode, result: &SearchResult, shown: usize, suggested: bool) {
+    // A floored refusal is a RESULT, not a hint, so it outranks
+    // `SEMGREP_NO_HINTS` below. Without this the score floor is silent under
+    // every harness that sets that variable: empty stdout, empty stderr,
+    // exit 1 — the agent cannot tell "nothing here scored well enough" from
+    // "this scope is empty" from a crash. That is the §16.11 shape exactly,
+    // and shim.py already carries the scar ("silence that looks like a real
+    // answer"). A floor whose signal is suppressed only ever subtracts.
+    if result.report.floored {
+        let best = result.report.best_signal.unwrap_or(0.0);
+        eprintln!(
+            "semgrep: no matches · best candidate scored {best:.2}, under the \
+             --min-score floor · likely not covered here — rephrase, or pass \
+             --min-score 0 to see weak results"
+        );
+        return;
+    }
     // Ranked footers do not name `-e`. They used to, with the caller's own
     // query interpolated, and that one line was the strongest posture lever
     // measured in this project: suppressing it moved an agent's ranked share
@@ -307,19 +323,10 @@ pub fn footer(mode: Mode, result: &SearchResult, shown: usize, suggested: bool) 
         // the same query, then reading `--help` — 27 of 27 help probes in the
         // §16.10 campaign followed three or more empty searches (§17). One line
         // here ends that spiral.
+        // The floored case never reaches here — it is answered at the top of
+        // this function, above the hint suppression.
         let walked = result.report.files_walked;
-        if result.report.floored {
-            // Not a structural zero: the scope had candidates and none was
-            // close. The distinct message is the whole point of the floor —
-            // "this corpus may not cover it" prompts a rephrase or a retreat,
-            // where a generic "no results" reads as "the code is not there".
-            let best = result.report.best_signal.unwrap_or(0.0);
-            eprintln!(
-                "semgrep: no matches · best candidate scored {best:.2}, under the \
-                 --min-score floor · likely not covered here — rephrase, or pass \
-                 --min-score 0 to see weak results"
-            );
-        } else if walked == 0 {
+        if walked == 0 {
             eprintln!("semgrep: no results · nothing to search under this path");
         } else if result.report.n_chunks_considered == 0 {
             let files = if walked == 1 { "file" } else { "files" };

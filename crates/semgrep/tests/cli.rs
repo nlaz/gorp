@@ -217,6 +217,30 @@ fn a_floored_search_exits_one_with_an_explanation() {
     );
 }
 
+/// ...and it must survive `SEMGREP_NO_HINTS`, which every agent harness sets.
+///
+/// That variable suppresses the `-e` steer (§16.10's 7%→98% posture lever),
+/// and the floor's explanation used to sit below the same early return — so
+/// under a harness a floored search produced empty stdout, empty stderr and
+/// exit 1, which is indistinguishable from an empty scope or a crash. A floor
+/// nobody can hear only ever subtracts results (§30).
+#[test]
+fn the_floor_still_explains_itself_with_hints_off() {
+    let sg = Sg::new();
+    let r = sg.run_in_env(
+        &["quantum chromodynamics lattice gauge", "--min-score", "0.99"],
+        &corpus(),
+        &[("SEMGREP_NO_HINTS", "1")],
+    );
+    assert_eq!(r.code, 1);
+    assert!(r.stdout.is_empty());
+    assert!(
+        r.stderr.contains("under the --min-score floor"),
+        "NO_HINTS must not silence a refusal: {:?}",
+        r.stderr
+    );
+}
+
 #[test]
 fn ranked_search_also_keeps_stdout_clean() {
     let sg = Sg::new();
