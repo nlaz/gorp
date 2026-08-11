@@ -7352,3 +7352,120 @@ and a snapshot re-record reviewed case by case. A SWE-Explore rung with the
 new binary comes only after those gates, and its arms register the v10
 description at the same time. Nulls are reported as bounds; no default
 flips on a stratum cut.
+
+### 29.5 The offline gates, run (2026-08-10)
+
+**Guessplay A/B, 854 real harvested agent queries, 186 instances, one pass,
+2×2 (fine on/off × window/function chunking).** Paired `boot_ci`, same
+convention as everywhere else:
+
+| contrast | file hit@5 | func hit@5 strict | func hit@5 overlap |
+|---|---|---|---|
+| fine − no-fine (window) | −0.007 [−0.025, +0.011] | −0.009 [−0.027, +0.009] | **−0.082 [−0.104, −0.059]** |
+| function − window (no fine) | +0.000 [−0.013, +0.013] | +0.009 [−0.008, +0.027] | **−0.028 [−0.047, −0.008]** |
+| function+fine − baseline | −0.015 [−0.033, +0.002] | −0.019 [−0.040, +0.002] | **−0.096 [−0.119, −0.071]** |
+
+**Read the overlap column as geometry, not quality — §24.1 said so in
+advance.** `rank_func_ovl` credits a chunk that *overlaps* the gold function
+at all; `rank_func` requires the chunk's best line to fall inside it. A
+32-line window overlaps a 12-line gold function by accident constantly, and a
+4-line window cannot. So a lever that shrinks spans must drive those two
+metrics apart, and §24.1 registered exactly that as the signature of changed
+geometry rather than changed retrieval: strict flat, overlap down. That is
+what both levers show. Reporting the overlap drop as a loss would be scoring
+the fine rerank for no longer getting accidental credit.
+
+On the endpoints that survive the geometry change, both levers are **nulls**:
+every strict and file CI spans zero. Do-no-harm holds, which is what the gate
+asked. It does not show a gain either, and the combined arm leans negative
+(w/l 34/50 strict) — registered as the trigger for a `--fine-blend` sweep
+before the blend default is defended, not before shipping the mechanism.
+
+**Floor calibration, 853 replayed queries** (`eval/locbench/floorcal.py`):
+
+| | |
+|---|---|
+| gold-hitting top-1 score | p5 0.486, p25 0.645, median 0.725 |
+| gold-missing top-1 score | p50 0.684, p75 0.785, p95 0.888 |
+| **floor 0.420** | refuses **1.9%** of gold-hitting, converts **9.3%** of gold-missing to an honest "no matches" |
+
+Identical threshold at the n=451 half-sample, which is the stability check
+worth having. The distributions overlap heavily — a wrong-but-plausible
+neighbourhood embeds near the query, so a miss's median (0.684) sits just
+under a hit's (0.725) — and the floor only separates in the low tail. That
+bounds the claim: this is a small honest-refusal win, not a discriminator.
+
+**Two defects the gates found, both fixed before the campaign.** The fine
+rerank made the display anchor worse in a way no offline metric scores: the
+hit's `text` is the best-overlap line *within the span*, and where a 32-line
+chunk almost always held some line sharing a query token, a 4-line window
+often holds none — so the first-wins fallback anchored **8.3% of snapshot
+hits on a bare `{` or `)`**. Ranking the anchor by `(overlap, carries a word)`
+takes it to 0.0%. And the floor was **inaudible under `SEMGREP_NO_HINTS`**,
+which every agent harness sets: its explanation sat below that early return,
+so a floored search gave empty stdout, empty stderr, exit 1 — the §16.11
+shape, and the opposite of the "colder, try again" signal the floor exists to
+send.
+
+## 30 The powered campaign on the new engine: sub-sg against sub-rg (2026-08-10)
+
+§29 shipped four changes and §29.5 gated them offline. None has met a real
+agent. This section does that: all four on at once, against ripgrep, on
+SWE-Explore's line-level gold.
+
+### 30.0 Design
+
+Arms are §28's substitutive pair — `Grep` removed from both, one Bash search
+tool each — because that is the 93% delivery regime, roughly 2.3× the power
+of the additive pair whose 41% delivery diluted §27.
+
+| arm | treatment |
+|---|---|
+| `sub-rg` | **unchanged control.** ripgrep never touches our engine, so none of the four changes reach it. |
+| `sub-sg` | fine rerank + floor 0.42 + desc-v10 + function chunking |
+
+Baseline for the same contrast on the old engine, from §28.2's partial run:
+`sub-sg − sub-rg = −0.0073` (n=456).
+
+**Bundled deliberately, attributing nothing individually.** Four levers move
+together, so a moved endpoint says "the package moved it" and no more. §28.1
+set the precedent for accepting that when the alternative is four campaigns.
+The offline arm-level attribution in §29.5 is what stands in for it.
+
+Delivery mechanics, and the trap avoided: the engine flags reach the binary
+through `LOCBENCH_SG_FLAGS`, injected by `shim.py` into the *real* invocation
+and never shown to the agent, so its commands and the logged argv stay the
+plain `sg "query"` an agent types. The chunking half must also reach the
+**index build**, because a repo-local `.semgrep/` is exempt from cache-tag
+matching by design — a window-chunked index answers a function-chunked search
+with no error anywhere, treating file scopes and leaving every directory
+scope untreated. `_index_matches` reads the built `meta.json` back and raises
+rather than running a half-dosed arm.
+
+### 30.1 Pre-registration, written before R2 is funded
+
+- **Primary**: `hitRegion@5`, `sub-sg − sub-rg`, paired `boot_ci` (4,000
+  resamples, seed 1). MDE 0.012 at n=848 on §27's measured paired sd 0.126.
+- **Co-primary — cost and turns.** The registered prediction *reverses*
+  §28's +25%: the floor abandons dead ends the agent used to pursue, and a
+  4-line passage is a fraction of a 32-line one, so **sub-sg cost ≤ sub-rg**.
+  This is the endpoint the section expects to move.
+- **Secondary, Holm**: `hitFile@5`, `ctxEff`, `nDCG@500`, `recall@100`,
+  `precision`.
+- **Delivery is the headline diagnostic, not a gate**: per-arm invocation
+  rate, plus the floored-search rate from the trace envelopes. Below ~90% sg
+  delivery the accuracy endpoints describe a different agent rather than a
+  different engine, and must be reported as diluted.
+- **Query-shape gate before any accuracy claim** (§19's rule):
+  `queryshape.py --since` must show desc-v10 actually moved the path-scoped
+  share down from §28's ~70%. A description that changed no behaviour cannot
+  be evidence about behaviour.
+- **Registered expectation**: accuracy parity, |Δ| < 0.02 — §29.5's offline
+  nulls predict it and the fine rerank's own mechanism (better spans, same
+  files) does not obviously move a *region* metric. A null is reported as a
+  bound with the delivery rate attached.
+- **Registered response to a cost win with an accuracy null**: report it as
+  the result. Cheaper at equal accuracy is the §26.3 endpoint this project
+  already decided is the one the tool is for.
+- Gates between rungs are harness health only (`triage_swex.py`), never an
+  endpoint, so there is no sequential-testing alpha to spend.
