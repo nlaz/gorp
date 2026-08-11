@@ -277,6 +277,14 @@ pub struct Tuning {
     #[arg(long, hide = true, default_value_t = SearchOptions::default().fine_blend)]
     pub fine_blend: f32,
 
+    /// Refuse to answer when the best candidate scores below this floor:
+    /// zero hits, exit 1, and a stderr line saying so (RESEARCH.md §28.2).
+    /// 0 = off. Default stays 0 until the floor is calibrated on replayed
+    /// real agent queries — a guessed threshold that cries wolf teaches
+    /// agents to ignore the one signal this exists to send.
+    #[arg(long, hide = true, default_value_t = SearchOptions::default().min_score)]
+    pub min_score: f32,
+
     /// Lines shown per result instead of a character budget (0 = use
     /// --passage-chars). Kept so §26's campaign arms reproduce
     #[arg(long = "passage-lines", hide = true, default_value_t = SearchOptions::default().passage_lines)]

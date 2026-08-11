@@ -308,7 +308,18 @@ pub fn footer(mode: Mode, result: &SearchResult, shown: usize, suggested: bool) 
         // §16.10 campaign followed three or more empty searches (§17). One line
         // here ends that spiral.
         let walked = result.report.files_walked;
-        if walked == 0 {
+        if result.report.floored {
+            // Not a structural zero: the scope had candidates and none was
+            // close. The distinct message is the whole point of the floor —
+            // "this corpus may not cover it" prompts a rephrase or a retreat,
+            // where a generic "no results" reads as "the code is not there".
+            let best = result.report.best_signal.unwrap_or(0.0);
+            eprintln!(
+                "semgrep: no matches · best candidate scored {best:.2}, under the \
+                 --min-score floor · likely not covered here — rephrase, or pass \
+                 --min-score 0 to see weak results"
+            );
+        } else if walked == 0 {
             eprintln!("semgrep: no results · nothing to search under this path");
         } else if result.report.n_chunks_considered == 0 {
             let files = if walked == 1 { "file" } else { "files" };

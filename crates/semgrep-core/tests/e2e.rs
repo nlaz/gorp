@@ -886,6 +886,44 @@ fn the_fine_rerank_narrows_spans_and_no_fine_restores_them() {
     );
 }
 
+/// The score floor (§28.2) must refuse on both paths identically: same
+/// zero-hit answer, same `floored` report, warm or cold. And it must be
+/// set-level — a strong head with a weak tail passes untouched, because the
+/// floor asks about the scope, not about each hit.
+#[test]
+fn cold_and_warm_agree_on_the_floor() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+
+    let floor = |o: SearchOptions| SearchOptions { min_score: 0.99, ..o };
+    // Nothing in the fixture is a 0.99 cosine for this.
+    let query = "quantum chromodynamics lattice gauge";
+    let cold = search(dir.path(), query, &floor(stream_opts(Mode::Semantic))).unwrap();
+    assert!(!cold.report.used_index);
+    let warm = search(dir.path(), query, &floor(opts(Mode::Semantic))).unwrap();
+    assert!(warm.report.used_index);
+    for (name, r) in [("cold", &cold), ("warm", &warm)] {
+        assert!(r.hits.is_empty(), "{name}: a floored search returns nothing");
+        assert!(r.report.floored, "{name}: and says why");
+        let s = r.report.best_signal.expect("the refused score is reported");
+        assert!(s < 0.99, "{name}: refused because {s} is under the floor");
+    }
+    assert_eq!(cold.report.best_signal, warm.report.best_signal, "same signal both paths");
+
+    // A permissive floor changes nothing, and still reports the signal so a
+    // calibration campaign can join score to outcome on successes too.
+    let easy = search(
+        dir.path(),
+        "compute the backoff delay",
+        &SearchOptions { min_score: 0.05, ..opts(Mode::Semantic) },
+    )
+    .unwrap();
+    assert!(!easy.hits.is_empty(), "a strong match clears a low floor");
+    assert!(!easy.report.floored);
+    assert!(easy.report.best_signal.is_some(), "signal reported on success too");
+}
+
 /// cold == warm must hold with the declaration boost on (RESEARCH.md §24.1).
 ///
 /// The same trap `cold_and_warm_agree_with_maxsim_reranking` was written for:

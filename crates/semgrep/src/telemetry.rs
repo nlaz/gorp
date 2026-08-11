@@ -133,6 +133,7 @@ fn opts_block(opts: &SearchOptions) -> Value {
         "fine_lines": opts.fine_lines,
         "fine_blend": opts.fine_blend,
         "passage_override": opts.passage_override,
+        "min_score": opts.min_score,
         "params": {
             "window": opts.params.window,
             "overlap": opts.params.overlap,

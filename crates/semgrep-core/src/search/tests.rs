@@ -59,7 +59,7 @@ fn dedupe_case(a: (u32, u32), b: (u32, u32), frac: f32) -> Vec<crate::search::Se
     let cands = vec![span(0, a, 1.0), span(1, b, 0.9)];
     let opts = SearchOptions { k: 2, dedupe_overlap: frac, ..Default::default() };
     let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
-    finalize(dir.path(), "alpha", cands, &opts, "", &mut trace, |_| None)
+    finalize(dir.path(), "alpha", cands, &opts, "", &mut trace, |_| None).hits
 }
 
 /// A passage is a window cut around the matched line, so it usually starts
@@ -85,7 +85,7 @@ fn a_passage_reports_where_it_actually_starts() {
     }];
     let opts = SearchOptions { k: 1, passage_lines: 18, passage_override: true, ..Default::default() };
     let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
-    let hits = finalize(dir.path(), "alpha", cands, &opts, "", &mut trace, |_| None);
+    let hits = finalize(dir.path(), "alpha", cands, &opts, "", &mut trace, |_| None).hits;
 
     let h = &hits[0];
     assert_eq!(h.line, 40, "the match is line 40");
@@ -125,7 +125,7 @@ fn a_character_budget_buys_content_not_lines() {
         }];
         let opts = SearchOptions { k: 1, passage_lines: 0, passage_chars: 800, passage_override: true, ..Default::default() };
         let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
-        let hits = finalize(dir.path(), "alpha", cands, &opts, "", &mut trace, |_| None);
+        let hits = finalize(dir.path(), "alpha", cands, &opts, "", &mut trace, |_| None).hits;
         let h = &hits[0];
         let body = h.lines.clone().expect("a passage");
         (body.len(), body.iter().map(|l| l.chars().count() + 12).sum::<usize>())
@@ -152,7 +152,7 @@ fn one_passage_line_is_the_pre_25_behaviour() {
     }];
     let opts = SearchOptions { k: 1, passage_lines: 1, passage_chars: 0, passage_override: true, ..Default::default() };
     let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
-    let hits = finalize(dir.path(), "alpha", cands, &opts, "", &mut trace, |_| None);
+    let hits = finalize(dir.path(), "alpha", cands, &opts, "", &mut trace, |_| None).hits;
     // No passage at all, so the CLI prints exactly the one line it always did.
     assert!(hits[0].lines.is_none(), "passage_lines=1 must carry no passage");
     assert_eq!(hits[0].line, 2);
@@ -205,7 +205,7 @@ fn a_short_chunk_is_its_own_fine_window() {
     }];
     let opts = SearchOptions { k: 1, ..Default::default() };
     let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
-    let hits = finalize(dir.path(), "alpha", cands, &opts, "", &mut trace, |_| None);
+    let hits = finalize(dir.path(), "alpha", cands, &opts, "", &mut trace, |_| None).hits;
     assert_eq!((hits[0].start_line, hits[0].end_line), (1, 2));
     assert_eq!(hits[0].chunk_start_line, Some(1), "fine ran even on a short chunk");
 }
@@ -235,7 +235,7 @@ fn neighbours_electing_the_same_window_collapse() {
     let opts = SearchOptions { k: 2, dedupe_overlap: 0.5, ..Default::default() };
     let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
     let hits =
-        finalize(dir.path(), "compute backoff delay", cands, &opts, "", &mut trace, |_| None);
+        finalize(dir.path(), "compute backoff delay", cands, &opts, "", &mut trace, |_| None).hits;
     assert_eq!(hits.len(), 1, "the same elected window must not appear twice");
 }
 
@@ -257,7 +257,7 @@ fn the_fine_rerank_is_deterministic() {
         }];
         let opts = SearchOptions { k: 1, ..Default::default() };
         let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
-        let hits = finalize(dir.path(), "route a job to a handler", cands, &opts, "", &mut trace, |_| None);
+        let hits = finalize(dir.path(), "route a job to a handler", cands, &opts, "", &mut trace, |_| None).hits;
         (hits[0].start_line, hits[0].end_line, hits[0].score)
     };
     assert_eq!(run(), run());

@@ -294,6 +294,29 @@ pub struct SearchOptions {
     /// hit's anchor and rank but the *displayed* cut follows the request.
     /// False by default: the fine window is the passage.
     pub passage_override: bool,
+    /// Refuse to answer below this score: when the *best* candidate's signal
+    /// falls under the floor, the search returns zero hits, exit 1, and the
+    /// footer says why (RESEARCH.md §28.2). 0 = off, which is the default
+    /// until the floor is calibrated on replayed real agent queries.
+    ///
+    /// The §28 sessions showed why silence can beat an answer: sg returned
+    /// content on 99% of calls, a plausible-looking chunk near (but not at)
+    /// the target reads as an answer, and agents submitted non-gold files sg
+    /// itself had displayed at 2× ripgrep's rate — while 17% of rg calls
+    /// failing loudly is exactly what prompted agents to rephrase. This is
+    /// that "colder, try again" signal for ranked search.
+    ///
+    /// Set-level, not per-hit: the floor answers "does this scope contain
+    /// the concept at all". A weak tail behind a strong head is normal
+    /// ranked output, and dropping hits one by one would silently shrink k.
+    ///
+    /// The signal is the fine-window cosine ([-1, 1], cross-query
+    /// comparable). The fused score cannot serve: under the default maxsim
+    /// head normalization the top fused score is a constant, and under RRF
+    /// it is a pure function of rank — neither says anything about match
+    /// quality. With `fine_rerank` off the floor falls back to the best
+    /// chunk-embedding cosine via the same vectors MMR diversifies with.
+    pub min_score: f32,
     /// PRF (pseudo-relevance feedback): expand the query with this many
     /// discriminative terms from the first pass's top hits, then re-rank
     /// lexically (RESEARCH.md §9.3). 0 = off.
@@ -358,6 +381,7 @@ impl Default for SearchOptions {
             fine_lines: 4,
             fine_blend: 1.0,
             passage_override: false,
+            min_score: 0.0,
             prf_terms: 0,
             rerank_maxsim: false,
             maxsim_pool: 0,
@@ -441,6 +465,14 @@ pub struct SearchReport {
     /// Why the warm path did or did not repair. A duration cannot distinguish
     /// a throttled check from a clean tree from a failed walk.
     pub repair: RepairOutcome,
+    /// Zero hits because nothing cleared [`SearchOptions::min_score`], as
+    /// opposed to an empty or unreadable scope. The footer branches on this,
+    /// and telemetry needs it to tell a floored refusal from a miss.
+    pub floored: bool,
+    /// The best candidate's floor signal, when a floor was set. Reported even
+    /// on success so a calibration campaign can join score to outcome without
+    /// re-running anything.
+    pub best_signal: Option<f32>,
     /// Performance provenance: every stage on this path's schedule, in order,
     /// zero-filled where a stage did not run. Fixed shape, so two runs are
     /// comparable without special-casing which optional stages fired.

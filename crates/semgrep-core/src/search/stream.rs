@@ -89,7 +89,7 @@ pub fn run(
     // At most a few thousand texts, which is nothing beside the pass just done —
     // but it lands in `finalize:vectors`, which is therefore a much larger
     // number cold than warm under the same name.
-    let hits = hit::finalize(root, query, cands, opts, "", &mut trace, |c| {
+    let fin = hit::finalize(root, query, cands, opts, "", &mut trace, |c| {
         let fm = &files[c.chunk.file_id as usize];
         let text = corpus::lines(root, &fm.path, &c.chunk)?;
         let doc = corpus::doc_text(&fm.path, &text);
@@ -107,10 +107,12 @@ pub fn run(
             used_index: false,
             n_chunks_considered: pass.chunks.len(),
             files_walked: files.len(),
+            floored: fin.floored,
+            best_signal: fin.best_signal,
             stages: trace.finish(),
             ..Default::default()
         },
-        hits,
+        hits: fin.hits,
     })
 }
 

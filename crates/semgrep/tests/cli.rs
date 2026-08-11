@@ -201,6 +201,22 @@ fn the_default_result_is_a_fine_window_passage() {
     assert!(!r.stdout.contains("semgrep:"), "stdout stays data-only");
 }
 
+/// A floored search is a refusal, not a miss: empty stdout, exit 1, and a
+/// stderr line naming the floor — the "colder, try again" signal §28.2 found
+/// grep sends for free and ranked search never did.
+#[test]
+fn a_floored_search_exits_one_with_an_explanation() {
+    let sg = Sg::new();
+    let r = sg.run(&["quantum chromodynamics lattice gauge", "--min-score", "0.99"]);
+    assert_eq!(r.code, 1, "a floored search exits like a miss");
+    assert!(r.stdout.is_empty(), "stdout stays data-only: {}", r.stdout);
+    assert!(
+        r.stderr.contains("under the --min-score floor"),
+        "stderr explains the refusal: {}",
+        r.stderr
+    );
+}
+
 #[test]
 fn ranked_search_also_keeps_stdout_clean() {
     let sg = Sg::new();

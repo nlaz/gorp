@@ -76,7 +76,7 @@ pub fn run(
     let cands = trace.time(Stage::Candidates, || {
         candidates(&rows, ranked, &d.prefix, super::candidate_width(opts.k))
     });
-    let hits =
+    let fin =
         hit::finalize(&d.root, query, cands, opts, &d.prefix, &mut trace, |c| rows.vector(c.id));
 
     Ok(SearchResult {
@@ -91,10 +91,12 @@ pub fn run(
             n_chunks_considered: rows.len(),
             files_walked: idx.meta.files.len(),
             repair: repair_outcome,
+            floored: fin.floored,
+            best_signal: fin.best_signal,
             stages: trace.finish(),
             ..Default::default()
         },
-        hits,
+        hits: fin.hits,
     })
 }
 

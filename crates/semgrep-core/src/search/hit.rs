@@ -33,6 +33,15 @@ pub struct Fine {
     pub score: f32,
 }
 
+/// What finalization produced, and whether the score floor refused it.
+/// `best_signal` is populated whenever a floor was set — on success too, so a
+/// calibration campaign can join score to outcome from the report alone.
+pub struct Finalized {
+    pub hits: Vec<SearchHit>,
+    pub floored: bool,
+    pub best_signal: Option<f32>,
+}
+
 /// Shared tail of both search paths. `vec_of` supplies the embedding for a
 /// candidate (by index into `cands`) when diversification needs it. `strip`
 /// is the query's subtree prefix: candidate paths are index-root-relative
@@ -53,7 +62,7 @@ pub fn finalize(
     strip: &str,
     trace: &mut Trace,
     vec_of: impl Fn(&Candidate) -> Option<Vec<f32>>,
-) -> Vec<SearchHit> {
+) -> Finalized {
     // Drop candidates that overlap an already-kept, higher-ranked candidate in
     // the same file by at least `opts.dedupe_overlap` of the shorter span —
     // near-duplicates, which is what this is for.
@@ -87,6 +96,19 @@ pub fn finalize(
             .then(|| fine_rerank(root, query, &mut kept, opts))
     });
 
+    // The score floor (§28.2): set-level, before MMR and truncation, on the
+    // best candidate's cross-query-comparable signal. Judged here — the tail
+    // both paths share — so a cached scope refuses exactly what an uncached
+    // one refuses.
+    let best_signal = (opts.min_score > 0.0 && !kept.is_empty())
+        .then(|| trace.time(Stage::FinalizeFine, || pool_signal(query, &kept, &relevance, &vec_of)))
+        .flatten();
+    if let Some(s) = best_signal
+        && s < opts.min_score
+    {
+        return Finalized { hits: Vec::new(), floored: true, best_signal };
+    }
+
     // MMR: greedily pick relevant-but-dissimilar candidates so the top-k
     // surfaces different parts of the corpus instead of one hot region.
     let order: Vec<usize> = if opts.diversify && kept.len() > opts.k && opts.k > 1 {
@@ -103,7 +125,7 @@ pub fn finalize(
         (0..kept.len().min(opts.k)).collect()
     };
 
-    trace.time(Stage::FinalizeMaterialize, || {
+    let hits = trace.time(Stage::FinalizeMaterialize, || {
         let query_tokens: HashSet<String> = tokenize::tokens(query).into_iter().collect();
         let mut hits = Vec::with_capacity(opts.k);
         for i in order {
@@ -121,7 +143,35 @@ pub fn finalize(
             }
         }
         hits
-    })
+    });
+    Finalized { hits, floored: false, best_signal }
+}
+
+/// The floor's signal for the pool: the best fine-window cosine when the fine
+/// rerank ran, else the best chunk-embedding cosine through the same stored
+/// quantization MMR diversifies with. `None` when nothing was scorable —
+/// every file unreadable — in which case the floor abstains rather than
+/// refusing on no evidence.
+fn pool_signal(
+    query: &str,
+    kept: &[Candidate],
+    relevance: &Option<Vec<f32>>,
+    vec_of: &impl Fn(&Candidate) -> Option<Vec<f32>>,
+) -> Option<f32> {
+    let s = if relevance.is_some() {
+        kept.iter()
+            .filter_map(|c| c.fine.map(|f| f.score))
+            .fold(f32::NEG_INFINITY, f32::max)
+    } else {
+        let mut q = text::embed_query(query);
+        rank::normalize(&mut q);
+        let q = rank::as_stored(&q);
+        kept.iter()
+            .filter_map(vec_of)
+            .map(|v| 1.0 - rank::distance(&q, &v))
+            .fold(f32::NEG_INFINITY, f32::max)
+    };
+    s.is_finite().then_some(s)
 }
 
 /// Score every `fine_lines`-tall window of each candidate's chunk against the
