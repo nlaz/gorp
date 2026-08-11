@@ -7536,3 +7536,82 @@ other way.
 poolable), a clean R1-sized gate rung on the fixed binary first, and the
 §30.1 registration unchanged. Nothing in this section licenses skipping that
 rung — the last one gated off, and it was right to.
+
+### 30.3 The interim investigated: the turns cost is the harness's own grep block (2026-08-11)
+
+The s31 gate rung passed on the fixed binary — the four §30.2 defects are
+confirmed gone — and `campaign.sh`'s tail then auto-ran the analysis, which
+§30.1 did not license before the pooled 848. **That look is disclosed here**:
+at n=120, `sub-sg − sub-rg` read hitRegion −0.0226 [−0.0438, −0.0011] (at its
+own MDE, w/l 10/20 against 90 exact ties, sign p=0.099) and turns +1.40
+[+0.56, +2.23]. The 848 was halted to investigate the turns number first, and
+the investigation reattributed both endpoints.
+
+**The +1.40 turns is the blocked-grep tax, almost in its entirety.** The
+decomposition, each step from the session artifacts:
+
+1. Not the floor: sessions with zero floored searches still ran +1.18; the
+   floor's 21 refusals in 109 sessions add ~+0.22 weighted.
+2. Not file-reopening from 4-line answers: ΔRead is +0.16/session, and §26.2's
+   signature effect would have put it far higher.
+3. Not extra searching: sg 4.63 calls/session vs rg 4.50.
+4. It is shell `grep`: sg-arm agents start a `grep` command 1.23×/session
+   against the rg arm's 0.18×, every one refused by the shim, every refusal a
+   spent turn. Dose–response: **+1.18 turns per extra blocked attempt**, which
+   at the arms' exposure gap (+1.12/session) predicts +1.33 of the +1.40 —
+   residual **+0.07**. On instances where both arms hit equal blocks, sub-sg
+   is *faster* (−0.54).
+
+The mechanism generalises and is worth stating plainly: **a substitutive
+design is not neutral between arms — it subsidises the arm whose treatment
+resembles the thing removed.** Ripgrep is a grep, so removing `grep` cost its
+arm nothing; sg is ranked search, so its agents kept reaching for the lexical
+verifier they no longer had. In production nothing blocks `grep`, so this
+cost is the experiment's, not the tool's. The accuracy interim inherits some
+of the same artifact: 17 of the 20 sg-loss instances carry block messages in
+their transcripts — lexical verifications wanted and never run.
+
+**What the loss accounting shows changed since §28.2**
+(`mechanism.py --run-id s31`): the line-precision deficit — 27% of sg's §28
+losses at 2.3× rg's rate, the §29.1/§29.3 target — is **gone**; sg now loses
+less to line precision (0.53 pts) than rg does (0.71). The residual deficit
+is led by noise-submissions (24%), the floor's own target, at a sample too
+small to judge the floor by.
+
+**One data note**: the raw blocked-grep total (421) is inflated by a single
+runaway session that looped a process-check 254 times; per-session medians
+and the dose–response buckets are computed per instance and stand without it.
+
+### 30.4 desc-v11: the exact-match escape hatch, routed (2026-08-11)
+
+§30.3's finding is an unmet need, and sg already has the feature that meets
+it: `-e`, grep semantics, every match. The reason no description ever named
+it is §16.10 — an *unconditional* footer mention moved ranked share from 98%
+to 7%, the largest posture effect this project has measured. desc-v11 walks
+that back deliberately and narrowly, on three grounds:
+
+1. The regime changed. §16.10 was measured with alternatives present; in a
+   substitutive arm the lexical urge has nowhere to go, and §30.3 priced the
+   resulting frustration at ~1.3 turns/session and a share of the accuracy
+   gap.
+2. The blocked argvs name the routing. Excluding the runaway session they
+   split into: single known identifiers (verify/enumerate — `-e`'s job) and
+   OR-of-candidates regexes (`getCachedChildren\|getCachedTrashed\|…` — the
+   ranked multi-word query's job, stated as such). desc-v11 routes all three
+   intents: guessing → ranked phrase; candidate names → ranked multi-word,
+   "rather than a regex"; known string → `-e`, "only to verify or count
+   something you have already seen spelled out".
+3. The mention is conditional and the identity stays ranked-first, which is
+   the structural difference from the §16.10 footer.
+
+Registered tripwire for any campaign that runs v11: **exact-share of sg
+invocations**, from the shim logs, reported beside delivery. The §16.10
+failure mode is agents collapsing onto `-e` wholesale; if exact-share
+crowds out ranked search, the variant dies the way v6 and v7 did, and the
+result is reported as §16.10 replicating in a new regime.
+
+Surfaces: `DESC_CONDITIONS["desc-v11"]` (locbench), `SG_LINE_V11` +
+`SWEXPLORE_SG_DESC=v11` (SWE-Explore arms). SHIPPED stays desc-v10 in the
+README until v11 is measured. Verified: `-e` composes with the injected
+campaign flags (`--chunking function --min-score 0.42` parse cleanly in
+keyword mode and change nothing there).
