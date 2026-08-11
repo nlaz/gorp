@@ -7469,3 +7469,70 @@ rather than running a half-dosed arm.
   already decided is the one the tool is for.
 - Gates between rungs are harness health only (`triage_swex.py`), never an
   endpoint, so there is no sequential-testing alpha to spend.
+
+### 30.2 R1 as a pilot: four defects, and a description that moved behaviour (2026-08-11)
+
+**The powered contrast was not funded, and no accuracy endpoint is reported
+here.** §30.1 binds the primary to a single computation on the pooled 848,
+and R1's 240 sessions are neither that nor comparable to it — the four fixes
+below changed the binary, two of them in ways that change what the agent
+*does*, so these rows cannot pool with a later run. R1 stands as what the
+ladder's first rung is for: $46.93 that bought four defects and two
+behavioural readings.
+
+**The gate fired on four checks and all four were real.**
+
+1. **`--path` is a shape agents type.** §28.1 caught it once in 484 searches
+   and filed it as a compat note; R1 caught it four times in 511. The rise is
+   **desc-v10's own doing** — telling an agent to "add a path argument"
+   invites a named flag at an interface that takes a positional. Now accepted
+   as an alias. A description change produced a CLI requirement, which is not
+   a direction this project had seen before.
+2. **The floor's own message taught an agent to fumble a flag.** It ended "or
+   pass `--min-score 0` to see weak results". One agent read that, typed
+   `--min-score` with no value, exited 2, and spiralled into three
+   consecutive empty searches — tripping the distress gate. This is §16.10
+   exactly (naming `-e` in a footer moved ranked share 7% → 98%): **a footer
+   is a treatment, and an agent acts on any flag it names.** The message now
+   induces only the behaviour the floor exists for — rephrase, or widen — and
+   a test asserts it names no flag.
+3. **The registered diagnostic was unreadable.** §30.1 named the floored rate
+   a headline diagnostic; `floored`/`best_signal` never reached the trace
+   envelope, and a refusal and an empty scope both report `n_hits=0`, exit 1.
+   Recovering the rate meant grepping stderr out of the search dumps, which is
+   how it was recovered here: **24 of 32 empty sg searches were floored
+   refusals carrying their explanation** — the floor working as configured,
+   invisible to the instrument that was supposed to see it.
+4. **The gate counted those refusals as failures.** "Ranked searches returning
+   nothing" hit 4.8% against a 2% limit, and three quarters of it was the
+   floor doing its job. Same shape as the "bad path (tool correct)" case
+   §28.1 had to teach the distress check about: a gate that punishes the tool
+   for being right is a gate nobody can pass. Now excluded and reported
+   separately.
+
+**Two behavioural readings, both descriptive at n=120.**
+
+| | delivery | path-scoped calls | $/session | turns |
+|---|---|---|---|---|
+| `sub-rg` (unchanged control) | 93% | 89% | $0.200 | 9.2 |
+| `sub-sg` | 91% | **50%** | $0.194 | 9.6 |
+| §28 baseline | 90% | 70% | $0.240 | — |
+
+**desc-v10 moved query shape and the control did not.** sg's path-scoped
+share fell 70% → 50% while rg — whose description is untouched — sat at 89%
+against §28's 90%. That is §19's registered gate passing in the only form it
+can pass: the treated arm moved, the untreated one did not. It is also the
+first description change in this project measured to move *scoping* rather
+than length or phrasing.
+
+**Cost parity, which §28 did not have.** sg ran marginally cheaper than rg
+($0.194 vs $0.200) where §28 measured +25%. Consistent with §30.1's
+registered co-primary prediction and with the mechanism — a 4-line passage is
+a fraction of a 32-line one — but it is 120 instances of a descriptive
+reading, not the registered endpoint, and the +0.4 turn difference runs the
+other way.
+
+**What a future powered run needs**: a fresh run id (R1's rows are not
+poolable), a clean R1-sized gate rung on the fixed binary first, and the
+§30.1 registration unchanged. Nothing in this section licenses skipping that
+rung — the last one gated off, and it was right to.
