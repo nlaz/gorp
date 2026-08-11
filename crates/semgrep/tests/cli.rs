@@ -170,7 +170,7 @@ fn stdout_is_parseable_and_advice_goes_to_stderr() {
 /// what a downstream consumer doing the same thing will experience. The shape
 /// is now asserted somewhere rather than only implied by whatever else fails.
 #[test]
-fn the_default_result_is_a_whole_chunk_passage() {
+fn the_default_result_is_a_fine_window_passage() {
     let sg = Sg::new();
     let r = sg.run(&["how is the retry delay computed", "-k", "2"]);
     assert_eq!(r.code, 0, "stderr: {}", r.stderr);
@@ -183,8 +183,9 @@ fn the_default_result_is_a_whole_chunk_passage() {
         .collect();
     assert_eq!(blocks.len(), 2, "one block per result, blank-line separated");
     for b in &blocks {
-        assert!(b.len() > 1, "the default is a passage, not a single line");
-        assert!(b.len() <= 32, "a passage is at most one chunk, got {}", b.len());
+        // Since §28.2 the default passage is the fine window: the few lines
+        // that actually match, not the chunk around them.
+        assert!(b.len() <= 4, "a default passage is at most the fine window, got {}", b.len());
         // Line numbers inside a passage must be consecutive and real, which is
         // what `lines_from` exists to get right.
         let nums: Vec<u32> = b

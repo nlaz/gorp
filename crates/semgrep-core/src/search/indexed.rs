@@ -357,7 +357,7 @@ fn candidates(
         .into_iter()
         .filter_map(|(id, score)| {
             let (chunk, path) = rows.chunk(id);
-            in_scope(&path).then_some(hit::Candidate { id, chunk, path, score })
+            in_scope(&path).then_some(hit::Candidate { id, chunk, path, score, fine: None })
         })
         .take(limit)
         .collect()

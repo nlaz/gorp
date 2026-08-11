@@ -159,6 +159,7 @@ stages! {
     // quadratic-ish span dedupe, an O(k·n·dims) MMR over dequantized vectors,
     // and a file re-read per hit.
     FinalizeDedupe      => "finalize:dedupe",       Finalize;
+    FinalizeFine        => "finalize:fine",         Finalize;
     FinalizeVectors     => "finalize:vectors",      Finalize;
     FinalizeMmr         => "finalize:mmr",          Finalize;
     FinalizeMaterialize => "finalize:materialize",  Finalize;
@@ -202,6 +203,7 @@ pub const SCHEDULE_WARM: &[Stage] = &[
     Stage::RankDeclBoost,
     Stage::Candidates,
     Stage::FinalizeDedupe,
+    Stage::FinalizeFine,
     Stage::FinalizeVectors,
     Stage::FinalizeMmr,
     Stage::FinalizeMaterialize,
@@ -228,6 +230,7 @@ pub const SCHEDULE_COLD: &[Stage] = &[
     Stage::RankDeclBoost,
     Stage::Candidates,
     Stage::FinalizeDedupe,
+    Stage::FinalizeFine,
     Stage::FinalizeVectors,
     Stage::FinalizeMmr,
     Stage::FinalizeMaterialize,

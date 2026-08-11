@@ -666,15 +666,20 @@ fn chunk_params_are_part_of_a_cache_entry_identity() {
     fixture(dir.path());
     let query = "compute the backoff delay";
 
+    // Fine rerank off: this test reads the hit span as a proxy for chunk
+    // geometry, and the fine window narrows every span to a few lines
+    // regardless of the chunk behind it (§28.2).
     let narrow = SearchOptions {
         mode: Mode::Hybrid,
         k: 3,
+        fine_rerank: false,
         params: ChunkParams { window: 8, overlap: 2, ..Default::default() },
         ..Default::default()
     };
     let wide = SearchOptions {
         mode: Mode::Hybrid,
         k: 3,
+        fine_rerank: false,
         params: ChunkParams { window: 32, overlap: 8, ..Default::default() },
         ..Default::default()
     };
@@ -827,6 +832,60 @@ fn cold_and_warm_agree_with_maxsim_reranking() {
     }
 }
 
+/// The fine rerank (§28.2) must actually narrow spans — and switching it off
+/// must restore the whole-chunk shape. `cold_and_warm_return_identical_results`
+/// already proves cold/warm parity *with* fine on (it runs on defaults); this
+/// is the non-vacuity half, so an accidentally inert rerank cannot pass the
+/// parity battery by never doing anything.
+#[test]
+fn the_fine_rerank_narrows_spans_and_no_fine_restores_them() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    let query = "compute the backoff delay";
+
+    let fine = search(dir.path(), query, &opts(Mode::Semantic)).unwrap();
+    assert!(!fine.hits.is_empty());
+    for h in &fine.hits {
+        let span = h.end_line - h.start_line + 1;
+        assert!(
+            span <= SearchOptions::default().fine_lines,
+            "a fine span must fit the window: {} lines at {}:{}",
+            span,
+            h.path,
+            h.start_line
+        );
+        let (cs, ce) = (
+            h.chunk_start_line.expect("fine hits carry their chunk"),
+            h.chunk_end_line.expect("fine hits carry their chunk"),
+        );
+        assert!(cs <= h.start_line && h.end_line <= ce, "the window sits inside its chunk");
+        assert!(h.start_line <= h.line && h.line <= h.end_line, "best line inside the window");
+        let shown = h.lines.as_ref().expect("the fine window is the passage");
+        assert_eq!(shown.len() as u32, span, "the passage is exactly the window");
+        assert_eq!(h.lines_from, Some(h.start_line));
+    }
+
+    let plain = search(
+        dir.path(),
+        query,
+        &SearchOptions { fine_rerank: false, ..opts(Mode::Semantic) },
+    )
+    .unwrap();
+    for h in &plain.hits {
+        assert!(h.chunk_start_line.is_none(), "--no-fine must not carry chunk fields");
+    }
+    // A tail chunk can be shorter than the fine window on its own, so the
+    // restored shape is asserted on the population, not per hit.
+    assert!(
+        plain
+            .hits
+            .iter()
+            .any(|h| h.end_line - h.start_line + 1 > SearchOptions::default().fine_lines),
+        "without fine at least one span should be chunk-sized"
+    );
+}
+
 /// cold == warm must hold with the declaration boost on (RESEARCH.md §24.1).
 ///
 /// The same trap `cold_and_warm_agree_with_maxsim_reranking` was written for:
@@ -852,7 +911,14 @@ fn cold_and_warm_agree_with_the_declaration_boost() {
     let mut moved = false;
     for mode in [Mode::Bm25, Mode::Semantic, Mode::Hybrid] {
         for query in queries {
-            let db = |o: SearchOptions| SearchOptions { decl_boost: 4.0, ..o };
+            // Fine rerank off: at the default blend 1.0 the fine window score
+            // owns the final order, so the boost's within-pool reordering is
+            // invisible and the vacuity assert below trips. This test guards
+            // the coarse stage's cold/warm parity; the fine stage has its own
+            // parity test (§28.2).
+            let db = |o: SearchOptions| {
+                SearchOptions { decl_boost: 4.0, fine_rerank: false, ..o }
+            };
             let cold = search(dir.path(), query, &db(stream_opts(mode))).unwrap();
             assert!(!cold.report.used_index);
             let warm = search(dir.path(), query, &db(opts(mode))).unwrap();
@@ -867,8 +933,16 @@ fn cold_and_warm_agree_with_the_declaration_boost() {
                 "cold != warm for {mode:?} {query:?} with decl_boost on"
             );
             // An inert boost would satisfy the equality above trivially, and
-            // this test would then be guarding nothing at all.
-            let plain = search(dir.path(), query, &opts(mode)).unwrap();
+            // this test would then be guarding nothing at all. The baseline
+            // must match the boosted arms in everything but the boost — with
+            // fine left on here, every difference would be the fine rerank's
+            // and `moved` would pass vacuously.
+            let plain = search(
+                dir.path(),
+                query,
+                &SearchOptions { fine_rerank: false, ..opts(mode) },
+            )
+            .unwrap();
             moved |= shape(&plain) != shape(&warm);
         }
     }

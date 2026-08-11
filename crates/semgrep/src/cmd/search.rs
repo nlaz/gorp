@@ -330,8 +330,14 @@ fn options(cli: &Cli, mode: Mode) -> Result<SearchOptions> {
         // `--full` wins over both: it is the coarsest request, and it is a
         // line budget so it bypasses the character one.
         passage_lines: if t.full { u32::MAX } else { t.passage_lines },
-        passage_chars: t.passage_chars,
+        passage_chars: t.passage_chars.unwrap_or(SearchOptions::default().passage_chars),
         defines: t.headers,
+        fine_rerank: !t.no_fine,
+        fine_lines: t.fine_lines,
+        fine_blend: t.fine_blend,
+        // Any explicit passage request switches display back to a chunk cut;
+        // the fine window keeps choosing the anchor and the order either way.
+        passage_override: t.passage_chars.is_some() || t.passage_lines > 0 || t.full,
         prf_terms: t.prf,
         // MaxSim reranks the semantic candidate list before fusion, so it can
         // only pay off where that list decides the answer. In `--mode semantic`

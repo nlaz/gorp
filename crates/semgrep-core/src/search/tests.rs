@@ -12,6 +12,7 @@ fn cand(id: u32, path: &str, start: u32, score: f32) -> Candidate {
         chunk: Chunk { file_id: 0, start_line: start, end_line: start + 7 },
         path: path.to_string(),
         score,
+        fine: None,
     }
 }
 
@@ -53,6 +54,7 @@ fn dedupe_case(a: (u32, u32), b: (u32, u32), frac: f32) -> Vec<crate::search::Se
         chunk: Chunk { file_id: 0, start_line: s, end_line: e },
         path: "x.rs".into(),
         score,
+        fine: None,
     };
     let cands = vec![span(0, a, 1.0), span(1, b, 0.9)];
     let opts = SearchOptions { k: 2, dedupe_overlap: frac, ..Default::default() };
@@ -79,14 +81,18 @@ fn a_passage_reports_where_it_actually_starts() {
         chunk: Chunk { file_id: 0, start_line: 1, end_line: 60 },
         path: "x.rs".into(),
         score: 1.0,
+        fine: None,
     }];
-    let opts = SearchOptions { k: 1, passage_lines: 18, ..Default::default() };
+    let opts = SearchOptions { k: 1, passage_lines: 18, passage_override: true, ..Default::default() };
     let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
     let hits = finalize(dir.path(), "alpha", cands, &opts, "", &mut trace, |_| None);
 
     let h = &hits[0];
     assert_eq!(h.line, 40, "the match is line 40");
-    assert_eq!(h.start_line, 1, "the chunk still starts at 1");
+    // With the fine rerank on (the default), the hit's span is the fine
+    // window and the chunk bound moves to `chunk_start_line` (§28.2).
+    assert!(h.start_line <= 40 && 40 <= h.end_line, "the fine span holds the match");
+    assert_eq!(h.chunk_start_line, Some(1), "the chunk bound is still reported");
     // 8 before, the match, 9 after.
     assert_eq!(h.lines_from, Some(32), "the passage starts at 40-8, not at the chunk start");
     let body = h.lines.as_ref().expect("a passage was requested");
@@ -115,8 +121,9 @@ fn a_character_budget_buys_content_not_lines() {
             chunk: Chunk { file_id: 0, start_line: 1, end_line: 40 },
             path: file.into(),
             score: 1.0,
+            fine: None,
         }];
-        let opts = SearchOptions { k: 1, passage_lines: 0, passage_chars: 800, ..Default::default() };
+        let opts = SearchOptions { k: 1, passage_lines: 0, passage_chars: 800, passage_override: true, ..Default::default() };
         let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
         let hits = finalize(dir.path(), "alpha", cands, &opts, "", &mut trace, |_| None);
         let h = &hits[0];
@@ -141,8 +148,9 @@ fn one_passage_line_is_the_pre_25_behaviour() {
         chunk: Chunk { file_id: 0, start_line: 1, end_line: 3 },
         path: "x.rs".into(),
         score: 1.0,
+        fine: None,
     }];
-    let opts = SearchOptions { k: 1, passage_lines: 1, passage_chars: 0, ..Default::default() };
+    let opts = SearchOptions { k: 1, passage_lines: 1, passage_chars: 0, passage_override: true, ..Default::default() };
     let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
     let hits = finalize(dir.path(), "alpha", cands, &opts, "", &mut trace, |_| None);
     // No passage at all, so the CLI prints exactly the one line it always did.
@@ -180,4 +188,77 @@ fn containment_collapses_at_every_threshold() {
         assert_eq!(hits.len(), 1, "contained span should collapse at frac {frac}");
         assert_eq!(hits[0].start_line, 1);
     }
+}
+
+/// A chunk shorter than the fine window scores as itself: the window clamps
+/// to the chunk and the whole chunk is the passage.
+#[test]
+fn a_short_chunk_is_its_own_fine_window() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("x.rs"), "fn alpha() {}\nfn beta() {}\n").unwrap();
+    let cands = vec![Candidate {
+        id: 0,
+        chunk: Chunk { file_id: 0, start_line: 1, end_line: 2 },
+        path: "x.rs".into(),
+        score: 1.0,
+        fine: None,
+    }];
+    let opts = SearchOptions { k: 1, ..Default::default() };
+    let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
+    let hits = finalize(dir.path(), "alpha", cands, &opts, "", &mut trace, |_| None);
+    assert_eq!((hits[0].start_line, hits[0].end_line), (1, 2));
+    assert_eq!(hits[0].chunk_start_line, Some(1), "fine ran even on a short chunk");
+}
+
+/// Two strided neighbours that elect the same lines from their shared region
+/// collapse to one hit — the fine-window dedupe (§28.2). The chunk-level
+/// dedupe cannot catch this at a 0.5 threshold (25% chunk overlap), but both
+/// chunks' best window is the one distinctive line they share.
+#[test]
+fn neighbours_electing_the_same_window_collapse() {
+    let dir = tempfile::tempdir().unwrap();
+    // 56 filler lines; lines 27-29 are the only distinctive region, inside
+    // the 25-32 overlap of chunks (1,32) and (25,56).
+    let mut body: Vec<String> = (1..=56).map(|i| format!("let filler{i} = {i};")).collect();
+    body[26] = "fn compute_backoff_delay(attempt: u32) {".into();
+    body[27] = "    let exp = base_ms << attempt;".into();
+    body[28] = "}".into();
+    std::fs::write(dir.path().join("x.rs"), body.join("\n") + "\n").unwrap();
+    let span = |id, (s, e), score| Candidate {
+        id,
+        chunk: Chunk { file_id: 0, start_line: s, end_line: e },
+        path: "x.rs".into(),
+        score,
+        fine: None,
+    };
+    let cands = vec![span(0, (1, 32), 1.0), span(1, (25, 56), 0.9)];
+    let opts = SearchOptions { k: 2, dedupe_overlap: 0.5, ..Default::default() };
+    let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
+    let hits =
+        finalize(dir.path(), "compute backoff delay", cands, &opts, "", &mut trace, |_| None);
+    assert_eq!(hits.len(), 1, "the same elected window must not appear twice");
+}
+
+/// The fine rerank is a pure function of the query and the file bytes: two
+/// runs over the same inputs agree exactly, including scores.
+#[test]
+fn the_fine_rerank_is_deterministic() {
+    let dir = tempfile::tempdir().unwrap();
+    let body: Vec<String> =
+        (1..=40).map(|i| format!("fn handler_{i}(job: Job) -> Result<()> {{}}")).collect();
+    std::fs::write(dir.path().join("x.rs"), body.join("\n") + "\n").unwrap();
+    let run = || {
+        let cands = vec![Candidate {
+            id: 0,
+            chunk: Chunk { file_id: 0, start_line: 1, end_line: 40 },
+            path: "x.rs".into(),
+            score: 1.0,
+            fine: None,
+        }];
+        let opts = SearchOptions { k: 1, ..Default::default() };
+        let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
+        let hits = finalize(dir.path(), "route a job to a handler", cands, &opts, "", &mut trace, |_| None);
+        (hits[0].start_line, hits[0].end_line, hits[0].score)
+    };
+    assert_eq!(run(), run());
 }

@@ -256,10 +256,26 @@ pub struct Tuning {
     pub decl_boost: f32,
 
     /// Characters shown per result, grown around the match (0 = the matched
-    /// line alone). A budget in characters rather than lines because a line
-    /// of prose is not a line of code — RESEARCH.md §26.4
-    #[arg(long = "passage-chars", default_value_t = SearchOptions::default().passage_chars)]
-    pub passage_chars: u32,
+    /// line alone; default 800). A budget in characters rather than lines
+    /// because a line of prose is not a line of code — RESEARCH.md §26.4.
+    /// Passing it at all opts out of the fine-window display and back into a
+    /// chunk-cut passage, which is why the default lives in `SearchOptions`
+    /// rather than here: the engine needs to know asked-for from defaulted.
+    #[arg(long = "passage-chars")]
+    pub passage_chars: Option<u32>,
+
+    /// Disable the fine rerank: rank and display whole chunks, the pre-§28.2
+    /// behavior, byte for byte. The A/B control for eval arms.
+    #[arg(long, hide = true)]
+    pub no_fine: bool,
+
+    /// Fine sub-window height in lines (RESEARCH.md §28.2)
+    #[arg(long, hide = true, default_value_t = SearchOptions::default().fine_lines)]
+    pub fine_lines: u32,
+
+    /// Fine vs coarse score blend when ordering hits (1.0 = pure fine)
+    #[arg(long, hide = true, default_value_t = SearchOptions::default().fine_blend)]
+    pub fine_blend: f32,
 
     /// Lines shown per result instead of a character budget (0 = use
     /// --passage-chars). Kept so §26's campaign arms reproduce

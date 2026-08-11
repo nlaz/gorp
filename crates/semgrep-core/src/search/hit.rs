@@ -2,18 +2,34 @@
 //! re-reading the best line out of the file.
 
 use super::{SearchHit, SearchOptions};
-use crate::rank::mmr;
+use crate::rank::{self, mmr};
 use crate::text::token as tokenize;
 use crate::trace::{Stage, Trace};
-use crate::{Chunk, corpus};
+use crate::{Chunk, corpus, text};
 use std::collections::HashSet;
 use std::path::Path;
 
+#[derive(Clone)]
 pub struct Candidate {
     /// Chunk id == row in the chunk table / embedding matrix.
     pub id: u32,
     pub chunk: Chunk,
     pub path: String,
+    pub score: f32,
+    /// The best few-line window inside this chunk, once the fine rerank has
+    /// scored it. `None` until then, and stays `None` when the rerank is off
+    /// or the file could not be re-read.
+    pub fine: Option<Fine>,
+}
+
+/// The fine rerank's verdict on one candidate: the sub-window of its chunk
+/// that matches the query best, and how well (cosine in the fine space,
+/// [-1, 1], comparable across queries).
+#[derive(Debug, Clone, Copy)]
+pub struct Fine {
+    /// 1-based, inclusive, blank edges already trimmed.
+    pub start_line: u32,
+    pub end_line: u32,
     pub score: f32,
 }
 
@@ -51,7 +67,7 @@ pub fn finalize(
     // contained a *call site* of it — the answer removed before ranking rather
     // than ranked low. At 25% neighbour overlap a 0.5 threshold keeps neighbours
     // and still collapses true duplicates.
-    let kept: Vec<Candidate> = trace.time(Stage::FinalizeDedupe, || {
+    let mut kept: Vec<Candidate> = trace.time(Stage::FinalizeDedupe, || {
         let mut kept: Vec<Candidate> = Vec::with_capacity(cands.len());
         for c in cands.drain(..) {
             let dup = kept.iter().any(|k| k.path == c.path && overlaps(k, &c, opts.dedupe_overlap));
@@ -62,12 +78,24 @@ pub fn finalize(
         kept
     });
 
+    // Fine rerank: pick the best few-line window inside each surviving chunk
+    // and let the windows' scores order the list (RESEARCH.md §28.2). Between
+    // dedupe and MMR because dedupe is a property of the chunks and MMR must
+    // rank what will actually be shown.
+    let relevance: Option<Vec<f32>> = trace.time(Stage::FinalizeFine, || {
+        (opts.fine_rerank && opts.fine_lines >= 1)
+            .then(|| fine_rerank(root, query, &mut kept, opts))
+    });
+
     // MMR: greedily pick relevant-but-dissimilar candidates so the top-k
     // surfaces different parts of the corpus instead of one hot region.
     let order: Vec<usize> = if opts.diversify && kept.len() > opts.k && opts.k > 1 {
         let vecs: Vec<Option<Vec<f32>>> =
             trace.time(Stage::FinalizeVectors, || kept.iter().map(&vec_of).collect());
-        let scores: Vec<f32> = kept.iter().map(|c| c.score).collect();
+        let scores: Vec<f32> = match &relevance {
+            Some(r) => r.clone(),
+            None => kept.iter().map(|c| c.score).collect(),
+        };
         trace.time(Stage::FinalizeMmr, || {
             mmr::mmr_order(&scores, &vecs, opts.k, opts.mmr_lambda)
         })
@@ -80,7 +108,7 @@ pub fn finalize(
         let mut hits = Vec::with_capacity(opts.k);
         for i in order {
             let c = &kept[i];
-            if let Some(mut hit) = materialize(root, &c.path, c.chunk, c.score, &query_tokens, opts) {
+            if let Some(mut hit) = materialize(root, c, &query_tokens, opts) {
                 if !strip.is_empty()
                     && let Some(rest) = hit.path.strip_prefix(&format!("{strip}/"))
                 {
@@ -94,6 +122,156 @@ pub fn finalize(
         }
         hits
     })
+}
+
+/// Score every `fine_lines`-tall window of each candidate's chunk against the
+/// query, reorder the candidates by their best window, and return the
+/// relevance scores MMR should rank by (index-aligned with `kept`).
+///
+/// The fine space is deliberately self-contained: query and windows are both
+/// embedded from raw text — no path line, no SIF stats, no prose render — so
+/// the score is a pure function of the query string and the file bytes.
+/// That is what lets the cold and warm paths share this code with no index
+/// state threaded in, which is the parity invariant's whole demand.
+///
+/// A candidate whose file cannot be re-read keeps `fine: None` and sinks to
+/// the tail in its original relative order — the same "unscorable sinks, is
+/// not dropped" rule the MaxSim head uses, because dropping here would
+/// silently change the pool that dedupe already shaped.
+fn fine_rerank(
+    root: &Path,
+    query: &str,
+    kept: &mut Vec<Candidate>,
+    opts: &SearchOptions,
+) -> Vec<f32> {
+    let q_i8 = {
+        let mut q = text::embed_query(query);
+        rank::normalize(&mut q);
+        rank::quantize_i8(&q)
+    };
+    use rayon::prelude::*;
+    let fines: Vec<Option<Fine>> = kept
+        .par_iter()
+        .map(|c| best_window(root, c, &q_i8, opts.fine_lines as usize))
+        .collect();
+    for (c, fine) in kept.iter_mut().zip(fines) {
+        c.fine = fine;
+    }
+
+    // Order: scored candidates by blended score, unscored after them in their
+    // surviving coarse order. Blending happens on min-max normalized values
+    // because fine cosine and fused coarse scores live on incomparable scales.
+    let scored: Vec<&Candidate> = kept.iter().filter(|c| c.fine.is_some()).collect();
+    let (f_lo, f_hi) = min_max(scored.iter().map(|c| c.fine.expect("filtered").score));
+    let (c_lo, c_hi) = min_max(scored.iter().map(|c| c.score));
+    let norm = |v: f32, lo: f32, hi: f32| if hi > lo { (v - lo) / (hi - lo) } else { 1.0 };
+    let blended = |c: &Candidate| {
+        let f = norm(c.fine.expect("scored").score, f_lo, f_hi);
+        let coarse = norm(c.score, c_lo, c_hi);
+        opts.fine_blend * f + (1.0 - opts.fine_blend) * coarse
+    };
+    let mut order: Vec<usize> = (0..kept.len()).collect();
+    order.sort_by(|&a, &b| match (&kept[a].fine, &kept[b].fine) {
+        (Some(_), Some(_)) => blended(&kept[b]).total_cmp(&blended(&kept[a])),
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (None, None) => std::cmp::Ordering::Equal,
+    });
+    let reordered: Vec<Candidate> = order.into_iter().map(|i| kept[i].clone()).collect();
+    *kept = reordered;
+
+    // Two strided neighbours can elect the *same* lines from their shared
+    // region; showing both restates one answer twice. Same-file windows that
+    // overlap by half the shorter span collapse to the higher-ranked one.
+    let mut survivors: Vec<Candidate> = Vec::with_capacity(kept.len());
+    for c in kept.drain(..) {
+        let dup = c.fine.is_some_and(|f| {
+            survivors.iter().any(|s| {
+                s.path == c.path
+                    && s.fine.is_some_and(|sf| window_overlaps(&sf, &f))
+            })
+        });
+        if !dup {
+            survivors.push(c);
+        }
+    }
+    *kept = survivors;
+
+    // Relevance for MMR: the blended score for scored candidates; unscored
+    // ones trail below the scored minimum, keeping their relative order.
+    let scored_min = kept
+        .iter()
+        .filter(|c| c.fine.is_some())
+        .map(blended)
+        .fold(f32::INFINITY, f32::min);
+    let base = if scored_min.is_finite() { scored_min } else { 0.0 };
+    let mut tail = 0;
+    kept.iter()
+        .map(|c| {
+            if c.fine.is_some() {
+                blended(c)
+            } else {
+                tail += 1;
+                base - 0.001 * tail as f32
+            }
+        })
+        .collect()
+}
+
+/// The best `fine_lines`-tall window of one chunk, scored against the
+/// pre-quantized query vector. Ties go to the earliest window, and the winner
+/// is trimmed of blank edge lines before its span is recorded.
+fn best_window(root: &Path, c: &Candidate, q_i8: &[i8], w: usize) -> Option<Fine> {
+    let body = corpus::lines(root, &c.path, &c.chunk)?;
+    let lines: Vec<&str> = body.lines().collect();
+    if lines.is_empty() {
+        return None;
+    }
+    let w = w.min(lines.len());
+    let mut best: Option<(usize, f32)> = None;
+    for start in 0..=lines.len() - w {
+        let window = &lines[start..start + w];
+        if window.iter().all(|l| l.trim().is_empty()) {
+            continue;
+        }
+        let mut v = text::embed_query(&window.join("\n"));
+        rank::normalize(&mut v);
+        let score = 1.0 - rank::dot_distance_i8(q_i8, &rank::quantize_i8(&v));
+        match best {
+            Some((_, s)) if s >= score => {}
+            _ => best = Some((start, score)),
+        }
+    }
+    let (start, score) = best?;
+    let mut lo = start;
+    let mut hi = start + w - 1;
+    while lo < hi && lines[lo].trim().is_empty() {
+        lo += 1;
+    }
+    while hi > lo && lines[hi].trim().is_empty() {
+        hi -= 1;
+    }
+    Some(Fine {
+        start_line: c.chunk.start_line + lo as u32,
+        end_line: c.chunk.start_line + hi as u32,
+        score,
+    })
+}
+
+/// Do two fine windows in the same file share at least half the shorter one?
+fn window_overlaps(a: &Fine, b: &Fine) -> bool {
+    let lo = a.start_line.max(b.start_line);
+    let hi = a.end_line.min(b.end_line);
+    if lo > hi {
+        return false;
+    }
+    let shared = (hi - lo + 1) as f32;
+    let span = |f: &Fine| (f.end_line - f.start_line + 1) as f32;
+    shared >= 0.5 * span(a).min(span(b))
+}
+
+fn min_max(vals: impl Iterator<Item = f32>) -> (f32, f32) {
+    vals.fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), v| (lo.min(v), hi.max(v)))
 }
 
 /// What one printed line costs beyond its own text: a line number and its
@@ -175,15 +353,29 @@ fn overlaps(a: &Candidate, b: &Candidate, frac: f32) -> bool {
 /// Turn a ranked chunk into a displayable hit: re-read the file and pick the
 /// line with the highest query-token overlap (first non-empty line as
 /// fallback). Skips chunks whose file vanished since ranking.
+///
+/// When the fine rerank chose a window, the hit's span *is* that window and
+/// the best-line search runs inside it — the agent-facing span must be the
+/// tight one (RESEARCH.md §28.2). The whole chunk is still read and collected,
+/// because a caller who explicitly asked for a wider passage
+/// (`passage_override`) gets it cut from the chunk, anchored at the window.
 fn materialize(
     root: &Path,
-    rel_path: &str,
-    chunk: Chunk,
-    score: f32,
+    c: &Candidate,
     query_tokens: &HashSet<String>,
     opts: &SearchOptions,
 ) -> Option<SearchHit> {
-    let text = corpus::read_text(&corpus::resolve(root, rel_path))?;
+    let chunk = c.chunk;
+    let text = corpus::read_text(&corpus::resolve(root, &c.path))?;
+    // The span the best-line argmax runs over: the fine window when one was
+    // chosen, else the whole chunk.
+    let (span_start, span_end) = match &c.fine {
+        Some(f) => (f.start_line, f.end_line),
+        None => (chunk.start_line, chunk.end_line),
+    };
+    // Whether display shows exactly the fine window (the default with fine on)
+    // or a cut of the chunk (no fine, or an explicit passage request).
+    let window_is_passage = c.fine.is_some() && !opts.passage_override;
     // Both display extras are collected in this loop rather than by re-reading
     // the file in the CLI: the chunk's text is already in hand exactly once
     // here, and a second reader would be a second chance to disagree about
@@ -191,7 +383,9 @@ fn materialize(
     // Every line of the chunk is collected even when only a window will be
     // shown: the window is centred on the best-matching line, and which line
     // that is only becomes known once the loop below has finished.
-    let want_lines = opts.passage_lines > 1 || (opts.passage_lines == 0 && opts.passage_chars > 0);
+    let want_lines = window_is_passage
+        || opts.passage_lines > 1
+        || (opts.passage_lines == 0 && opts.passage_chars > 0);
     let mut lines: Option<Vec<String>> = want_lines.then(Vec::new);
     let mut defines: Option<Vec<String>> = opts.defines.then(Vec::new);
     let mut best: Option<(usize, u32, &str)> = None;
@@ -209,7 +403,7 @@ fn materialize(
         if let Some(v) = defines.as_mut() {
             v.extend(crate::text::declared_names(line));
         }
-        if line.trim().is_empty() {
+        if line.trim().is_empty() || line_no < span_start || line_no > span_end {
             continue;
         }
         let mut overlap = 0usize;
@@ -224,37 +418,48 @@ fn materialize(
         }
     }
     let (_, line, line_text) = best?;
-    // Cut the collected chunk down to `passage_lines` centred on the match, and
-    // report where the cut starts. `out.rs` numbers printed lines from
-    // `lines_from`, not from `start_line` — without that the whole passage is
-    // misnumbered, which is worse than showing nothing, since the line number
-    // is what the caller navigates by.
+    // Cut the collected chunk down to the passage, and report where the cut
+    // starts. `out.rs` numbers printed lines from `lines_from`, not from
+    // `start_line` — without that the whole passage is misnumbered, which is
+    // worse than showing nothing, since the line number is what the caller
+    // navigates by.
     let (lines, lines_from) = match lines {
         None => (None, None),
         Some(all) => {
             let first = chunk.start_line;
-            let at = (line - first) as usize;
-            let (lo, hi) = if opts.passage_lines > 0 {
+            let (lo, hi) = if window_is_passage {
+                ((span_start - first) as usize, (span_end - first) as usize)
+            } else if opts.passage_lines > 0 {
                 // Legacy line budget, kept so §26's campaign arms reproduce
                 // under their own flag. 8 before / 9 after at 18: measured,
                 // not chosen — a stronger forward bias loses coverage (§26.1).
+                let at = (line - first) as usize;
                 let before = ((opts.passage_lines - 1) / 2) as usize;
                 let lo = at.saturating_sub(before);
                 (lo, (lo + opts.passage_lines as usize - 1).min(all.len() - 1))
             } else {
+                let at = (line - first) as usize;
                 grow_to_budget(&all, at, opts.passage_chars)
             };
+            let hi = hi.min(all.len().saturating_sub(1));
+            let lo = lo.min(hi);
             let cut: Vec<String> = all[lo..=hi].to_vec();
             (Some(cut), Some(first + lo as u32))
         }
     };
+    let (start_line, end_line) = match &c.fine {
+        Some(f) => (f.start_line, f.end_line),
+        None => (chunk.start_line, chunk.end_line),
+    };
     Some(SearchHit {
-        path: rel_path.to_string(),
-        start_line: chunk.start_line,
-        end_line: chunk.end_line,
+        path: c.path.clone(),
+        start_line,
+        end_line,
         line,
         text: line_text.to_string(),
-        score,
+        score: c.fine.map_or(c.score, |f| f.score),
+        chunk_start_line: c.fine.map(|_| chunk.start_line),
+        chunk_end_line: c.fine.map(|_| chunk.end_line),
         lines,
         lines_from,
         // Dedupe late rather than while collecting: a name declared twice in

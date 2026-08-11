@@ -87,7 +87,14 @@ fn cited_sections(root: &Path) -> BTreeSet<(String, String, String)> {
             // The nearest document named just before the §, if any: the last
             // one to start within the lookbehind window wins, so
             // "RESEARCH.md §8 ... SIMULATION.md §1.3" attributes each correctly.
-            let window = &text[i.saturating_sub(DOC_LOOKBEHIND)..i];
+            // The window start snaps down to a char boundary — a fixed byte
+            // offset can land inside a multi-byte character (an em-dash 64
+            // bytes before a § did exactly that) and slicing there panics.
+            let mut lo = i.saturating_sub(DOC_LOOKBEHIND);
+            while !text.is_char_boundary(lo) {
+                lo -= 1;
+            }
+            let window = &text[lo..i];
             let doc = KNOWN_DOCS
                 .iter()
                 .filter_map(|d| window.rfind(d).map(|at| (at, *d)))

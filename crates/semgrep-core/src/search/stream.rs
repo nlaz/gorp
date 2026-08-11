@@ -272,6 +272,7 @@ fn candidates(
                 chunk,
                 path: files[chunk.file_id as usize].path.clone(),
                 score,
+                fine: None,
             }
         })
         .take(limit)

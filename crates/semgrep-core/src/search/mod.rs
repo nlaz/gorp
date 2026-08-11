@@ -260,6 +260,40 @@ pub struct SearchOptions {
     /// rather than printing all of it: 314 bytes against 12,079, reaching 88%
     /// of the same gap.
     pub defines: bool,
+    /// Second-stage rerank: score every [`fine_lines`](Self::fine_lines)-line
+    /// sub-window of each candidate chunk against the query and let the best
+    /// window's score order the final list, with the window itself becoming
+    /// the hit's span and passage (RESEARCH.md §28.2).
+    ///
+    /// The §28 head-to-head located sg's deficit in the *last inch*: agents
+    /// anchor the line range they act on to whatever span the tool displays,
+    /// and a ~32-line chunk window routinely ends lines away from the target
+    /// (27% of sg's losses, 2.3× ripgrep's rate). This trades the chunk-sized
+    /// answer for the few lines inside it that actually match.
+    ///
+    /// Scoring is cosine of the sub-window's embedding against the query's,
+    /// through i8 quantization on both sides — deliberately in its *own*
+    /// space (raw text, no path line, no SIF, no prose render) rather than
+    /// the index's, so a cold and a warm search compute identical fine
+    /// scores from the file text alone and the parity invariant holds with
+    /// no index state involved.
+    pub fine_rerank: bool,
+    /// Sub-window height for the fine rerank, in lines. 4 by default: the
+    /// median gold region agents hunt is a handful of lines, and a window
+    /// this size shows the matched construct with one line of context on
+    /// each side without re-importing the dilution the rerank exists to fix.
+    pub fine_lines: u32,
+    /// Blend of fine-window score vs coarse chunk score when ordering the
+    /// final list: 1.0 = pure fine (default), 0.0 = coarse order with fine
+    /// windows only choosing each hit's display span. Both min-max
+    /// normalized within the candidate pool before blending, since the two
+    /// live on incomparable scales (a fused RRF score is ~1e-2).
+    pub fine_blend: f32,
+    /// The caller asked for a specific passage shape (`--passage-chars`,
+    /// `--passage-lines`, or `--full`), so the fine window still picks each
+    /// hit's anchor and rank but the *displayed* cut follows the request.
+    /// False by default: the fine window is the passage.
+    pub passage_override: bool,
     /// PRF (pseudo-relevance feedback): expand the query with this many
     /// discriminative terms from the first pass's top hits, then re-rank
     /// lexically (RESEARCH.md §9.3). 0 = off.
@@ -320,6 +354,10 @@ impl Default for SearchOptions {
             passage_lines: 0,
             passage_chars: 800,
             defines: false,
+            fine_rerank: true,
+            fine_lines: 4,
+            fine_blend: 1.0,
+            passage_override: false,
             prf_terms: 0,
             rerank_maxsim: false,
             maxsim_pool: 0,
@@ -338,12 +376,25 @@ impl Default for SearchOptions {
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct SearchHit {
     pub path: String,
+    /// Span of the hit as displayed: the fine sub-window when the fine rerank
+    /// chose one, else the whole chunk. The *displayed* span is deliberately
+    /// the primary one — agents anchor the line ranges they act on to what
+    /// the tool prints (RESEARCH.md §28.2), so the tight span must be the
+    /// prominent span and the chunk becomes the context field, not the other
+    /// way around.
     pub start_line: u32,
     pub end_line: u32,
-    /// Best-matching line within the chunk (== start_line for keyword mode).
+    /// Best-matching line within the span (== start_line for keyword mode).
     pub line: u32,
     pub text: String,
     pub score: f32,
+    /// Bounds of the underlying chunk, when the fine rerank narrowed
+    /// `start_line`/`end_line` below it. Absent otherwise, so the JSON
+    /// contract is unchanged for consumers of the unfined shape.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chunk_start_line: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chunk_end_line: Option<u32>,
     /// The passage shown for this hit, when the caller asked for more than one
     /// line ([`SearchOptions::passage_lines`], RESEARCH.md §26).
     ///
@@ -648,6 +699,8 @@ fn keyword_search(
                 line: h.line as u32,
                 text: h.text,
                 score: 1.0,
+                chunk_start_line: None,
+                chunk_end_line: None,
                 // Exact mode has no chunk — its "span" is the matched line
                 // itself — so there is no passage to cut and nothing a header
                 // could say that the line does not already.

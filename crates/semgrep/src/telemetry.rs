@@ -129,6 +129,10 @@ fn opts_block(opts: &SearchOptions) -> Value {
         "rerank_maxsim": opts.rerank_maxsim,
         "maxsim_pool": opts.maxsim_pool,
         "maxsim_blend": opts.maxsim_blend,
+        "fine_rerank": opts.fine_rerank,
+        "fine_lines": opts.fine_lines,
+        "fine_blend": opts.fine_blend,
+        "passage_override": opts.passage_override,
         "params": {
             "window": opts.params.window,
             "overlap": opts.params.overlap,
