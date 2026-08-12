@@ -298,7 +298,39 @@ outside the top 5 — is 9–13% of all agent searches and is a *ceiling*: an
 unknown share of it is the agent asking a different question than the benchmark
 grades.
 
-## 7. Remaining roadmap
+## 7. Agent campaigns: SWE-Explore (2026-08, RESEARCH.md §27–§32)
+
+6,390 agent sessions, $1,082, five arms at the full 848 instances each, same
+model and gold throughout. `cc` is upstream's configuration unmodified and is
+the calibration anchor; the rest swap the agent's search tool.
+
+| arm | $/session | turns | HitReg@5 | $ per HitReg point |
+|---|---|---|---|---|
+| `cc` — upstream, unmodified | **0.158** | 7.47 | 0.457 | **0.346** |
+| `cc-rg` — Grep + ripgrep | 0.179 | 8.21 | 0.462 | 0.389 |
+| `cc-sg` — Grep + semgrep | 0.187 | 8.69 | 0.458 | 0.407 |
+| `sub-rg` — ripgrep + shell grep | 0.167 | 7.48 | 0.449 | 0.371 |
+| `sub-sg` — semgrep + shell grep | 0.170 | 7.96 | 0.455 | 0.375 |
+
+**The retrieval engine is not what moves this benchmark.** The powered paired
+test (§32.2, n=848) puts semgrep against ripgrep at **+0.0054 [−0.0043,
++0.0153]** on HitReg@5 with an MDE of 0.0138 — a null with the power to mean
+it — at +0.48 turns and +2.3% cost. Every tool added to the stock agent cost
+money without buying accuracy; the unmodified baseline is the most efficient
+of the five. For scale, the paper moves HitReg 0.428 → 0.531 by changing the
+*model*.
+
+Calibration: `cc` at 0.457 sits between the paper's Sonnet-4.5 row (0.428)
+and its Claude Code row (0.531, GPT-5.4-driven). The benchmark's own
+efficiency metric, CtxEff, is flat within 0.010 across all five arms while
+they differ 18% in dollars — it measures returned-context shape, not turns
+spent, so cost must be measured directly.
+
+The §29 engine work behind these arms (fine rerank, score floor, function
+chunking, multi-phrase) is measurable offline and does not convert into
+agent-visible accuracy here. That bound is the deliverable.
+
+## 8. Remaining roadmap
 
 - **Bound the within-file ceiling** — label a sample of the recoverable pool for
   whether the query points at the gold function at all. One afternoon, and it

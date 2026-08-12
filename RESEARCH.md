@@ -7929,3 +7929,60 @@ window outlives the sessions it protects by orders of magnitude and blocks
 eviction entirely. Neither affects a result; both make a long campaign fight
 its own disk. The working mitigation, which cost nothing: delete checkouts
 for instances complete in **both** arms — they can never be needed again.
+
+### 32.3 The cross-campaign ledger: five arms, and what the search tool was worth
+
+Five arms have now run the full 848 with the same model, parser and gold, so
+they can be laid beside each other. Every number below is measured, and the
+`cc` arm is the one designed for external comparison — upstream's
+`EXPLORE_PROMPT` byte-for-byte, their explorer, their parser, only telemetry
+added.
+
+| arm | $/session | turns | HitReg | CtxEff | $ per HitReg point |
+|---|---|---|---|---|---|
+| `cc` — upstream, unmodified | **0.158** | 7.47 | 0.457 | 0.931 | **0.346** |
+| `cc-rg` — Grep + ripgrep | 0.179 | 8.21 | 0.462 | 0.937 | 0.389 |
+| `cc-sg` — Grep + semgrep | 0.187 | 8.69 | 0.458 | 0.932 | 0.407 |
+| `sub-rg` — ripgrep + shell grep | 0.167 | 7.48 | 0.449 | 0.933 | 0.371 |
+| `sub-sg` — semgrep + shell grep | 0.170 | 7.96 | 0.455 | 0.927 | 0.375 |
+
+**Calibration holds at full n.** The paper's Claude Code row is HitReg 0.531
+and its Sonnet-4.5 row 0.428; §27.0 established that every agentic explorer
+there is driven by GPT-5.4, so the apples-to-apples target for our
+Sonnet-driven runs is the lower row. `cc` lands at **0.457** — between the
+two, slightly above the model-matched one. Read as a band, as §27.1
+registered it. CtxEff runs high across all our arms (0.927–0.937 against a
+published 0.715–0.829) because five tightly-scoped answers are structurally
+favoured by that ratio; it is a shape difference, not an improvement.
+
+**The uncomfortable headline: every search tool we added cost money, and none
+bought accuracy.** The cheapest and most efficient configuration is the one
+where nothing was changed. Adding ripgrep costs +13%, adding semgrep +18%,
+and the accuracy movements they buy (+0.005, +0.002) are inside the noise
+floor that §32's paired test measured directly (MDE 0.0138). Normalised to
+cost per HitReg point the untouched baseline wins outright at 0.346, and
+`cc-sg` — semgrep in the additive regime — is the worst of the five at 0.407.
+
+**CtxEff cannot see this.** All five arms sit within 0.010 of each other on
+the benchmark's own efficiency metric while differing by 18% in dollars,
+because CtxEff measures the *shape of returned context*, not the turns spent
+obtaining it — and turns are where the money went (7.47 → 8.69 across the
+same span). Any future work pricing an agent tool should measure cost
+directly; the published metric will report a tie.
+
+**Two effects visible only across campaigns.** Unblocking shell grep made
+*both* §32 arms cheaper than their §27 equivalents ($0.167/$0.170 against
+$0.179/$0.187) — §30.3's tax showing up in dollars, since letting an agent
+use the tool it reaches for anyway beats making it route around one. And
+semgrep's own increment over ripgrep fell from +$0.007 to +$0.004, consistent
+with the fine rerank's shorter passages, though directional at that size.
+
+**Total programme cost: $1,082 over 6,390 agent sessions** across §27, §28,
+§30, §31 and §32. What it bought is a bound rather than a win, and the bound
+is the deliverable: **on SWE-Explore's line-level gold, with a Claude
+Code–shaped agent, the retrieval engine is not what moves the benchmark.**
+The paper's own tables move HitReg 0.428 → 0.531 by changing the *model* — a
+0.10 gap, an order of magnitude larger than anything reachable here by
+changing search. That is worth knowing before optimising a ranker further,
+and it is exactly the claim §29's offline wins would have licensed if nobody
+had checked.
