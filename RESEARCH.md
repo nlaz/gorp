@@ -7986,3 +7986,113 @@ The paper's own tables move HitReg 0.428 → 0.531 by changing the *model* — a
 changing search. That is worth knowing before optimising a ranker further,
 and it is exactly the claim §29's offline wins would have licensed if nobody
 had checked.
+
+### 32.4 Why sg misses: a per-region root-cause census (2026-08-12)
+
+§32.2 answered the relative question — sg against rg is a null. This section
+answers the absolute one: `sub-sg` covers 45.5% of gold regions, so where do
+the other 54.5% go? The method is a census, not a sample: every one of the
+3,992 gold regions across all 848 sessions, classified from the session's own
+evidence — trace envelopes for what each sg call asked (query, scope root,
+floor), the shim's captured stdout for what the tool displayed, the transcript
+for what the agent then saw and did. `eval/swexplore/misswhy.py` implements
+it; `eval/swexplore/mechanism.py` (§28.2) remains the instrument for the
+*relative* gap, and its basename-substring caveat now has a measured
+consequence (below).
+
+**First, what the wall is not.** K=5 is not the ceiling: with a median of 4
+gold regions per instance (mean 4.7), five one-region predictions could reach
+0.915 and five whole-file predictions 0.939. And the floor is not the wall
+either: floored refusals account for 0.3% of the loss (5 regions, 2
+sessions). The misses are real search-and-selection failures.
+
+**The census, both arms.** One bucket per missed region, decided in order;
+points weight each region by 1/n_regions of its instance so buckets sum to
+the lost rate. Share of lost points:
+
+| bucket (checked in order) | sub-sg | sub-rg |
+|---|---|---|
+| never surfaced despite a repo-wide ranked query | **31.0%** | 6.1% |
+| session never invoked the tool | 23.7% | 18.1% |
+| all five slots landed on *other* gold regions | 12.2% | 12.6% |
+| never surfaced; every query scoped elsewhere | 9.0% | **41.0%** |
+| tool displayed the gold file; agent submitted elsewhere | 8.6% | 3.7% |
+| right file, wrong lines (>32 away / ≤32) | 7.4 / 3.2% | 7.3 / 3.4% |
+| agent saw the file via other channels; didn't submit | 4.7% | 7.8% |
+| never surfaced; every wide query floored | 0.3% | — |
+
+Two classifier defects were caught by reading traces against the labels and
+are fixed in the committed tool: the shim log contains Claude Code's own
+startup greps, which mislabelled never-searched sessions as "used grep
+instead" (the agent's Bash commands in the transcript are the honest
+signal), and a basename fallback in the "agent saw it" check matched
+`tests.py` and `loader.py`-inside-`dataloader.py` against files the agent
+never encountered — fixing it moved ~150 regions from "seen, not submitted"
+back into "never surfaced", which is why the retrieval bucket reads 31.0%
+and not the 26.3% a first pass printed. mechanism.py's E/C buckets carry the
+same basename overcount; treat its §28.2 splits as bounds.
+
+**The headline: 93% of sg's misses are shared.** Of the 2,453 regions sg
+missed, the rg arm — different tool, same model, same prompt — hit only
+6.8% on the same instances, and only 5.0% of sg's retrieval-bucket misses.
+The two arms lose in mirror image: sg fails by *ranking* (31.0% vs 6.1%) and
+rg fails by *scoping* (41.0% vs 9.0% — grep needs a directory to point at;
+sg's wide-by-default description worked, §30.4's fear did not materialise).
+The mirror nearly cancels, which is §32.2's null seen from underneath: the
+tools trade failure modes, not failure mass.
+
+**The retrieval bucket is deep, not shallow.** Replaying the sessions' own
+repo-wide queries at k=30 (`eval/swexplore/replayrank.py`; 158 of the 881
+never-surfaced regions still had their checkout on disk — LRU survival, so
+a convenience sample) puts the gold file at rank 6–10 in only 7%, 11–30 in
+20%, and **beyond rank 30 or absent in 71%** (2.5% ranked ≤5 on replay —
+rank is k-dependent through the candidate pool and MMR, measured drift, not
+a defect). So a deeper display would recover ~2% of the loss (~0.012 rate)
+— below §32's MDE, consistent with every display-depth null since §29. The deep misses have a texture:
+median gold region 5 lines; two-thirds share fewer than half their query's
+identifiers with the gold *file* (22% share none), and where lexical overlap
+exists it is dominated by ubiquitous tokens (23 of 33 sampled cases had no
+rare shared token). Neither a 256-dim static embedding nor BM25 has a bridge
+to cross there; this is §19.2b's blind-description result recurring as the
+residual failure mass.
+
+**The agent-side buckets are one mechanism wearing four labels.** Trace
+reading (28 sessions across the buckets) found the same behaviour
+everywhere: agents submit only what they have *Read*, and the
+snippet-to-Read conversion is governed by their current hypothesis, not by
+rank — 92 missed regions sat in sg output at rank 1, 86 with the exact gold
+lines displayed, and the agent finalised anyway, usually with a slot to
+spare. The preferences are systematic: definitions over call sites,
+hand-written files over generated ones (`.proto` over `.pb.go`),
+implementation over tests — while SWE-Explore's gold is frequently exactly
+the call site, the generated file, the test. In the wrong-lines buckets the
+same shape: four of six sampled misses had sg pointing within a few dozen
+lines of gold, and the agent either never read that area or extrapolated a
+region straight from snippet line numbers without opening the file. One
+sampled case was a benchmark artifact (gold coordinates pointing at
+unrelated code in the checked-out tree).
+
+**The largest tractable lever is not in the engine.** Test-file gold is hit
+at **11.0%** against source's **48.0%** — identically in both arms (rg:
+10.0%/47.4%). Tests are 25% of gold regions and 7% of submissions.
+Equalising just that split is worth roughly +0.09 hitRegion — six times
+§32's MDE, an order of magnitude beyond any engine lever measured since
+§20. The cause is visible in the upstream prompt: "focus on finding the
+ROOT CAUSE, not just symptom locations", five framed as a cap on a
+precision-ranked answer, and the actual scoring rule (coverage of distinct
+gold regions, tests included) never disclosed. Under-submission is the same
+story — 40% of missed regions are in sessions that left slots empty, and
+the no-tool sessions (74% of sessions ran ≥1 sg search; the rest navigated
+by grep or by paths named in the issue, rationally, converging in 2–6
+turns) lose to early stopping, not to search: the agent finds *a* root
+cause, submits 1–3 regions, and never sweeps for what else the issue
+touches.
+
+**What this closes.** The engine's remaining absolute deficit is one bucket
+— deep ranking misses on vocabulary-disjoint queries: 31.0% of the loss
+gross, 115 of 464 lost points (~25%) net of what rg loses to the same
+bucket — and §23.2 already bounded the document-side
+levers against it at +0.023. Everything larger sits in agent behaviour
+under a prompt that optimises for a different objective than the metric,
+which no retrieval change can reach; it is the same conclusion as §32.3's
+ledger, now with the mechanism attached, region by region.
