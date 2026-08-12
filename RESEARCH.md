@@ -7848,3 +7848,84 @@ R2 rather than overridden:
    candidates), so the distress filter now excludes it — the same fix §30.2
    applied to the empty-ranked counter, now applied to the distress check that
    shares its blind spot.
+
+### 32.2 The result: parity, at a small and honest cost (2026-08-12)
+
+**848 paired instances, 1,696 sessions, $286.** The gate passed and the
+registered analysis ran once, on the pooled 848, exactly as §32.1 bound it —
+`campaign.sh` refused to compute endpoints at the intermediate rung, so
+unlike §30 there was no interim look to disclose.
+
+**Diagnostics first, per the registration.**
+
+| | `sub-rg` (control) | `sub-sg` |
+|---|---|---|
+| delivery | 82% | **74%** |
+| own tool / session | 2.94 rg | 1.87 sg |
+| shell grep / session | 2.82 | **4.03** |
+| exact-share (§30.4 tripwire) | — | **19%** |
+| floored searches | — | 2.3% (36/1,597) |
+
+The §30.4 tripwire **did not fire**: 19% exact-share means agents took up
+`-e` for the verification job desc-v11 routed it to, and left 81% of calls
+ranked. desc-v11 survives its kill condition.
+
+Delivery at 74% is the §32.1a story, now at full n: with shell grep available
+the sg arm's agents run **more grep than sg** (4.03 vs 1.87 per session), and
+a quarter of sessions never invoke sg at all. Under the ITT frame that is the
+treatment effect, not a leak in it.
+
+**Primary — a null, and a clean one.**
+
+```
+hitRegion@5   +0.0054 [−0.0043, +0.0153]   w/l 117/111   p=0.741   MDE 0.0138
+```
+
+The interval sits inside the registered |Δ| < 0.02 band on both sides, the
+sign test is flat (117/111 with 620 exact ties), and it is the first
+endpoint in this program's history to be **powered enough to mean it**: MDE
+0.0138 against an estimate of 0.0054. §30's −0.023 was measured under the
+blocked-grep tax at its own detection limit; with the tax removed and n at
+848, the effect regressed toward zero exactly as §32.1 registered it would.
+Every secondary is null too, Holm-adjusted p ≥ 0.447.
+
+**Per-protocol agrees**, which is the useful part: restricted to the 628
+instances where sg was actually invoked, hitRegion is +0.0066
+[−0.0048, +0.0182]. Because ITT and per-protocol land in the same place, the
+§32.1a worry — that an ITT null cannot distinguish "works poorly" from
+"works, under-adopted" — is **resolved here rather than merely disclosed**:
+sg does not beat ripgrep on the instances where agents chose to use it.
+
+**Co-primary — the registered turns prediction is wrong, and by more than
+noise.**
+
+```
+turns  +0.4811* [+0.2217, +0.7500]   w/l 375/260   p=0.000   MDE 0.374
+cost   +0.0038  [−0.0029, +0.0109]   sign p=0.000  (direction without magnitude)
+```
+
+§32.1 predicted |Δturns| < 0.5 and it landed at +0.48 — inside the bound by
+a hair, but with a CI excluding zero, so the honest reading is that the
+prediction *scraped through on the number and failed on the claim*: the gap
+did not vanish with the grep block, it shrank from +1.40 to +0.48. §30.3's
+dose–response explained ~95% of the old gap; this residual +0.48 is what the
+block was masking. Cost is +$0.004/session — 2.3%, sign test significant,
+magnitude indistinguishable from zero, and inside the registered ±5%.
+
+**What this campaign establishes.** With a lexical tool present — the
+realistic deployment — adding semantic search to an agent's toolkit changes
+retrieval accuracy by less than 0.015 in either direction, costs half a turn
+and 2% more per session, and gets used for about a third of searches. The
+§29 engine work that motivated all of this (line precision, the floor,
+function chunking) is real and measurable offline; it does not convert into
+agent-visible accuracy on SWE-Explore's line-level gold. That is a bound
+worth having, and it was expensive to earn honestly.
+
+**Two harness defects measured, not fixed** (the LRU, deferred since §28):
+its size accounting reads a checkout *before* `ensure_index` adds the
+indexes, so a 6 GB cap held 9.7 GB — a 1.6× undercount; and its in-flight
+protection held **130 checkouts against 6 workers**, so the guard's 900 s
+window outlives the sessions it protects by orders of magnitude and blocks
+eviction entirely. Neither affects a result; both make a long campaign fight
+its own disk. The working mitigation, which cost nothing: delete checkouts
+for instances complete in **both** arms — they can never be needed again.
