@@ -8056,6 +8056,56 @@ rare shared token). Neither a 256-dim static embedding nor BM25 has a bridge
 to cross there; this is §19.2b's blind-description result recurring as the
 residual failure mass.
 
+#### 32.4a Inside the ranking bucket: five stages, and which one loses gold
+
+The 31% bucket deserved its own decomposition, because "never surfaced" says
+which *outcome* happened and not which *stage* caused it.
+`eval/swexplore/rankwhy.py` reran each replayable region's own wide queries
+under five engine configurations on the same checkout — the campaign hybrid,
+`--mode bm25` alone, `--mode semantic` alone, hybrid `--no-fine`, and hybrid
+under window-32 chunking — plus two probes that do not depend on the agent's
+wording: an *exact* probe (`-e -F -l` on the gold region's most distinctive
+line: is the file searchable at all?) and a *self-retrieval* probe (query
+built from the gold region's own identifiers, semantic mode: can the
+pipeline find the chunk from its own content?). First matching class wins,
+158 regions, the same convenience sample as the replay:
+
+| class | share | reading |
+|---|---|---|
+| vocabulary gap — absent everywhere | 54% | 70 of 86 appear in **no** configuration's top-30; no engine setting reaches them |
+| in-pool ordering — hybrid rank 6–30 | 23% | retrieval delivered, ordering and the k=5 fold lost it |
+| gold too generic to rank — self-probe fails | 15% | 20 of 23 are ≤5-line boilerplate (`module.exports` lists, one-line typedefs, doc fragments); even the gold's own tokens can't discriminate it |
+| fine rerank killed it — `--no-fine` top-5 has it | 4% | including one coarse rank-1 demoted out of the display; +10 weaker cases at ≤30 |
+| fusion drowned a lexical hit — bm25-alone top-5 has it | 4% | every exemplar a test file on an identifier query |
+
+Instance-weighting moves nothing by more than 1.5 points, so the clusters
+(NodeBB contributes several regions per query family) are not driving the
+shares. Two classes came back **empty**, and both absences are findings. No
+region was unsearchable — the exact probe found every file that offered a
+quotable line (154/154), so walk exclusions and size caps cost nothing
+here. And *function chunking killed nothing*: window-32 ranks equal the
+function-chunk ranks almost everywhere, which is the first direct evidence
+that the §29 chunking change is retrieval-neutral on real misses — relevant
+to the still-open default-flip decision.
+
+What outranks gold under the campaign config: 44% source, 29% tests, 16%
+docs, 8% locale packs, 3% config — and only 8% shares gold's directory.
+The locale hits are NodeBB `language/*/*.json` files beating source on
+conceptual queries, pure ballast; docs beating code on code-vocabulary
+queries (`class Paginator page_range` → five documentation files) is §22's
+docs-over-representation seen from the failure side.
+
+The arithmetic this closes: the engine-addressable classes — ordering, fine
+kill, fusion drown — sum to 31% of the bucket, which is 31% × 31.0% ≈ 10%
+of the total loss, ~0.053 rate points *gross*, before the anchoring
+mechanism below taxes what a better ranking would convert. The other 69% of
+the bucket (vocabulary gap plus generic gold) is unreachable by any ranking
+change: the agent's words and the gold's words genuinely do not meet, or
+the gold has no words worth ranking. The fine-rerank kills, small as they
+are, hand the deferred `--fine-blend` sweep its first concrete target set:
+six hard cases where `--no-fine` puts gold in the top five and the shipped
+config does not.
+
 **The agent-side buckets are one mechanism wearing four labels.** Trace
 reading (28 sessions across the buckets) found the same behaviour
 everywhere: agents submit only what they have *Read*, and the
