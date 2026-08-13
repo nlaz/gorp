@@ -8126,6 +8126,17 @@ Three clean negatives, one ceiling, and one change that survived every gate:
   golds sit one import hop from a top-10 hit, 58% adding same-directory —
   generously matched, so a ceiling, but the only measured reach into the
   54% no ranking change touches. Unbuilt; the 86-region set is its test bed.
+- **A transformer embedding bridges part of the gap the static table
+  cannot.** On the 24 vocabulary-gap regions in the 12 smallest surviving
+  checkouts — every one absent from top-30 under *all five* static-engine
+  configurations — a generic 33M-parameter transformer (bge-small, whole-repo
+  32-line windows, best-window cosine) puts the gold file at **rank ≤5 for
+  21% and ≤30 for 46%**. Small n, and a generic model rather than a
+  code-teacher — which makes it a floor on what §9.9's swap could buy, not
+  an estimate. This is the first direct evidence for the standing
+  model-experiment from the failure side; the cost side (ese is O(chars)
+  with no matmul) is unchanged and remains the reason the swap is an
+  experiment rather than a patch.
 - **The fine-blend sweep is a trade, not a win**: blend 0.25 rescues 3 of 6
   fine-kills into the top-5 but drops 8 ordering-class regions out of the
   top-30; 0.5 is balanced and rescued little. Default stays 1.0; the six
