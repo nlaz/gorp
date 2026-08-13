@@ -47,6 +47,9 @@ pub fn run(
             Some(b) => b.query(query, pool),
             None => Vec::new(),
         });
+        // Mirrors `indexed`: the lexical head survives fusion so the
+        // `bm25_pin` guarantee acts identically on both paths (§32.4a).
+        let bm25_head: Vec<u32> = lexical.iter().take(16).map(|r| r.0).collect();
         let semantic = nearest
             .as_mut()
             .map(|heaps| std::mem::replace(&mut heaps[p], TopK::new(0)).into_sorted())
@@ -90,6 +93,7 @@ pub fn run(
             })
         });
 
+        let ranked = super::append_bm25_pins(ranked, &bm25_head, opts);
         per_phrase.push(trace.time(Stage::Candidates, || {
             // A file scope takes every chunk; see `file_scope_candidate_width`.
             // Only reachable here — a file scope never resolves an index, so
@@ -99,7 +103,7 @@ pub fn run(
             } else {
                 super::candidate_width(opts.k)
             };
-            candidates(ranked, &pass.chunks, &files, width)
+            candidates(ranked, &pass.chunks, &files, width, &bm25_head, opts.bm25_pin)
         }));
     }
     let cands = if q.is_multi() {
@@ -163,7 +167,7 @@ fn corpus_pass(
     pool: usize,
     trace: &mut Trace,
 ) -> Pass {
-    let want_bm25 = matches!(opts.mode, Mode::Bm25 | Mode::Hybrid);
+    let want_bm25 = super::wants_lexical(opts);
     let want_sem = matches!(opts.mode, Mode::Semantic | Mode::Hybrid);
 
     let mut chunks: Vec<Chunk> = Vec::new();
@@ -306,22 +310,35 @@ fn candidates(
     chunks: &[Chunk],
     files: &[FileMeta],
     limit: usize,
+    bm25_head: &[u32],
+    pin: usize,
 ) -> Vec<hit::Candidate> {
-    ranked
-        .into_iter()
-        .map(|(id, score)| {
-            let chunk = chunks[id as usize];
-            hit::Candidate {
-                id,
-                chunk,
-                path: files[chunk.file_id as usize].path.clone(),
-                score,
-                phrases: 1,
-                fine: None,
+    // Same pinned-ride-along rule as `indexed::candidates`: ids the
+    // `bm25_pin` guarantee appended past the width cut must survive it.
+    let pinned: std::collections::HashSet<u32> =
+        bm25_head.iter().take(pin).copied().collect();
+    let mut out: Vec<hit::Candidate> = Vec::with_capacity(limit.min(ranked.len()));
+    for (id, score) in ranked {
+        if out.len() >= limit {
+            if pinned.is_empty() {
+                break;
             }
-        })
-        .take(limit)
-        .collect()
+            if !pinned.contains(&id) {
+                continue;
+            }
+        }
+        let chunk = chunks[id as usize];
+        out.push(hit::Candidate {
+            id,
+            chunk,
+            path: files[chunk.file_id as usize].path.clone(),
+            score,
+            phrases: 1,
+            fine: None,
+            bm25_rank: bm25_head.iter().position(|&h| h == id).map(|i| i as u16 + 1),
+        });
+    }
+    out
 }
 
 /// MaxSim rerank for the cold path, mirroring `indexed::rerank_maxsim`.

@@ -26,6 +26,12 @@ pub struct Candidate {
     /// scored it. `None` until then, and stays `None` when the rerank is off
     /// or the file could not be re-read.
     pub fine: Option<Fine>,
+    /// This chunk's 1-based rank in the lexical (BM25) channel, when that
+    /// channel ran and ranked it near its head. Provenance for the
+    /// `bm25_pin` display guarantee (§32.4a: the shipped semantic mode never
+    /// consults BM25, and real misses sat in BM25's top five). Dedupe
+    /// survivors keep the better (smaller) rank, same rule as `phrases`.
+    pub bm25_rank: Option<u16>,
 }
 
 /// The fine rerank's verdict on one candidate: the sub-window of its chunk
@@ -103,13 +109,26 @@ pub fn finalize(
                 // The dropped near-duplicate's retrievers survive on its
                 // killer (§31): two phrases hitting adjacent strided chunks
                 // of one function collapse to one candidate that still
-                // answers for both.
-                Some(k) => k.phrases |= c.phrases,
+                // answers for both. Its lexical rank survives the same way.
+                Some(k) => {
+                    k.phrases |= c.phrases;
+                    k.bm25_rank = match (k.bm25_rank, c.bm25_rank) {
+                        (Some(a), Some(b)) => Some(a.min(b)),
+                        (a, b) => a.or(b),
+                    };
+                }
                 None => kept.push(c),
             }
         }
         kept
     });
+
+    // The pre-fine winner, remembered before any later stage can demote it.
+    // §32.4a measured the fine rerank evicting a coarse rank-1 from the
+    // display entirely; with the guard on, that candidate may be outranked
+    // but never dropped.
+    let coarse_top_id: Option<u32> =
+        (opts.keep_coarse_top).then(|| kept.first().map(|c| c.id)).flatten();
 
     // Fine rerank: pick the best few-line window inside each surviving chunk
     // and let the windows' scores order the list (RESEARCH.md §28.2, §31).
@@ -213,10 +232,15 @@ pub fn finalize(
         };
         let mut hits = Vec::with_capacity(opts.k);
         let mut used: Vec<usize> = Vec::new();
+        // Which kept-index each display slot holds, kept in lockstep with
+        // `hits` through every later swap — `used` is the consumed set and
+        // cannot answer "is candidate X still on screen" once a swap evicts.
+        let mut slots: Vec<usize> = Vec::new();
         for i in order {
             if let Some(hit) = materialize_one(&kept[i]) {
                 hits.push(hit);
                 used.push(i);
+                slots.push(i);
             }
             if hits.len() == opts.k {
                 break;
@@ -253,6 +277,7 @@ pub fn finalize(
                 if hits.len() < opts.k {
                     hits.push(hit);
                     used.push(best);
+                    slots.push(best);
                     continue;
                 }
                 // Evict the lowest-ranked hit of the most-represented phrase.
@@ -268,7 +293,57 @@ pub fn finalize(
                     continue;
                 };
                 hits[victim_idx] = hit;
+                slots[victim_idx] = best;
                 used.push(best);
+            }
+        }
+        // Display guarantees (§32.4a), after every rank-driven swap so they
+        // cannot be undone. Each pin claims at most one slot, evicting from
+        // the tail; a slot already holding a pinned candidate is never the
+        // victim of a later pin. Floored candidates were filtered out of
+        // `kept` above, so a pin can never resurrect a refusal.
+        let is_pinned = |kept_i: usize, kept: &[Candidate]| {
+            coarse_top_id == Some(kept[kept_i].id)
+                || (opts.bm25_pin > 0
+                    && kept[kept_i].bm25_rank.is_some_and(|r| r as usize <= opts.bm25_pin))
+        };
+        let mut pin = |want: usize,
+                       hits: &mut Vec<SearchHit>,
+                       slots: &mut Vec<usize>,
+                       used: &mut Vec<usize>| {
+            if slots.contains(&want) {
+                return;
+            }
+            let Some(hit) = materialize_one(&kept[want]) else { return };
+            if hits.len() < opts.k {
+                hits.push(hit);
+                slots.push(want);
+                used.push(want);
+                return;
+            }
+            let Some(victim) =
+                (0..hits.len()).rev().find(|&s| !is_pinned(slots[s], &kept))
+            else {
+                return;
+            };
+            hits[victim] = hit;
+            slots[victim] = want;
+            used.push(want);
+        };
+        if let Some(tid) = coarse_top_id
+            && let Some(want) = kept.iter().position(|c| c.id == tid)
+        {
+            pin(want, &mut hits, &mut slots, &mut used);
+        }
+        if opts.bm25_pin > 0 {
+            let mut wants: Vec<usize> = (0..kept.len())
+                .filter(|&i| {
+                    kept[i].bm25_rank.is_some_and(|r| r as usize <= opts.bm25_pin)
+                })
+                .collect();
+            wants.sort_by_key(|&i| kept[i].bm25_rank.expect("filtered"));
+            for want in wants {
+                pin(want, &mut hits, &mut slots, &mut used);
             }
         }
         hits
@@ -384,7 +459,13 @@ fn fine_rerank(
             })
         });
         match killer {
-            Some(j) => survivors[j].phrases |= c.phrases,
+            Some(j) => {
+                survivors[j].phrases |= c.phrases;
+                survivors[j].bm25_rank = match (survivors[j].bm25_rank, c.bm25_rank) {
+                    (Some(a), Some(b)) => Some(a.min(b)),
+                    (a, b) => a.or(b),
+                };
+            }
             None => survivors.push(c),
         }
     }

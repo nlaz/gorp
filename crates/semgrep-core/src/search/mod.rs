@@ -62,6 +62,38 @@ pub(crate) fn candidate_width(k: usize) -> usize {
     k * 6
 }
 
+/// Does this search need the lexical channel at all? True in the lexical
+/// modes, and in semantic mode when `bm25_pin` demands BM25's opinion for
+/// the display guarantee (§32.4a). Both paths gate their BM25 work on this,
+/// which is what keeps cold == warm when the pin is on.
+pub(crate) fn wants_lexical(opts: &SearchOptions) -> bool {
+    matches!(opts.mode, Mode::Bm25 | Mode::Hybrid)
+        || (opts.bm25_pin > 0 && !matches!(opts.mode, Mode::Keyword))
+}
+
+/// Append the lexical head's ids to a fused/semantic ranking so the
+/// `bm25_pin` guarantee has candidates to pin: ids already ranked stay
+/// where they are, missing ones join the tail below the current minimum, in
+/// lexical order. Called at the same point on both paths (after the
+/// declaration boost, before candidate materialization).
+pub(crate) fn append_bm25_pins(
+    mut ranked: Vec<(u32, f32)>,
+    bm25_head: &[u32],
+    opts: &SearchOptions,
+) -> Vec<(u32, f32)> {
+    if opts.bm25_pin == 0 || bm25_head.is_empty() {
+        return ranked;
+    }
+    let floor = ranked.last().map_or(0.0, |r| r.1);
+    let present: std::collections::HashSet<u32> = ranked.iter().map(|r| r.0).collect();
+    for (i, id) in bm25_head.iter().take(opts.bm25_pin).enumerate() {
+        if !present.contains(id) {
+            ranked.push((*id, floor - 0.001 * (i as f32 + 1.0)));
+        }
+    }
+    ranked
+}
+
 /// Declaration boost (RESEARCH.md §24.1): scale each fused score by
 /// `1 + w · (share of query tokens declared in that chunk)`.
 ///
@@ -331,6 +363,18 @@ pub struct SearchOptions {
     /// quality. With `fine_rerank` off the floor falls back to the best
     /// chunk-embedding cosine via the same vectors MMR diversifies with.
     pub min_score: f32,
+    /// Never let a later stage evict the pre-fine top candidate from the
+    /// display: it may be outranked, not dropped. §32.4a measured the fine
+    /// rerank demoting a coarse rank-1 clean out of the top-k. Off by
+    /// default until the offline gates place it.
+    pub keep_coarse_top: bool,
+    /// Run the lexical (BM25) channel even in semantic mode and guarantee
+    /// its top-N chunks a display slot each (0 = off). §32.4a: the shipped
+    /// semantic-only mode never consults BM25, and real agent misses sat in
+    /// BM25's top five on identifier queries. Costs a lexical query per
+    /// search when set. Pinned hits fill from the tail and never evict each
+    /// other or the `keep_coarse_top` pin; the floor still wins.
+    pub bm25_pin: usize,
     /// PRF (pseudo-relevance feedback): expand the query with this many
     /// discriminative terms from the first pass's top hits, then re-rank
     /// lexically (RESEARCH.md §9.3). 0 = off.
@@ -396,6 +440,8 @@ impl Default for SearchOptions {
             fine_blend: 1.0,
             passage_override: false,
             min_score: 0.0,
+            keep_coarse_top: false,
+            bm25_pin: 0,
             prf_terms: 0,
             rerank_maxsim: false,
             maxsim_pool: 0,

@@ -58,6 +58,9 @@ pub fn run(
         let lexical =
             trace.time(Stage::RankBm25, || rank_lexical(&idx, &rows, query, opts, pool));
         let lexical = expand_query(&idx, &rows, query, lexical, opts, d, pool, &mut trace);
+        // The lexical head, remembered past fusion: `bm25_pin` provenance
+        // (§32.4a). Sixteen covers any sane pin depth.
+        let bm25_head: Vec<u32> = lexical.iter().take(16).map(|r| r.0).collect();
         let (semantic, hnsw) = rank_semantic(&idx, &rows, query, opts, d, pool, &mut trace);
         used_hnsw |= hnsw;
         let ranked = trace.time(Stage::RankFuse, || {
@@ -83,8 +86,9 @@ pub fn run(
             })
         });
 
+        let ranked = super::append_bm25_pins(ranked, &bm25_head, opts);
         per_phrase.push(trace.time(Stage::Candidates, || {
-            candidates(&rows, ranked, &d.prefix, super::candidate_width(opts.k))
+            candidates(&rows, ranked, &d.prefix, super::candidate_width(opts.k), &bm25_head, opts.bm25_pin)
         }));
     }
     let cands = if q.is_multi() {
@@ -133,7 +137,12 @@ fn load_needs(d: &cache::Discovered, opts: &SearchOptions, pool: usize) -> LoadN
         .map(|m| m.len() < HNSW_LOAD_CAP_BYTES)
         .unwrap_or(false);
     LoadNeeds {
-        bm25: matches!(opts.mode, Mode::Bm25 | Mode::Hybrid),
+        // `wants_lexical`, not the mode alone: `bm25_pin` needs the postings
+        // in semantic mode too, and gating on mode here silently no-ops the
+        // pin — the warm path skipped the load while the cold path built its
+        // postings anyway, a cold≠warm split the parity test only catches
+        // when a pin decides the top-k.
+        bm25: super::wants_lexical(opts),
         // HNSW returns up to a compile-time 128 candidates, so a larger pool
         // has to brute-force regardless.
         hnsw: matches!(opts.mode, Mode::Semantic | Mode::Hybrid)
@@ -150,7 +159,7 @@ fn rank_lexical(
     opts: &SearchOptions,
     pool: usize,
 ) -> Vec<(u32, f32)> {
-    let Some(base) = idx.bm25.as_ref().filter(|_| lexical_mode(opts.mode)) else {
+    let Some(base) = idx.bm25.as_ref().filter(|_| super::wants_lexical(opts)) else {
         return Vec::new();
     };
     // The overlay holds only the files that drifted, so it scores against the
@@ -177,10 +186,6 @@ fn rank_lexical(
         (!rows.whole_corpus()).then_some(&in_scope as &dyn Fn(u32) -> bool),
     );
     rows.merge(base_hits, delta, pool, true)
-}
-
-fn lexical_mode(mode: Mode) -> bool {
-    matches!(mode, Mode::Bm25 | Mode::Hybrid)
 }
 
 /// PRF: re-run the lexical pass with a query grown from its own top hits.
@@ -371,17 +376,44 @@ fn candidates(
     ranked: Vec<(u32, f32)>,
     prefix: &str,
     limit: usize,
+    bm25_head: &[u32],
+    pin: usize,
 ) -> Vec<hit::Candidate> {
     let in_scope = |path: &str| {
         prefix.is_empty() || path.strip_prefix(prefix).is_some_and(|r| r.starts_with('/'))
     };
-    ranked
-        .into_iter()
-        .filter_map(|(id, score)| {
-            let (chunk, path) = rows.chunk(id);
-            in_scope(&path)
-                .then_some(hit::Candidate { id, chunk, path, score, phrases: 1, fine: None })
-        })
-        .take(limit)
-        .collect()
+    let rank_of = |id: u32| {
+        bm25_head.iter().position(|&h| h == id).map(|i| i as u16 + 1)
+    };
+    // Pinned ids ride along past the width cut — `append_bm25_pins` may have
+    // placed them at the tail, and cutting them here would defeat the pin.
+    let pinned: std::collections::HashSet<u32> =
+        bm25_head.iter().take(pin).copied().collect();
+    let mut out: Vec<hit::Candidate> = Vec::with_capacity(limit.min(ranked.len()));
+    for (id, score) in ranked {
+        if out.len() >= limit {
+            if pinned.is_empty() {
+                break;
+            }
+            if !pinned.contains(&id) {
+                continue; // no chunk lookup for rows past the cut
+            }
+        }
+        let (chunk, path) = rows.chunk(id);
+        if !in_scope(&path) {
+            continue;
+        }
+        {
+            out.push(hit::Candidate {
+                id,
+                chunk,
+                path,
+                score,
+                phrases: 1,
+                fine: None,
+                bm25_rank: rank_of(id),
+            });
+        }
+    }
+    out
 }

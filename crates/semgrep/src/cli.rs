@@ -294,6 +294,16 @@ pub struct Tuning {
     #[arg(long, hide = true, default_value_t = SearchOptions::default().fine_blend)]
     pub fine_blend: f32,
 
+    /// The pre-fine top candidate may be outranked but never evicted from
+    /// the display (§32.4a's rank-1 kill). The A/B lever for that guard.
+    #[arg(long, hide = true)]
+    pub keep_coarse_top: bool,
+
+    /// Run BM25 even in semantic mode and guarantee its top-N chunks a
+    /// display slot each (0 = off; §32.4a's lexical-drown class)
+    #[arg(long, hide = true, default_value_t = SearchOptions::default().bm25_pin)]
+    pub bm25_pin: usize,
+
     /// Refuse to answer when the best candidate scores below this floor:
     /// zero hits, exit 1, and a stderr line saying so (RESEARCH.md §28.2).
     /// 0 = off. Default stays 0 until the floor is calibrated on replayed

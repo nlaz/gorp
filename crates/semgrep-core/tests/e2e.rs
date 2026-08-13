@@ -1918,3 +1918,51 @@ fn a_floored_phrase_is_named_and_the_rest_still_answer() {
     assert!(r2.hits.is_empty() && r2.report.floored);
     assert_eq!(r2.report.floored_mask, 0b11);
 }
+
+/// §32.4a's `bm25_pin`: a chunk only the lexical channel ranks must hold a
+/// display slot in semantic mode, on BOTH paths. This is the regression test
+/// for the silent no-op shape: `load_needs` once gated the BM25 postings on
+/// mode alone, so the warm path had nothing to pin while the cold path built
+/// postings and pinned — a cold≠warm split that only shows when a pin
+/// decides the top-k.
+#[test]
+fn bm25_pin_is_honored_and_cold_warm_agree() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    // Lexically unmistakable, semantically buried: the rare token gives BM25
+    // a huge idf win, while the embedding — char-grams over the whole chunk —
+    // sees mostly hex noise and ranks the real astronomy prose far above it.
+    let mut noise = String::new();
+    for i in 0..30 {
+        noise.push_str(&format!("0x{i:02x} a9f3 7bc1 e00d 55aa 9c4e b7f2 0d13 c8a6 4f90\n"));
+    }
+    noise.push_str("zzqx_pin_target\n");
+    fs::write(dir.path().join("docs/notes.md"), noise).unwrap();
+    // Inflected prose words: no exact-token match anywhere (the tokenizer
+    // does not stem), so BM25 sees only the rare token and ranks notes.md
+    // first — while char-gram embeddings still pull astronomy.md to the
+    // semantic top.
+    let q = "telescopes mirrored starlights zzqx_pin_target";
+
+    let plain = SearchOptions { k: 1, ..opts(Mode::Semantic) };
+    let r = search(dir.path(), q, &plain).unwrap();
+    assert!(
+        r.hits.iter().all(|h| h.path != "docs/notes.md"),
+        "premise: without the pin, semantic k=1 ignores the token-only file",
+    );
+
+    let pinned = SearchOptions { k: 1, bm25_pin: 1, ..opts(Mode::Semantic) };
+    let warm = search(dir.path(), q, &pinned).unwrap();
+    assert!(warm.report.used_index, "warm premise: the write-through index answers");
+    assert!(
+        warm.hits.iter().any(|h| h.path == "docs/notes.md"),
+        "bm25 #1 must hold a display slot in semantic mode (warm)",
+    );
+
+    let cold = search(dir.path(), q, &SearchOptions { no_index: true, ..pinned }).unwrap();
+    assert!(!cold.report.used_index);
+    let warm_paths: Vec<_> = warm.hits.iter().map(|h| (&h.path, h.start_line, h.end_line)).collect();
+    let cold_paths: Vec<_> = cold.hits.iter().map(|h| (&h.path, h.start_line, h.end_line)).collect();
+    assert_eq!(warm_paths, cold_paths, "the pin must not split cold from warm");
+}

@@ -14,6 +14,7 @@ fn cand(id: u32, path: &str, start: u32, score: f32) -> Candidate {
         score,
         phrases: 1,
         fine: None,
+        bm25_rank: None,
     }
 }
 
@@ -57,6 +58,7 @@ fn dedupe_case(a: (u32, u32), b: (u32, u32), frac: f32) -> Vec<crate::search::Se
         score,
         phrases: 1,
         fine: None,
+        bm25_rank: None,
     };
     let cands = vec![span(0, a, 1.0), span(1, b, 0.9)];
     let opts = SearchOptions { k: 2, dedupe_overlap: frac, ..Default::default() };
@@ -85,6 +87,7 @@ fn a_passage_reports_where_it_actually_starts() {
         score: 1.0,
         phrases: 1,
         fine: None,
+        bm25_rank: None,
     }];
     let opts = SearchOptions { k: 1, passage_lines: 18, passage_override: true, ..Default::default() };
     let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
@@ -126,6 +129,7 @@ fn a_character_budget_buys_content_not_lines() {
             score: 1.0,
             phrases: 1,
             fine: None,
+        bm25_rank: None,
         }];
         let opts = SearchOptions { k: 1, passage_lines: 0, passage_chars: 800, passage_override: true, ..Default::default() };
         let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
@@ -154,6 +158,7 @@ fn one_passage_line_is_the_pre_25_behaviour() {
         score: 1.0,
         phrases: 1,
         fine: None,
+        bm25_rank: None,
     }];
     let opts = SearchOptions { k: 1, passage_lines: 1, passage_chars: 0, passage_override: true, ..Default::default() };
     let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
@@ -208,6 +213,7 @@ fn a_short_chunk_is_its_own_fine_window() {
         score: 1.0,
         phrases: 1,
         fine: None,
+        bm25_rank: None,
     }];
     let opts = SearchOptions { k: 1, ..Default::default() };
     let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
@@ -237,6 +243,7 @@ fn neighbours_electing_the_same_window_collapse() {
         score,
         phrases: 1,
         fine: None,
+        bm25_rank: None,
     };
     let cands = vec![span(0, (1, 32), 1.0), span(1, (25, 56), 0.9)];
     let opts = SearchOptions { k: 2, dedupe_overlap: 0.5, ..Default::default() };
@@ -262,6 +269,7 @@ fn the_fine_rerank_is_deterministic() {
             score: 1.0,
             phrases: 1,
             fine: None,
+        bm25_rank: None,
         }];
         let opts = SearchOptions { k: 1, ..Default::default() };
         let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
@@ -323,6 +331,7 @@ fn merge_interleave_unions_retrievers_and_normalizes_per_phrase() {
         score,
         phrases: 1,
         fine: None,
+        bm25_rank: None,
     };
     // Phrase 0 ranks [1, 2]; phrase 1 ranks [2, 3] on a wildly different
     // score scale — chunk 2 is retrieved by both.
@@ -373,4 +382,84 @@ fn split_phrases_never_panics_and_holds_its_invariants() {
             );
         }
     }
+}
+
+/// §32.4a's lexical-drown fix: with `bm25_pin` set, a chunk BM25 ranked at
+/// its head gets a display slot even when the semantic ordering never would
+/// have shown it — and with the pin off, behavior is untouched.
+#[test]
+fn bm25_pin_guarantees_a_lexical_slot() {
+    let dir = tempfile::tempdir().unwrap();
+    for (name, body) in [
+        ("a.rs", "fn alpha() {}\n"),
+        ("b.rs", "fn alpha_helper() {}\n"),
+        ("c.rs", "fn unrelated() {}\n"),
+    ] {
+        std::fs::write(dir.path().join(name), body.repeat(10)).unwrap();
+    }
+    let mk = |id, path: &str, score, bm25| Candidate {
+        id,
+        chunk: Chunk { file_id: 0, start_line: 1, end_line: 8 },
+        path: path.into(),
+        score,
+        phrases: 1,
+        fine: None,
+        bm25_rank: bm25,
+    };
+    // c.rs is BM25's #1 but sits at the tail of the semantic order.
+    let cands = || vec![
+        mk(0, "a.rs", 1.0, None),
+        mk(1, "b.rs", 0.9, None),
+        mk(2, "c.rs", 0.1, Some(1)),
+    ];
+    let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
+    let q = crate::search::Query::parse("alpha");
+
+    let off = SearchOptions { k: 2, ..Default::default() };
+    let hits = finalize(dir.path(), &q, cands(), &off, "", &mut trace, |_| None).hits;
+    assert!(hits.iter().all(|h| h.path != "c.rs"), "unpinned tail must not display");
+
+    let on = SearchOptions { k: 2, bm25_pin: 1, ..Default::default() };
+    let hits = finalize(dir.path(), &q, cands(), &on, "", &mut trace, |_| None).hits;
+    assert_eq!(hits.len(), 2, "pin replaces, never grows the display");
+    assert!(hits.iter().any(|h| h.path == "c.rs"), "bm25 #1 must hold a slot");
+    assert_eq!(hits.last().unwrap().path, "c.rs", "the pin fills from the tail");
+}
+
+/// §32.4a's rank-1 kill: the fine rerank may outrank the coarse winner but,
+/// with the guard on, may not evict it from the display.
+#[test]
+fn coarse_top_survives_the_fine_rerank() {
+    let dir = tempfile::tempdir().unwrap();
+    // The coarse winner never mentions the query; the two runners-up do, so
+    // the fine windows outscore it and — at k=2 — push it off the display.
+    std::fs::write(dir.path().join("top.rs"), "fn zebra_quux() {}\n".repeat(10)).unwrap();
+    std::fs::write(dir.path().join("m1.rs"), "fn alpha() {}\n".repeat(10)).unwrap();
+    std::fs::write(dir.path().join("m2.rs"), "fn alpha_beta() {}\n".repeat(10)).unwrap();
+    let mk = |id, path: &str, score| Candidate {
+        id,
+        chunk: Chunk { file_id: 0, start_line: 1, end_line: 8 },
+        path: path.into(),
+        score,
+        phrases: 1,
+        fine: None,
+        bm25_rank: None,
+    };
+    let cands = || vec![mk(0, "top.rs", 1.0), mk(1, "m1.rs", 0.9), mk(2, "m2.rs", 0.8)];
+    let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
+    let q = crate::search::Query::parse("alpha");
+
+    let off = SearchOptions { k: 2, ..Default::default() };
+    let base = finalize(dir.path(), &q, cands(), &off, "", &mut trace, |_| None).hits;
+    assert!(
+        base.iter().all(|h| h.path != "top.rs"),
+        "premise: the fine rerank demotes the coarse winner off a k=2 display \
+         (got {:?})",
+        base.iter().map(|h| h.path.clone()).collect::<Vec<_>>(),
+    );
+
+    let on = SearchOptions { k: 2, keep_coarse_top: true, ..Default::default() };
+    let hits = finalize(dir.path(), &q, cands(), &on, "", &mut trace, |_| None).hits;
+    assert_eq!(hits.len(), 2);
+    assert!(hits.iter().any(|h| h.path == "top.rs"), "the coarse winner keeps a slot");
 }
