@@ -1665,11 +1665,18 @@ fn a_budgeted_entry_never_answers_a_line_windowed_query() {
     let dir = tempfile::tempdir().unwrap();
     fixture(dir.path());
 
+    // Pin off (§32.4b): pinned hits take their span from the fine window,
+    // which re-reads the file and is chunking-independent — with the pin on,
+    // both configs can display identical spans and this test's instrument
+    // (hit starts differing across chunkings) goes blind. The cache-key
+    // separation under test is unaffected by the pin.
     let lines = SearchOptions {
+        bm25_pin: 0,
         params: ChunkParams { window: 8, overlap: 2, ..Default::default() },
         ..opts(Mode::Semantic)
     };
     let budgeted = SearchOptions {
+        bm25_pin: 0,
         params: ChunkParams {
             window: 8,
             overlap: 2,
@@ -1945,7 +1952,9 @@ fn bm25_pin_is_honored_and_cold_warm_agree() {
     // semantic top.
     let q = "telescopes mirrored starlights zzqx_pin_target";
 
-    let plain = SearchOptions { k: 1, ..opts(Mode::Semantic) };
+    // Pin explicitly off: the default is 5 since §32.4b, and this premise is
+    // about what the semantic ordering does on its own.
+    let plain = SearchOptions { k: 1, bm25_pin: 0, ..opts(Mode::Semantic) };
     let r = search(dir.path(), q, &plain).unwrap();
     assert!(
         r.hits.iter().all(|h| h.path != "docs/notes.md"),

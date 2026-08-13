@@ -8,7 +8,7 @@
 {"path":"native/ring.c","start_line":51,"end_line":53,"line":52,"text":"return index & (rb->capacity - 1);","score":0.25153446,"chunk_start_line":49,"chunk_end_line":80}
 {"path":"src/auth.rs","start_line":24,"end_line":27,"line":24,"text":"/// Constant-time comparison: a short-circuiting `==` leaks the shared prefix","score":0.25277448,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"web/client.ts","start_line":51,"end_line":54,"line":51,"text":"return parsed.status;","score":0.25314653,"chunk_start_line":49,"chunk_end_line":80}
-{"path":"README.md","start_line":7,"end_line":10,"line":9,"text":"**Do not edit these files to make a test pass.** Ranked output over this tree is","score":0.2194184,"chunk_start_line":1,"chunk_end_line":11}
+{"path":"docs/sourdough.md","start_line":28,"end_line":30,"line":28,"text":"## Shaping and proof","score":0.16219234,"chunk_start_line":25,"chunk_end_line":39}
 ### mode=bm25 path=cold query=spread retries so workers do not stampede
 {"path":"src/retry.rs","start_line":11,"end_line":14,"line":14,"text":"/// Spread retries so a fleet of workers does not stampede a recovering service.","score":0.6495753,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/architecture.md","start_line":35,"end_line":37,"line":37,"text":"- **Retry stampede.** Without jitter, a fleet recovering from a database blip","score":0.43617088,"chunk_start_line":25,"chunk_end_line":45}
@@ -19,7 +19,7 @@
 {"path":"worker/dispatch.py","start_line":13,"end_line":16,"line":13,"text":"self.queue = queue","score":0.1920144,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/operations.md","start_line":35,"end_line":38,"line":38,"text":"handler duration for anything real. Scale on queue depth, not CPU: the workers","score":0.2055304,"chunk_start_line":25,"chunk_end_line":40}
 {"path":"src/queue.rs","start_line":1,"end_line":3,"line":1,"text":"//! In-process job queue with priority lanes and visibility timeouts.","score":0.14681631,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"docs/telescopes.md","start_line":28,"end_line":31,"line":28,"text":"motion on both axes and the field of view rotates as the object moves, which has","score":0.07979417,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"README.md","start_line":1,"end_line":4,"line":1,"text":"# Fixture corpus","score":0.052142084,"chunk_start_line":1,"chunk_end_line":11}
 ### mode=bm25 path=cold query=validate a session token
 {"path":"src/auth.rs","start_line":3,"end_line":6,"line":6,"text":"pub fn validate_session_token(token: &str) -> bool {","score":0.6959514,"chunk_start_line":1,"chunk_end_line":32}
 ### mode=bm25 path=cold query=compare digests without leaking timing
@@ -49,7 +49,7 @@
 {"path":"docs/operations.md","start_line":31,"end_line":33,"line":31,"text":"deadline will return the jobs anyway, but SIGKILL loses the metrics flush.","score":0.2414285,"chunk_start_line":25,"chunk_end_line":40}
 {"path":"worker/dispatch.py","start_line":48,"end_line":51,"line":50,"text":"for job, started, handler in self.in_flight:","score":0.22692049,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"web/client.ts","start_line":81,"end_line":84,"line":84,"text":"return new Promise((resolve) => setTimeout(resolve, ms));","score":0.17899436,"chunk_start_line":73,"chunk_end_line":85}
-{"path":"src/pool.rs","start_line":38,"end_line":41,"line":38,"text":"/// Returns `None` when the pool is saturated — callers back off rather","score":0.1876744,"chunk_start_line":25,"chunk_end_line":56}
+{"path":"docs/telescopes.md","start_line":34,"end_line":37,"line":37,"text":"averted vision — looking slightly to one side of the target places its light on","score":0.0626201,"chunk_start_line":25,"chunk_end_line":38}
 ### mode=bm25 path=cold query=parse a configuration file with comments
 {"path":"src/config.rs","start_line":21,"end_line":24,"line":24,"text":"/// Parse a flat `key = value` file. Blank lines and `#` comments are skipped;","score":0.49922502,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"web/client.ts","start_line":50,"end_line":52,"line":50,"text":"const parsed = (await response.json()) as { status: string };","score":0.4256308,"chunk_start_line":25,"chunk_end_line":56}
@@ -91,7 +91,7 @@
 {"path":"native/ring.c","start_line":53,"end_line":56,"line":55,"text":"size_t ring_buffer_available(const struct ring_buffer *rb)","score":0.1448943,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"docs/sourdough.md","start_line":26,"end_line":28,"line":26,"text":"clock: a warm kitchen can cut an hour off this, and a cold one can add two.","score":0.12660426,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"src/pool.rs","start_line":37,"end_line":39,"line":39,"text":"/// than growing the pool without bound.","score":0.16262633,"chunk_start_line":25,"chunk_end_line":56}
-{"path":"web/client.ts","start_line":25,"end_line":28,"line":25,"text":"* worker slot forever. */","score":0.15444231,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"docs/telescopes.md","start_line":31,"end_line":33,"line":33,"text":"Let the instrument cool to ambient temperature before observing; a warm mirror","score":0.033046067,"chunk_start_line":25,"chunk_end_line":38}
 ### mode=bm25 path=cold query=route a job to its registered handler
 {"path":"worker/dispatch.py","start_line":50,"end_line":53,"line":50,"text":"for job, started, handler in self.in_flight:","score":0.7438775,"chunk_start_line":49,"chunk_end_line":71}
 {"path":"worker/dispatch.py","start_line":20,"end_line":22,"line":22,"text":"raise ValueError(f\"handler already registered for {job_kind}\")","score":0.6895034,"chunk_start_line":1,"chunk_end_line":32}
@@ -102,7 +102,7 @@
 {"path":"src/queue.rs","start_line":1,"end_line":3,"line":1,"text":"//! In-process job queue with priority lanes and visibility timeouts.","score":0.14638227,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"web/client.ts","start_line":34,"end_line":37,"line":36,"text":"export class JobsClient {","score":0.16740036,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"docs/sourdough.md","start_line":32,"end_line":34,"line":32,"text":"loaf its flavor and makes the dough firm enough to score cleanly.","score":0.08370018,"chunk_start_line":25,"chunk_end_line":39}
-{"path":"docs/telescopes.md","start_line":1,"end_line":3,"line":3,"text":"A second control document, unrelated to the service and to the other control.","score":0.09424019,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"src/queue.rs","start_line":58,"end_line":61,"line":59,"text":"let mut job = self.in_flight.remove(pos);","score":0.14545226,"chunk_start_line":49,"chunk_end_line":68}
 ### mode=bm25 path=cold query=expand a cron expression into allowed values
 {"path":"worker/schedule.py","start_line":10,"end_line":11,"line":11,"text":"\"\"\"Expand a five-field cron expression into per-field allowed value sets.","score":0.77196354,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/operations.md","start_line":16,"end_line":19,"line":16,"text":"- **Dead letter table growing.** A handler is failing deterministically. Read","score":0.1969744,"chunk_start_line":1,"chunk_end_line":32}
@@ -118,7 +118,7 @@
 {"path":"docs/sourdough.md","start_line":21,"end_line":24,"line":24,"text":"three. The dough is ready when it has risen by half, feels airy, and holds the","score":0.16306031,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"src/metrics.rs","start_line":48,"end_line":51,"line":51,"text":"impl Registry {","score":0.18457437,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"src/auth.rs","start_line":13,"end_line":16,"line":13,"text":"out.extend(password.bytes());","score":0.18674439,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"native/ring.c","start_line":67,"end_line":70,"line":67,"text":"return 0;","score":0.1644243,"chunk_start_line":49,"chunk_end_line":80}
+{"path":"src/config.rs","start_line":47,"end_line":50,"line":48,"text":"if let Some(v) = fields.get(\"log_level\") {","score":0.16225433,"chunk_start_line":25,"chunk_end_line":56}
 ### mode=bm25 path=cold query=wrap the index with a mask instead of a division
 {"path":"native/ring.c","start_line":45,"end_line":48,"line":48,"text":"/* Power-of-two capacity turns the wrap into a mask instead of a division,","score":0.6538533,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"docs/architecture.md","start_line":17,"end_line":20,"line":20,"text":"table with an index on `(priority, visible_at)` outperforms the operational cost","score":0.23628247,"chunk_start_line":1,"chunk_end_line":32}
@@ -128,8 +128,8 @@
 {"path":"README.md","start_line":6,"end_line":9,"line":6,"text":"should never surface them for a code query; a semantic engine should surface","score":0.19387436,"chunk_start_line":1,"chunk_end_line":11}
 {"path":"src/config.rs","start_line":32,"end_line":35,"line":32,"text":"continue;","score":0.16975635,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"src/metrics.rs","start_line":41,"end_line":44,"line":41,"text":"for (i, &count) in self.counts.iter().enumerate() {","score":0.17372435,"chunk_start_line":25,"chunk_end_line":56}
-{"path":"docs/sourdough.md","start_line":23,"end_line":25,"line":25,"text":"shape of a fold rather than slumping back immediately. Watch the dough, not the","score":0.118792236,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"src/pool.rs","start_line":1,"end_line":3,"line":1,"text":"//! Database connection pool with a bounded wait queue.","score":0.14284825,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"docs/telescopes.md","start_line":29,"end_line":31,"line":29,"text":"to be corrected optically for long exposures.","score":0.07142413,"chunk_start_line":25,"chunk_end_line":38}
+{"path":"src/retry.rs","start_line":1,"end_line":3,"line":1,"text":"//! Retry policy: exponential backoff with jitter and a circuit breaker.","score":0.07725215,"chunk_start_line":1,"chunk_end_line":32}
 ### mode=bm25 path=cold query=what happens during a rolling deploy
 {"path":"docs/operations.md","start_line":3,"end_line":5,"line":5,"text":"Rolling restart, one worker at a time. Each receives SIGTERM, stops claiming new","score":0.5293571,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"worker/dispatch.py","start_line":65,"end_line":68,"line":65,"text":"rolling deploy does not lose jobs that were mid-handler.\"\"\"","score":0.4641949,"chunk_start_line":49,"chunk_end_line":71}
@@ -164,7 +164,7 @@
 {"path":"native/ring.c","start_line":51,"end_line":53,"line":52,"text":"return index & (rb->capacity - 1);","score":0.25153446,"chunk_start_line":49,"chunk_end_line":80}
 {"path":"src/auth.rs","start_line":24,"end_line":27,"line":24,"text":"/// Constant-time comparison: a short-circuiting `==` leaks the shared prefix","score":0.25277448,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"web/client.ts","start_line":51,"end_line":54,"line":51,"text":"return parsed.status;","score":0.25314653,"chunk_start_line":49,"chunk_end_line":80}
-{"path":"README.md","start_line":7,"end_line":10,"line":9,"text":"**Do not edit these files to make a test pass.** Ranked output over this tree is","score":0.2194184,"chunk_start_line":1,"chunk_end_line":11}
+{"path":"docs/sourdough.md","start_line":28,"end_line":30,"line":28,"text":"## Shaping and proof","score":0.16219234,"chunk_start_line":25,"chunk_end_line":39}
 ### mode=bm25 path=warm query=spread retries so workers do not stampede
 {"path":"src/retry.rs","start_line":11,"end_line":14,"line":14,"text":"/// Spread retries so a fleet of workers does not stampede a recovering service.","score":0.6495753,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/architecture.md","start_line":35,"end_line":37,"line":37,"text":"- **Retry stampede.** Without jitter, a fleet recovering from a database blip","score":0.43617088,"chunk_start_line":25,"chunk_end_line":45}
@@ -175,7 +175,7 @@
 {"path":"worker/dispatch.py","start_line":13,"end_line":16,"line":13,"text":"self.queue = queue","score":0.1920144,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/operations.md","start_line":35,"end_line":38,"line":38,"text":"handler duration for anything real. Scale on queue depth, not CPU: the workers","score":0.2055304,"chunk_start_line":25,"chunk_end_line":40}
 {"path":"src/queue.rs","start_line":1,"end_line":3,"line":1,"text":"//! In-process job queue with priority lanes and visibility timeouts.","score":0.14681631,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"docs/telescopes.md","start_line":28,"end_line":31,"line":28,"text":"motion on both axes and the field of view rotates as the object moves, which has","score":0.07979417,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"README.md","start_line":1,"end_line":4,"line":1,"text":"# Fixture corpus","score":0.052142084,"chunk_start_line":1,"chunk_end_line":11}
 ### mode=bm25 path=warm query=validate a session token
 {"path":"src/auth.rs","start_line":3,"end_line":6,"line":6,"text":"pub fn validate_session_token(token: &str) -> bool {","score":0.6959514,"chunk_start_line":1,"chunk_end_line":32}
 ### mode=bm25 path=warm query=compare digests without leaking timing
@@ -205,7 +205,7 @@
 {"path":"docs/operations.md","start_line":31,"end_line":33,"line":31,"text":"deadline will return the jobs anyway, but SIGKILL loses the metrics flush.","score":0.2414285,"chunk_start_line":25,"chunk_end_line":40}
 {"path":"worker/dispatch.py","start_line":48,"end_line":51,"line":50,"text":"for job, started, handler in self.in_flight:","score":0.22692049,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"web/client.ts","start_line":81,"end_line":84,"line":84,"text":"return new Promise((resolve) => setTimeout(resolve, ms));","score":0.17899436,"chunk_start_line":73,"chunk_end_line":85}
-{"path":"src/pool.rs","start_line":38,"end_line":41,"line":38,"text":"/// Returns `None` when the pool is saturated — callers back off rather","score":0.1876744,"chunk_start_line":25,"chunk_end_line":56}
+{"path":"docs/telescopes.md","start_line":34,"end_line":37,"line":37,"text":"averted vision — looking slightly to one side of the target places its light on","score":0.0626201,"chunk_start_line":25,"chunk_end_line":38}
 ### mode=bm25 path=warm query=parse a configuration file with comments
 {"path":"src/config.rs","start_line":21,"end_line":24,"line":24,"text":"/// Parse a flat `key = value` file. Blank lines and `#` comments are skipped;","score":0.49922502,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"web/client.ts","start_line":50,"end_line":52,"line":50,"text":"const parsed = (await response.json()) as { status: string };","score":0.4256308,"chunk_start_line":25,"chunk_end_line":56}
@@ -247,7 +247,7 @@
 {"path":"native/ring.c","start_line":53,"end_line":56,"line":55,"text":"size_t ring_buffer_available(const struct ring_buffer *rb)","score":0.1448943,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"docs/sourdough.md","start_line":26,"end_line":28,"line":26,"text":"clock: a warm kitchen can cut an hour off this, and a cold one can add two.","score":0.12660426,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"src/pool.rs","start_line":37,"end_line":39,"line":39,"text":"/// than growing the pool without bound.","score":0.16262633,"chunk_start_line":25,"chunk_end_line":56}
-{"path":"web/client.ts","start_line":25,"end_line":28,"line":25,"text":"* worker slot forever. */","score":0.15444231,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"docs/telescopes.md","start_line":31,"end_line":33,"line":33,"text":"Let the instrument cool to ambient temperature before observing; a warm mirror","score":0.033046067,"chunk_start_line":25,"chunk_end_line":38}
 ### mode=bm25 path=warm query=route a job to its registered handler
 {"path":"worker/dispatch.py","start_line":50,"end_line":53,"line":50,"text":"for job, started, handler in self.in_flight:","score":0.7438775,"chunk_start_line":49,"chunk_end_line":71}
 {"path":"worker/dispatch.py","start_line":20,"end_line":22,"line":22,"text":"raise ValueError(f\"handler already registered for {job_kind}\")","score":0.6895034,"chunk_start_line":1,"chunk_end_line":32}
@@ -258,7 +258,7 @@
 {"path":"src/queue.rs","start_line":1,"end_line":3,"line":1,"text":"//! In-process job queue with priority lanes and visibility timeouts.","score":0.14638227,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"web/client.ts","start_line":34,"end_line":37,"line":36,"text":"export class JobsClient {","score":0.16740036,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"docs/sourdough.md","start_line":32,"end_line":34,"line":32,"text":"loaf its flavor and makes the dough firm enough to score cleanly.","score":0.08370018,"chunk_start_line":25,"chunk_end_line":39}
-{"path":"docs/telescopes.md","start_line":1,"end_line":3,"line":3,"text":"A second control document, unrelated to the service and to the other control.","score":0.09424019,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"src/queue.rs","start_line":58,"end_line":61,"line":59,"text":"let mut job = self.in_flight.remove(pos);","score":0.14545226,"chunk_start_line":49,"chunk_end_line":68}
 ### mode=bm25 path=warm query=expand a cron expression into allowed values
 {"path":"worker/schedule.py","start_line":10,"end_line":11,"line":11,"text":"\"\"\"Expand a five-field cron expression into per-field allowed value sets.","score":0.77196354,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/operations.md","start_line":16,"end_line":19,"line":16,"text":"- **Dead letter table growing.** A handler is failing deterministically. Read","score":0.1969744,"chunk_start_line":1,"chunk_end_line":32}
@@ -274,7 +274,7 @@
 {"path":"docs/sourdough.md","start_line":21,"end_line":24,"line":24,"text":"three. The dough is ready when it has risen by half, feels airy, and holds the","score":0.16306031,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"src/metrics.rs","start_line":48,"end_line":51,"line":51,"text":"impl Registry {","score":0.18457437,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"src/auth.rs","start_line":13,"end_line":16,"line":13,"text":"out.extend(password.bytes());","score":0.18674439,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"native/ring.c","start_line":67,"end_line":70,"line":67,"text":"return 0;","score":0.1644243,"chunk_start_line":49,"chunk_end_line":80}
+{"path":"src/config.rs","start_line":47,"end_line":50,"line":48,"text":"if let Some(v) = fields.get(\"log_level\") {","score":0.16225433,"chunk_start_line":25,"chunk_end_line":56}
 ### mode=bm25 path=warm query=wrap the index with a mask instead of a division
 {"path":"native/ring.c","start_line":45,"end_line":48,"line":48,"text":"/* Power-of-two capacity turns the wrap into a mask instead of a division,","score":0.6538533,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"docs/architecture.md","start_line":17,"end_line":20,"line":20,"text":"table with an index on `(priority, visible_at)` outperforms the operational cost","score":0.23628247,"chunk_start_line":1,"chunk_end_line":32}
@@ -284,8 +284,8 @@
 {"path":"README.md","start_line":6,"end_line":9,"line":6,"text":"should never surface them for a code query; a semantic engine should surface","score":0.19387436,"chunk_start_line":1,"chunk_end_line":11}
 {"path":"src/config.rs","start_line":32,"end_line":35,"line":32,"text":"continue;","score":0.16975635,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"src/metrics.rs","start_line":41,"end_line":44,"line":41,"text":"for (i, &count) in self.counts.iter().enumerate() {","score":0.17372435,"chunk_start_line":25,"chunk_end_line":56}
-{"path":"docs/sourdough.md","start_line":23,"end_line":25,"line":25,"text":"shape of a fold rather than slumping back immediately. Watch the dough, not the","score":0.118792236,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"src/pool.rs","start_line":1,"end_line":3,"line":1,"text":"//! Database connection pool with a bounded wait queue.","score":0.14284825,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"docs/telescopes.md","start_line":29,"end_line":31,"line":29,"text":"to be corrected optically for long exposures.","score":0.07142413,"chunk_start_line":25,"chunk_end_line":38}
+{"path":"src/retry.rs","start_line":1,"end_line":3,"line":1,"text":"//! Retry policy: exponential backoff with jitter and a circuit breaker.","score":0.07725215,"chunk_start_line":1,"chunk_end_line":32}
 ### mode=bm25 path=warm query=what happens during a rolling deploy
 {"path":"docs/operations.md","start_line":3,"end_line":5,"line":5,"text":"Rolling restart, one worker at a time. Each receives SIGTERM, stops claiming new","score":0.5293571,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"worker/dispatch.py","start_line":65,"end_line":68,"line":65,"text":"rolling deploy does not lose jobs that were mid-handler.\"\"\"","score":0.4641949,"chunk_start_line":49,"chunk_end_line":71}
@@ -320,7 +320,7 @@
 {"path":"src/auth.rs","start_line":24,"end_line":27,"line":24,"text":"/// Constant-time comparison: a short-circuiting `==` leaks the shared prefix","score":0.25277448,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"web/client.ts","start_line":51,"end_line":54,"line":51,"text":"return parsed.status;","score":0.25314653,"chunk_start_line":49,"chunk_end_line":80}
 {"path":"worker/schedule.py","start_line":43,"end_line":45,"line":43,"text":"raise ValueError(f\"cron field {part!r} out of range {lo}-{hi}\")","score":0.24080849,"chunk_start_line":25,"chunk_end_line":56}
-{"path":"README.md","start_line":7,"end_line":10,"line":9,"text":"**Do not edit these files to make a test pass.** Ranked output over this tree is","score":0.2194184,"chunk_start_line":1,"chunk_end_line":11}
+{"path":"docs/sourdough.md","start_line":28,"end_line":30,"line":28,"text":"## Shaping and proof","score":0.16219234,"chunk_start_line":25,"chunk_end_line":39}
 ### mode=semantic path=cold query=spread retries so workers do not stampede
 {"path":"src/retry.rs","start_line":11,"end_line":14,"line":14,"text":"/// Spread retries so a fleet of workers does not stampede a recovering service.","score":0.6495753,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/architecture.md","start_line":35,"end_line":37,"line":37,"text":"- **Retry stampede.** Without jitter, a fleet recovering from a database blip","score":0.43617088,"chunk_start_line":25,"chunk_end_line":45}
@@ -331,7 +331,7 @@
 {"path":"native/ring.c","start_line":51,"end_line":53,"line":52,"text":"return index & (rb->capacity - 1);","score":0.16157234,"chunk_start_line":49,"chunk_end_line":80}
 {"path":"worker/dispatch.py","start_line":13,"end_line":16,"line":13,"text":"self.queue = queue","score":0.1920144,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/operations.md","start_line":35,"end_line":38,"line":38,"text":"handler duration for anything real. Scale on queue depth, not CPU: the workers","score":0.2055304,"chunk_start_line":25,"chunk_end_line":40}
-{"path":"src/queue.rs","start_line":1,"end_line":3,"line":1,"text":"//! In-process job queue with priority lanes and visibility timeouts.","score":0.14681631,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"README.md","start_line":1,"end_line":4,"line":1,"text":"# Fixture corpus","score":0.052142084,"chunk_start_line":1,"chunk_end_line":11}
 ### mode=semantic path=cold query=validate a session token
 {"path":"src/auth.rs","start_line":3,"end_line":6,"line":6,"text":"pub fn validate_session_token(token: &str) -> bool {","score":0.6959514,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/architecture.md","start_line":19,"end_line":21,"line":19,"text":"This is deliberately not a message broker. The queue is small enough that a","score":0.2410565,"chunk_start_line":1,"chunk_end_line":32}
@@ -352,8 +352,8 @@
 {"path":"docs/sourdough.md","start_line":9,"end_line":12,"line":9,"text":"half and refeed daily. After about a week it doubles within four hours of a","score":0.15307832,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/operations.md","start_line":14,"end_line":17,"line":14,"text":"- **Queue depth rising for 15 minutes.** Either throughput dropped or arrival","score":0.18606234,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"src/retry.rs","start_line":17,"end_line":20,"line":17,"text":"if span == 0 {","score":0.16932237,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"src/queue.rs","start_line":57,"end_line":60,"line":57,"text":"pub fn requeue_expired(&mut self, id: u64) {","score":0.14446032,"chunk_start_line":49,"chunk_end_line":68}
-{"path":"worker/dispatch.py","start_line":56,"end_line":59,"line":56,"text":"continue","score":0.1638043,"chunk_start_line":49,"chunk_end_line":71}
+{"path":"src/pool.rs","start_line":49,"end_line":52,"line":49,"text":"None","score":0.10230023,"chunk_start_line":25,"chunk_end_line":56}
+{"path":"src/config.rs","start_line":35,"end_line":38,"line":35,"text":"fields.insert(key.trim(), value.trim());","score":0.14582431,"chunk_start_line":25,"chunk_end_line":56}
 ### mode=semantic path=cold query=drain urgent jobs before low priority ones
 {"path":"src/queue.rs","start_line":32,"end_line":35,"line":33,"text":"Priority::Urgent => self.urgent.push_back(job),","score":0.62775123,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"docs/architecture.md","start_line":11,"end_line":14,"line":14,"text":"Three lanes are drained urgent-first so a backlog of low-priority work cannot","score":0.5891872,"chunk_start_line":1,"chunk_end_line":32}
@@ -375,7 +375,7 @@
 {"path":"worker/dispatch.py","start_line":48,"end_line":51,"line":50,"text":"for job, started, handler in self.in_flight:","score":0.22692049,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"web/client.ts","start_line":52,"end_line":55,"line":54,"text":"/** Single request with bounded retries on transient failures. */","score":0.17310435,"chunk_start_line":49,"chunk_end_line":80}
 {"path":"src/auth.rs","start_line":26,"end_line":29,"line":28,"text":"return false;","score":0.13838428,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"src/metrics.rs","start_line":51,"end_line":53,"line":53,"text":"*self.counters.entry(name.to_string()).or_insert(0) += 1;","score":0.16138631,"chunk_start_line":25,"chunk_end_line":56}
+{"path":"docs/telescopes.md","start_line":18,"end_line":21,"line":18,"text":"practice atmospheric turbulence limits ground-based resolution to about one","score":0.052638113,"chunk_start_line":1,"chunk_end_line":32}
 ### mode=semantic path=cold query=parse a configuration file with comments
 {"path":"src/config.rs","start_line":21,"end_line":24,"line":24,"text":"/// Parse a flat `key = value` file. Blank lines and `#` comments are skipped;","score":0.49922502,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"web/client.ts","start_line":50,"end_line":52,"line":50,"text":"const parsed = (await response.json()) as { status: string };","score":0.4256308,"chunk_start_line":25,"chunk_end_line":56}
@@ -418,7 +418,7 @@
 {"path":"native/ring.c","start_line":64,"end_line":67,"line":64,"text":"size_t ring_buffer_write(struct ring_buffer *rb, const uint8_t *data, size_t len)","score":0.17025232,"chunk_start_line":49,"chunk_end_line":80}
 {"path":"src/auth.rs","start_line":14,"end_line":17,"line":14,"text":"for _ in 0..1000 {","score":0.18885237,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/sourdough.md","start_line":26,"end_line":28,"line":26,"text":"clock: a warm kitchen can cut an hour off this, and a cold one can add two.","score":0.12660426,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"worker/schedule.py","start_line":13,"end_line":15,"line":13,"text":"Supports `*`, `a-b` ranges, `a,b,c` lists, and `*/n` or `a-b/n` steps.","score":0.14632028,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"docs/telescopes.md","start_line":31,"end_line":33,"line":33,"text":"Let the instrument cool to ambient temperature before observing; a warm mirror","score":0.033046067,"chunk_start_line":25,"chunk_end_line":38}
 {"path":"src/pool.rs","start_line":37,"end_line":39,"line":39,"text":"/// than growing the pool without bound.","score":0.16262633,"chunk_start_line":25,"chunk_end_line":56}
 ### mode=semantic path=cold query=route a job to its registered handler
 {"path":"worker/dispatch.py","start_line":50,"end_line":53,"line":50,"text":"for job, started, handler in self.in_flight:","score":0.7438775,"chunk_start_line":49,"chunk_end_line":71}
@@ -440,8 +440,8 @@
 {"path":"src/retry.rs","start_line":14,"end_line":16,"line":14,"text":"/// Spread retries so a fleet of workers does not stampede a recovering service.","score":0.15803832,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"native/ring.c","start_line":82,"end_line":85,"line":82,"text":"size_t tail = atomic_load_explicit(&rb->tail, memory_order_relaxed);","score":0.13447827,"chunk_start_line":73,"chunk_end_line":96}
 {"path":"src/auth.rs","start_line":3,"end_line":5,"line":3,"text":"const TOKEN_LEN: usize = 64;","score":0.13702029,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"src/pool.rs","start_line":58,"end_line":61,"line":58,"text":"/// Close connections idle past the timeout so the database is not holding","score":0.10918224,"chunk_start_line":49,"chunk_end_line":70}
-{"path":"worker/schedule.py","start_line":62,"end_line":64,"line":62,"text":"Deliberately naive: correctness over cleverness, and the caller only ever","score":0.12914628,"chunk_start_line":49,"chunk_end_line":72}
+{"path":"native/ring.c","start_line":51,"end_line":53,"line":52,"text":"return index & (rb->capacity - 1);","score":0.13578027,"chunk_start_line":25,"chunk_end_line":56}
+{"path":"src/config.rs","start_line":24,"end_line":26,"line":24,"text":"/// Parse a flat `key = value` file. Blank lines and `#` comments are skipped;","score":0.12672824,"chunk_start_line":1,"chunk_end_line":32}
 ### mode=semantic path=cold query=abort a request once the deadline passes
 {"path":"web/client.ts","start_line":21,"end_line":24,"line":24,"text":"/** Abort a request once the deadline passes so a hung socket cannot pin a","score":0.6136152,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/architecture.md","start_line":15,"end_line":17,"line":16,"text":"if the worker dies without acking, the deadline passes and the job returns to","score":0.40765083,"chunk_start_line":1,"chunk_end_line":32}
@@ -452,7 +452,7 @@
 {"path":"src/auth.rs","start_line":13,"end_line":16,"line":13,"text":"out.extend(password.bytes());","score":0.18674439,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"worker/schedule.py","start_line":49,"end_line":52,"line":49,"text":"\"\"\"True when `moment` (a datetime) satisfies every field of the schedule.\"\"\"","score":0.17589438,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"native/ring.c","start_line":67,"end_line":70,"line":67,"text":"return 0;","score":0.1644243,"chunk_start_line":49,"chunk_end_line":80}
-{"path":"README.md","start_line":3,"end_line":6,"line":3,"text":"A frozen tree used by the Rust test suite and by `tools/snapshot.sh`. It stands","score":0.15586829,"chunk_start_line":1,"chunk_end_line":11}
+{"path":"src/config.rs","start_line":47,"end_line":50,"line":48,"text":"if let Some(v) = fields.get(\"log_level\") {","score":0.16225433,"chunk_start_line":25,"chunk_end_line":56}
 ### mode=semantic path=cold query=wrap the index with a mask instead of a division
 {"path":"native/ring.c","start_line":45,"end_line":48,"line":48,"text":"/* Power-of-two capacity turns the wrap into a mask instead of a division,","score":0.6538533,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"docs/architecture.md","start_line":17,"end_line":20,"line":20,"text":"table with an index on `(priority, visible_at)` outperforms the operational cost","score":0.23628247,"chunk_start_line":1,"chunk_end_line":32}
@@ -462,8 +462,8 @@
 {"path":"README.md","start_line":6,"end_line":9,"line":6,"text":"should never surface them for a code query; a semantic engine should surface","score":0.19387436,"chunk_start_line":1,"chunk_end_line":11}
 {"path":"src/config.rs","start_line":32,"end_line":35,"line":32,"text":"continue;","score":0.16975635,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"src/metrics.rs","start_line":41,"end_line":44,"line":41,"text":"for (i, &count) in self.counts.iter().enumerate() {","score":0.17372435,"chunk_start_line":25,"chunk_end_line":56}
-{"path":"docs/sourdough.md","start_line":23,"end_line":25,"line":25,"text":"shape of a fold rather than slumping back immediately. Watch the dough, not the","score":0.118792236,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"src/pool.rs","start_line":1,"end_line":3,"line":1,"text":"//! Database connection pool with a bounded wait queue.","score":0.14284825,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"docs/telescopes.md","start_line":29,"end_line":31,"line":29,"text":"to be corrected optically for long exposures.","score":0.07142413,"chunk_start_line":25,"chunk_end_line":38}
+{"path":"src/retry.rs","start_line":1,"end_line":3,"line":1,"text":"//! Retry policy: exponential backoff with jitter and a circuit breaker.","score":0.07725215,"chunk_start_line":1,"chunk_end_line":32}
 ### mode=semantic path=cold query=what happens during a rolling deploy
 {"path":"docs/operations.md","start_line":3,"end_line":5,"line":5,"text":"Rolling restart, one worker at a time. Each receives SIGTERM, stops claiming new","score":0.5293571,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"worker/dispatch.py","start_line":65,"end_line":68,"line":65,"text":"rolling deploy does not lose jobs that were mid-handler.\"\"\"","score":0.4641949,"chunk_start_line":49,"chunk_end_line":71}
@@ -484,8 +484,8 @@
 {"path":"src/queue.rs","start_line":54,"end_line":57,"line":56,"text":"/// Return an unacked job to its lane with its attempt count incremented.","score":0.11048424,"chunk_start_line":49,"chunk_end_line":68}
 {"path":"src/queue.rs","start_line":18,"end_line":21,"line":20,"text":"/// Three lanes drained urgent-first, so a flood of low-priority work cannot","score":0.13627625,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/operations.md","start_line":5,"end_line":7,"line":5,"text":"Rolling restart, one worker at a time. Each receives SIGTERM, stops claiming new","score":0.13838428,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"worker/dispatch.py","start_line":21,"end_line":23,"line":21,"text":"if job_kind in self.handlers:","score":0.118792236,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"src/auth.rs","start_line":8,"end_line":11,"line":10,"text":"/// Derive a verifier from a password and a per-user salt.","score":0.06572014,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"web/client.ts","start_line":77,"end_line":80,"line":79,"text":"throw lastError;","score":0.033170044,"chunk_start_line":49,"chunk_end_line":80}
+{"path":"docs/telescopes.md","start_line":5,"end_line":7,"line":7,"text":"A refractor bends light through a lens; a reflector gathers it with a curved","score":0.024986029,"chunk_start_line":1,"chunk_end_line":32}
 ### mode=semantic path=cold query=mirrors gathering light from distant stars
 {"path":"docs/telescopes.md","start_line":7,"end_line":10,"line":7,"text":"A refractor bends light through a lens; a reflector gathers it with a curved","score":0.4615909,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"web/client.ts","start_line":81,"end_line":84,"line":83,"text":"function sleep(ms: number): Promise<void> {","score":0.15655029,"chunk_start_line":73,"chunk_end_line":85}
@@ -495,8 +495,8 @@
 {"path":"src/queue.rs","start_line":6,"end_line":9,"line":6,"text":"pub enum Priority {","score":0.12350422,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"web/client.ts","start_line":26,"end_line":29,"line":26,"text":"function withDeadline(timeoutMs: number): AbortSignal {","score":0.13565624,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"docs/sourdough.md","start_line":14,"end_line":16,"line":14,"text":"## Mixing","score":0.09672022,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"src/queue.rs","start_line":62,"end_line":65,"line":65,"text":"pub fn depth(&self) -> usize {","score":0.13416827,"chunk_start_line":49,"chunk_end_line":68}
-{"path":"native/ring.c","start_line":75,"end_line":77,"line":75,"text":"atomic_store_explicit(&rb->head, head + len, memory_order_release);","score":0.09225619,"chunk_start_line":49,"chunk_end_line":80}
+{"path":"src/pool.rs","start_line":24,"end_line":27,"line":26,"text":"pub struct ConnectionPool {","score":0.108438194,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"src/retry.rs","start_line":12,"end_line":15,"line":14,"text":"/// Spread retries so a fleet of workers does not stampede a recovering service.","score":0.09231818,"chunk_start_line":1,"chunk_end_line":32}
 ### mode=semantic path=cold query=quantum chromodynamics lattice gauge theory
 {"path":"web/client.ts","start_line":18,"end_line":21,"line":18,"text":"readonly body: string,","score":0.25903654,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"native/ring.c","start_line":55,"end_line":58,"line":55,"text":"size_t ring_buffer_available(const struct ring_buffer *rb)","score":0.24973649,"chunk_start_line":49,"chunk_end_line":80}
@@ -518,7 +518,7 @@
 {"path":"src/auth.rs","start_line":24,"end_line":27,"line":24,"text":"/// Constant-time comparison: a short-circuiting `==` leaks the shared prefix","score":0.25277448,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"web/client.ts","start_line":51,"end_line":54,"line":51,"text":"return parsed.status;","score":0.25314653,"chunk_start_line":49,"chunk_end_line":80}
 {"path":"worker/schedule.py","start_line":43,"end_line":45,"line":43,"text":"raise ValueError(f\"cron field {part!r} out of range {lo}-{hi}\")","score":0.24080849,"chunk_start_line":25,"chunk_end_line":56}
-{"path":"README.md","start_line":7,"end_line":10,"line":9,"text":"**Do not edit these files to make a test pass.** Ranked output over this tree is","score":0.2194184,"chunk_start_line":1,"chunk_end_line":11}
+{"path":"docs/sourdough.md","start_line":28,"end_line":30,"line":28,"text":"## Shaping and proof","score":0.16219234,"chunk_start_line":25,"chunk_end_line":39}
 ### mode=semantic path=warm query=spread retries so workers do not stampede
 {"path":"src/retry.rs","start_line":11,"end_line":14,"line":14,"text":"/// Spread retries so a fleet of workers does not stampede a recovering service.","score":0.6495753,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/architecture.md","start_line":35,"end_line":37,"line":37,"text":"- **Retry stampede.** Without jitter, a fleet recovering from a database blip","score":0.43617088,"chunk_start_line":25,"chunk_end_line":45}
@@ -529,7 +529,7 @@
 {"path":"native/ring.c","start_line":51,"end_line":53,"line":52,"text":"return index & (rb->capacity - 1);","score":0.16157234,"chunk_start_line":49,"chunk_end_line":80}
 {"path":"worker/dispatch.py","start_line":13,"end_line":16,"line":13,"text":"self.queue = queue","score":0.1920144,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/operations.md","start_line":35,"end_line":38,"line":38,"text":"handler duration for anything real. Scale on queue depth, not CPU: the workers","score":0.2055304,"chunk_start_line":25,"chunk_end_line":40}
-{"path":"src/queue.rs","start_line":1,"end_line":3,"line":1,"text":"//! In-process job queue with priority lanes and visibility timeouts.","score":0.14681631,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"README.md","start_line":1,"end_line":4,"line":1,"text":"# Fixture corpus","score":0.052142084,"chunk_start_line":1,"chunk_end_line":11}
 ### mode=semantic path=warm query=validate a session token
 {"path":"src/auth.rs","start_line":3,"end_line":6,"line":6,"text":"pub fn validate_session_token(token: &str) -> bool {","score":0.6959514,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/architecture.md","start_line":19,"end_line":21,"line":19,"text":"This is deliberately not a message broker. The queue is small enough that a","score":0.2410565,"chunk_start_line":1,"chunk_end_line":32}
@@ -550,8 +550,8 @@
 {"path":"docs/sourdough.md","start_line":9,"end_line":12,"line":9,"text":"half and refeed daily. After about a week it doubles within four hours of a","score":0.15307832,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/operations.md","start_line":14,"end_line":17,"line":14,"text":"- **Queue depth rising for 15 minutes.** Either throughput dropped or arrival","score":0.18606234,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"src/retry.rs","start_line":17,"end_line":20,"line":17,"text":"if span == 0 {","score":0.16932237,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"src/queue.rs","start_line":57,"end_line":60,"line":57,"text":"pub fn requeue_expired(&mut self, id: u64) {","score":0.14446032,"chunk_start_line":49,"chunk_end_line":68}
-{"path":"worker/dispatch.py","start_line":56,"end_line":59,"line":56,"text":"continue","score":0.1638043,"chunk_start_line":49,"chunk_end_line":71}
+{"path":"src/pool.rs","start_line":49,"end_line":52,"line":49,"text":"None","score":0.10230023,"chunk_start_line":25,"chunk_end_line":56}
+{"path":"src/config.rs","start_line":35,"end_line":38,"line":35,"text":"fields.insert(key.trim(), value.trim());","score":0.14582431,"chunk_start_line":25,"chunk_end_line":56}
 ### mode=semantic path=warm query=drain urgent jobs before low priority ones
 {"path":"src/queue.rs","start_line":32,"end_line":35,"line":33,"text":"Priority::Urgent => self.urgent.push_back(job),","score":0.62775123,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"docs/architecture.md","start_line":11,"end_line":14,"line":14,"text":"Three lanes are drained urgent-first so a backlog of low-priority work cannot","score":0.5891872,"chunk_start_line":1,"chunk_end_line":32}
@@ -573,7 +573,7 @@
 {"path":"worker/dispatch.py","start_line":48,"end_line":51,"line":50,"text":"for job, started, handler in self.in_flight:","score":0.22692049,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"web/client.ts","start_line":52,"end_line":55,"line":54,"text":"/** Single request with bounded retries on transient failures. */","score":0.17310435,"chunk_start_line":49,"chunk_end_line":80}
 {"path":"src/auth.rs","start_line":26,"end_line":29,"line":28,"text":"return false;","score":0.13838428,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"src/metrics.rs","start_line":51,"end_line":53,"line":53,"text":"*self.counters.entry(name.to_string()).or_insert(0) += 1;","score":0.16138631,"chunk_start_line":25,"chunk_end_line":56}
+{"path":"docs/telescopes.md","start_line":18,"end_line":21,"line":18,"text":"practice atmospheric turbulence limits ground-based resolution to about one","score":0.052638113,"chunk_start_line":1,"chunk_end_line":32}
 ### mode=semantic path=warm query=parse a configuration file with comments
 {"path":"src/config.rs","start_line":21,"end_line":24,"line":24,"text":"/// Parse a flat `key = value` file. Blank lines and `#` comments are skipped;","score":0.49922502,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"web/client.ts","start_line":50,"end_line":52,"line":50,"text":"const parsed = (await response.json()) as { status: string };","score":0.4256308,"chunk_start_line":25,"chunk_end_line":56}
@@ -616,7 +616,7 @@
 {"path":"native/ring.c","start_line":64,"end_line":67,"line":64,"text":"size_t ring_buffer_write(struct ring_buffer *rb, const uint8_t *data, size_t len)","score":0.17025232,"chunk_start_line":49,"chunk_end_line":80}
 {"path":"src/auth.rs","start_line":14,"end_line":17,"line":14,"text":"for _ in 0..1000 {","score":0.18885237,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/sourdough.md","start_line":26,"end_line":28,"line":26,"text":"clock: a warm kitchen can cut an hour off this, and a cold one can add two.","score":0.12660426,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"worker/schedule.py","start_line":13,"end_line":15,"line":13,"text":"Supports `*`, `a-b` ranges, `a,b,c` lists, and `*/n` or `a-b/n` steps.","score":0.14632028,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"docs/telescopes.md","start_line":31,"end_line":33,"line":33,"text":"Let the instrument cool to ambient temperature before observing; a warm mirror","score":0.033046067,"chunk_start_line":25,"chunk_end_line":38}
 {"path":"src/pool.rs","start_line":37,"end_line":39,"line":39,"text":"/// than growing the pool without bound.","score":0.16262633,"chunk_start_line":25,"chunk_end_line":56}
 ### mode=semantic path=warm query=route a job to its registered handler
 {"path":"worker/dispatch.py","start_line":50,"end_line":53,"line":50,"text":"for job, started, handler in self.in_flight:","score":0.7438775,"chunk_start_line":49,"chunk_end_line":71}
@@ -638,8 +638,8 @@
 {"path":"src/retry.rs","start_line":14,"end_line":16,"line":14,"text":"/// Spread retries so a fleet of workers does not stampede a recovering service.","score":0.15803832,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"native/ring.c","start_line":82,"end_line":85,"line":82,"text":"size_t tail = atomic_load_explicit(&rb->tail, memory_order_relaxed);","score":0.13447827,"chunk_start_line":73,"chunk_end_line":96}
 {"path":"src/auth.rs","start_line":3,"end_line":5,"line":3,"text":"const TOKEN_LEN: usize = 64;","score":0.13702029,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"src/pool.rs","start_line":58,"end_line":61,"line":58,"text":"/// Close connections idle past the timeout so the database is not holding","score":0.10918224,"chunk_start_line":49,"chunk_end_line":70}
-{"path":"worker/schedule.py","start_line":62,"end_line":64,"line":62,"text":"Deliberately naive: correctness over cleverness, and the caller only ever","score":0.12914628,"chunk_start_line":49,"chunk_end_line":72}
+{"path":"native/ring.c","start_line":51,"end_line":53,"line":52,"text":"return index & (rb->capacity - 1);","score":0.13578027,"chunk_start_line":25,"chunk_end_line":56}
+{"path":"src/config.rs","start_line":24,"end_line":26,"line":24,"text":"/// Parse a flat `key = value` file. Blank lines and `#` comments are skipped;","score":0.12672824,"chunk_start_line":1,"chunk_end_line":32}
 ### mode=semantic path=warm query=abort a request once the deadline passes
 {"path":"web/client.ts","start_line":21,"end_line":24,"line":24,"text":"/** Abort a request once the deadline passes so a hung socket cannot pin a","score":0.6136152,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/architecture.md","start_line":15,"end_line":17,"line":16,"text":"if the worker dies without acking, the deadline passes and the job returns to","score":0.40765083,"chunk_start_line":1,"chunk_end_line":32}
@@ -650,7 +650,7 @@
 {"path":"src/auth.rs","start_line":13,"end_line":16,"line":13,"text":"out.extend(password.bytes());","score":0.18674439,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"worker/schedule.py","start_line":49,"end_line":52,"line":49,"text":"\"\"\"True when `moment` (a datetime) satisfies every field of the schedule.\"\"\"","score":0.17589438,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"native/ring.c","start_line":67,"end_line":70,"line":67,"text":"return 0;","score":0.1644243,"chunk_start_line":49,"chunk_end_line":80}
-{"path":"README.md","start_line":3,"end_line":6,"line":3,"text":"A frozen tree used by the Rust test suite and by `tools/snapshot.sh`. It stands","score":0.15586829,"chunk_start_line":1,"chunk_end_line":11}
+{"path":"src/config.rs","start_line":47,"end_line":50,"line":48,"text":"if let Some(v) = fields.get(\"log_level\") {","score":0.16225433,"chunk_start_line":25,"chunk_end_line":56}
 ### mode=semantic path=warm query=wrap the index with a mask instead of a division
 {"path":"native/ring.c","start_line":45,"end_line":48,"line":48,"text":"/* Power-of-two capacity turns the wrap into a mask instead of a division,","score":0.6538533,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"docs/architecture.md","start_line":17,"end_line":20,"line":20,"text":"table with an index on `(priority, visible_at)` outperforms the operational cost","score":0.23628247,"chunk_start_line":1,"chunk_end_line":32}
@@ -660,8 +660,8 @@
 {"path":"README.md","start_line":6,"end_line":9,"line":6,"text":"should never surface them for a code query; a semantic engine should surface","score":0.19387436,"chunk_start_line":1,"chunk_end_line":11}
 {"path":"src/config.rs","start_line":32,"end_line":35,"line":32,"text":"continue;","score":0.16975635,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"src/metrics.rs","start_line":41,"end_line":44,"line":41,"text":"for (i, &count) in self.counts.iter().enumerate() {","score":0.17372435,"chunk_start_line":25,"chunk_end_line":56}
-{"path":"docs/sourdough.md","start_line":23,"end_line":25,"line":25,"text":"shape of a fold rather than slumping back immediately. Watch the dough, not the","score":0.118792236,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"src/pool.rs","start_line":1,"end_line":3,"line":1,"text":"//! Database connection pool with a bounded wait queue.","score":0.14284825,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"docs/telescopes.md","start_line":29,"end_line":31,"line":29,"text":"to be corrected optically for long exposures.","score":0.07142413,"chunk_start_line":25,"chunk_end_line":38}
+{"path":"src/retry.rs","start_line":1,"end_line":3,"line":1,"text":"//! Retry policy: exponential backoff with jitter and a circuit breaker.","score":0.07725215,"chunk_start_line":1,"chunk_end_line":32}
 ### mode=semantic path=warm query=what happens during a rolling deploy
 {"path":"docs/operations.md","start_line":3,"end_line":5,"line":5,"text":"Rolling restart, one worker at a time. Each receives SIGTERM, stops claiming new","score":0.5293571,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"worker/dispatch.py","start_line":65,"end_line":68,"line":65,"text":"rolling deploy does not lose jobs that were mid-handler.\"\"\"","score":0.4641949,"chunk_start_line":49,"chunk_end_line":71}
@@ -682,8 +682,8 @@
 {"path":"src/queue.rs","start_line":54,"end_line":57,"line":56,"text":"/// Return an unacked job to its lane with its attempt count incremented.","score":0.11048424,"chunk_start_line":49,"chunk_end_line":68}
 {"path":"src/queue.rs","start_line":18,"end_line":21,"line":20,"text":"/// Three lanes drained urgent-first, so a flood of low-priority work cannot","score":0.13627625,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/operations.md","start_line":5,"end_line":7,"line":5,"text":"Rolling restart, one worker at a time. Each receives SIGTERM, stops claiming new","score":0.13838428,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"worker/dispatch.py","start_line":21,"end_line":23,"line":21,"text":"if job_kind in self.handlers:","score":0.118792236,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"src/auth.rs","start_line":8,"end_line":11,"line":10,"text":"/// Derive a verifier from a password and a per-user salt.","score":0.06572014,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"web/client.ts","start_line":77,"end_line":80,"line":79,"text":"throw lastError;","score":0.033170044,"chunk_start_line":49,"chunk_end_line":80}
+{"path":"docs/telescopes.md","start_line":5,"end_line":7,"line":7,"text":"A refractor bends light through a lens; a reflector gathers it with a curved","score":0.024986029,"chunk_start_line":1,"chunk_end_line":32}
 ### mode=semantic path=warm query=mirrors gathering light from distant stars
 {"path":"docs/telescopes.md","start_line":7,"end_line":10,"line":7,"text":"A refractor bends light through a lens; a reflector gathers it with a curved","score":0.4615909,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"web/client.ts","start_line":81,"end_line":84,"line":83,"text":"function sleep(ms: number): Promise<void> {","score":0.15655029,"chunk_start_line":73,"chunk_end_line":85}
@@ -693,8 +693,8 @@
 {"path":"src/queue.rs","start_line":6,"end_line":9,"line":6,"text":"pub enum Priority {","score":0.12350422,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"web/client.ts","start_line":26,"end_line":29,"line":26,"text":"function withDeadline(timeoutMs: number): AbortSignal {","score":0.13565624,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"docs/sourdough.md","start_line":14,"end_line":16,"line":14,"text":"## Mixing","score":0.09672022,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"src/queue.rs","start_line":62,"end_line":65,"line":65,"text":"pub fn depth(&self) -> usize {","score":0.13416827,"chunk_start_line":49,"chunk_end_line":68}
-{"path":"native/ring.c","start_line":75,"end_line":77,"line":75,"text":"atomic_store_explicit(&rb->head, head + len, memory_order_release);","score":0.09225619,"chunk_start_line":49,"chunk_end_line":80}
+{"path":"src/pool.rs","start_line":24,"end_line":27,"line":26,"text":"pub struct ConnectionPool {","score":0.108438194,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"src/retry.rs","start_line":12,"end_line":15,"line":14,"text":"/// Spread retries so a fleet of workers does not stampede a recovering service.","score":0.09231818,"chunk_start_line":1,"chunk_end_line":32}
 ### mode=semantic path=warm query=quantum chromodynamics lattice gauge theory
 {"path":"web/client.ts","start_line":18,"end_line":21,"line":18,"text":"readonly body: string,","score":0.25903654,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"native/ring.c","start_line":55,"end_line":58,"line":55,"text":"size_t ring_buffer_available(const struct ring_buffer *rb)","score":0.24973649,"chunk_start_line":49,"chunk_end_line":80}
@@ -716,7 +716,7 @@
 {"path":"native/ring.c","start_line":51,"end_line":53,"line":52,"text":"return index & (rb->capacity - 1);","score":0.25153446,"chunk_start_line":49,"chunk_end_line":80}
 {"path":"src/auth.rs","start_line":24,"end_line":27,"line":24,"text":"/// Constant-time comparison: a short-circuiting `==` leaks the shared prefix","score":0.25277448,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"web/client.ts","start_line":51,"end_line":54,"line":51,"text":"return parsed.status;","score":0.25314653,"chunk_start_line":49,"chunk_end_line":80}
-{"path":"README.md","start_line":7,"end_line":10,"line":9,"text":"**Do not edit these files to make a test pass.** Ranked output over this tree is","score":0.2194184,"chunk_start_line":1,"chunk_end_line":11}
+{"path":"docs/sourdough.md","start_line":28,"end_line":30,"line":28,"text":"## Shaping and proof","score":0.16219234,"chunk_start_line":25,"chunk_end_line":39}
 ### mode=hybrid path=cold query=spread retries so workers do not stampede
 {"path":"src/retry.rs","start_line":11,"end_line":14,"line":14,"text":"/// Spread retries so a fleet of workers does not stampede a recovering service.","score":0.6495753,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/architecture.md","start_line":35,"end_line":37,"line":37,"text":"- **Retry stampede.** Without jitter, a fleet recovering from a database blip","score":0.43617088,"chunk_start_line":25,"chunk_end_line":45}
@@ -727,7 +727,7 @@
 {"path":"native/ring.c","start_line":51,"end_line":53,"line":52,"text":"return index & (rb->capacity - 1);","score":0.16157234,"chunk_start_line":49,"chunk_end_line":80}
 {"path":"worker/dispatch.py","start_line":13,"end_line":16,"line":13,"text":"self.queue = queue","score":0.1920144,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/operations.md","start_line":35,"end_line":38,"line":38,"text":"handler duration for anything real. Scale on queue depth, not CPU: the workers","score":0.2055304,"chunk_start_line":25,"chunk_end_line":40}
-{"path":"src/queue.rs","start_line":1,"end_line":3,"line":1,"text":"//! In-process job queue with priority lanes and visibility timeouts.","score":0.14681631,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"README.md","start_line":1,"end_line":4,"line":1,"text":"# Fixture corpus","score":0.052142084,"chunk_start_line":1,"chunk_end_line":11}
 ### mode=hybrid path=cold query=validate a session token
 {"path":"src/auth.rs","start_line":3,"end_line":6,"line":6,"text":"pub fn validate_session_token(token: &str) -> bool {","score":0.6959514,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/architecture.md","start_line":19,"end_line":21,"line":19,"text":"This is deliberately not a message broker. The queue is small enough that a","score":0.2410565,"chunk_start_line":1,"chunk_end_line":32}
@@ -747,9 +747,9 @@
 {"path":"docs/telescopes.md","start_line":29,"end_line":31,"line":29,"text":"to be corrected optically for long exposures.","score":0.16219234,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/sourdough.md","start_line":9,"end_line":12,"line":9,"text":"half and refeed daily. After about a week it doubles within four hours of a","score":0.15307832,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"src/retry.rs","start_line":17,"end_line":20,"line":17,"text":"if span == 0 {","score":0.16932237,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"worker/dispatch.py","start_line":56,"end_line":59,"line":56,"text":"continue","score":0.1638043,"chunk_start_line":49,"chunk_end_line":71}
-{"path":"src/config.rs","start_line":22,"end_line":25,"line":24,"text":"/// Parse a flat `key = value` file. Blank lines and `#` comments are skipped;","score":0.14613426,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"src/queue.rs","start_line":57,"end_line":60,"line":57,"text":"pub fn requeue_expired(&mut self, id: u64) {","score":0.14446032,"chunk_start_line":49,"chunk_end_line":68}
+{"path":"docs/operations.md","start_line":28,"end_line":31,"line":28,"text":"2. Check for a handler blocked on a network call without a timeout. This is","score":0.1478703,"chunk_start_line":25,"chunk_end_line":40}
+{"path":"src/pool.rs","start_line":49,"end_line":52,"line":49,"text":"None","score":0.10230023,"chunk_start_line":25,"chunk_end_line":56}
+{"path":"src/config.rs","start_line":59,"end_line":62,"line":59,"text":"if let Some(v) = env.get(\"JOBS_LOG_LEVEL\") {","score":0.12009424,"chunk_start_line":49,"chunk_end_line":63}
 ### mode=hybrid path=cold query=drain urgent jobs before low priority ones
 {"path":"src/queue.rs","start_line":32,"end_line":35,"line":33,"text":"Priority::Urgent => self.urgent.push_back(job),","score":0.62775123,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"docs/architecture.md","start_line":11,"end_line":14,"line":14,"text":"Three lanes are drained urgent-first so a backlog of low-priority work cannot","score":0.5891872,"chunk_start_line":1,"chunk_end_line":32}
@@ -771,7 +771,7 @@
 {"path":"docs/operations.md","start_line":31,"end_line":33,"line":31,"text":"deadline will return the jobs anyway, but SIGKILL loses the metrics flush.","score":0.2414285,"chunk_start_line":25,"chunk_end_line":40}
 {"path":"worker/dispatch.py","start_line":48,"end_line":51,"line":50,"text":"for job, started, handler in self.in_flight:","score":0.22692049,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"web/client.ts","start_line":81,"end_line":84,"line":84,"text":"return new Promise((resolve) => setTimeout(resolve, ms));","score":0.17899436,"chunk_start_line":73,"chunk_end_line":85}
-{"path":"src/pool.rs","start_line":38,"end_line":41,"line":38,"text":"/// Returns `None` when the pool is saturated — callers back off rather","score":0.1876744,"chunk_start_line":25,"chunk_end_line":56}
+{"path":"docs/telescopes.md","start_line":34,"end_line":37,"line":37,"text":"averted vision — looking slightly to one side of the target places its light on","score":0.0626201,"chunk_start_line":25,"chunk_end_line":38}
 ### mode=hybrid path=cold query=parse a configuration file with comments
 {"path":"src/config.rs","start_line":21,"end_line":24,"line":24,"text":"/// Parse a flat `key = value` file. Blank lines and `#` comments are skipped;","score":0.49922502,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"web/client.ts","start_line":50,"end_line":52,"line":50,"text":"const parsed = (await response.json()) as { status: string };","score":0.4256308,"chunk_start_line":25,"chunk_end_line":56}
@@ -814,7 +814,7 @@
 {"path":"src/auth.rs","start_line":14,"end_line":17,"line":14,"text":"for _ in 0..1000 {","score":0.18885237,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"native/ring.c","start_line":53,"end_line":56,"line":55,"text":"size_t ring_buffer_available(const struct ring_buffer *rb)","score":0.1448943,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"docs/sourdough.md","start_line":26,"end_line":28,"line":26,"text":"clock: a warm kitchen can cut an hour off this, and a cold one can add two.","score":0.12660426,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"worker/schedule.py","start_line":13,"end_line":15,"line":13,"text":"Supports `*`, `a-b` ranges, `a,b,c` lists, and `*/n` or `a-b/n` steps.","score":0.14632028,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"docs/telescopes.md","start_line":31,"end_line":33,"line":33,"text":"Let the instrument cool to ambient temperature before observing; a warm mirror","score":0.033046067,"chunk_start_line":25,"chunk_end_line":38}
 {"path":"src/pool.rs","start_line":37,"end_line":39,"line":39,"text":"/// than growing the pool without bound.","score":0.16262633,"chunk_start_line":25,"chunk_end_line":56}
 ### mode=hybrid path=cold query=route a job to its registered handler
 {"path":"worker/dispatch.py","start_line":50,"end_line":53,"line":50,"text":"for job, started, handler in self.in_flight:","score":0.7438775,"chunk_start_line":49,"chunk_end_line":71}
@@ -837,7 +837,7 @@
 {"path":"native/ring.c","start_line":51,"end_line":53,"line":52,"text":"return index & (rb->capacity - 1);","score":0.13578027,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"worker/schedule.py","start_line":62,"end_line":64,"line":62,"text":"Deliberately naive: correctness over cleverness, and the caller only ever","score":0.12914628,"chunk_start_line":49,"chunk_end_line":72}
 {"path":"docs/telescopes.md","start_line":11,"end_line":14,"line":11,"text":"identically, and it can be supported across its whole back surface, so it can be","score":0.07576418,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"src/queue.rs","start_line":5,"end_line":8,"line":5,"text":"#[derive(Debug, Clone, Copy, PartialEq, Eq)]","score":0.11563021,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"src/config.rs","start_line":24,"end_line":26,"line":24,"text":"/// Parse a flat `key = value` file. Blank lines and `#` comments are skipped;","score":0.12672824,"chunk_start_line":1,"chunk_end_line":32}
 ### mode=hybrid path=cold query=abort a request once the deadline passes
 {"path":"web/client.ts","start_line":21,"end_line":24,"line":24,"text":"/** Abort a request once the deadline passes so a hung socket cannot pin a","score":0.6136152,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/architecture.md","start_line":15,"end_line":17,"line":16,"text":"if the worker dies without acking, the deadline passes and the job returns to","score":0.40765083,"chunk_start_line":1,"chunk_end_line":32}
@@ -848,7 +848,7 @@
 {"path":"src/retry.rs","start_line":6,"end_line":9,"line":6,"text":"const MAX_ATTEMPTS: u32 = 5;","score":0.21799242,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/sourdough.md","start_line":21,"end_line":24,"line":24,"text":"three. The dough is ready when it has risen by half, feels airy, and holds the","score":0.16306031,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"src/auth.rs","start_line":13,"end_line":16,"line":13,"text":"out.extend(password.bytes());","score":0.18674439,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"native/ring.c","start_line":67,"end_line":70,"line":67,"text":"return 0;","score":0.1644243,"chunk_start_line":49,"chunk_end_line":80}
+{"path":"src/config.rs","start_line":47,"end_line":50,"line":48,"text":"if let Some(v) = fields.get(\"log_level\") {","score":0.16225433,"chunk_start_line":25,"chunk_end_line":56}
 ### mode=hybrid path=cold query=wrap the index with a mask instead of a division
 {"path":"native/ring.c","start_line":45,"end_line":48,"line":48,"text":"/* Power-of-two capacity turns the wrap into a mask instead of a division,","score":0.6538533,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"docs/architecture.md","start_line":17,"end_line":20,"line":20,"text":"table with an index on `(priority, visible_at)` outperforms the operational cost","score":0.23628247,"chunk_start_line":1,"chunk_end_line":32}
@@ -858,8 +858,8 @@
 {"path":"README.md","start_line":6,"end_line":9,"line":6,"text":"should never surface them for a code query; a semantic engine should surface","score":0.19387436,"chunk_start_line":1,"chunk_end_line":11}
 {"path":"src/config.rs","start_line":32,"end_line":35,"line":32,"text":"continue;","score":0.16975635,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"src/metrics.rs","start_line":41,"end_line":44,"line":41,"text":"for (i, &count) in self.counts.iter().enumerate() {","score":0.17372435,"chunk_start_line":25,"chunk_end_line":56}
-{"path":"docs/sourdough.md","start_line":23,"end_line":25,"line":25,"text":"shape of a fold rather than slumping back immediately. Watch the dough, not the","score":0.118792236,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"src/pool.rs","start_line":1,"end_line":3,"line":1,"text":"//! Database connection pool with a bounded wait queue.","score":0.14284825,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"docs/telescopes.md","start_line":29,"end_line":31,"line":29,"text":"to be corrected optically for long exposures.","score":0.07142413,"chunk_start_line":25,"chunk_end_line":38}
+{"path":"src/retry.rs","start_line":1,"end_line":3,"line":1,"text":"//! Retry policy: exponential backoff with jitter and a circuit breaker.","score":0.07725215,"chunk_start_line":1,"chunk_end_line":32}
 ### mode=hybrid path=cold query=what happens during a rolling deploy
 {"path":"docs/operations.md","start_line":3,"end_line":5,"line":5,"text":"Rolling restart, one worker at a time. Each receives SIGTERM, stops claiming new","score":0.5293571,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"worker/dispatch.py","start_line":65,"end_line":68,"line":65,"text":"rolling deploy does not lose jobs that were mid-handler.\"\"\"","score":0.4641949,"chunk_start_line":49,"chunk_end_line":71}
@@ -891,8 +891,8 @@
 {"path":"src/queue.rs","start_line":6,"end_line":9,"line":6,"text":"pub enum Priority {","score":0.12350422,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"web/client.ts","start_line":26,"end_line":29,"line":26,"text":"function withDeadline(timeoutMs: number): AbortSignal {","score":0.13565624,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"docs/sourdough.md","start_line":14,"end_line":16,"line":14,"text":"## Mixing","score":0.09672022,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"src/queue.rs","start_line":62,"end_line":65,"line":65,"text":"pub fn depth(&self) -> usize {","score":0.13416827,"chunk_start_line":49,"chunk_end_line":68}
-{"path":"src/config.rs","start_line":5,"end_line":8,"line":5,"text":"#[derive(Debug, Clone, PartialEq)]","score":0.13032424,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"src/pool.rs","start_line":24,"end_line":27,"line":26,"text":"pub struct ConnectionPool {","score":0.108438194,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"src/retry.rs","start_line":12,"end_line":15,"line":14,"text":"/// Spread retries so a fleet of workers does not stampede a recovering service.","score":0.09231818,"chunk_start_line":1,"chunk_end_line":32}
 ### mode=hybrid path=cold query=quantum chromodynamics lattice gauge theory
 {"path":"web/client.ts","start_line":18,"end_line":21,"line":18,"text":"readonly body: string,","score":0.25903654,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"native/ring.c","start_line":55,"end_line":58,"line":55,"text":"size_t ring_buffer_available(const struct ring_buffer *rb)","score":0.24973649,"chunk_start_line":49,"chunk_end_line":80}
@@ -914,7 +914,7 @@
 {"path":"native/ring.c","start_line":51,"end_line":53,"line":52,"text":"return index & (rb->capacity - 1);","score":0.25153446,"chunk_start_line":49,"chunk_end_line":80}
 {"path":"src/auth.rs","start_line":24,"end_line":27,"line":24,"text":"/// Constant-time comparison: a short-circuiting `==` leaks the shared prefix","score":0.25277448,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"web/client.ts","start_line":51,"end_line":54,"line":51,"text":"return parsed.status;","score":0.25314653,"chunk_start_line":49,"chunk_end_line":80}
-{"path":"README.md","start_line":7,"end_line":10,"line":9,"text":"**Do not edit these files to make a test pass.** Ranked output over this tree is","score":0.2194184,"chunk_start_line":1,"chunk_end_line":11}
+{"path":"docs/sourdough.md","start_line":28,"end_line":30,"line":28,"text":"## Shaping and proof","score":0.16219234,"chunk_start_line":25,"chunk_end_line":39}
 ### mode=hybrid path=warm query=spread retries so workers do not stampede
 {"path":"src/retry.rs","start_line":11,"end_line":14,"line":14,"text":"/// Spread retries so a fleet of workers does not stampede a recovering service.","score":0.6495753,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/architecture.md","start_line":35,"end_line":37,"line":37,"text":"- **Retry stampede.** Without jitter, a fleet recovering from a database blip","score":0.43617088,"chunk_start_line":25,"chunk_end_line":45}
@@ -925,7 +925,7 @@
 {"path":"native/ring.c","start_line":51,"end_line":53,"line":52,"text":"return index & (rb->capacity - 1);","score":0.16157234,"chunk_start_line":49,"chunk_end_line":80}
 {"path":"worker/dispatch.py","start_line":13,"end_line":16,"line":13,"text":"self.queue = queue","score":0.1920144,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/operations.md","start_line":35,"end_line":38,"line":38,"text":"handler duration for anything real. Scale on queue depth, not CPU: the workers","score":0.2055304,"chunk_start_line":25,"chunk_end_line":40}
-{"path":"src/queue.rs","start_line":1,"end_line":3,"line":1,"text":"//! In-process job queue with priority lanes and visibility timeouts.","score":0.14681631,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"README.md","start_line":1,"end_line":4,"line":1,"text":"# Fixture corpus","score":0.052142084,"chunk_start_line":1,"chunk_end_line":11}
 ### mode=hybrid path=warm query=validate a session token
 {"path":"src/auth.rs","start_line":3,"end_line":6,"line":6,"text":"pub fn validate_session_token(token: &str) -> bool {","score":0.6959514,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/architecture.md","start_line":19,"end_line":21,"line":19,"text":"This is deliberately not a message broker. The queue is small enough that a","score":0.2410565,"chunk_start_line":1,"chunk_end_line":32}
@@ -945,9 +945,9 @@
 {"path":"docs/telescopes.md","start_line":29,"end_line":31,"line":29,"text":"to be corrected optically for long exposures.","score":0.16219234,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/sourdough.md","start_line":9,"end_line":12,"line":9,"text":"half and refeed daily. After about a week it doubles within four hours of a","score":0.15307832,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"src/retry.rs","start_line":17,"end_line":20,"line":17,"text":"if span == 0 {","score":0.16932237,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"worker/dispatch.py","start_line":56,"end_line":59,"line":56,"text":"continue","score":0.1638043,"chunk_start_line":49,"chunk_end_line":71}
-{"path":"src/config.rs","start_line":22,"end_line":25,"line":24,"text":"/// Parse a flat `key = value` file. Blank lines and `#` comments are skipped;","score":0.14613426,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"src/queue.rs","start_line":57,"end_line":60,"line":57,"text":"pub fn requeue_expired(&mut self, id: u64) {","score":0.14446032,"chunk_start_line":49,"chunk_end_line":68}
+{"path":"docs/operations.md","start_line":28,"end_line":31,"line":28,"text":"2. Check for a handler blocked on a network call without a timeout. This is","score":0.1478703,"chunk_start_line":25,"chunk_end_line":40}
+{"path":"src/pool.rs","start_line":49,"end_line":52,"line":49,"text":"None","score":0.10230023,"chunk_start_line":25,"chunk_end_line":56}
+{"path":"src/config.rs","start_line":59,"end_line":62,"line":59,"text":"if let Some(v) = env.get(\"JOBS_LOG_LEVEL\") {","score":0.12009424,"chunk_start_line":49,"chunk_end_line":63}
 ### mode=hybrid path=warm query=drain urgent jobs before low priority ones
 {"path":"src/queue.rs","start_line":32,"end_line":35,"line":33,"text":"Priority::Urgent => self.urgent.push_back(job),","score":0.62775123,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"docs/architecture.md","start_line":11,"end_line":14,"line":14,"text":"Three lanes are drained urgent-first so a backlog of low-priority work cannot","score":0.5891872,"chunk_start_line":1,"chunk_end_line":32}
@@ -969,7 +969,7 @@
 {"path":"docs/operations.md","start_line":31,"end_line":33,"line":31,"text":"deadline will return the jobs anyway, but SIGKILL loses the metrics flush.","score":0.2414285,"chunk_start_line":25,"chunk_end_line":40}
 {"path":"worker/dispatch.py","start_line":48,"end_line":51,"line":50,"text":"for job, started, handler in self.in_flight:","score":0.22692049,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"web/client.ts","start_line":81,"end_line":84,"line":84,"text":"return new Promise((resolve) => setTimeout(resolve, ms));","score":0.17899436,"chunk_start_line":73,"chunk_end_line":85}
-{"path":"src/pool.rs","start_line":38,"end_line":41,"line":38,"text":"/// Returns `None` when the pool is saturated — callers back off rather","score":0.1876744,"chunk_start_line":25,"chunk_end_line":56}
+{"path":"docs/telescopes.md","start_line":34,"end_line":37,"line":37,"text":"averted vision — looking slightly to one side of the target places its light on","score":0.0626201,"chunk_start_line":25,"chunk_end_line":38}
 ### mode=hybrid path=warm query=parse a configuration file with comments
 {"path":"src/config.rs","start_line":21,"end_line":24,"line":24,"text":"/// Parse a flat `key = value` file. Blank lines and `#` comments are skipped;","score":0.49922502,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"web/client.ts","start_line":50,"end_line":52,"line":50,"text":"const parsed = (await response.json()) as { status: string };","score":0.4256308,"chunk_start_line":25,"chunk_end_line":56}
@@ -1012,7 +1012,7 @@
 {"path":"src/auth.rs","start_line":14,"end_line":17,"line":14,"text":"for _ in 0..1000 {","score":0.18885237,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"native/ring.c","start_line":53,"end_line":56,"line":55,"text":"size_t ring_buffer_available(const struct ring_buffer *rb)","score":0.1448943,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"docs/sourdough.md","start_line":26,"end_line":28,"line":26,"text":"clock: a warm kitchen can cut an hour off this, and a cold one can add two.","score":0.12660426,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"worker/schedule.py","start_line":13,"end_line":15,"line":13,"text":"Supports `*`, `a-b` ranges, `a,b,c` lists, and `*/n` or `a-b/n` steps.","score":0.14632028,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"docs/telescopes.md","start_line":31,"end_line":33,"line":33,"text":"Let the instrument cool to ambient temperature before observing; a warm mirror","score":0.033046067,"chunk_start_line":25,"chunk_end_line":38}
 {"path":"src/pool.rs","start_line":37,"end_line":39,"line":39,"text":"/// than growing the pool without bound.","score":0.16262633,"chunk_start_line":25,"chunk_end_line":56}
 ### mode=hybrid path=warm query=route a job to its registered handler
 {"path":"worker/dispatch.py","start_line":50,"end_line":53,"line":50,"text":"for job, started, handler in self.in_flight:","score":0.7438775,"chunk_start_line":49,"chunk_end_line":71}
@@ -1035,7 +1035,7 @@
 {"path":"native/ring.c","start_line":51,"end_line":53,"line":52,"text":"return index & (rb->capacity - 1);","score":0.13578027,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"worker/schedule.py","start_line":62,"end_line":64,"line":62,"text":"Deliberately naive: correctness over cleverness, and the caller only ever","score":0.12914628,"chunk_start_line":49,"chunk_end_line":72}
 {"path":"docs/telescopes.md","start_line":11,"end_line":14,"line":11,"text":"identically, and it can be supported across its whole back surface, so it can be","score":0.07576418,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"src/queue.rs","start_line":5,"end_line":8,"line":5,"text":"#[derive(Debug, Clone, Copy, PartialEq, Eq)]","score":0.11563021,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"src/config.rs","start_line":24,"end_line":26,"line":24,"text":"/// Parse a flat `key = value` file. Blank lines and `#` comments are skipped;","score":0.12672824,"chunk_start_line":1,"chunk_end_line":32}
 ### mode=hybrid path=warm query=abort a request once the deadline passes
 {"path":"web/client.ts","start_line":21,"end_line":24,"line":24,"text":"/** Abort a request once the deadline passes so a hung socket cannot pin a","score":0.6136152,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/architecture.md","start_line":15,"end_line":17,"line":16,"text":"if the worker dies without acking, the deadline passes and the job returns to","score":0.40765083,"chunk_start_line":1,"chunk_end_line":32}
@@ -1046,7 +1046,7 @@
 {"path":"src/retry.rs","start_line":6,"end_line":9,"line":6,"text":"const MAX_ATTEMPTS: u32 = 5;","score":0.21799242,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"docs/sourdough.md","start_line":21,"end_line":24,"line":24,"text":"three. The dough is ready when it has risen by half, feels airy, and holds the","score":0.16306031,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"src/auth.rs","start_line":13,"end_line":16,"line":13,"text":"out.extend(password.bytes());","score":0.18674439,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"native/ring.c","start_line":67,"end_line":70,"line":67,"text":"return 0;","score":0.1644243,"chunk_start_line":49,"chunk_end_line":80}
+{"path":"src/config.rs","start_line":47,"end_line":50,"line":48,"text":"if let Some(v) = fields.get(\"log_level\") {","score":0.16225433,"chunk_start_line":25,"chunk_end_line":56}
 ### mode=hybrid path=warm query=wrap the index with a mask instead of a division
 {"path":"native/ring.c","start_line":45,"end_line":48,"line":48,"text":"/* Power-of-two capacity turns the wrap into a mask instead of a division,","score":0.6538533,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"docs/architecture.md","start_line":17,"end_line":20,"line":20,"text":"table with an index on `(priority, visible_at)` outperforms the operational cost","score":0.23628247,"chunk_start_line":1,"chunk_end_line":32}
@@ -1056,8 +1056,8 @@
 {"path":"README.md","start_line":6,"end_line":9,"line":6,"text":"should never surface them for a code query; a semantic engine should surface","score":0.19387436,"chunk_start_line":1,"chunk_end_line":11}
 {"path":"src/config.rs","start_line":32,"end_line":35,"line":32,"text":"continue;","score":0.16975635,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"src/metrics.rs","start_line":41,"end_line":44,"line":41,"text":"for (i, &count) in self.counts.iter().enumerate() {","score":0.17372435,"chunk_start_line":25,"chunk_end_line":56}
-{"path":"docs/sourdough.md","start_line":23,"end_line":25,"line":25,"text":"shape of a fold rather than slumping back immediately. Watch the dough, not the","score":0.118792236,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"src/pool.rs","start_line":1,"end_line":3,"line":1,"text":"//! Database connection pool with a bounded wait queue.","score":0.14284825,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"docs/telescopes.md","start_line":29,"end_line":31,"line":29,"text":"to be corrected optically for long exposures.","score":0.07142413,"chunk_start_line":25,"chunk_end_line":38}
+{"path":"src/retry.rs","start_line":1,"end_line":3,"line":1,"text":"//! Retry policy: exponential backoff with jitter and a circuit breaker.","score":0.07725215,"chunk_start_line":1,"chunk_end_line":32}
 ### mode=hybrid path=warm query=what happens during a rolling deploy
 {"path":"docs/operations.md","start_line":3,"end_line":5,"line":5,"text":"Rolling restart, one worker at a time. Each receives SIGTERM, stops claiming new","score":0.5293571,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"worker/dispatch.py","start_line":65,"end_line":68,"line":65,"text":"rolling deploy does not lose jobs that were mid-handler.\"\"\"","score":0.4641949,"chunk_start_line":49,"chunk_end_line":71}
@@ -1089,8 +1089,8 @@
 {"path":"src/queue.rs","start_line":6,"end_line":9,"line":6,"text":"pub enum Priority {","score":0.12350422,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"web/client.ts","start_line":26,"end_line":29,"line":26,"text":"function withDeadline(timeoutMs: number): AbortSignal {","score":0.13565624,"chunk_start_line":25,"chunk_end_line":56}
 {"path":"docs/sourdough.md","start_line":14,"end_line":16,"line":14,"text":"## Mixing","score":0.09672022,"chunk_start_line":1,"chunk_end_line":32}
-{"path":"src/queue.rs","start_line":62,"end_line":65,"line":65,"text":"pub fn depth(&self) -> usize {","score":0.13416827,"chunk_start_line":49,"chunk_end_line":68}
-{"path":"src/config.rs","start_line":5,"end_line":8,"line":5,"text":"#[derive(Debug, Clone, PartialEq)]","score":0.13032424,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"src/pool.rs","start_line":24,"end_line":27,"line":26,"text":"pub struct ConnectionPool {","score":0.108438194,"chunk_start_line":1,"chunk_end_line":32}
+{"path":"src/retry.rs","start_line":12,"end_line":15,"line":14,"text":"/// Spread retries so a fleet of workers does not stampede a recovering service.","score":0.09231818,"chunk_start_line":1,"chunk_end_line":32}
 ### mode=hybrid path=warm query=quantum chromodynamics lattice gauge theory
 {"path":"web/client.ts","start_line":18,"end_line":21,"line":18,"text":"readonly body: string,","score":0.25903654,"chunk_start_line":1,"chunk_end_line":32}
 {"path":"native/ring.c","start_line":55,"end_line":58,"line":55,"text":"size_t ring_buffer_available(const struct ring_buffer *rb)","score":0.24973649,"chunk_start_line":49,"chunk_end_line":80}

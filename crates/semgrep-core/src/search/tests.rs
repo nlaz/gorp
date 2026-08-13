@@ -415,7 +415,8 @@ fn bm25_pin_guarantees_a_lexical_slot() {
     let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
     let q = crate::search::Query::parse("alpha");
 
-    let off = SearchOptions { k: 2, ..Default::default() };
+    // Pin explicitly off — the default is 5 since §32.4b.
+    let off = SearchOptions { k: 2, bm25_pin: 0, ..Default::default() };
     let hits = finalize(dir.path(), &q, cands(), &off, "", &mut trace, |_| None).hits;
     assert!(hits.iter().all(|h| h.path != "c.rs"), "unpinned tail must not display");
 

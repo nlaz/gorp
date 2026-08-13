@@ -441,7 +441,13 @@ impl Default for SearchOptions {
             passage_override: false,
             min_score: 0.0,
             keep_coarse_top: false,
-            bm25_pin: 0,
+            // 5 since §32.4b: on replayed real agent queries the pin is the
+            // first engine change with a CI excluding zero (+0.014
+            // [+0.007, +0.021] rank@5 on dir/root scopes, file scopes
+            // untouched, both function metrics agreeing), and it re-displays
+            // 20% of the §32.4a ranking-bucket misses. Cost: one lexical
+            // query per ranked search (~88 ms warm at kernel scale).
+            bm25_pin: 5,
             prf_terms: 0,
             rerank_maxsim: false,
             maxsim_pool: 0,
