@@ -8106,6 +8106,80 @@ are, hand the deferred `--fine-blend` sweep its first concrete target set:
 six hard cases where `--no-fine` puts gold in the top five and the shipped
 config does not.
 
+#### 32.4b The bucket probed for levers: what moves it, what does not (2026-08-12)
+
+Every §32.4a class got its candidate lever measured before any code shipped.
+Three clean negatives, one ceiling, and one change that survived every gate:
+
+- **Bigger displays cannot fix anchoring.** Of the shown-not-submitted
+  regions, 36% had the exact gold lines already on screen and converted at
+  zero; for the rest the median displayed line sat 52 lines from gold, and
+  half were in a different part of the file than any window short of
+  whole-file reaches. Upper bound ~0.01 gross, before the conversion tax the
+  36% measures directly. (The untested variant — richer context changing the
+  agent's *theory* — is an arm question, not an offline one.)
+- **PRF is a clean negative on the vocabulary gap**: zero rescues on the 86
+  regions at 4, 8 and 16 expansion terms, even at top-30. The expansion mines
+  the top hits, the top hits are the wrong files, and the query drifts
+  toward them. (It lifted 3 ordering-class regions; not a lever.)
+- **An import-graph neighborhood has real reach**: 48% of vocabulary-gap
+  golds sit one import hop from a top-10 hit, 58% adding same-directory —
+  generously matched, so a ceiling, but the only measured reach into the
+  54% no ranking change touches. Unbuilt; the 86-region set is its test bed.
+- **The fine-blend sweep is a trade, not a win**: blend 0.25 rescues 3 of 6
+  fine-kills into the top-5 but drops 8 ordering-class regions out of the
+  top-30; 0.5 is balanced and rescued little. Default stays 1.0; the six
+  kill cases stay as the sweep's target set. `--keep-coarse-top` (shipped,
+  off) is protective rather than curative — near-nil on misses by
+  construction, since the coarse top is rarely the gold.
+
+**`--bm25-pin` is the change that survived.** The §32.4a C-class read
+"fusion drowned a lexical hit" — but the shipped default mode is *semantic*,
+which never consults BM25 at all; and the raw postings head turns out to be
+a better gold-finder than even `--mode bm25`'s own display, because the fine
+rerank and MMR demote lexical winners there too. The pin runs the lexical
+channel in every ranked mode and guarantees its top-N chunks a display slot
+each, filling from the tail, floor still winning. At the real k=5 display,
+pin 5 re-surfaces **32 of the 158 replayable ranking-bucket misses (20%)**,
+including 8 "vocabulary-gap" regions whose gold BM25 knew all along.
+
+Two implementation findings worth their ink. The first version silently
+no-opped warm: `load_needs` gated the BM25 postings load on mode alone, so
+the cold path pinned while the warm path had nothing to pin — a cold≠warm
+split now held down by an e2e test that pins a lexically-only hit and
+asserts path parity. And two existing tests needed the pin explicitly off:
+one is the guard's own control arm, the other
+(`a_budgeted_entry_never_answers_a_line_windowed_query`) uses
+span-differences-across-chunkings as its instrument, which the pin blinds
+because pinned spans come from the chunking-independent fine window.
+
+**The gate.** `guessplay` on the real harvested agent queries (467
+instances, 3,441 dir/root rows, 4,212 file rows), semantic mode, paired
+against the shipped default:
+
+| arm | scope | Δrank@5 | cluster 95% CI | p |
+|---|---|---|---|---|
+| `--bm25-pin 3` | dir/root | +0.011 | [+0.006, +0.017] | 0.070 |
+| `--bm25-pin 5` | dir/root | **+0.014** | [+0.007, +0.021] | 0.039 |
+| either | file | +0.000 | [+0.000, +0.000] | 1.000 |
+
+Both function metrics agree (+0.009 and +0.008 at pin 5 — not chunk
+geometry, §24.1), the dose is strongest on 1-word identifier queries
+(+0.023), and instance-level wins outnumber losses 10 to 2. This is the
+first engine change in the programme whose real-query CI excludes zero, so
+**the default is now `bm25_pin: 5`** (`970fe89`). Snapshot re-recorded: 51
+of 114 cases change, top hits stable, tail slots swapping to the lexical
+head — bm25/hybrid modes included, where the pin also stops fine+MMR from
+hiding the raw head. Cost: one lexical query per ranked search (~88 ms warm
+at kernel scale, far less on ordinary corpora).
+
+The honest bound, stated before anyone extrapolates: §21.2's transfer
+warning applies. +0.014 on replayed queries and 20% of one 31% bucket
+compound to roughly +0.02–0.03 hitRegion gross *before* the anchoring tax,
+which §32's own campaign put at or below its MDE. The pin is shipped
+because the designated offline referee ratified it and it repairs a real
+defect — not because a future campaign is predicted to detect it.
+
 **The agent-side buckets are one mechanism wearing four labels.** Trace
 reading (28 sessions across the buckets) found the same behaviour
 everywhere: agents submit only what they have *Read*, and the

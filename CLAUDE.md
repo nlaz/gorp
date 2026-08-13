@@ -202,7 +202,10 @@ that involve embeddings all moved, BM25 and keyword did not.
   by rayon batch timing. Quote the range, or re-measure with `bench/run.py`
   and compare via `report.py --against` — single samples here mislead.
 - warm queries: bm25 88 ms, semantic 53 ms, hybrid 115 ms (halving dims
-  halved the embedding scan; the old f32 scan was fault/IO-bound at ~3-4 s)
+  halved the embedding scan; the old f32 scan was fault/IO-bound at ~3-4 s).
+  `--bm25-pin` (default 5 since §32.4b) adds the bm25 scan to every ranked
+  search, so a warm default-mode query now pays both — ~140 ms at kernel
+  scale, negligible on ordinary corpora
 - the declaration boost (`--decl-boost`, on by default since §24.3) costs
   **1.1–1.5 ms** and is flat in corpus size — it re-reads the `k*3` candidate
   chunks, so the cost is 30 file reads whether the corpus is vscode or the
