@@ -8293,3 +8293,52 @@ warm-only — `expand_query` has no streaming twin and `rank:prf` is absent
 from the cold schedule — a latent cold≠warm asymmetry in an area the parity
 invariant is supposed to own. Harmless at `prf_terms: 0` default; worth a
 fix the next time that code is touched.
+
+**Addendum, after the engine round-trip.** The lexical-only engine version
+measured a quarter of the prototype's dose (vocab-gap top-30 +4 vs +17) —
+the prototype expanded the query *string*, so most of its effect rode the
+semantic embedding. The shipped version now expands both retrieval channels
+(judgment keeps the original phrases) and lands at **8→16 of 86** vocab-gap
+regions in top-30, +2 C-class into top-5, costing 6 F-class regions their
+6–30 band slot (never displayed either way). Cold pays a second sem-only
+pass when expansion fires. P2b (per-chunk context injection, the honest
+simulation of an engine-side embed-text augmentation) measured +8/−2 top-5
+overall but only +1 vocab-gap — positive, and dominated by bridge expansion
+at a tenth of its build cost; engine C3 (import extraction, embed-text
+augmentation, cache re-keying, two-pass cold) is **deferred as measured but
+dominated**, recorded here so the decision is auditable.
+
+### 33.1 Pre-registration, written before R1 is funded
+
+- **Arms**: `sub-sg` (control — the shipped engine, campaign flags
+  `--chunking function --min-score 0.42`) against `sub-sgb` (treatment —
+  identical surface, description, prompt and index, plus `--bridge-expand 8`
+  injected by the shim and never shown to the agent;
+  `SWEXPLORE_SGB_EXTRA` carries it). One binary for both arms — which means
+  both carry the §32.4b `bm25_pin: 5` default; the contrast isolates bridge
+  expansion alone. desc-v11, shell grep unblocked, bench-ladder seed 27,
+  RUN_ID=s33, PROV=full, WORKERS=4.
+- **Primary**: hitRegion@5, sub-sgb − sub-sg, paired boot_ci (4,000
+  resamples, seed 1), computed ONCE on the pooled 848 at ANALYZE=1.
+  MDE 0.0138.
+- **Co-primary**: cost and turns parity, ±5% registered bound. Warm bridge
+  cost is a bm25 scan plus five file reads plus one extra query embedding;
+  the cold second pass fires only on unindexed scopes, which the campaign's
+  write-through makes rare.
+- **Secondary (Holm)**: hitFile@5, nDCG@500, recall@100, precision.
+- **Diagnostics reported before any accuracy claim**: delivery per arm;
+  bridge-fired rate (share of sub-sgb searches whose envelope carries
+  `bridge_terms`); floored rate; the §30.4 exact-share tripwire; one
+  spot-checked R1 cell showing the injected flag in argv and terms in the
+  trace.
+- **Registered expectation**: the offline dose (~9% of the ranking bucket ≈
+  ~3% of sg's loss ≈ +0.015 gross) sits AT the MDE before the §32.4
+  anchoring tax, so **the base case is a null**, and a null is a bound
+  reported with the offline numbers beside it. This campaign is funded
+  because the user's direction is that in-situ evidence outranks offline
+  instruments (§21.2 cuts both ways), not because a detectable effect is
+  predicted.
+- **Blocking conditions, checked before R1**: the guessplay bridge arms
+  regress real queries with a CI entirely below −0.01 (fix first, then
+  fund); `triage_swex` gate failures at any rung stop the ladder. No
+  interim endpoint computation; ANALYZE=1 only at the pooled 848.
