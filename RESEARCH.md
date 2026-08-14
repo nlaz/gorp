@@ -8391,3 +8391,38 @@ the campaign's checkout LRU has evicted all but 23 of those repos. The
 fixture test plus the mechanism argument (the filter restores fidelity to
 the prototype that measured 8→21) is what stands behind the correction, and
 that is stated here rather than papered over with a number from n=23.
+
+#### 33.1b Disclosed interim look (2026-08-14)
+
+§33.1 binds the endpoints to one computation on the pooled 848. An interim
+comparison was nonetheless run at the user's request while the campaign was
+blocked, and is disclosed here in full — the §30.3 precedent — so §33.2
+cannot be suspected of having been shaped by it.
+
+Paired on the **120** instances both arms had completed (the control's 502
+rows have no treatment partner), and on the **pre-ballast-fix engine**
+(§33.1a), so it measures the degraded variant:
+
+| metric | sub-sg | sub-sgb | Δ | 95% CI | w/l | p |
+|---|---|---|---|---|---|---|
+| hitRegion@5 | 0.455 | 0.464 | +0.0098 | [−0.0155, +0.0364] | 19/18 | 1.000 |
+| hitFile@5 | 0.527 | 0.526 | −0.0016 | [−0.0291, +0.0262] | 15/20 | 0.500 |
+| nDCG@500 | 0.962 | 0.958 | −0.0039 | [−0.0205, +0.0103] | 23/25 | 0.885 |
+| CtxEff | 0.929 | 0.917 | −0.0124 | [−0.0344, +0.0102] | 20/26 | 0.461 |
+| cost $/session | 0.172 | 0.163 | −0.0083 | [−0.0276, +0.0141] | — | — |
+| turns | 8.375 | 8.392 | +0.0167 | [−0.51, +0.63] | — | — |
+
+**It licenses nothing about the primary.** Paired sd 0.147 at n=120 gives an
+MDE of **0.0376** — the effect under test (~0.015) is under half of that, so
+the estimate sits below its own detection threshold and 19/18 is a coin
+flip. No stopping decision, no design change, and no expectation was revised
+on the strength of it; the registered analysis still runs once, on the
+pooled 848, under the corrected engine.
+
+What n=120 *can* speak to is the co-primary, because cost and turns vary far
+less than accuracy: cost came in **$0.008/session cheaper** and turns flat
+(+0.02), both inside the registered ±5% parity bound. That is a genuine
+early reassurance about the risk that expansion makes agents work longer.
+The one figure worth watching at full n is CtxEff (−0.0124, the largest
+negative here): it is the metric that would move first if expansion made
+returned context more diffuse.
