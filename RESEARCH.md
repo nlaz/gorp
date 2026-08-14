@@ -8499,3 +8499,40 @@ all CIs straddling at n=13–37). If that survives, it says expansion helps
 the agent who asks once and hurts the one who keeps re-asking — a dose curve
 pointing the opposite way from guessplay's, and the single most interesting
 thing the campaign could return.
+
+#### 33.1e Two limits, and a monitor that lied (2026-08-14)
+
+The campaign met the account's **weekly** limit at the 848-rung, and after
+its reset met a **session** limit within minutes. Both produced the same
+artifact — rows with `status: agent_error`, `$0.00`, zero tokens, sub-second
+wall time — and both required the same cleanup, now documented because it is
+not obvious and getting it wrong is silent:
+
+1. Strip non-ok rows from `results/s33-*.jsonl` (kept in `results/backup`).
+   `eval_runner`'s `--resume` skips by `instance_id` **regardless of
+   status**, so a dead row left in place permanently skips that cell.
+2. Delete the matching `runs/s33/<instance>/<arm>/` directories. The gate
+   reads those, so 1,147 dead cells counted as "instances missing an arm"
+   and failed the gate on an artifact of the failure rather than the run.
+
+**A methodological error worth recording.** Quota return was tested with one
+small probe request, which succeeded — and was taken as evidence. It was
+not: leftover quota answered the probe, the campaign consumed it in minutes,
+and 1,147 sessions then died against a session cap. The right test is
+behavioural, not synthetic: launch, wait, and check whether *new campaign
+rows* carry non-zero cost. A probe measures whether one request fits; a
+campaign asks whether a thousand do.
+
+**And a monitor that reported a finish that never happened.** The supervisor
+grepped an append-mode log for `RUNG s33 GATED OFF` — a string the log
+already contained from the morning's failure — so it fired instantly and
+declared the run over while `eval_runner` was still working. It was caught
+only because the gate's numbers did not reconcile with the row counts ($108
+over 1,679 rows against a file holding 510 clean rows). This is
+`campaign.sh`'s own documented lesson ("a no-op that reports success is the
+worst shape a bug can take in a campaign driver") reproduced one layer out,
+in the watcher rather than the driver. Fixed by recording the log's length
+at launch and reading only past it.
+
+Banked at the pause: **542/848 control**, 0/848 treatment (by design,
+§33.1a), $95 spent of the ~$340 budget.
