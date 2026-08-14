@@ -8426,3 +8426,38 @@ early reassurance about the risk that expansion makes agents work longer.
 The one figure worth watching at full n is CtxEff (−0.0124, the largest
 negative here): it is the metric that would move first if expansion made
 returned context more diffuse.
+
+#### 33.1c The gate, re-run on the corrected engine (2026-08-14)
+
+§33.1 was cleared by a guessplay run against the build that elected locale
+packs (§33.1a). That gate is void; this is its replacement, same corpus,
+same instrument, same arms, on the fixed engine:
+
+| metric (semantic, dir/root) | base | bridge-8 | Δ | cluster 95% CI |
+|---|---|---|---|---|
+| rank@5 (gold file displayed) | 0.418 | 0.436 | **+0.018** | **[+0.005, +0.030]** |
+| rank_func@5 (best line inside gold fn) | 0.154 | 0.156 | +0.002 | [−0.007, +0.011] |
+| rank_func_ovl@5 (chunk overlaps gold fn) | 0.164 | 0.165 | +0.001 | [−0.007, +0.011] |
+| any metric, file scopes | — | — | +0.000 | [+0.000, +0.000] |
+
+**The ballast fix nearly doubled the effect and moved the CI off zero**
+(+0.010 [−0.001, +0.022] before, +0.018 [+0.005, +0.030] after) — the
+locale dictionaries were not a cosmetic blemish, they were diluting half
+the dose. And the dose–response is the right shape for the mechanism: +0.010
+at one word, +0.017 at two, +0.028 at three-to-four. A committee needs two
+covered query tokens to form, so single-word queries *cannot* benefit, and
+they benefit least. An effect that tracks its own precondition is much
+harder to explain as noise.
+
+**The warning, stated before the campaign rather than after.** Both function
+metrics are flat (+0.002 / +0.001) while the file metric moves +0.018 — and
+§24.1 requires reading them together. They agree with each other here, which
+rules out the chunk-geometry artifact, but what they jointly say is that
+bridge expansion **puts the right file on screen without improving
+line-level precision inside it**. §33's registered primary is hitRegion@5,
+which is line-level. So the honest prediction for the campaign is: hitFile@5
+(a Holm secondary) is where this mechanism should show, and hitRegion@5
+should move by *less* than 0.018 — plausibly under the 0.0138 MDE once
+§32.4's anchoring tax is paid, since a file on screen only scores when the
+agent reads it and submits from it. The registered expectation of a null
+therefore stands, now with a mechanism attached to why.
