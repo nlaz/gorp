@@ -8029,8 +8029,12 @@ signal), and a basename fallback in the "agent saw it" check matched
 `tests.py` and `loader.py`-inside-`dataloader.py` against files the agent
 never encountered — fixing it moved ~150 regions from "seen, not submitted"
 back into "never surfaced", which is why the retrieval bucket reads 31.0%
-and not the 26.3% a first pass printed. mechanism.py's E/C buckets carry the
-same basename overcount; treat its §28.2 splits as bounds.
+and not the 26.3% a first pass printed. mechanism.py carried the same basename
+overcount until 2026-08-14, when it was fixed the same way; recomputed on
+s32 the retrieval bucket rises 24.1% → 30.1% and "gold surfaced, not
+submitted" falls 14.4% → 8.4%, the same direction the misswhy fix moved.
+§28.2's published splits were computed under the old rule and read as upper
+bounds on "the tool showed it", lower bounds on "the agent guessed".
 
 **The headline: 93% of sg's misses are shared.** Of the 2,453 regions sg
 missed, the rg arm — different tool, same model, same prompt — hit only
