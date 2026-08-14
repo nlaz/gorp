@@ -38,6 +38,55 @@ pub fn run(
             b.finalize();
         }
     });
+    // Bridge expansion (§33): mining needs the finalized postings, but the
+    // semantic heaps were filled during the pass with the ORIGINAL phrase
+    // vectors — and the effect is mostly semantic-side (§33.0). When any
+    // phrase expands, the corpus is passed AGAIN, sem-only, with the
+    // expanded strings, and those heaps replace the first pass's. Cold pays
+    // a second read when the flag fires; warm pays one extra query
+    // embedding — the usual asymmetry, and the reason indexes exist.
+    let mut expanded_phrases: Vec<String> = q.phrases.clone();
+    let mut per_phrase_terms: Vec<Vec<String>> = vec![Vec::new(); q.phrases.len()];
+    if opts.bridge_expand > 0
+        && let Some(b) = pass.bm25.as_ref()
+    {
+        trace.time(Stage::RankBridge, || {
+            for (i, phrase) in q.phrases.iter().enumerate() {
+                let terms = rank::bridge::bridge_terms(
+                    phrase,
+                    b,
+                    |cid| files[pass.chunks[cid as usize].file_id as usize].path.clone(),
+                    None,
+                    |path| std::fs::read_to_string(root.join(path)).ok(),
+                    opts.bridge_expand,
+                );
+                if !terms.is_empty() {
+                    let mut s = phrase.clone();
+                    for t in &terms {
+                        s.push(' ');
+                        s.push_str(t);
+                    }
+                    expanded_phrases[i] = s;
+                    per_phrase_terms[i] = terms;
+                }
+            }
+        });
+        if per_phrase_terms.iter().any(|t| !t.is_empty())
+            && matches!(opts.mode, Mode::Semantic | Mode::Hybrid)
+        {
+            // Chunk ids are a deterministic function of (files, params), so
+            // the re-pass's heap ids align with `pass.chunks` — the same
+            // lockstep the build asserts.
+            let sem_only = SearchOptions {
+                bridge_expand: 0,
+                bm25_pin: 0,
+                mode: Mode::Semantic,
+                ..opts.clone()
+            };
+            let pass2 = corpus_pass(root, &files, &expanded_phrases, &sem_only, pool, &mut trace);
+            pass.nearest = pass2.nearest;
+        }
+    }
     let mut nearest = pass.nearest.take();
 
     let mut per_phrase: Vec<Vec<hit::Candidate>> = Vec::with_capacity(q.phrases.len());
@@ -48,34 +97,24 @@ pub fn run(
             Some(b) => b.query(query, pool),
             None => Vec::new(),
         });
-        // Bridge expansion, mirroring `indexed::bridge_expand`: the cold
-        // pass walked exactly the queried scope, so no scope filter here —
-        // the same containment the warm path gets from `rows.serves`.
-        let (lexical, bterms) = match pass.bm25.as_ref() {
-            Some(b) if opts.bridge_expand > 0 => trace.time(Stage::RankBridge, || {
-                let terms = rank::bridge::bridge_terms(
-                    query,
-                    b,
-                    |cid| files[pass.chunks[cid as usize].file_id as usize].path.clone(),
-                    None,
-                    |path| std::fs::read_to_string(root.join(path)).ok(),
-                    opts.bridge_expand,
-                );
-                if terms.is_empty() {
-                    (lexical, terms)
-                } else {
-                    let weighted =
-                        rank::bridge::weighted_terms(query, &terms, opts.bridge_weight);
-                    (rank::top_k_weighted(b, &weighted, pool, None, None), terms)
-                }
+        // Bridge terms were mined above (they needed the finalized
+        // postings); here the lexical pass re-scores with them weighted,
+        // mirroring `indexed::bridge_expand`.
+        let bterms = &per_phrase_terms[p];
+        let lexical = match pass.bm25.as_ref() {
+            Some(b) if !bterms.is_empty() => trace.time(Stage::RankBridge, || {
+                let weighted = rank::bridge::weighted_terms(query, bterms, opts.bridge_weight);
+                rank::top_k_weighted(b, &weighted, pool, None, None)
             }),
-            _ => (lexical, Vec::new()),
+            _ => lexical,
         };
         for t in bterms {
-            if !bridge_terms_used.contains(&t) {
-                bridge_terms_used.push(t);
+            if !bridge_terms_used.contains(t) {
+                bridge_terms_used.push(t.clone());
             }
         }
+        // Retrieval-side maxsim sees the expanded phrase, same as warm.
+        let sem_query = expanded_phrases[p].as_str();
         // Mirrors `indexed`: the lexical head survives fusion so the
         // `bm25_pin` guarantee acts identically on both paths (§32.4a).
         let bm25_head: Vec<u32> = lexical.iter().take(16).map(|r| r.0).collect();
@@ -91,7 +130,7 @@ pub fn run(
         let semantic = if opts.maxsim_post {
             semantic
         } else {
-            rerank_maxsim(root, &files, &pass.chunks, query, semantic, opts, &mut trace)
+            rerank_maxsim(root, &files, &pass.chunks, sem_query, semantic, opts, &mut trace)
         };
         let ranked = trace.time(Stage::RankFuse, || {
             rank::fuse(opts.mode, lexical, semantic, super::fused_width(pool), opts.sem_weight)
@@ -103,7 +142,7 @@ pub fn run(
         let ranked = if opts.maxsim_post && opts.rerank_maxsim {
             let as_dist: Vec<(u32, f32)> = ranked.iter().map(|&(id, s)| (id, -s)).collect();
             let o = SearchOptions { maxsim_post: false, ..opts.clone() };
-            rerank_maxsim(root, &files, &pass.chunks, query, as_dist, &o, &mut trace)
+            rerank_maxsim(root, &files, &pass.chunks, sem_query, as_dist, &o, &mut trace)
                 .into_iter().map(|(id, pd)| (id, -pd)).collect()
         } else {
             ranked

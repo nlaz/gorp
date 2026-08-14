@@ -61,6 +61,22 @@ pub fn run(
         let lexical = expand_query(&idx, &rows, query, lexical, opts, d, pool, &mut trace);
         let (lexical, bterms) =
             bridge_expand(&idx, &rows, query, lexical, opts, d, pool, &mut trace);
+        // Retrieval sees the expanded query on BOTH channels — the P1
+        // prototype's gains were mostly semantic-side, and a lexical-only
+        // version measured a quarter of the effect (§33.0). Judgment stays
+        // on the original: fine rerank, floor signals and the best-line
+        // anchor all read `q.phrases`, and the declaration boost below keeps
+        // the user's own tokens.
+        let sem_query: String = if bterms.is_empty() {
+            query.to_string()
+        } else {
+            let mut s = query.to_string();
+            for t in &bterms {
+                s.push(' ');
+                s.push_str(t);
+            }
+            s
+        };
         for t in bterms {
             if !bridge_terms_used.contains(&t) {
                 bridge_terms_used.push(t);
@@ -69,7 +85,8 @@ pub fn run(
         // The lexical head, remembered past fusion: `bm25_pin` provenance
         // (§32.4a). Sixteen covers any sane pin depth.
         let bm25_head: Vec<u32> = lexical.iter().take(16).map(|r| r.0).collect();
-        let (semantic, hnsw) = rank_semantic(&idx, &rows, query, opts, d, pool, &mut trace);
+        let (semantic, hnsw) =
+            rank_semantic(&idx, &rows, &sem_query, opts, d, pool, &mut trace);
         used_hnsw |= hnsw;
         let ranked = trace.time(Stage::RankFuse, || {
             rank::fuse(opts.mode, lexical, semantic, super::fused_width(pool), opts.sem_weight)
@@ -78,7 +95,7 @@ pub fn run(
         // call inside rank_semantic is skipped in this mode, so the rerank
         // happens once either way.
         let ranked = if opts.maxsim_post && opts.rerank_maxsim {
-            rerank_fused(&rows, query, ranked, opts, d, &idx, &mut trace)
+            rerank_fused(&rows, &sem_query, ranked, opts, d, &idx, &mut trace)
         } else {
             ranked
         };
