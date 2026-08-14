@@ -6,12 +6,13 @@
 //! selection machinery, `maxsim` late-interaction reranking.
 
 pub mod bm25;
+pub mod bridge;
 pub mod maxsim;
 pub mod prf;
 mod topk;
 mod vec;
 
-pub use bm25::{Rest, top_k, top_k_scoped, top_k_within};
+pub use bm25::{Rest, top_k, top_k_scoped, top_k_weighted, top_k_within};
 pub use fuse::{Mode, fuse};
 pub use maxsim::{blend_head as maxsim_blend_head, head_size as maxsim_head_size, maxsim};
 pub use mmr::mmr_order;

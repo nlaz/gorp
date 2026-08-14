@@ -304,6 +304,15 @@ pub struct Tuning {
     #[arg(long, hide = true, default_value_t = SearchOptions::default().bm25_pin)]
     pub bm25_pin: usize,
 
+    /// Bridge-file query expansion: mine up to N terms from the files that
+    /// best cover the query's tokens (0 = off; §33)
+    #[arg(long, hide = true, default_value_t = SearchOptions::default().bridge_expand)]
+    pub bridge_expand: usize,
+
+    /// Weight of a bridge expansion term vs an original token's 1.0 (§33)
+    #[arg(long, hide = true, default_value_t = SearchOptions::default().bridge_weight)]
+    pub bridge_weight: f32,
+
     /// Refuse to answer when the best candidate scores below this floor:
     /// zero hits, exit 1, and a stderr line saying so (RESEARCH.md §28.2).
     /// 0 = off. Default stays 0 until the floor is calibrated on replayed

@@ -81,13 +81,6 @@ pub fn top_k_scoped<P: Postings>(
     rest: Option<&Rest>,
     allow: Option<&dyn Fn(u32) -> bool>,
 ) -> Vec<(u32, f32)> {
-    let (rest_docs, rest_len) = rest.map_or((0, 0), |r| (r.n_docs, r.total_len));
-    let n = (store.n_docs() + rest_docs) as f32;
-    if n == 0.0 || k == 0 {
-        return Vec::new();
-    }
-    let avgdl = ((store.total_len() + rest_len) as f32 / n).max(1.0);
-
     // Dedup query terms, keeping multiplicity as a weight. Keyed by token rather
     // than by term id because the corpus-wide df lookup needs the string — and
     // term ids are canonically ordered by token anyway, so the accumulation order
@@ -98,16 +91,36 @@ pub fn top_k_scoped<P: Postings>(
             *weights.entry(tok.to_string()).or_insert(0.0) += 1.0;
         }
     });
-    // Token order, not hash order: f32 addition is not associative, so iterating
-    // the map would score the same document differently from run to run and let
-    // near-tied chunks swap rank.
     let mut terms: Vec<(String, f32)> = weights.into_iter().collect();
     terms.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+    top_k_weighted(store, &terms, k, rest, allow)
+}
 
+/// [`top_k_scoped`] with the term weights supplied by the caller instead of
+/// derived from a query string — the entry point bridge expansion uses to
+/// score its mined terms at reduced weight (§33) rather than PRF's
+/// full-weight concatenation. `terms` must be sorted by token: f32 addition
+/// is not associative, so the accumulation order is part of the contract
+/// (the same determinism rule the string path enforces internally).
+pub fn top_k_weighted<P: Postings>(
+    store: &P,
+    terms: &[(String, f32)],
+    k: usize,
+    rest: Option<&Rest>,
+    allow: Option<&dyn Fn(u32) -> bool>,
+) -> Vec<(u32, f32)> {
+    let (rest_docs, rest_len) = rest.map_or((0, 0), |r| (r.n_docs, r.total_len));
+    let n = (store.n_docs() + rest_docs) as f32;
+    if n == 0.0 || k == 0 {
+        return Vec::new();
+    }
+    let avgdl = ((store.total_len() + rest_len) as f32 / n).max(1.0);
+
+    debug_assert!(terms.windows(2).all(|w| w[0].0 <= w[1].0), "terms must be token-sorted");
     let mut scores: HashMap<u32, f32> = HashMap::new();
     for (token, weight) in terms {
-        let Some(term) = store.term_id(&token) else { continue };
-        let df = (store.postings(term).count() + rest.map_or(0, |r| (r.df)(&token))) as f32;
+        let Some(term) = store.term_id(token) else { continue };
+        let df = (store.postings(term).count() + rest.map_or(0, |r| (r.df)(token))) as f32;
         let idf = ((n - df + 0.5) / (df + 0.5) + 1.0).ln();
         for (chunk_id, tf) in store.postings(term) {
             if allow.is_some_and(|f| !f(chunk_id)) {

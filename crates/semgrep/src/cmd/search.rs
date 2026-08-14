@@ -341,6 +341,8 @@ fn options(cli: &Cli, mode: Mode) -> Result<SearchOptions> {
         min_score: t.min_score,
         keep_coarse_top: t.keep_coarse_top,
         bm25_pin: t.bm25_pin,
+        bridge_expand: t.bridge_expand,
+        bridge_weight: t.bridge_weight,
         // Any explicit passage request switches display back to a chunk cut;
         // the fine window keeps choosing the anchor and the order either way.
         passage_override: t.passage_chars.is_some() || t.passage_lines > 0 || t.full,

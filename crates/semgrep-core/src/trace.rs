@@ -147,6 +147,7 @@ stages! {
     KeywordScan         => "keyword:scan",          Rank;
     RankBm25            => "rank:bm25",             Rank;
     RankPrf             => "rank:prf",              Rank;
+    RankBridge          => "rank:bridge",           Rank;
     RankEmbedQuery      => "rank:embed-query",      Rank;
     RankAnn             => "rank:ann",              Rank;
     RankBrute           => "rank:brute",            Rank;
@@ -195,6 +196,7 @@ pub const SCHEDULE_WARM: &[Stage] = &[
     Stage::RepairDelta,
     Stage::RankBm25,
     Stage::RankPrf,
+    Stage::RankBridge,
     Stage::RankEmbedQuery,
     Stage::RankAnn,
     Stage::RankBrute,
@@ -225,6 +227,7 @@ pub const SCHEDULE_COLD: &[Stage] = &[
     Stage::PassRead,
     Stage::PassEmbed,
     Stage::RankBm25,
+    Stage::RankBridge,
     Stage::RankMaxsim,
     Stage::RankFuse,
     Stage::RankDeclBoost,

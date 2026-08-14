@@ -53,11 +53,19 @@ pub fn run(
     // query is one iteration and byte-identical to the pre-§31 flow.
     let mut per_phrase: Vec<Vec<hit::Candidate>> = Vec::with_capacity(q.phrases.len());
     let mut used_hnsw = false;
+    let mut bridge_terms_used: Vec<String> = Vec::new();
     for query in &q.phrases {
         let query = query.as_str();
         let lexical =
             trace.time(Stage::RankBm25, || rank_lexical(&idx, &rows, query, opts, pool));
         let lexical = expand_query(&idx, &rows, query, lexical, opts, d, pool, &mut trace);
+        let (lexical, bterms) =
+            bridge_expand(&idx, &rows, query, lexical, opts, d, pool, &mut trace);
+        for t in bterms {
+            if !bridge_terms_used.contains(&t) {
+                bridge_terms_used.push(t);
+            }
+        }
         // The lexical head, remembered past fusion: `bm25_pin` provenance
         // (§32.4a). Sixteen covers any sane pin depth.
         let bm25_head: Vec<u32> = lexical.iter().take(16).map(|r| r.0).collect();
@@ -117,6 +125,7 @@ pub fn run(
             phrase_signals: fin.phrase_signals,
             phrases: q.is_multi().then(|| q.phrases.clone()),
             floored_mask: fin.floored_mask,
+            bridge_terms: (!bridge_terms_used.is_empty()).then_some(bridge_terms_used),
             stages: trace.finish(),
             ..Default::default()
         },
@@ -224,6 +233,77 @@ fn expand_query(
         }
         let expanded = prf::expand(query, &terms);
         rank_lexical(idx, rows, &expanded, opts, pool)
+    })
+}
+
+/// [`rank_lexical`] with caller-supplied term weights — the bridge
+/// expansion's second pass. Same overlay, same scope predicate, same merge.
+fn rank_lexical_weighted(
+    idx: &LoadedIndex,
+    rows: &Rows,
+    terms: &[(String, f32)],
+    opts: &SearchOptions,
+    pool: usize,
+) -> Vec<(u32, f32)> {
+    let Some(base) = idx.bm25.as_ref().filter(|_| super::wants_lexical(opts)) else {
+        return Vec::new();
+    };
+    let rest = rank::Rest {
+        n_docs: base.n_docs(),
+        total_len: base.total_len(),
+        df: &|token| base.df(token),
+    };
+    let delta = rows
+        .delta_bm25()
+        .map(|b| rank::top_k_weighted(b, terms, pool, Some(&rest), None))
+        .unwrap_or_default();
+    let in_scope = |id: u32| rows.serves(id);
+    let base_hits = rank::top_k_weighted(
+        base,
+        terms,
+        pool,
+        None,
+        (!rows.whole_corpus()).then_some(&in_scope as &dyn Fn(u32) -> bool),
+    );
+    rows.merge(base_hits, delta, pool, true)
+}
+
+/// Bridge expansion (§33): find the files that best cover the query's
+/// tokens, mine their distinctive vocabulary, and re-run the lexical pass
+/// with those terms at reduced weight. Passthrough when disabled, when
+/// there is no lexical store, or when mining finds nothing. Bridges are
+/// selected from the base postings only (the repair overlay's few drifted
+/// files are still *scored* by the weighted pass — they just don't vouch).
+#[allow(clippy::too_many_arguments)]
+fn bridge_expand(
+    idx: &LoadedIndex,
+    rows: &Rows,
+    query: &str,
+    lexical: Vec<(u32, f32)>,
+    opts: &SearchOptions,
+    d: &cache::Discovered,
+    pool: usize,
+    trace: &mut Trace,
+) -> (Vec<(u32, f32)>, Vec<String>) {
+    if opts.bridge_expand == 0 {
+        return (lexical, Vec::new());
+    }
+    let Some(store) = &idx.bm25 else { return (lexical, Vec::new()) };
+    trace.time(Stage::RankBridge, || {
+        let in_scope = |id: u32| rows.serves(id);
+        let terms = rank::bridge::bridge_terms(
+            query,
+            store,
+            |cid| rows.chunk(cid).1,
+            (!rows.whole_corpus()).then_some(&in_scope as &dyn Fn(u32) -> bool),
+            |path| std::fs::read_to_string(d.root.join(path)).ok(),
+            opts.bridge_expand,
+        );
+        if terms.is_empty() {
+            return (lexical, terms);
+        }
+        let weighted = rank::bridge::weighted_terms(query, &terms, opts.bridge_weight);
+        (rank_lexical_weighted(idx, rows, &weighted, opts, pool), terms)
     })
 }
 

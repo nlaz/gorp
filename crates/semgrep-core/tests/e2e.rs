@@ -1975,3 +1975,62 @@ fn bm25_pin_is_honored_and_cold_warm_agree() {
     let cold_paths: Vec<_> = cold.hits.iter().map(|h| (&h.path, h.start_line, h.end_line)).collect();
     assert_eq!(warm_paths, cold_paths, "the pin must not split cold from warm");
 }
+
+/// §33 bridge expansion: a gold file sharing no words with the query becomes
+/// findable because two bridge files wire the query's rare tokens to the
+/// gold's identifier — and cold and warm must mine the same bridges and
+/// answer identically, which is the parity shape that caught `bm25_pin`'s
+/// silent warm no-op.
+#[test]
+fn bridge_expansion_finds_the_wired_file_and_cold_warm_agree() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    // Two bridges wire "frobwidget klaxonate" to `hidden_impl_fn`; the gold
+    // contains only the identifier. Repeated lines so each file has substance.
+    fs::write(
+        dir.path().join("src/routes_a.rs"),
+        "// frobwidget klaxonate wiring\npub use crate::hidden_impl_fn;\n".repeat(6),
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("src/routes_b.rs"),
+        "// frobwidget klaxonate registry\npub fn route() { hidden_impl_fn() }\n".repeat(6),
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("src/deep_impl.rs"),
+        "pub fn hidden_impl_fn() { /* the actual work */ }\n".repeat(8),
+    )
+    .unwrap();
+    let q = "frobwidget klaxonate";
+
+    let plain = SearchOptions { k: 5, ..opts(Mode::Semantic) };
+    let r = search(dir.path(), q, &plain).unwrap();
+    assert!(
+        r.hits.iter().all(|h| h.path != "src/deep_impl.rs"),
+        "premise: without expansion the gold shares no words with the query",
+    );
+    assert!(r.report.bridge_terms.is_none(), "no expansion requested, none reported");
+
+    let exp = SearchOptions { k: 5, bridge_expand: 8, ..opts(Mode::Semantic) };
+    let warm = search(dir.path(), q, &exp).unwrap();
+    assert!(warm.report.used_index);
+    let terms = warm.report.bridge_terms.as_ref().expect("expansion fired");
+    assert!(
+        terms.iter().any(|t| t.contains("hidden") || t.contains("impl")),
+        "the bridges' shared identifier must be mined (got {terms:?})",
+    );
+    assert!(
+        warm.hits.iter().any(|h| h.path == "src/deep_impl.rs"),
+        "the wired gold must reach the display (warm)",
+    );
+
+    let cold = search(dir.path(), q, &SearchOptions { no_index: true, ..exp }).unwrap();
+    assert!(!cold.report.used_index);
+    assert_eq!(warm.report.bridge_terms, cold.report.bridge_terms,
+               "both paths must mine identical terms");
+    let wp: Vec<_> = warm.hits.iter().map(|h| (&h.path, h.start_line, h.end_line)).collect();
+    let cp: Vec<_> = cold.hits.iter().map(|h| (&h.path, h.start_line, h.end_line)).collect();
+    assert_eq!(wp, cp, "bridge expansion must not split cold from warm");
+}

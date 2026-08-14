@@ -8231,3 +8231,65 @@ levers against it at +0.023. Everything larger sits in agent behaviour
 under a prompt that optimises for a different objective than the metric,
 which no retrieval change can reach; it is the same conclusion as §32.3's
 ledger, now with the mechanism attached, region by region.
+
+## 33 Mining the repo's own associations: bridge expansion and neighbor injection (2026-08-13)
+
+§32.4a left one engine bucket standing — the vocabulary gap, 54% of ranking
+misses — and §32.4b's exploration bounded the transformer-free options:
+PRF 0/86, import-hop ceiling 48%, display levers null. The user's direction:
+approximate a transformer's *association* without one, anywhere. Two
+candidates, both mining the repo itself, both prototype-first with loose
+pass bars (offline instruments have failed to transfer in both directions —
+§21.2 — so the in-situ campaign is the referee, not the prototypes).
+
+### 33.0 The prototypes, and what the engine actually got
+
+**P1 — co-occurrence expansion → bridge-file expansion.** The plan's
+pairwise-PMI table died in its first smoke: on NodeBB the tied-PMI tail
+picked alphabetical locale noise ('agreement', 'alarm', '00pm'). What
+worked is one level up: score every source file by idf-weighted *coverage*
+of the query's tokens (≥2 covered), take the top five as a committee, and
+mine the terms ≥2 of them agree on (tf-idf-style, ties by term). That is
+the bridge-file mechanism directly — the routes/registration file that
+wires the query's vocabulary to the implementation's scores highest by
+construction. On the 158 replayable ranking misses, appended-to-the-query
+at full weight (current binary, pin included, paired):
+
+| class | base t5/t30 | expanded t5/t30 | Δt5 | Δt30 |
+|---|---|---|---|---|
+| vocab gap (G, n=86) | 0 / 8 | 3 / 21 | +3/−0 | **+17/−4** |
+| all 158 | 6 / 59 | 18 / 59 | **+16/−4** | +21/−21 |
+
+The first technique to move the G class at all. The one wart — ordering-class
+regions pushed out of the top-30 (−13) — is the full-weight concatenation
+diluting, which the engine version fixes by scoring expansion terms at
+reduced weight.
+
+**P2 — neighbor injection: a null at file level, retried per-chunk.** The
+EOF-comment prototype (one context line per file: path words + imported
+files' identifiers) measured +1/−0 t5 on 158 — indistinguishable from
+nothing, and mechanically explained: the injected line lands in the file's
+*last* chunk, and the gold's chunk never carries it. The per-chunk variant
+(context line every 25 lines, which is what an engine-side embed-text
+injection would actually do) is P2b, running as of this writing; Stage 2
+proceeds only on its result.
+
+**The engine got bridge expansion, not an artifact.** The validated
+mechanism needs no `assoc.bin` at all: bridge selection reads the BM25
+postings the index already has, and mining reads five files (the
+`decl_boost` cost shape). `rank/bridge.rs` implements committee selection
+and term mining; `rank::top_k_weighted` is the new BM25 entry point that
+scores caller-weighted terms (original tokens 1.0, expansion terms
+`--bridge-weight`, default 0.4); `--bridge-expand N` gates it, default 0.
+In semantic mode the expanded lexical head reaches the display through the
+`bm25_pin` slots — the semantic embedding, fine rerank, floor and best-line
+anchor all keep the original phrases, the same containment PRF has. Both
+paths mine identically (the warm side restricts bridge election to in-scope
+chunks, mirroring the cold side's scoped walk), and the cold==warm e2e test
+pins the parity the same way `bm25_pin`'s did.
+
+**Drive-by finding, recorded not fixed**: shipped PRF (`--prf`) is
+warm-only — `expand_query` has no streaming twin and `rank:prf` is absent
+from the cold schedule — a latent cold≠warm asymmetry in an area the parity
+invariant is supposed to own. Harmless at `prf_terms: 0` default; worth a
+fix the next time that code is touched.

@@ -41,12 +41,41 @@ pub fn run(
     let mut nearest = pass.nearest.take();
 
     let mut per_phrase: Vec<Vec<hit::Candidate>> = Vec::with_capacity(q.phrases.len());
+    let mut bridge_terms_used: Vec<String> = Vec::new();
     for (p, query) in q.phrases.iter().enumerate() {
         let query = query.as_str();
         let lexical = trace.time(Stage::RankBm25, || match pass.bm25.as_ref() {
             Some(b) => b.query(query, pool),
             None => Vec::new(),
         });
+        // Bridge expansion, mirroring `indexed::bridge_expand`: the cold
+        // pass walked exactly the queried scope, so no scope filter here —
+        // the same containment the warm path gets from `rows.serves`.
+        let (lexical, bterms) = match pass.bm25.as_ref() {
+            Some(b) if opts.bridge_expand > 0 => trace.time(Stage::RankBridge, || {
+                let terms = rank::bridge::bridge_terms(
+                    query,
+                    b,
+                    |cid| files[pass.chunks[cid as usize].file_id as usize].path.clone(),
+                    None,
+                    |path| std::fs::read_to_string(root.join(path)).ok(),
+                    opts.bridge_expand,
+                );
+                if terms.is_empty() {
+                    (lexical, terms)
+                } else {
+                    let weighted =
+                        rank::bridge::weighted_terms(query, &terms, opts.bridge_weight);
+                    (rank::top_k_weighted(b, &weighted, pool, None, None), terms)
+                }
+            }),
+            _ => (lexical, Vec::new()),
+        };
+        for t in bterms {
+            if !bridge_terms_used.contains(&t) {
+                bridge_terms_used.push(t);
+            }
+        }
         // Mirrors `indexed`: the lexical head survives fusion so the
         // `bm25_pin` guarantee acts identically on both paths (§32.4a).
         let bm25_head: Vec<u32> = lexical.iter().take(16).map(|r| r.0).collect();
@@ -139,6 +168,7 @@ pub fn run(
             phrase_signals: fin.phrase_signals,
             phrases: q.is_multi().then(|| q.phrases.clone()),
             floored_mask: fin.floored_mask,
+            bridge_terms: (!bridge_terms_used.is_empty()).then_some(bridge_terms_used),
             stages: trace.finish(),
             ..Default::default()
         },

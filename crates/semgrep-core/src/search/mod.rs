@@ -68,7 +68,8 @@ pub(crate) fn candidate_width(k: usize) -> usize {
 /// which is what keeps cold == warm when the pin is on.
 pub(crate) fn wants_lexical(opts: &SearchOptions) -> bool {
     matches!(opts.mode, Mode::Bm25 | Mode::Hybrid)
-        || (opts.bm25_pin > 0 && !matches!(opts.mode, Mode::Keyword))
+        || ((opts.bm25_pin > 0 || opts.bridge_expand > 0)
+            && !matches!(opts.mode, Mode::Keyword))
 }
 
 /// Append the lexical head's ids to a fused/semantic ranking so the
@@ -375,6 +376,18 @@ pub struct SearchOptions {
     /// search when set. Pinned hits fill from the tail and never evict each
     /// other or the `keep_coarse_top` pin; the floor still wins.
     pub bm25_pin: usize,
+    /// Bridge-file query expansion (§33): mine up to this many terms from
+    /// the files that best cover the query's tokens and add them to the
+    /// lexical scoring at [`Self::bridge_weight`]. 0 = off. Runs the lexical
+    /// channel even in semantic mode (like `bm25_pin`); the semantic query
+    /// embedding, fine rerank, floor and best-line anchor all keep the
+    /// original phrases.
+    pub bridge_expand: usize,
+    /// Weight of a bridge expansion term relative to an original query
+    /// token's 1.0. The prototype's full-weight concatenation demoted
+    /// ordering-class regions out of the top-30 (§33 P1: −13); reduced
+    /// weight is the fix under test.
+    pub bridge_weight: f32,
     /// PRF (pseudo-relevance feedback): expand the query with this many
     /// discriminative terms from the first pass's top hits, then re-rank
     /// lexically (RESEARCH.md §9.3). 0 = off.
@@ -441,6 +454,8 @@ impl Default for SearchOptions {
             passage_override: false,
             min_score: 0.0,
             keep_coarse_top: false,
+            bridge_expand: 0,
+            bridge_weight: 0.4,
             // 5 since §32.4b: on replayed real agent queries the pin is the
             // first engine change with a CI excluding zero (+0.014
             // [+0.007, +0.021] rank@5 on dir/root scopes, file scopes
@@ -561,6 +576,12 @@ pub struct SearchReport {
     /// threshold, and re-deriving decisions is how displays drift from
     /// engines.
     pub floored_mask: u8,
+    /// Bridge-expansion terms actually applied (§33), `Some` only when
+    /// `bridge_expand > 0` and mining produced any — the eval harness reads
+    /// the fired-rate from here. Engine-derived, so it lives in the report,
+    /// not the options envelope.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bridge_terms: Option<Vec<String>>,
     /// Performance provenance: every stage on this path's schedule, in order,
     /// zero-filled where a stage did not run. Fixed shape, so two runs are
     /// comparable without special-casing which optional stages fired.
