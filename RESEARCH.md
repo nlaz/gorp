@@ -8288,11 +8288,16 @@ paths mine identically (the warm side restricts bridge election to in-scope
 chunks, mirroring the cold side's scoped walk), and the cold==warm e2e test
 pins the parity the same way `bm25_pin`'s did.
 
-**Drive-by finding, recorded not fixed**: shipped PRF (`--prf`) is
-warm-only — `expand_query` has no streaming twin and `rank:prf` is absent
-from the cold schedule — a latent cold≠warm asymmetry in an area the parity
-invariant is supposed to own. Harmless at `prf_terms: 0` default; worth a
-fix the next time that code is touched.
+**Drive-by finding, then fixed**: shipped PRF (`--prf`) was warm-only —
+`expand_query` had no streaming twin and `rank:prf` was absent from the cold
+schedule — a live cold≠warm asymmetry in the area the parity invariant is
+supposed to own, hidden only by the `prf_terms: 0` default. Reproduced
+before fixing (`prf_expansion_is_cold_warm_identical`: at `--prf 4` the warm
+path ranked `src/jitter.rs` third and the cold path `docs/cooking.md`), then
+fixed by giving the cold path the same mine-and-re-run and putting
+`Stage::RankPrf` on `SCHEDULE_COLD`. The lesson is the §33 method's, not
+PRF's: wiring a *second* expansion through both paths is what exposed the
+first one's missing half.
 
 **Addendum, after the engine round-trip.** The lexical-only engine version
 measured a quarter of the prototype's dose (vocab-gap top-30 +4 vs +17) —

@@ -2034,3 +2034,44 @@ fn bridge_expansion_finds_the_wired_file_and_cold_warm_agree() {
     let cp: Vec<_> = cold.hits.iter().map(|h| (&h.path, h.start_line, h.end_line)).collect();
     assert_eq!(wp, cp, "bridge expansion must not split cold from warm");
 }
+
+/// PRF must obey the parity invariant like every other ranking stage.
+/// It did not: `expand_query` lived only on the indexed path, and
+/// `Stage::RankPrf` was absent from `SCHEDULE_COLD`, so `--prf N` made a
+/// cached scope answer differently from an uncached one — the exact thing
+/// `cold_and_warm_return_identical_results` exists to forbid, hidden only by
+/// the shipped default of `prf_terms: 0` (found while wiring §33).
+#[test]
+fn prf_expansion_is_cold_warm_identical() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    // Extra bodies so the feedback head has something to mine that the
+    // query itself does not contain.
+    fs::write(
+        dir.path().join("src/jitter.rs"),
+        "//! Jitter helpers.\npub fn add_jitter(delay: u64, spread: u64) -> u64 {\n    delay + spread % 7\n}\n".repeat(4),
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("src/stampede.rs"),
+        "//! Stampede control.\npub fn spread_retries(delay: u64) -> u64 { delay * 2 }\n".repeat(4),
+    )
+    .unwrap();
+
+    for query in ["compute the backoff delay", "retry after a failure"] {
+        for mode in [Mode::Bm25, Mode::Hybrid] {
+            let o = SearchOptions { prf_terms: 4, ..opts(mode) };
+            let warm = search(dir.path(), query, &o).unwrap();
+            assert!(warm.report.used_index, "warm premise for {query:?}");
+            let cold =
+                search(dir.path(), query, &SearchOptions { no_index: true, ..o }).unwrap();
+            assert!(!cold.report.used_index);
+            let w: Vec<_> =
+                warm.hits.iter().map(|h| (&h.path, h.start_line, h.end_line)).collect();
+            let c: Vec<_> =
+                cold.hits.iter().map(|h| (&h.path, h.start_line, h.end_line)).collect();
+            assert_eq!(w, c, "PRF split cold from warm for {query:?} in {mode:?}");
+        }
+    }
+}

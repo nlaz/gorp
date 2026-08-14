@@ -97,6 +97,30 @@ pub fn run(
             Some(b) => b.query(query, pool),
             None => Vec::new(),
         });
+        // PRF, mirroring `indexed::expand_query` — same feedback depth, same
+        // scorer, same "re-run the lexical pass with the grown query". This
+        // path had no PRF at all until §33 found the split: `--prf N` made a
+        // cached scope answer differently from an uncached one, which the
+        // parity invariant forbids and only the `prf_terms: 0` default hid.
+        let lexical = match pass.bm25.as_ref() {
+            Some(b) if opts.prf_terms > 0 => trace.time(Stage::RankPrf, || {
+                let texts: Vec<String> = lexical
+                    .iter()
+                    .take(10)
+                    .filter_map(|&(id, _)| {
+                        let chunk = pass.chunks[id as usize];
+                        corpus::lines(root, &files[chunk.file_id as usize].path, &chunk)
+                    })
+                    .collect();
+                let terms = rank::prf::expansion_terms(query, &texts, b, opts.prf_terms);
+                if terms.is_empty() {
+                    lexical
+                } else {
+                    b.query(&rank::prf::expand(query, &terms), pool)
+                }
+            }),
+            _ => lexical,
+        };
         // Bridge terms were mined above (they needed the finalized
         // postings); here the lexical pass re-scores with them weighted,
         // mirroring `indexed::bridge_expand`.

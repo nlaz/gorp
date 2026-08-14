@@ -227,6 +227,7 @@ pub const SCHEDULE_COLD: &[Stage] = &[
     Stage::PassRead,
     Stage::PassEmbed,
     Stage::RankBm25,
+    Stage::RankPrf,
     Stage::RankBridge,
     Stage::RankMaxsim,
     Stage::RankFuse,
