@@ -8465,3 +8465,37 @@ should move by *less* than 0.018 — plausibly under the 0.0138 MDE once
 §32.4's anchoring tax is paid, since a file on screen only scores when the
 agent reads it and submits from it. The registered expectation of a null
 therefore stands, now with a mechanism attached to why.
+
+#### 33.1d The dilution factor, computed before the data (2026-08-14)
+
+`eval/swexplore/bridgewhy.py` (written and dry-run on the discarded pilot
+rows, so the analysis is fixed before the campaign it will judge) stratifies
+the paired difference on whether bridge expansion actually fired. Two things
+it establishes in advance:
+
+**Only ~61% of paired instances get any exposure.** In the pilot, 47 of 120
+sessions never fired the mechanism, and 42 of those never invoked `sg` at
+all — §32.1a's availability-is-not-use, one layer in: a treatment injected
+into a tool the agent declines to reach for is a treatment that never
+happened. §33's primary is intention-to-treat, so it estimates roughly
+**0.6× the per-protocol effect**. §33.1c's file-level +0.018 therefore
+predicts an ITT hitFile of about **+0.011** — and the primary, hitRegion,
+under that again, because the function metrics were flat. Both land below
+the 0.0138 MDE. **The registered null is now a quantitative prediction
+rather than a hedge.**
+
+**The stratification is the real test.** An effect concentrated in the fired
+stratum is a mechanism; one spread evenly across fired and never-fired is a
+coincidence, since a never-fired session ran the control engine in all but
+name. The never-fired stratum doubles as a pairing check: it should sit at
+zero, and in the pilot it does (+0.0067, CI straddling, w/l 3/4).
+
+Also fixed here before it could mislead: the dose split was written on the
+*share* of a session's searches that expanded, which is degenerate — the
+median share is 1.00, because a session expands everything or nothing. Dose
+is now the **count** of expanded searches, which in the pilot already shows
+the pattern worth watching at full n (fired once +0.037, fired 4×+ −0.031,
+all CIs straddling at n=13–37). If that survives, it says expansion helps
+the agent who asks once and hurts the one who keeps re-asking — a dose curve
+pointing the opposite way from guessplay's, and the single most interesting
+thing the campaign could return.
