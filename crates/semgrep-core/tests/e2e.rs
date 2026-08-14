@@ -2075,3 +2075,64 @@ fn prf_expansion_is_cold_warm_identical() {
         }
     }
 }
+
+/// §33 quality guard: the bridge committee must mine *wiring code*, not
+/// translation tables. Locale packs, changelogs and docs are the ballast
+/// §32.4a measured outranking gold — they contain the query's words (that is
+/// what user-facing strings ARE) and thousands of unrelated ones, so an
+/// unfiltered committee returns vocabulary like "cloudflare" and "mouse"
+/// instead of the identifier that wires the query to the implementation.
+/// Observed live in the s33 telemetry before this filter existed.
+#[test]
+fn bridge_mining_ignores_locale_and_doc_ballast() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("src")).unwrap();
+    fs::create_dir_all(dir.path().join("locale")).unwrap();
+    // Filler so the corpus is big enough for the df ceiling to mean
+    // something — on a handful of chunks every token looks common.
+    for i in 0..40 {
+        fs::write(
+            dir.path().join(format!("src/filler{i}.rs")),
+            format!("pub fn unrelated{i}() {{ let x = {i}; }}\n").repeat(4),
+        )
+        .unwrap();
+    }
+    // Two source bridges wire the query's words to `acquire_mutex`.
+    for name in ["src/routes.rs", "src/wiring.rs"] {
+        fs::write(
+            dir.path().join(name),
+            "// redlock mutex helper wiring\npub fn setup() { acquire_mutex(); }\n",
+        )
+        .unwrap();
+    }
+    fs::write(
+        dir.path().join("src/impl_lock.rs"),
+        "pub fn acquire_mutex() { /* the real work */ }\n",
+    )
+    .unwrap();
+    // Two locale files carrying the same query words plus junk vocabulary.
+    for name in ["locale/en.json", "locale/de.json"] {
+        fs::write(
+            dir.path().join(name),
+            "{\n \"redlock\": \"mutex helper\",\n \"a\": \"cloudflare\",\n \
+             \"b\": \"mouse\",\n \"c\": \"scrolled\"\n}\n",
+        )
+        .unwrap();
+    }
+
+    let o = SearchOptions { k: 5, bridge_expand: 8, ..opts(Mode::Semantic) };
+    let r = search(dir.path(), "redlock mutex helper", &o).unwrap();
+    let terms = r.report.bridge_terms.clone().unwrap_or_default();
+    assert!(!terms.is_empty(), "premise: the committee must form at all");
+    for junk in ["cloudflare", "mouse", "scrolled"] {
+        assert!(
+            !terms.iter().any(|t| t == junk),
+            "locale ballast leaked into the expansion: {terms:?}",
+        );
+    }
+    assert!(
+        terms.iter().any(|t| t.contains("acquire")),
+        "the source bridges' shared identifier should be mined instead: {terms:?}",
+    );
+}

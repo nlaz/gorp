@@ -36,6 +36,32 @@ fn df_ceiling(n_docs: usize) -> usize {
     ((n_docs as f64 * DF_CEILING) as usize).max(DF_CEILING_MIN)
 }
 
+/// Data and prose formats a bridge is never made of. A locale pack, a
+/// changelog or a spec document contains the query's words — user-facing
+/// strings ARE the vocabulary agents type — plus thousands of unrelated
+/// ones, so electing one floods the expansion with its whole dictionary.
+/// Measured live in the §33 campaign telemetry before this existed:
+/// "locks.js redis lock helper" mined `cloudflare, david, draw, nib`.
+///
+/// A deny-list rather than a source allow-list, so a language nobody
+/// enumerated still gets to wire things together.
+const NOT_A_BRIDGE: &[&str] = &[
+    "json", "yml", "yaml", "toml", "ini", "cfg", "conf", "properties", "csv",
+    "tsv", "md", "rst", "txt", "po", "pot", "lock", "sum", "html", "htm",
+    "xml", "svg", "map", "snap", "log",
+];
+
+fn minable(path: &str) -> bool {
+    let ext = path.rsplit_once('.').map(|(_, e)| e.to_ascii_lowercase());
+    match ext {
+        Some(e) => !NOT_A_BRIDGE.contains(&e.as_str()),
+        // No extension at all (LICENSE, Makefile, scripts): allow — these
+        // are as likely to be wiring as not, and they are rare enough that
+        // being wrong costs one committee seat.
+        None => true,
+    }
+}
+
 /// Files (by path) that best cover `query`'s tokens, best first: per file,
 /// the sum of idf over the *distinct* query tokens it contains, requiring
 /// at least two — one shared rare word is a coincidence, two is wiring.
@@ -63,7 +89,10 @@ fn bridge_files(
             if allow.is_some_and(|f| !f(chunk_id)) {
                 continue;
             }
-            seen.insert(path_of_chunk(chunk_id));
+            let p = path_of_chunk(chunk_id);
+            if minable(&p) {
+                seen.insert(p);
+            }
         }
         for p in seen {
             let e = cover.entry(p).or_insert((0.0, 0));

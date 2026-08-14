@@ -8347,3 +8347,47 @@ dominated**, recorded here so the decision is auditable.
   regress real queries with a CI entirely below −0.01 (fix first, then
   fund); `triage_swex` gate failures at any rung stop the ladder. No
   interim endpoint computation; ANALYZE=1 only at the pooled 848.
+
+#### 33.1a Amendment: a mid-campaign engine correction, and why the treatment arm restarted
+
+R1 passed its gate (arms symmetric at 65–70% sg adoption, exact-share 21%
+on both, bridge firing on 71% of treatment searches, control argv clean).
+R2 then halted on the account's weekly usage limit: 1,057 rows returned
+`agent_error` at **$0.00 and zero tokens**, which is an environment stop, not
+a result. Those rows were stripped to `results/backup` — `eval_runner`'s
+`--resume` skips by `instance_id` regardless of status, so leaving them
+would have permanently skipped 1,057 cells and produced a "complete"
+campaign that never ran two thirds of its sessions.
+
+Reading the banked telemetry while blocked turned up a real defect. The
+mined terms were mixed: `isReadyToPost lock user rate limit posting` →
+`postdelay, newbie, mod, permission` is exactly the wiring vocabulary the
+technique is for, but `locks.js redis lock helper` → `cloudflare, david,
+draw, nib` is a translation table's dictionary. **The engine was electing
+locale packs, changelogs and docs to the bridge committee.** Those files
+contain the query's words — user-facing strings *are* the vocabulary agents
+type — plus thousands of unrelated ones, so one seat floods the expansion.
+The validated prototype never had this problem because its first smoke hit
+it (`agreement, alarm, 00pm` on NodeBB) and it was given a source-only
+mining corpus; the engine shipped without the equivalent guard, so **it was
+measuring a degraded variant of the mechanism P1 validated.**
+`bridge_mining_ignores_locale_and_doc_ballast` reproduces it on a fixture
+(unfiltered: `cloudflare, mouse, scrolled` ranked *above* `acquire`), and
+`NOT_A_BRIDGE` — a deny-list of data/prose formats, so an unenumerated
+language can still wire things — fixes it.
+
+**Consequence for the campaign, taken deliberately.** The 120 banked
+treatment rows ran the pre-fix engine, and finishing under the corrected one
+would make `sub-sgb` a mixture of two treatments — the §27 lesson about
+mixing registered descriptions, one layer down. They are moved to
+`results/backup/s33-sub-sgb-preballastfix.jsonl` (~$20, written off) and the
+treatment arm restarts clean. The 502 control rows stand: `bridge_expand: 0`
+means both the ballast filter and the §33.0 PRF fix are byte-identical
+no-ops there, which the unchanged snapshot confirms. Nothing else in §33.1
+changes — same arms, same primary, same MDE, same one-analysis rule.
+
+The re-measure of the 158-region miss set under the fix could not be run:
+the campaign's checkout LRU has evicted all but 23 of those repos. The
+fixture test plus the mechanism argument (the filter restores fidelity to
+the prototype that measured 8→21) is what stands behind the correction, and
+that is stated here rather than papered over with a number from n=23.
