@@ -7945,6 +7945,8 @@ added.
 | `cc-sg` — Grep + semgrep | 0.187 | 8.69 | 0.458 | 0.932 | 0.407 |
 | `sub-rg` — ripgrep + shell grep | 0.167 | 7.48 | 0.449 | 0.933 | 0.371 |
 | `sub-sg` — semgrep + shell grep | 0.170 | 7.96 | 0.455 | 0.927 | 0.375 |
+| `sub-sg` §33 re-run (control) | 0.167 | 7.77 | 0.457 | 0.924 | 0.365 |
+| `sub-sgb` — + bridge expansion | 0.168 | 7.74 | 0.460 | 0.933 | 0.365 |
 
 **Calibration holds at full n.** The paper's Claude Code row is HitReg 0.531
 and its Sonnet-4.5 row 0.428; §27.0 established that every agentic explorer
@@ -7977,7 +7979,14 @@ use the tool it reaches for anyway beats making it route around one. And
 semgrep's own increment over ripgrep fell from +$0.007 to +$0.004, consistent
 with the fine rerank's shorter passages, though directional at that size.
 
-**Total programme cost: $1,082 over 6,390 agent sessions** across §27, §28,
+The §33 pair is the programme's one *within-tool* contrast — same binary,
+same description, one engine flag apart — and it lands at 0.365 $/point for
+both arms, the cheapest rows in the table. The control's 0.457 reproduces
+§32's `sub-sg` (0.455) on an independent 848, which is the closest thing to
+a replication this programme has: the same arm, re-run three weeks later
+under a rebuilt engine, within 0.002.
+
+**Total programme cost: $1,365 over 8,086 agent sessions** across §27, §28,
 §30, §31 and §32. What it bought is a bound rather than a win, and the bound
 is the deliverable: **on SWE-Explore's line-level gold, with a Claude
 Code–shaped agent, the retrieval engine is not what moves the benchmark.**
@@ -8600,3 +8609,69 @@ bottleneck was checkout churn, not the agents.
 Neither failure bears on the endpoints. Both arms remain symmetric on the
 diagnostics that do: sg adoption 73% vs 72%, exact-share 20% vs 19% (the
 §30.4 tripwire quiet in both).
+
+### 33.2 The result: a null, and a dose curve that argues with it (2026-08-15)
+
+848 instances, both arms complete, $283. The registered analysis ran once on
+the pooled set, exactly as §33.1 bound it.
+
+| endpoint | sub-sg | sub-sgb | Δ | 95% CI | p | MDE |
+|---|---|---|---|---|---|---|
+| **hitRegion@5** (primary) | 0.4573 | 0.4598 | **+0.0025** | [−0.0063, +0.0114] | 0.643 | 0.0130 |
+| cost $/session (co-primary) | 0.1665 | 0.1676 | +0.0011 | [−0.0055, +0.0083] | 0.810 | — |
+| turns (co-primary) | 7.77 | 7.74 | −0.026 | [−0.283, +0.243] | 0.632 | — |
+| hitFile@5 | 0.5305 | 0.5291 | −0.0015 | [−0.0124, +0.0089] | 0.809 | 0.0152 |
+| ctxEff | 0.9239 | 0.9329 | +0.0089 | [−0.0008, +0.0187] | 0.781 | 0.0139 |
+| precision | 0.7490 | 0.7634 | +0.0144 | [−0.0011, +0.0293] | 0.352 | 0.0217 |
+
+**The primary is a null**, and the co-primaries hold parity comfortably
+(cost +0.7%, turns −0.3%, both far inside the registered ±5%). Every Holm
+adjusted secondary is 1.000. Bridge expansion costs nothing and, measured
+over all 848 instances, buys nothing.
+
+**The prediction was right, and being right about a null is the point.**
+§33.1c/§33.1d forecast ITT hitFile ≈ +0.011 and hitRegion below it, both
+under the MDE, from two premises fixed before the data: the offline
+file-level effect (+0.018) and the exposure rate (61% in the pilot). Exposure
+at full n came in at **62%**, and hitRegion at +0.0025. The forecast held on
+its mechanism, not just its sign — a null predicted quantitatively is
+evidence about the world; a null discovered afterwards is only evidence about
+the instrument.
+
+**And then the dose curve.** The stratification §33.1d fixed in advance —
+does the effect concentrate where the mechanism actually fired? — answers
+yes, and sharply, on the count of expanded searches:
+
+| dose | n | Δ hitRegion@5 | Δ hitFile@5 | 95% CI (file) |
+|---|---|---|---|---|
+| never fired | 319 | −0.0017 | −0.0067 | [−0.022, +0.010] |
+| fired once | 284 | −0.0034 | −0.0014 | [−0.023, +0.021] |
+| fired 2–3× | 202 | +0.0090 | −0.0041 | [−0.024, +0.016] |
+| **fired 4×+** | **43** | **+0.0425** | **+0.0497** | **[+0.013, +0.088]**, p=0.013 |
+
+The never-fired stratum sits at zero, which is the pairing check passing:
+those sessions ran the control engine in all but name. And the effect rises
+monotonically with dose, reaching **+0.05 on both metrics** where expansion
+fired four or more times — the only stratum whose CI excludes zero, and it
+does so on the file metric §33.1c predicted would carry the mechanism.
+
+**This is a hypothesis, not a finding, and the difference matters.** n=43 is
+2% of the campaign; the stratum is defined by an outcome-adjacent behaviour
+(an agent that searches more fires more, and an agent that searches more may
+differ in ways nothing here controls); and the pilot's dose curve ran the
+*opposite* way (§33.1d: fired-once +0.037, fired-4×+ −0.031, all straddling).
+Two contradictory dose curves from the same tool are what noise looks like at
+n≈40. What survives is a testable claim: **bridge expansion pays off for
+agents who search repeatedly, and is inert for agents who search once** —
+which, if true, is about *persistence*, and would be tested by an arm that
+manipulates search count rather than by slicing an existing campaign.
+
+**The bound, stated plainly.** On SWE-Explore's line-level gold, with a
+Claude Code-shaped agent, repo-mined query expansion moves hitRegion@5 by
+less than 0.013 and hitFile@5 by less than 0.015, at cost and turn parity —
+even though the same engine change is worth +0.018 [+0.005, +0.030] on
+replayed agent queries offline (§33.1c). §21.2's transfer warning claims
+another one: the offline instrument saw a real effect that the in-situ one
+cannot, and the arithmetic of why is now measured rather than guessed — a
+0.62 dilution from non-invocation, and an agent-side conversion step that
+§32.4 already showed ignores rank-1 hits.
