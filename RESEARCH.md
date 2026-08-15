@@ -8536,3 +8536,33 @@ at launch and reading only past it.
 
 Banked at the pause: **542/848 control**, 0/848 treatment (by design,
 §33.1a), $95 spent of the ~$340 budget.
+
+#### 33.1f A second interim look, taken by operator error (2026-08-14)
+
+Disclosed for the same reason §33.1b was, and with less excuse: intending to
+read only the exposure diagnostics, `bridgewhy.py` was run — and that tool
+computes the stratified endpoints as its main output. There was no decision
+to take an interim look; there was a failure to notice that the diagnostic
+and the endpoint live in the same command. What was seen, at n=600 of 848
+paired (control complete, treatment 600):
+
+| stratum | n | Δ hitRegion@5 | 95% CI | w/l | MDE |
+|---|---|---|---|---|---|
+| ALL (ITT) | 600 | +0.0024 | [−0.0078, +0.0127] | 76/73 | 0.0145 |
+| bridge fired ≥1× | 369 | +0.0045 | [−0.0082, +0.0173] | 56/55 | 0.0185 |
+
+No decision was taken on it, no arm changed, no stopping rule invoked, and
+the registered analysis still runs once on the pooled 848. Recording it
+matters because a reader must be able to see every look that was taken, not
+only the ones that were planned — an undisclosed peek is what turns a
+registration into decoration.
+
+The exposure diagnostic that was actually wanted **confirms §33.1d's
+prediction on independent data**: 62% of instances had any exposure at
+n=600, against 61% estimated from the 120-instance pilot. The dilution
+factor holds, so the ITT estimate remains ≈0.6× per-protocol by design.
+
+Two process fixes follow. `bridgewhy.py` gains `--diagnostics-only`, so the
+exposure numbers can be read without seeing an endpoint. And the tool prints
+a warning when its paired n is short of the registered target, so the next
+person cannot read an interim table without being told it is one.
