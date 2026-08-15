@@ -8566,3 +8566,37 @@ Two process fixes follow. `bridgewhy.py` gains `--diagnostics-only`, so the
 exposure numbers can be read without seeing an endpoint. And the tool prints
 a warning when its paired n is short of the registered target, so the next
 person cannot read an interim table without being told it is one.
+
+#### 33.1g The gate's two standing failures, attributed (2026-08-15)
+
+The rung completes with both checks still red, and both are understood:
+
+**"distress attributable to the tool: 3."** All three are the same shape —
+an agent runs `sg -e <Identifier>` three times, gets nothing, and the
+identifier is simply not in the tree (`TeleportReplicaNameEnv`,
+`sql.NullString`, `TmpAndSlash`). That is exact mode behaving exactly as
+grep would; it is also the one check that could implicate the treatment, so
+it was attributed per arm before anything else was reported:
+
+| instance | control calls / exact / empty | treatment calls / exact / empty |
+|---|---|---|
+| teleport | 7 / 6 / **3** | 4 / 2 / 0 |
+| navidrome | 16 / 6 / **7** | 4 / 2 / 0 |
+| tokio-axum | 6 / 0 / 0 | 5 / 3 / **3** |
+
+Two of three are **control-arm**, and on those instances the treatment cells
+ran clean. Bridge expansion cannot be the cause in any of them: it only
+touches ranked search, and `-e` bypasses ranking entirely. The check is
+measuring the §16.10 exact-mode miss pattern, which predates §33 and is
+symmetric across arms.
+
+**"instances missing an arm: N."** Cells that produced no row at all — not a
+failure row, no row. Their checkouts had been evicted and each pass
+recovered roughly one, a re-clone starvation loop rather than a limit or a
+crash. Trading parallelism for cache residency (WORKERS 4→2, CACHE_GB
+10→14) moved it 824 → 836 in one run, confirming the diagnosis: the
+bottleneck was checkout churn, not the agents.
+
+Neither failure bears on the endpoints. Both arms remain symmetric on the
+diagnostics that do: sg adoption 73% vs 72%, exact-share 20% vs 19% (the
+§30.4 tripwire quiet in both).
