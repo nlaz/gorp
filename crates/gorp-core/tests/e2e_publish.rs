@@ -163,7 +163,23 @@ fn an_undeletable_entry_does_not_take_the_healthy_ones_with_it() {
 
     // Make the least-recently-used one refuse to be removed. `remove_dir_all`
     // needs write+execute on the directory to unlink what is inside it.
+    //
+    // "Least-recently-used" must be made true, not assumed: `age_secs` has
+    // whole-second granularity, so four entries born in the same second tie
+    // and sort in readdir order — which put the stuck entry first on APFS and
+    // last on ext4, where the loop then (correctly) evicted the three healthy
+    // ones before breaking on it. Backdate its recency files so it is the
+    // first victim everywhere, which is the scenario this test is about.
     let stuck = &dirs[0];
+    let past = std::time::SystemTime::now() - std::time::Duration::from_secs(100);
+    for f in ["root.txt", "meta.json"] {
+        fs::File::options()
+            .write(true)
+            .open(stuck.join(f))
+            .unwrap()
+            .set_modified(past)
+            .unwrap();
+    }
     let original = fs::metadata(stuck).unwrap().permissions();
     fs::set_permissions(stuck, fs::Permissions::from_mode(0o500)).unwrap();
 
