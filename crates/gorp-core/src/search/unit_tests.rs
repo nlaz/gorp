@@ -9,11 +9,11 @@ fn nums(rows: &[super::UnitRow]) -> Vec<u32> {
 #[test]
 fn leading_closers_and_trailing_openers_are_peeled_from_the_window() {
     let f = [
-        "}",                  // 1
-        "),",                 // 2
-        "const config = [",   // 3
-        "\"verbose\",",       // 4
-        "(",                  // 5
+        "}",                // 1
+        "),",               // 2
+        "const config = [", // 3
+        "\"verbose\",",     // 4
+        "(",                // 5
     ];
     let rows = compute(&f, "src/config.js", 1, 5);
     assert_eq!(nums(&rows), vec![3, 4], "closers peel from the front, openers from the back");
@@ -38,12 +38,12 @@ fn a_multiline_signature_head_walks_to_its_statement_start() {
 #[test]
 fn a_namespace_head_already_named_in_the_path_is_suppressed() {
     let f = [
-        "module Cop",                     // 1
-        "  module Layout",                // 2
-        "    class TrailingEmptyLines",   // 3
-        "      def check(x)",             // 4
-        "        autocorrect(x)",         // 5
-        "      end",                      // 6
+        "module Cop",                   // 1
+        "  module Layout",              // 2
+        "    class TrailingEmptyLines", // 3
+        "      def check(x)",           // 4
+        "        autocorrect(x)",       // 5
+        "      end",                    // 6
     ];
     let rows = compute(&f, "lib/rubocop/cop/layout/trailing_empty_lines.rb", 5, 5);
     let n = nums(&rows);
@@ -88,15 +88,15 @@ fn the_head_walk_passes_through_a_template_literal() {
 #[test]
 fn the_close_line_appears_only_when_contiguous() {
     let f = [
-        "fn compute() {",  // 1
-        "    let a = 1;",  // 2
-        "    a + 1",       // 3
-        "}",               // 4
-        "fn other() {",    // 5
-        "    let b = 2;",  // 6
-        "    trace(b);",   // 7
-        "    b * 2",       // 8
-        "}",               // 9
+        "fn compute() {", // 1
+        "    let a = 1;", // 2
+        "    a + 1",      // 3
+        "}",              // 4
+        "fn other() {",   // 5
+        "    let b = 2;", // 6
+        "    trace(b);",  // 7
+        "    b * 2",      // 8
+        "}",              // 9
     ];
     let touching = compute(&f, "src/lib.rs", 2, 3);
     assert!(nums(&touching).contains(&4), "a close touching the window is real information");
@@ -111,14 +111,14 @@ fn the_close_line_appears_only_when_contiguous() {
 #[test]
 fn small_gaps_fill_and_large_gaps_stay_jumps() {
     let f = [
-        "def outer():",     // 1
-        "    a = 1",        // 2
-        "    b = 2",        // 3
-        "    c = 3",        // 4
-        "    d = 4",        // 5
-        "    e = 5",        // 6
-        "    f = 6",        // 7
-        "    return f",     // 8
+        "def outer():", // 1
+        "    a = 1",    // 2
+        "    b = 2",    // 3
+        "    c = 3",    // 4
+        "    d = 4",    // 5
+        "    e = 5",    // 6
+        "    f = 6",    // 7
+        "    return f", // 8
     ];
     // Head at 1, window at 5..6: gap of three (2,3,4) arrives whole.
     let filled = compute(&f, "pkg/mod.py", 5, 6);
@@ -135,12 +135,12 @@ fn a_window_truncates_at_its_units_visible_end() {
     // the shallow closer belong to a different unit, and the closer
     // used to drag the anchor to column 0 so no head was found at all.
     let f = [
-        "const encryptBody = async (pack) => {",          // 1
-        "    const encrypted = await encrypt(pack);",     // 2
-        "    pack.Body = toBase64(encrypted);",           // 3
-        "};",                                             // 4
-        "",                                               // 5
-        "const encryptPackage = async ({",                // 6
+        "const encryptBody = async (pack) => {",      // 1
+        "    const encrypted = await encrypt(pack);", // 2
+        "    pack.Body = toBase64(encrypted);",       // 3
+        "};",                                         // 4
+        "",                                           // 5
+        "const encryptPackage = async ({",            // 6
     ];
     let rows = compute(&f, "lib/mail/send/sendEncrypt.ts", 3, 6);
     let n = nums(&rows);
@@ -156,16 +156,16 @@ fn a_comment_across_code_is_never_a_head() {
     // fabricating structure. Code sits between it and the window, so it
     // heads nothing.
     let f = [
-        "void active_cycle(int type) {",                       // 1
-        "    int checked = 0;",                                // 2
-        "    setup(type);",                                    // 3
-        "    prime_counters();",                               // 4
-        "    reset_clock();",                                  // 5
-        "    /* Stop iteration when a condition is met:",      // 6
-        "     * 1) enough databases were checked. */",         // 7
-        "    while (running) {",                               // 8
-        "        do_work();",                                  // 9
-        "        checked++;",                                  // 10
+        "void active_cycle(int type) {",                  // 1
+        "    int checked = 0;",                           // 2
+        "    setup(type);",                               // 3
+        "    prime_counters();",                          // 4
+        "    reset_clock();",                             // 5
+        "    /* Stop iteration when a condition is met:", // 6
+        "     * 1) enough databases were checked. */",    // 7
+        "    while (running) {",                          // 8
+        "        do_work();",                             // 9
+        "        checked++;",                             // 10
     ];
     let rows = compute(&f, "src/expire.c", 10, 10);
     let n = nums(&rows);
@@ -180,10 +180,10 @@ fn a_comment_block_may_head_its_own_window() {
     // mid-list. Every line between head and window is comment, so the
     // head stands.
     let f = [
-        "/* This is how background rewrite works:",  // 1
-        " *",                                        // 2
-        " * 1) The user calls BGREWRITEAOF",         // 3
-        " * 2) The server forks a child",            // 4
+        "/* This is how background rewrite works:", // 1
+        " *",                                       // 2
+        " * 1) The user calls BGREWRITEAOF",        // 3
+        " * 2) The server forks a child",           // 4
     ];
     let rows = compute(&f, "src/aof.c", 3, 4);
     assert_eq!(rows[0].line, 1, "the block's own opener heads the window: {:?}", nums(&rows));
@@ -194,11 +194,11 @@ fn a_dangling_comment_close_peels_like_any_closer() {
     // The preact renderComponent shape (§34.5 A): the fine window opens
     // on the `*/` of the doc block above the declaration it matched.
     let f = [
-        "/**",                                        // 1
-        " * Trigger in-place re-rendering.",          // 2
-        " */",                                        // 3
-        "function renderComponent(component) {",      // 4
-        "    let vnode = component._vnode;",          // 5
+        "/**",                                   // 1
+        " * Trigger in-place re-rendering.",     // 2
+        " */",                                   // 3
+        "function renderComponent(component) {", // 4
+        "    let vnode = component._vnode;",     // 5
     ];
     let rows = compute(&f, "src/component.js", 3, 5);
     assert_eq!(rows[0].line, 4, "the `*/` peels; the block opens on the declaration");
@@ -210,11 +210,11 @@ fn a_mid_block_window_walks_back_to_its_opener() {
     // mid-javadoc and contains the col-0 declaration, so anchor = 0 and
     // no head walk can reach the opener — the walk-back does.
     let f = [
-        "/**",                                                // 1
-        " * Enqueue a rerender of a component",               // 2
-        " * @param c The component to rerender",              // 3
-        " */",                                                // 4
-        "export function enqueueRender(c) {",                 // 5
+        "/**",                                   // 1
+        " * Enqueue a rerender of a component",  // 2
+        " * @param c The component to rerender", // 3
+        " */",                                   // 4
+        "export function enqueueRender(c) {",    // 5
     ];
     let rows = compute(&f, "src/component.js", 2, 5);
     assert_eq!(rows[0].line, 1, "the block's opener joins the window: {:?}", nums(&rows));
@@ -229,16 +229,16 @@ fn the_walk_back_is_capped_and_elides_the_middle() {
     let long = "x".repeat(300);
     let long_row = format!(" * {long}");
     let f = [
-        "/**",                       // 1
-        " * Summary sentence.",      // 2
-        " * Second sentence.",       // 3
-        " * Detail one.",            // 4
-        " * Detail two.",            // 5
-        " * Detail three.",          // 6
-        " * Detail four.",           // 7
-        " * @param a first",         // 8
-        " */",                       // 9
-        "fn documented(a: u32) {",   // 10
+        "/**",                     // 1
+        " * Summary sentence.",    // 2
+        " * Second sentence.",     // 3
+        " * Detail one.",          // 4
+        " * Detail two.",          // 5
+        " * Detail three.",        // 6
+        " * Detail four.",         // 7
+        " * @param a first",       // 8
+        " */",                     // 9
+        "fn documented(a: u32) {", // 10
     ];
     let rows = compute(&f, "src/lib.rs", 8, 10);
     let n = nums(&rows);
@@ -250,11 +250,11 @@ fn the_walk_back_is_capped_and_elides_the_middle() {
     // The char cap: an oversized second line stops the prepend after
     // the (exempt) opener.
     let g = [
-        "/**",                    // 1
-        long_row.as_str(),        // 2
-        " * @param a first",      // 3
-        " */",                    // 4
-        "fn documented() {",      // 5
+        "/**",               // 1
+        long_row.as_str(),   // 2
+        " * @param a first", // 3
+        " */",               // 4
+        "fn documented() {", // 5
     ];
     let rows = compute(&g, "src/lib.rs", 3, 5);
     let n = nums(&rows);
@@ -268,9 +268,9 @@ fn a_redundant_namespace_never_heads_even_innermost() {
     // makes the namespace the innermost head, where the path-redundancy
     // check used not to run.
     let f = [
-        "module Fluent",                                   // 1
-        "  NULL_CHAIN = NullOutputChain.instance",         // 2
-        "  LIMIT = ::Fluent::Buffer::OverflowError",       // 3
+        "module Fluent",                             // 1
+        "  NULL_CHAIN = NullOutputChain.instance",   // 2
+        "  LIMIT = ::Fluent::Buffer::OverflowError", // 3
     ];
     let redundant = compute(&f, "fluent/event_router.rb", 2, 3);
     assert!(
@@ -289,15 +289,15 @@ fn a_redundant_namespace_never_heads_even_innermost() {
 #[test]
 fn the_first_doc_line_attaches_to_the_innermost_head_only() {
     let f = [
-        "class Outer:",              // 1
-        "    \"\"\"Outer doc.\"\"\"", // 2
-        "    A = 1",                 // 3
-        "    B = 2",                 // 4
-        "    C = 3",                 // 5
-        "    D = 4",                 // 6
-        "    def inner(self):",      // 7
+        "class Outer:",                   // 1
+        "    \"\"\"Outer doc.\"\"\"",     // 2
+        "    A = 1",                      // 3
+        "    B = 2",                      // 4
+        "    C = 3",                      // 5
+        "    D = 4",                      // 6
+        "    def inner(self):",           // 7
         "        \"\"\"Inner doc.\"\"\"", // 8
-        "        x = 1",             // 9
+        "        x = 1",                  // 9
     ];
     let rows = compute(&f, "pkg/other.py", 9, 9);
     let n = nums(&rows);

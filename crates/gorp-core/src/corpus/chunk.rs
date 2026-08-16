@@ -97,8 +97,8 @@ fn chunk_budgeted<'a>(
     budget: u32,
 ) -> Vec<(Chunk, &'a str)> {
     let budget = budget.max(1) as usize;
-    let overlap = (budget as u64 * params.overlap as u64
-        / u64::from(params.window.max(1))) as usize;
+    let overlap =
+        (budget as u64 * params.overlap as u64 / u64::from(params.window.max(1))) as usize;
 
     // Cumulative non-whitespace characters through the end of each line, so a
     // window's content cost is one subtraction and its end one binary search.

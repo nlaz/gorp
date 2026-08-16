@@ -22,9 +22,7 @@ pub(crate) use query::{Query, merge_interleave};
 
 use crate::cache::repair::RepairOutcome;
 pub use crate::rank::Mode;
-use crate::trace::{
-    Bucket, SCHEDULE_KEYWORD, Stage, Stages, Trace, elapsed_ms,
-};
+use crate::trace::{Bucket, SCHEDULE_KEYWORD, Stage, Stages, Trace, elapsed_ms};
 use crate::{cache, keyword, store, text};
 use anyhow::Result;
 use std::path::Path;
@@ -191,7 +189,6 @@ pub(crate) fn apply_structural_boost(
 pub(crate) fn file_scope_candidate_width() -> usize {
     usize::MAX
 }
-
 
 /// One row of the unit view: a real file line, raw — undedented and
 /// unclipped, because dedent is a property of the displayed *block* and
@@ -422,7 +419,6 @@ impl std::error::Error for DriftTooLarge {}
 /// the query it delayed rather than only in `total_ms`.
 pub(crate) type Prelude = Vec<(Stage, f64)>;
 
-
 pub fn search(root: &Path, query: &str, opts: &SearchOptions) -> Result<SearchResult> {
     let t0 = Instant::now();
     if opts.mode == Mode::Keyword {
@@ -445,7 +441,8 @@ pub fn search(root: &Path, query: &str, opts: &SearchOptions) -> Result<SearchRe
     // chunks remove at the source, and `with_window` would clear `function`
     // and silently re-window the one mode that does not need it.
     let file_opts;
-    let opts = if opts.file_scope_window > 0 && root.is_file() && opts.params.function.is_none() {
+    let opts = if opts.file_scope_window > 0 && root.is_file() && opts.params.function.is_none()
+    {
         file_opts = SearchOptions {
             params: opts.params.with_window(opts.file_scope_window),
             ..opts.clone()

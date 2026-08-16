@@ -6,8 +6,8 @@
 //! render — which is what lets the cold and warm paths share this code with
 //! no index state threaded in (RESEARCH.md §29.1).
 
-use super::hit::{Candidate, Fine};
 use super::SearchOptions;
+use super::hit::{Candidate, Fine};
 use crate::{corpus, rank, text};
 use std::path::Path;
 
@@ -88,8 +88,7 @@ pub(super) fn fine_rerank(
     for c in kept.drain(..) {
         let killer = c.fine.and_then(|f| {
             survivors.iter().position(|s| {
-                s.path == c.path
-                    && s.fine.is_some_and(|sf| window_overlaps(&sf, &f))
+                s.path == c.path && s.fine.is_some_and(|sf| window_overlaps(&sf, &f))
             })
         });
         match killer {
@@ -107,11 +106,8 @@ pub(super) fn fine_rerank(
 
     // Relevance for MMR: the blended score for scored candidates; unscored
     // ones trail below the scored minimum, keeping their relative order.
-    let scored_min = kept
-        .iter()
-        .filter(|c| c.fine.is_some())
-        .map(blended)
-        .fold(f32::INFINITY, f32::min);
+    let scored_min =
+        kept.iter().filter(|c| c.fine.is_some()).map(blended).fold(f32::INFINITY, f32::min);
     let base = if scored_min.is_finite() { scored_min } else { 0.0 };
     let mut tail = 0;
     let relevance = kept

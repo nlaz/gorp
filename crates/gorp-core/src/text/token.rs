@@ -12,11 +12,7 @@ pub fn for_each_token(text: &str, emit: impl FnMut(&str)) {
 
 /// The same stream with the whole-identifier duplicates optional — the prose
 /// renderer (`text::prose`) wants subtokens only, BM25 wants both.
-pub(crate) fn for_each_token_with(
-    text: &str,
-    whole_idents: bool,
-    mut emit: impl FnMut(&str),
-) {
+pub(crate) fn for_each_token_with(text: &str, whole_idents: bool, mut emit: impl FnMut(&str)) {
     let mut buf = String::with_capacity(32);
     for raw in text.split(|c: char| !c.is_alphanumeric() && c != '_') {
         if raw.is_empty() {

@@ -60,9 +60,8 @@ fn main() {
     let spans: Vec<(String, String)> = args[3..].iter().map(|s| span_of(root, s)).collect();
 
     let sif_path = root.join(".gorp/sif.bin");
-    let sif: Option<SifStats> = std::fs::read(&sif_path)
-        .ok()
-        .and_then(|b| postcard::from_bytes(&b).ok());
+    let sif: Option<SifStats> =
+        std::fs::read(&sif_path).ok().and_then(|b| postcard::from_bytes(&b).ok());
 
     let q_render = prose_render_query(query, EmbedPreproc::Split).into_owned();
     let qv = [
@@ -123,10 +122,14 @@ fn main() {
         }));
     }
 
-    println!("{}", serde_json::to_string_pretty(&json!({
-        "query": query,
-        "rendered": q_render,
-        "sif_loaded": sif.is_some(),
-        "spans": out_spans,
-    })).unwrap());
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&json!({
+            "query": query,
+            "rendered": q_render,
+            "sif_loaded": sif.is_some(),
+            "spans": out_spans,
+        }))
+        .unwrap()
+    );
 }

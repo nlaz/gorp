@@ -100,7 +100,6 @@ pub fn run(args: Args) -> Result<i32> {
         sif_idf: args.sif_idf,
         embed_preproc,
         path_render,
-        ..Default::default()
     };
     let stats = store::build(&root, &opts, |done, total| {
         // Every 500 files: often enough to look alive on a big corpus, rare
@@ -132,10 +131,7 @@ fn status(root: &Path) -> Result<i32> {
         println!("no index (run `gorp index {}`)", root.display());
         return Ok(crate::EXIT_NONE);
     }
-    let idx = store::LoadedIndex::load(
-        root,
-        store::LoadNeeds { bm25: false, hnsw: false },
-    )?;
+    let idx = store::LoadedIndex::load(root, store::LoadNeeds { bm25: false, hnsw: false })?;
     let stale = idx.stale_files()?;
     println!(
         "index: {} files, {} chunks, hnsw={}, stale files: {stale}",

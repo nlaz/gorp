@@ -306,12 +306,8 @@ impl Trace {
             .schedule
             .iter()
             .map(|&stage| {
-                let ms = self
-                    .recorded
-                    .iter()
-                    .filter(|(s, _)| *s == stage)
-                    .map(|(_, ms)| *ms)
-                    .sum();
+                let ms =
+                    self.recorded.iter().filter(|(s, _)| *s == stage).map(|(_, ms)| *ms).sum();
                 StageMs { stage, bucket: stage.bucket(), ms }
             })
             .collect();

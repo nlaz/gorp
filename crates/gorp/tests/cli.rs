@@ -230,10 +230,8 @@ fn no_unit_restores_the_fine_window_passage() {
     assert_eq!(blocks.len(), 2, "one block per result, blank-line separated");
     for b in &blocks {
         assert!(b.len() <= 4, "a bare passage is at most the fine window, got {}", b.len());
-        let nums: Vec<u32> = b
-            .iter()
-            .map(|l| l.split(':').nth(1).unwrap_or("x").parse().unwrap_or(0))
-            .collect();
+        let nums: Vec<u32> =
+            b.iter().map(|l| l.split(':').nth(1).unwrap_or("x").parse().unwrap_or(0)).collect();
         assert!(nums.iter().all(|&n| n > 0), "every line carries a real number: {b:?}");
         assert!(
             nums.windows(2).all(|w| w[1] == w[0] + 1),
@@ -294,8 +292,11 @@ fn the_path_flag_is_an_alias_for_a_positional_path() {
     let sg = Sg::new();
     let bare = sg.run(&["how is the retry delay computed", "-k", "3"]);
     let flagged = sg.run_bare(&[
-        "how is the retry delay computed", "-k", "3",
-        "--path", corpus().to_str().unwrap(),
+        "how is the retry delay computed",
+        "-k",
+        "3",
+        "--path",
+        corpus().to_str().unwrap(),
     ]);
     assert_eq!(flagged.code, 0, "stderr: {}", flagged.stderr);
     assert_eq!(bare.stdout, flagged.stdout, "--path must match the positional form");
@@ -377,13 +378,14 @@ fn multi_phrase_queries_keep_the_output_contract() {
         }
         let span_ok = line.rsplit_once(':').is_some_and(|(path, span)| {
             !path.is_empty()
-                && span.split_once('-').is_some_and(|(a, z)| {
-                    a.parse::<u32>().is_ok() && z.parse::<u32>().is_ok()
-                })
+                && span
+                    .split_once('-')
+                    .is_some_and(|(a, z)| a.parse::<u32>().is_ok() && z.parse::<u32>().is_ok())
         });
         assert!(span_ok, "header, unit row, or elision: {line:?}");
     }
-    let j = sg.run(&["compute the backoff delay | validate a session token", "--json", "-k", "4"]);
+    let j =
+        sg.run(&["compute the backoff delay | validate a session token", "--json", "-k", "4"]);
     assert!(j.stdout.contains("\"phrase\":"), "multi-phrase JSON carries the phrase index");
     let j1 = sg.run(&["compute the backoff delay", "--json", "-k", "4"]);
     assert!(!j1.stdout.contains("\"phrase\":"), "single-phrase JSON is unchanged");
@@ -395,8 +397,11 @@ fn multi_phrase_queries_keep_the_output_contract() {
 fn a_dead_phrase_is_named_on_stderr() {
     let sg = Sg::new();
     let r = sg.run_in_env(
-        &["compute the backoff delay | quantum chromodynamics lattice gauge",
-          "--min-score", "0.42"],
+        &[
+            "compute the backoff delay | quantum chromodynamics lattice gauge",
+            "--min-score",
+            "0.42",
+        ],
         &corpus(),
         &[("GORP_NO_HINTS", "1")],
     );
@@ -646,9 +651,12 @@ fn a_closed_pipe_is_not_a_panic() {
 #[test]
 fn lines_narrows_to_a_range_in_every_spelling() {
     let dir = tempfile::tempdir().expect("tempdir");
-    let body: String = (1..1000)
-        .map(|i| if i % 37 == 0 { format!("def fn_{i}(x): pass\n") } else { "# filler\n".into() })
-        .collect();
+    let body: String =
+        (1..1000)
+            .map(|i| {
+                if i % 37 == 0 { format!("def fn_{i}(x): pass\n") } else { "# filler\n".into() }
+            })
+            .collect();
     std::fs::write(dir.path().join("f.py"), body).expect("write");
     let f = dir.path().join("f.py");
     let sg = Sg::new();
@@ -729,22 +737,35 @@ fn one_named_file_drops_the_path_and_leads_with_the_line() {
 
     let one = sg.run_in(&["-e", "def target"], &f);
     assert_eq!(one.code, 0, "stderr: {}", one.stderr);
-    assert_eq!(one.lines()[0], "1:\tdef target(): pass",
-               "one named file: line, tab, text — no path");
+    assert_eq!(
+        one.lines()[0],
+        "1:\tdef target(): pass",
+        "one named file: line, tab, text — no path"
+    );
 
     // -H asks for it back, which is what a caller splitting on `:` wants.
     let forced = sg.run_in(&["-e", "def target", "-H"], &f);
-    assert!(forced.lines()[0].starts_with("f.py:1:"), "-H restores the path: {:?}",
-            forced.lines()[0]);
+    assert!(
+        forced.lines()[0].starts_with("f.py:1:"),
+        "-H restores the path: {:?}",
+        forced.lines()[0]
+    );
 
     // A directory scope is unchanged: the path is doing real work there.
     let many = sg.run_in(&["-e", "def target"], dir.path());
-    assert!(many.lines()[0].starts_with("f.py:1:"), "dir scope keeps the path: {:?}",
-            many.lines()[0]);
+    assert!(
+        many.lines()[0].starts_with("f.py:1:"),
+        "dir scope keeps the path: {:?}",
+        many.lines()[0]
+    );
 
     // --json and -l are path-carrying formats by definition.
     let js = sg.run_in(&["-e", "def target", "--json"], &f);
-    assert!(js.lines()[0].contains("\"path\":\"f.py\""), "json keeps path: {:?}", js.lines()[0]);
+    assert!(
+        js.lines()[0].contains("\"path\":\"f.py\""),
+        "json keeps path: {:?}",
+        js.lines()[0]
+    );
     let l = sg.run_in(&["-e", "def target", "-l"], &f);
     assert_eq!(l.lines()[0], "f.py", "-l is a path listing");
 }
@@ -969,7 +990,8 @@ fn one_hit_per_file_however_the_file_is_named() {
     // appeared — it passed, vacuously (SIMULATION.md §5).
     let dir = tempfile::tempdir().unwrap();
     let body = "def compute_backoff(): pass\n";
-    let names = ["ordinary.py", "with space.py", "-dash.py", "qu\"ote.py", "od:d.py", "we\nird.py"];
+    let names =
+        ["ordinary.py", "with space.py", "-dash.py", "qu\"ote.py", "od:d.py", "we\nird.py"];
     let mut written = 0;
     for n in names {
         // A newline in a filename is legal on unix but not on every filesystem;
@@ -1037,8 +1059,11 @@ fn json_output_is_one_object_per_hit_under_the_same_names() {
     let r = sg.run_in(&["-e", "compute_backoff", "--json"], dir.path());
     assert_eq!(r.code, 0, "stderr: {}", r.stderr);
 
-    let objs: Vec<serde_json::Value> =
-        r.stdout.lines().map(|l| serde_json::from_str(l).expect("valid JSON per line")).collect();
+    let objs: Vec<serde_json::Value> = r
+        .stdout
+        .lines()
+        .map(|l| serde_json::from_str(l).expect("valid JSON per line"))
+        .collect();
     assert_eq!(objs.len(), on_disk, "one object per file: {:?}", r.stdout);
     for o in &objs {
         let p = o["path"].as_str().expect("path is a string");
@@ -1114,7 +1139,8 @@ fn multiple_paths_search_all_of_them_and_nothing_else() {
     for line in stdout.lines().filter(|l| !l.trim().is_empty()) {
         // Since §34 the path lives on each hit's header line; body rows and
         // elision markers carry none.
-        if line == "⋮" || line.split_once(":\t").is_some_and(|(n, _)| n.parse::<u32>().is_ok()) {
+        if line == "⋮" || line.split_once(":\t").is_some_and(|(n, _)| n.parse::<u32>().is_ok())
+        {
             continue;
         }
         headers += 1;

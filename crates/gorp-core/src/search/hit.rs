@@ -1,9 +1,9 @@
 //! Candidates into displayable hits: span dedupe, MMR diversification, and
 //! re-reading the best line out of the file.
 
-use super::{SearchHit, SearchOptions};
 use super::materialize::{materialize, overlaps};
 use super::rerank::fine_rerank;
+use super::{SearchHit, SearchOptions};
 use crate::rank::{self, mmr};
 use crate::text::token as tokenize;
 use crate::trace::{Stage, Trace};
@@ -160,9 +160,8 @@ pub fn finalize(
     if opts.min_score > 0.0 && !kept.is_empty() {
         let signals = match &fine_out {
             Some((_, per_phrase)) => per_phrase.clone(),
-            None => trace.time(Stage::FinalizeFine, || {
-                pool_signal_coarse(&q.phrases, &kept, &vec_of)
-            }),
+            None => trace
+                .time(Stage::FinalizeFine, || pool_signal_coarse(&q.phrases, &kept, &vec_of)),
         };
         let finite_max =
             signals.iter().copied().filter(|s| s.is_finite()).fold(f32::NEG_INFINITY, f32::max);
@@ -212,9 +211,8 @@ pub fn finalize(
     // physical signal), and a learned score must not move it.
     if opts.learned_blend > 0.0 && !kept.is_empty() {
         trace.time(Stage::FinalizeRerank, || {
-            let mut rel = relevance
-                .take()
-                .unwrap_or_else(|| kept.iter().map(|c| c.score).collect());
+            let mut rel =
+                relevance.take().unwrap_or_else(|| kept.iter().map(|c| c.score).collect());
             super::checklist::blend(&mut kept, &mut rel, opts.learned_blend);
             relevance = Some(rel);
         });
@@ -281,9 +279,7 @@ pub fn finalize(
                 if kept_floored_mask & (1 << p) != 0 {
                     continue; // a floored phrase never pins (§31)
                 }
-                let present = hits
-                    .iter()
-                    .any(|h| h.phrase == Some(p as u32));
+                let present = hits.iter().any(|h| h.phrase == Some(p as u32));
                 if present {
                     continue;
                 }
@@ -310,10 +306,8 @@ pub fn finalize(
                 for h in &hits {
                     *counts.entry(h.phrase).or_insert(0usize) += 1;
                 }
-                let Some((victim_idx, _)) = hits
-                    .iter()
-                    .enumerate()
-                    .max_by_key(|(i, h)| (counts[&h.phrase], *i))
+                let Some((victim_idx, _)) =
+                    hits.iter().enumerate().max_by_key(|(i, h)| (counts[&h.phrase], *i))
                 else {
                     continue;
                 };
@@ -333,9 +327,9 @@ pub fn finalize(
                     && kept[kept_i].bm25_rank.is_some_and(|r| r as usize <= opts.bm25_pin))
         };
         let pin = |want: usize,
-                       hits: &mut Vec<SearchHit>,
-                       slots: &mut Vec<usize>,
-                       used: &mut Vec<usize>| {
+                   hits: &mut Vec<SearchHit>,
+                   slots: &mut Vec<usize>,
+                   used: &mut Vec<usize>| {
             if slots.contains(&want) {
                 return;
             }
@@ -346,8 +340,7 @@ pub fn finalize(
                 used.push(want);
                 return;
             }
-            let Some(victim) =
-                (0..hits.len()).rev().find(|&s| !is_pinned(slots[s], &kept))
+            let Some(victim) = (0..hits.len()).rev().find(|&s| !is_pinned(slots[s], &kept))
             else {
                 return;
             };
@@ -362,9 +355,7 @@ pub fn finalize(
         }
         if opts.bm25_pin > 0 {
             let mut wants: Vec<usize> = (0..kept.len())
-                .filter(|&i| {
-                    kept[i].bm25_rank.is_some_and(|r| r as usize <= opts.bm25_pin)
-                })
+                .filter(|&i| kept[i].bm25_rank.is_some_and(|r| r as usize <= opts.bm25_pin))
                 .collect();
             wants.sort_by_key(|&i| kept[i].bm25_rank.expect("filtered"));
             for want in wants {
@@ -373,7 +364,13 @@ pub fn finalize(
         }
         hits
     });
-    Finalized { hits, floored: false, best_signal, phrase_signals, floored_mask: kept_floored_mask }
+    Finalized {
+        hits,
+        floored: false,
+        best_signal,
+        phrase_signals,
+        floored_mask: kept_floored_mask,
+    }
 }
 
 /// The floor's fallback signal when the fine rerank is off: per-phrase best
@@ -401,4 +398,3 @@ fn pool_signal_coarse(
         })
         .collect()
 }
-

@@ -53,6 +53,10 @@ pub fn split_phrases(query: &str) -> Vec<String> {
 /// snapshot identity) and its phrases. `phrases.len() == 1` is the promise
 /// that everything downstream takes the pre-§31 code path exactly.
 pub(crate) struct Query {
+    /// Kept for provenance and debugging: nothing reads it today, because
+    /// every downstream stage works per phrase. Dropping it would lose the
+    /// only record of what the user actually typed once phrases are split.
+    #[allow(dead_code)]
     pub raw: String,
     pub phrases: Vec<String>,
 }
@@ -76,11 +80,13 @@ impl Query {
 /// fallback read `Candidate::score` across the merged pool. Interleaving by
 /// rank rather than by score is the same fact from the other side: rank is
 /// the only cross-phrase ordering the coarse stage can honestly claim.
-pub(crate) fn merge_interleave(mut per_phrase: Vec<Vec<hit::Candidate>>) -> Vec<hit::Candidate> {
+pub(crate) fn merge_interleave(
+    mut per_phrase: Vec<Vec<hit::Candidate>>,
+) -> Vec<hit::Candidate> {
     for (p, list) in per_phrase.iter_mut().enumerate() {
-        let (lo, hi) = list
-            .iter()
-            .fold((f32::INFINITY, f32::NEG_INFINITY), |(l, h), c| (l.min(c.score), h.max(c.score)));
+        let (lo, hi) = list.iter().fold((f32::INFINITY, f32::NEG_INFINITY), |(l, h), c| {
+            (l.min(c.score), h.max(c.score))
+        });
         for c in list.iter_mut() {
             c.score = if hi > lo { (c.score - lo) / (hi - lo) } else { 1.0 };
             c.phrases = 1 << p;

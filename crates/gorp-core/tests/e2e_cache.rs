@@ -531,13 +531,12 @@ fn cold_and_warm_return_identical_results() {
             let warm = search(dir.path(), query, &opts(mode)).unwrap();
             assert!(warm.report.used_index, "the second search should be warm");
 
-            let shape =
-                |r: &gorp_core::search::SearchResult| -> Vec<(String, u32, u32, u32)> {
-                    r.hits
-                        .iter()
-                        .map(|h| (h.path.clone(), h.start_line, h.end_line, h.line))
-                        .collect()
-                };
+            let shape = |r: &gorp_core::search::SearchResult| -> Vec<(String, u32, u32, u32)> {
+                r.hits
+                    .iter()
+                    .map(|h| (h.path.clone(), h.start_line, h.end_line, h.line))
+                    .collect()
+            };
             assert_eq!(
                 shape(&cold),
                 shape(&warm),
@@ -706,9 +705,8 @@ fn cold_and_warm_agree_with_the_declaration_boost() {
             // invisible and the vacuity assert below trips. This test guards
             // the coarse stage's cold/warm parity; the fine stage has its own
             // parity test (§28.2).
-            let db = |o: SearchOptions| {
-                SearchOptions { decl_boost: 4.0, fine_rerank: false, ..o }
-            };
+            let db =
+                |o: SearchOptions| SearchOptions { decl_boost: 4.0, fine_rerank: false, ..o };
             let cold = search(dir.path(), query, &db(stream_opts(mode))).unwrap();
             assert!(!cold.report.used_index);
             let warm = search(dir.path(), query, &db(opts(mode))).unwrap();
@@ -727,12 +725,9 @@ fn cold_and_warm_agree_with_the_declaration_boost() {
             // must match the boosted arms in everything but the boost — with
             // fine left on here, every difference would be the fine rerank's
             // and `moved` would pass vacuously.
-            let plain = search(
-                dir.path(),
-                query,
-                &SearchOptions { fine_rerank: false, ..opts(mode) },
-            )
-            .unwrap();
+            let plain =
+                search(dir.path(), query, &SearchOptions { fine_rerank: false, ..opts(mode) })
+                    .unwrap();
             moved |= shape(&plain) != shape(&warm);
         }
     }
@@ -767,9 +762,8 @@ fn cold_and_warm_agree_with_the_path_boost() {
             // Fine rerank off for the same reason as the declaration twin: at
             // blend 1.0 the fine window owns the final order and within-pool
             // reordering is invisible to the vacuity assert.
-            let pb = |o: SearchOptions| {
-                SearchOptions { path_boost: 4.0, fine_rerank: false, ..o }
-            };
+            let pb =
+                |o: SearchOptions| SearchOptions { path_boost: 4.0, fine_rerank: false, ..o };
             let cold = search(dir.path(), query, &pb(stream_opts(mode))).unwrap();
             assert!(!cold.report.used_index);
             let warm = search(dir.path(), query, &pb(opts(mode))).unwrap();
@@ -783,12 +777,9 @@ fn cold_and_warm_agree_with_the_path_boost() {
                 shape(&warm),
                 "cold != warm for {mode:?} {query:?} with path_boost on"
             );
-            let plain = search(
-                dir.path(),
-                query,
-                &SearchOptions { fine_rerank: false, ..opts(mode) },
-            )
-            .unwrap();
+            let plain =
+                search(dir.path(), query, &SearchOptions { fine_rerank: false, ..opts(mode) })
+                    .unwrap();
             moved |= shape(&plain) != shape(&warm);
         }
     }
@@ -818,9 +809,8 @@ fn cold_and_warm_agree_with_the_learned_reranker() {
     let mut moved = false;
     for mode in [Mode::Bm25, Mode::Semantic, Mode::Hybrid] {
         for query in queries {
-            let lb = |o: SearchOptions| {
-                SearchOptions { learned_blend: 1.0, diversify: false, ..o }
-            };
+            let lb =
+                |o: SearchOptions| SearchOptions { learned_blend: 1.0, diversify: false, ..o };
             let cold = search(dir.path(), query, &lb(stream_opts(mode))).unwrap();
             assert!(!cold.report.used_index);
             let warm = search(dir.path(), query, &lb(opts(mode))).unwrap();
@@ -834,12 +824,9 @@ fn cold_and_warm_agree_with_the_learned_reranker() {
                 shape(&warm),
                 "cold != warm for {mode:?} {query:?} with the learned blend on"
             );
-            let plain = search(
-                dir.path(),
-                query,
-                &SearchOptions { diversify: false, ..opts(mode) },
-            )
-            .unwrap();
+            let plain =
+                search(dir.path(), query, &SearchOptions { diversify: false, ..opts(mode) })
+                    .unwrap();
             moved |= shape(&plain) != shape(&warm);
         }
     }
@@ -910,10 +897,8 @@ fn a_preproc_index_ignores_the_search_flag_and_follows_its_meta() {
     store::build(dir.path(), &build, |_, _| {}).unwrap();
 
     let query = "compute the backoff delay";
-    let flag_agrees = SearchOptions {
-        embed_preproc: EmbedPreproc::Split,
-        ..opts(Mode::Semantic)
-    };
+    let flag_agrees =
+        SearchOptions { embed_preproc: EmbedPreproc::Split, ..opts(Mode::Semantic) };
     let flag_default = opts(Mode::Semantic);
     let a = search(dir.path(), query, &flag_agrees).unwrap();
     let b = search(dir.path(), query, &flag_default).unwrap();

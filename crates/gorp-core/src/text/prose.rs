@@ -46,9 +46,7 @@ use std::borrow::Cow;
 /// How chunk and query text is rendered before it reaches the embedder.
 /// An experiment lever (RESEARCH.md §14.3, §20): harness use, isolated cache
 /// dirs — like `--sif`, the variant is not part of the cache entry key.
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum EmbedPreproc {
     /// Raw `doc_text` through ese's own pipeline (the shipped behavior).
@@ -138,9 +136,7 @@ pub enum EmbedPreproc {
 /// example chunk in §20.1 is 11 path tokens to 5 body tokens. Left alone,
 /// every window in a long file converges toward the same vector and
 /// within-file discrimination dies exactly where a file has the most chunks.
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum PathRender {
     /// Every path subtoken, in order, repeats and all (the shipped behavior).
@@ -238,9 +234,7 @@ impl EmbedPreproc {
             Self::SplitWhole => Plan { whole_idents: true, ..base },
             Self::SplitNokw => Plan { keywords: Keywords::Legacy, ..base },
             Self::PruneKw => Plan { keywords: Keywords::Extended, ..base },
-            Self::PruneLex => {
-                Plan { keywords: Keywords::Extended, low_signal: true, ..base }
-            }
+            Self::PruneLex => Plan { keywords: Keywords::Extended, low_signal: true, ..base },
             Self::PruneDecl => Plan {
                 keywords: Keywords::Extended,
                 low_signal: true,
@@ -253,12 +247,9 @@ impl EmbedPreproc {
                 decl: DeclMode::Boost,
                 ..base
             },
-            Self::PruneUniq | Self::PruneUniqSym => Plan {
-                keywords: Keywords::Extended,
-                low_signal: true,
-                dedupe: true,
-                ..base
-            },
+            Self::PruneUniq | Self::PruneUniqSym => {
+                Plan { keywords: Keywords::Extended, low_signal: true, dedupe: true, ..base }
+            }
             Self::PruneLexSym => {
                 Plan { keywords: Keywords::Extended, low_signal: true, ..base }
             }
@@ -302,8 +293,7 @@ impl EmbedPreproc {
             _ => (false, false),
         };
         // The one variant that does not touch the query at all (§22.1 P3).
-        let keywords =
-            if self == Self::PruneKwPosQ0 { Keywords::None } else { p.keywords };
+        let keywords = if self == Self::PruneKwPosQ0 { Keywords::None } else { p.keywords };
         Plan { keywords, low_signal, decl: DeclMode::Off, dedupe, ..p }
     }
 }
@@ -467,11 +457,8 @@ pub fn declaration_tokens(text: &str) -> std::collections::HashSet<String> {
 
 fn render_body_into(text: &str, plan: Plan, out: &mut Vec<String>) {
     let words = word_ranges(text);
-    let decl = if plan.decl == DeclMode::Off {
-        Vec::new()
-    } else {
-        declaration_sites(text, &words)
-    };
+    let decl =
+        if plan.decl == DeclMode::Off { Vec::new() } else { declaration_sites(text, &words) };
     let mut buf = String::with_capacity(32);
     for (i, &(s, e)) in words.iter().enumerate() {
         let is_decl = decl.get(i).copied().unwrap_or(false);

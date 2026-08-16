@@ -133,8 +133,7 @@ fn swap_into_place(staging: &Path, dir: &Path) -> Result<()> {
             if had_old {
                 let _ = std::fs::rename(&trash, dir);
             }
-            Err(anyhow::Error::new(e)
-                .context(format!("publish index into {}", dir.display())))
+            Err(anyhow::Error::new(e).context(format!("publish index into {}", dir.display())))
         }
     }
 }

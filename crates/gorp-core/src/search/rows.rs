@@ -48,7 +48,8 @@ impl<'a> Rows<'a> {
         let n_base = idx.chunks.len() as u32;
         let mut rows = Self { idx, repair, n_base, in_scope: None };
         if !prefix.is_empty() {
-            let mask = (0..rows.len() as u32).map(|id| under(rows.path_of(id), prefix)).collect();
+            let mask =
+                (0..rows.len() as u32).map(|id| under(rows.path_of(id), prefix)).collect();
             rows.in_scope = Some(mask);
         }
         rows
@@ -59,7 +60,9 @@ impl<'a> Rows<'a> {
     fn path_of(&self, id: u32) -> &str {
         match self.delta_index(id) {
             None => &self.idx.file(&self.idx.chunks[id as usize]).path,
-            Some(j) => &self.repair.as_ref().expect("a delta id implies an overlay").delta.paths[j],
+            Some(j) => {
+                &self.repair.as_ref().expect("a delta id implies an overlay").delta.paths[j]
+            }
         }
     }
 
@@ -198,9 +201,7 @@ mod tests {
         std::fs::write(dir.path().join("b.rs"), "fn gamma() {}\nfn delta() {}\n").unwrap();
         let params = ChunkParams { window: 8, overlap: 2, ..Default::default() };
         build(dir.path(), &BuildOptions { params, ..Default::default() }, |_, _| {}).unwrap();
-        let idx =
-            LoadedIndex::load(dir.path(), LoadNeeds { bm25: true, hnsw: false })
-                .unwrap();
+        let idx = LoadedIndex::load(dir.path(), LoadNeeds { bm25: true, hnsw: false }).unwrap();
         (dir, idx)
     }
 

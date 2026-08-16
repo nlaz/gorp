@@ -1,8 +1,8 @@
 //! The default verb: ranked search, or exact search with `-e`.
 
-use crate::out::PROG;
 use crate::cli::Cli;
 use crate::out;
+use crate::out::PROG;
 use crate::telemetry::{self, Phase};
 use anyhow::Result;
 use gorp_core::ChunkParams;
@@ -229,13 +229,11 @@ impl Filter {
 
     fn matches(&self, path: &str) -> bool {
         let under = self.keep.is_empty()
-            || self.keep.iter().any(|p| {
-                path == p || path.strip_prefix(p).is_some_and(|r| r.starts_with('/'))
-            });
-        let globbed = self
-            .globs
-            .as_ref()
-            .is_none_or(|o| !o.matched(path, false).is_ignore());
+            || self
+                .keep
+                .iter()
+                .any(|p| path == p || path.strip_prefix(p).is_some_and(|r| r.starts_with('/')));
+        let globbed = self.globs.as_ref().is_none_or(|o| !o.matched(path, false).is_ignore());
         under && globbed
     }
 
@@ -265,11 +263,8 @@ impl Filter {
 /// gorp pipes wanting something `-k` could not give (RESEARCH.md §19.9), and
 /// unlike the other 30 they need a second binary the harness may refuse.
 fn parse_lines(spec: &str) -> Result<(u32, u32)> {
-    let bad = || {
-        anyhow::anyhow!(
-            "bad --lines {spec:?}: expected A-B, A- or -B (inclusive, 1-based)"
-        )
-    };
+    let bad =
+        || anyhow::anyhow!("bad --lines {spec:?}: expected A-B, A- or -B (inclusive, 1-based)");
     let (a, b) = spec.split_once('-').ok_or_else(bad)?;
     let lo = if a.is_empty() { 1 } else { a.trim().parse().map_err(|_| bad())? };
     let hi = if b.is_empty() { u32::MAX } else { b.trim().parse().map_err(|_| bad())? };
@@ -393,7 +388,9 @@ fn options(cli: &Cli, mode: Mode) -> Result<SearchOptions> {
 /// scope again. The engine already knows; it just had no way to say so before
 /// the fact (SIMULATION.md §4).
 fn announce_first_search() {
-    eprintln!("{PROG}: first ranked search of this scope — caching it (later searches are fast)");
+    eprintln!(
+        "{PROG}: first ranked search of this scope — caching it (later searches are fast)"
+    );
 }
 
 /// On an exact-mode miss, print the top ranked hits for the same terms to stderr.
@@ -444,9 +441,7 @@ fn suggest_ranked_alternatives(
             truncate(hit.text.trim(), 100)
         );
     }
-    eprintln!(
-        "{PROG}: (wrong path? broaden it · drop -e to run this ranked search on stdout)"
-    );
+    eprintln!("{PROG}: (wrong path? broaden it · drop -e to run this ranked search on stdout)");
     true
 }
 

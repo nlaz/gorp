@@ -20,14 +20,38 @@ use gorp_core::text::{
 use serde_json::json;
 
 const CHUNKS: [(&str, &str); 8] = [
-    ("web/retry.ts", "export function computeBackoffDelay(attempt: number): number {\n  const jitter = Math.random() * BASE_DELAY_MS;\n  return Math.min(MAX_DELAY_MS, 2 ** attempt * jitter);\n}"),
-    ("auth/session.py", "def validate_session_token(token, max_age_secs=3600):\n    \"\"\"Check whether a session token is still valid.\"\"\"\n    if token is None or _is_expired(token, max_age_secs):\n        return False\n    return hmac.compare_digest(token.sig, _sign(token.payload))"),
-    ("net/reaper.go", "func evictDormantPeers(pool *PeerPool) {\n    for _, p := range pool.members {\n        if time.Since(p.lastSeen) > dormancyTTL {\n            pool.drop(p)\n        }\n    }\n}"),
-    ("net/socketPool.ts", "closeIdleConnections(): void {\n  for (const conn of this.connections) {\n    if (Date.now() - conn.lastUsedAt > this.idleTimeoutMs) conn.close();\n  }\n}"),
-    ("config/parse.rs", "/// Parse a configuration file, ignoring comment lines.\npub fn parse_config(text: &str) -> Config {\n    text.lines()\n        .filter(|l| !l.trim_start().starts_with('#'))\n        .fold(Config::default(), Config::apply_line)\n}"),
-    ("jobs/cron.py", "def expand_cron_field(field, lo, hi):\n    \"\"\"Expand one cron expression field into its allowed values.\"\"\"\n    if field == \"*\":\n        return list(range(lo, hi + 1))\n    return sorted(int(v) for v in field.split(\",\"))"),
-    ("block/rwstat.c", "static inline void blkg_rwstat_add(struct blkg_rwstat *rwstat,\n                                   unsigned int op, uint64_t val)\n{\n        percpu_counter_add(&rwstat->cpu_cnt[op_to_index(op)], val);\n}"),
-    ("web/client.ts", "// HTTP client for the jobs API: timeouts, retries, and typed responses.\nasync request(path: string, init: RequestInit): Promise<Response> {\n  for (let attempt = 0; attempt < this.maxRetries; attempt++) {\n    const res = await fetch(this.base + path, init);\n    if (res.ok) return res;\n  }\n  throw new HttpRetryError(path);\n}"),
+    (
+        "web/retry.ts",
+        "export function computeBackoffDelay(attempt: number): number {\n  const jitter = Math.random() * BASE_DELAY_MS;\n  return Math.min(MAX_DELAY_MS, 2 ** attempt * jitter);\n}",
+    ),
+    (
+        "auth/session.py",
+        "def validate_session_token(token, max_age_secs=3600):\n    \"\"\"Check whether a session token is still valid.\"\"\"\n    if token is None or _is_expired(token, max_age_secs):\n        return False\n    return hmac.compare_digest(token.sig, _sign(token.payload))",
+    ),
+    (
+        "net/reaper.go",
+        "func evictDormantPeers(pool *PeerPool) {\n    for _, p := range pool.members {\n        if time.Since(p.lastSeen) > dormancyTTL {\n            pool.drop(p)\n        }\n    }\n}",
+    ),
+    (
+        "net/socketPool.ts",
+        "closeIdleConnections(): void {\n  for (const conn of this.connections) {\n    if (Date.now() - conn.lastUsedAt > this.idleTimeoutMs) conn.close();\n  }\n}",
+    ),
+    (
+        "config/parse.rs",
+        "/// Parse a configuration file, ignoring comment lines.\npub fn parse_config(text: &str) -> Config {\n    text.lines()\n        .filter(|l| !l.trim_start().starts_with('#'))\n        .fold(Config::default(), Config::apply_line)\n}",
+    ),
+    (
+        "jobs/cron.py",
+        "def expand_cron_field(field, lo, hi):\n    \"\"\"Expand one cron expression field into its allowed values.\"\"\"\n    if field == \"*\":\n        return list(range(lo, hi + 1))\n    return sorted(int(v) for v in field.split(\",\"))",
+    ),
+    (
+        "block/rwstat.c",
+        "static inline void blkg_rwstat_add(struct blkg_rwstat *rwstat,\n                                   unsigned int op, uint64_t val)\n{\n        percpu_counter_add(&rwstat->cpu_cnt[op_to_index(op)], val);\n}",
+    ),
+    (
+        "web/client.ts",
+        "// HTTP client for the jobs API: timeouts, retries, and typed responses.\nasync request(path: string, init: RequestInit): Promise<Response> {\n  for (let attempt = 0; attempt < this.maxRetries; attempt++) {\n    const res = await fetch(this.base + path, init);\n    if (res.ok) return res;\n  }\n  throw new HttpRetryError(path);\n}",
+    ),
 ];
 
 /// (query, gold chunk index, scenario label)
@@ -42,10 +66,18 @@ const SCENARIOS: [(&str, usize, &str); 6] = [
 
 /// Word pairs probed directly in the embedding space (§9.9's method).
 const PAIRS: [(&str, &str); 12] = [
-    ("delete", "remove"), ("start", "begin"), ("str", "string"), ("mutex", "lock"),
-    ("def", "function"), ("close", "evict"), ("idle", "dormant"),
-    ("connections", "peers"), ("quiet", "dormant"), ("shut", "drop"),
-    ("backoff", "delay"), ("retry", "attempt"),
+    ("delete", "remove"),
+    ("start", "begin"),
+    ("str", "string"),
+    ("mutex", "lock"),
+    ("def", "function"),
+    ("close", "evict"),
+    ("idle", "dormant"),
+    ("connections", "peers"),
+    ("quiet", "dormant"),
+    ("shut", "drop"),
+    ("backoff", "delay"),
+    ("retry", "attempt"),
 ];
 
 /// Query-token attribution tables: (scenario idx, chunk idx) worth showing.
@@ -78,8 +110,7 @@ fn toks(text: &str) -> Vec<(String, Vec<f32>)> {
 
 fn main() {
     let docs: Vec<String> = CHUNKS.iter().map(|(p, c)| doc_text(p, c)).collect();
-    let rendered: Vec<String> =
-        docs
+    let rendered: Vec<String> = docs
         .iter()
         .map(|d| prose_render_doc(d, EmbedPreproc::Split, PathRender::Full).into_owned())
         .collect();
@@ -116,7 +147,9 @@ fn main() {
         .collect();
     let query_texts: Vec<(String, String)> = SCENARIOS
         .iter()
-        .map(|&(q, _, _)| (q.to_string(), prose_render_query(q, EmbedPreproc::Split).into_owned()))
+        .map(|&(q, _, _)| {
+            (q.to_string(), prose_render_query(q, EmbedPreproc::Split).into_owned())
+        })
         .collect();
     let mut query_vecs: Vec<Vec<Vec<f32>>> = query_texts
         .iter()

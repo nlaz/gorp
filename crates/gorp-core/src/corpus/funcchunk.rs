@@ -101,10 +101,9 @@ pub(crate) fn lang_for_path(rel_path: &str) -> Option<Lang> {
             ts: || tree_sitter_go::LANGUAGE.into(),
             leaf_defs: &["function_declaration", "method_declaration", "type_declaration"],
         },
-        "c" | "h" => Lang {
-            ts: || tree_sitter_c::LANGUAGE.into(),
-            leaf_defs: &["function_definition"],
-        },
+        "c" | "h" => {
+            Lang { ts: || tree_sitter_c::LANGUAGE.into(), leaf_defs: &["function_definition"] }
+        }
         "java" => Lang {
             ts: || tree_sitter_java::LANGUAGE.into(),
             leaf_defs: &[
@@ -301,7 +300,8 @@ mod tests {
     #[test]
     fn tiny_contiguous_defs_merge_forward() {
         // Rust getters, 3 lines each, back to back.
-        let src = "fn a() -> u32 {\n    1\n}\nfn b() -> u32 {\n    2\n}\nfn c() -> u32 {\n    3\n}\n";
+        let src =
+            "fn a() -> u32 {\n    1\n}\nfn b() -> u32 {\n    2\n}\nfn c() -> u32 {\n    3\n}\n";
         let s = spans("m.rs", src);
         assert!(s.len() < 3, "packed accessors merge: {s:?}");
         covered(src, &s);

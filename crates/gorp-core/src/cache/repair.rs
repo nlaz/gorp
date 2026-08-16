@@ -189,9 +189,7 @@ pub fn scope(
         idx.meta
             .files
             .iter()
-            .filter(|f| {
-                f.path.strip_prefix(&d.prefix).is_some_and(|r| r.starts_with('/'))
-            })
+            .filter(|f| f.path.strip_prefix(&d.prefix).is_some_and(|r| r.starts_with('/')))
             .count()
     };
     let total = live.len().max(indexed_here);

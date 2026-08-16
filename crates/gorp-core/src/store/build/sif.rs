@@ -69,7 +69,8 @@ fn common_component(
         .par_iter()
         .filter_map(|fm| {
             let text = corpus::read_text(&corpus::abs_path(root, fm))?;
-            let (_, first) = corpus::chunk_lines(0, &fm.path, &text, &opts.params).into_iter().next()?;
+            let (_, first) =
+                corpus::chunk_lines(0, &fm.path, &text, &opts.params).into_iter().next()?;
             let doc = corpus::doc_text(&fm.path, first);
             Some(crate::text::embed_sif(
                 &crate::text::prose_render_doc(&doc, opts.embed_preproc, opts.path_render),

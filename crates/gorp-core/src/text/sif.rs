@@ -59,7 +59,8 @@ impl SifStats {
     /// A call is a document: collection counts land in `freqs`, presence
     /// lands in `df` once per token however often it repeats.
     pub fn count(&mut self, text: &str) {
-        let mut local: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
+        let mut local: std::collections::HashMap<String, u64> =
+            std::collections::HashMap::new();
         ese::for_each_token(text, |tok| match local.get_mut(tok) {
             Some(c) => *c += 1,
             None => {

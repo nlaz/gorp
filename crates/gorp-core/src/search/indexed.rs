@@ -85,7 +85,8 @@ pub fn run(
         // The lexical head, remembered past fusion: `bm25_pin` provenance
         // (§32.4a). Sixteen covers any sane pin depth.
         let bm25_head: Vec<u32> = lexical.iter().take(16).map(|r| r.0).collect();
-        let (semantic, hnsw) = rank_semantic(&idx, &rows, &sem_query, opts, d, pool, &mut trace);
+        let (semantic, hnsw) =
+            rank_semantic(&idx, &rows, &sem_query, opts, d, pool, &mut trace);
         used_hnsw |= hnsw;
         let ranked = trace.time(Stage::RankFuse, || {
             rank::fuse(opts.mode, lexical, semantic, super::fused_width(pool), opts.sem_weight)
@@ -114,7 +115,15 @@ pub fn run(
 
         let ranked = super::append_bm25_pins(ranked, &bm25_head, opts);
         per_phrase.push(trace.time(Stage::Candidates, || {
-            candidates(&rows, ranked, &d.prefix, super::candidate_width(opts.k), &bm25_head, opts.bm25_pin, &shares)
+            candidates(
+                &rows,
+                ranked,
+                &d.prefix,
+                super::candidate_width(opts.k),
+                &bm25_head,
+                opts.bm25_pin,
+                &shares,
+            )
         }));
     }
     let cands = if q.is_multi() {
@@ -371,8 +380,7 @@ fn rank_semantic(
             &quantized,
             idx.emb_matrix_i8(),
             pool,
-            (!rows.whole_corpus())
-                .then_some(&in_scope as &(dyn Fn(u32) -> bool + Sync)),
+            (!rows.whole_corpus()).then_some(&in_scope as &(dyn Fn(u32) -> bool + Sync)),
         ),
     };
     // The same kernel and the same quantized query the base was scored with, so
@@ -482,13 +490,10 @@ fn candidates(
     let in_scope = |path: &str| {
         prefix.is_empty() || path.strip_prefix(prefix).is_some_and(|r| r.starts_with('/'))
     };
-    let rank_of = |id: u32| {
-        bm25_head.iter().position(|&h| h == id).map(|i| i as u16 + 1)
-    };
+    let rank_of = |id: u32| bm25_head.iter().position(|&h| h == id).map(|i| i as u16 + 1);
     // Pinned ids ride along past the width cut — `append_bm25_pins` may have
     // placed them at the tail, and cutting them here would defeat the pin.
-    let pinned: std::collections::HashSet<u32> =
-        bm25_head.iter().take(pin).copied().collect();
+    let pinned: std::collections::HashSet<u32> = bm25_head.iter().take(pin).copied().collect();
     let mut out: Vec<hit::Candidate> = Vec::with_capacity(limit.min(ranked.len()));
     for (id, score) in ranked {
         if out.len() >= limit {
@@ -524,9 +529,5 @@ fn candidates(
 /// The structural-boost shares for `id`, 0.0 outside the boosted head. A
 /// linear scan: the head is ≤ `candidate_width` entries.
 pub(super) fn share_of(shares: &[(u32, f32, f32)], id: u32) -> (f32, f32) {
-    shares
-        .iter()
-        .find(|&&(sid, _, _)| sid == id)
-        .map(|&(_, d, p)| (d, p))
-        .unwrap_or((0.0, 0.0))
+    shares.iter().find(|&&(sid, _, _)| sid == id).map(|&(_, d, p)| (d, p)).unwrap_or((0.0, 0.0))
 }

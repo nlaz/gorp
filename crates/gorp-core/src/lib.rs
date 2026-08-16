@@ -93,7 +93,8 @@ impl ChunkParams {
     /// which measure the same thing in different units and would otherwise
     /// silently win.
     pub fn with_window(self, window: u32) -> Self {
-        let share = if self.window == 0 { 0.0 } else { self.overlap as f32 / self.window as f32 };
+        let share =
+            if self.window == 0 { 0.0 } else { self.overlap as f32 / self.window as f32 };
         Self {
             window,
             overlap: (window as f32 * share).round() as u32,

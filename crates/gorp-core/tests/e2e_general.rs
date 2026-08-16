@@ -19,7 +19,6 @@ fn keyword_mode_is_grep() {
     assert!(r.hits[0].text.contains("validate_session_token"));
 }
 
-
 #[test]
 fn bm25_unindexed_finds_identifier_from_nl_query() {
     let _cache = isolate_cache();

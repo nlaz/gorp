@@ -33,22 +33,25 @@ pub(crate) const N_FEATURES: usize = 9;
 /// to hold gold than a stub chunk — verified not to be ovl-geometry gaming
 /// by the strict target agreeing.
 pub(crate) const WEIGHTS: [f32; N_FEATURES] = [
-    0.831619, // fine_n
-    0.0,      // fine_missing
-    -0.583163, // coarse_n
-    1.25367,  // bm25_recip
-    -0.659836, // bm25_missing
+    0.831619,   // fine_n
+    0.0,        // fine_missing
+    -0.583163,  // coarse_n
+    1.25367,    // bm25_recip
+    -0.659836,  // bm25_missing
     -0.0275815, // phrases_pop
-    0.329578, // decl_share
-    0.468366, // path_share
-    2.75082,  // chunk_frac
+    0.329578,   // decl_share
+    0.468366,   // path_share
+    2.75082,    // chunk_frac
 ];
 pub(crate) const BIAS: f32 = -4.93661;
 
 fn minmax(vals: &[f32]) -> Vec<f32> {
     let lo = vals.iter().copied().fold(f32::INFINITY, f32::min);
     let hi = vals.iter().copied().fold(f32::NEG_INFINITY, f32::max);
-    if !(hi > lo) {
+    // `partial_cmp` rather than `hi <= lo`, because the NaN case must take
+    // this branch too: a degenerate or unorderable range has no spread to
+    // normalize against, and 0.5 is the neutral feature value.
+    if !matches!(hi.partial_cmp(&lo), Some(std::cmp::Ordering::Greater)) {
         return vec![0.5; vals.len()];
     }
     vals.iter().map(|v| (v - lo) / (hi - lo)).collect()
@@ -136,7 +139,8 @@ mod tests {
 
     #[test]
     fn features_normalize_within_the_pool_and_flag_missing_channels() {
-        let kept = vec![cand(0, Some(0.9), Some(1)), cand(1, Some(0.5), None), cand(2, None, None)];
+        let kept =
+            vec![cand(0, Some(0.9), Some(1)), cand(1, Some(0.5), None), cand(2, None, None)];
         let f = features_of(&kept);
         assert_eq!(f[0][0], 1.0, "best fine normalizes to 1");
         assert_eq!(f[2][0], 0.0, "missing fine scores 0");

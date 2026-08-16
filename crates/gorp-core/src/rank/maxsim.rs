@@ -7,8 +7,8 @@
 
 /// Head size when `maxsim_pool` is left at 0.
 ///
-/// 96. Chosen for recall, and the same answer three independent measurements
-/// have now given:
+/// Ninety-six — chosen for recall, and the same answer three independent
+/// measurements have now given:
 ///
 /// - §9.6's original sweep: semantic +0.03..0.06 R@5 over head 24.
 /// - Head 32 vs 96 over three corpora: 96 worse or level in 5 of 6 cells,

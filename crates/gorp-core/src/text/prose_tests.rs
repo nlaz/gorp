@@ -19,19 +19,13 @@ fn render(p: EmbedPreproc) -> String {
 #[test]
 fn none_is_the_identity_and_borrows() {
     let s = "fn get_user_name(&self) -> String";
-    assert!(matches!(
-        render_doc(s, EmbedPreproc::None, PathRender::Full),
-        Cow::Borrowed(_)
-    ));
+    assert!(matches!(render_doc(s, EmbedPreproc::None, PathRender::Full), Cow::Borrowed(_)));
 }
 
 #[test]
 fn split_renders_identifiers_as_prose() {
     let s = "fn get_user_name(&self) { retry_backoff += 1; }";
-    assert_eq!(
-        render_body(s, EmbedPreproc::Split),
-        "fn get user name self retry backoff"
-    );
+    assert_eq!(render_body(s, EmbedPreproc::Split), "fn get user name self retry backoff");
 }
 
 #[test]
@@ -47,10 +41,7 @@ fn split_whole_keeps_the_identifier_too() {
 #[test]
 fn nokw_drops_keywords_and_numbers_but_not_content() {
     let s = "def compute_delay(retries): return delay * 250";
-    assert_eq!(
-        render_body(s, EmbedPreproc::SplitNokw),
-        "compute delay retries delay"
-    );
+    assert_eq!(render_body(s, EmbedPreproc::SplitNokw), "compute delay retries delay");
 }
 
 #[test]
@@ -209,9 +200,7 @@ fn path_scaled_pins_the_paths_share_as_the_body_shrinks() {
     // file lives" and every window in the file converges. Scaled keeps the
     // share near PATH_SHARE at every rung instead of letting it climb.
     let d = doc();
-    let n_full = render_doc(&d, EmbedPreproc::PruneDecl, PathRender::Full)
-        .split(' ')
-        .count();
+    let n_full = render_doc(&d, EmbedPreproc::PruneDecl, PathRender::Full).split(' ').count();
     assert_eq!(n_full, 16);
 
     for tier in [EmbedPreproc::PruneLex, EmbedPreproc::PruneDecl] {
@@ -309,13 +298,21 @@ fn positional_keeps_identifier_components_and_still_drops_boilerplate() {
     // The name of the thing being searched for survives.
     assert!(!kept(EmbedPreproc::PruneKw, "__init__", "init"), "naive kept init");
     assert!(kept(EmbedPreproc::PruneKwPos, "__init__", "init"));
-    for (text, tok) in [("from_dict", "from"), ("as_completed", "as"),
-                        ("get_object_or_404", "object"), ("for_each", "for")] {
+    for (text, tok) in [
+        ("from_dict", "from"),
+        ("as_completed", "as"),
+        ("get_object_or_404", "object"),
+        ("for_each", "for"),
+    ] {
         assert!(kept(EmbedPreproc::PruneKwPos, text, tok), "{text} lost {tok}");
     }
     // ...and real boilerplate still goes.
-    for (text, tok) in [("def compute_backoff(x)", "def"), ("class Foo", "class"),
-                        ("self.value", "self"), ("x: type = None", "type")] {
+    for (text, tok) in [
+        ("def compute_backoff(x)", "def"),
+        ("class Foo", "class"),
+        ("self.value", "self"),
+        ("x: type = None", "type"),
+    ] {
         assert!(!kept(EmbedPreproc::PruneKwPos, text, tok), "{text} kept {tok}");
     }
     // The compound survives even when its own subtoken is a keyword.
@@ -336,10 +333,7 @@ fn q0_leaves_the_query_alone_but_still_prunes_documents() {
     assert!(d.contains("compute") && d.contains("backoff"), "{d}");
     // Its symmetric twin renders documents identically - the arms differ
     // on the query side only, or the 2x2 confounds two changes.
-    assert_eq!(
-        render_body("def compute_backoff()", EmbedPreproc::PruneKwPos),
-        d
-    );
+    assert_eq!(render_body("def compute_backoff()", EmbedPreproc::PruneKwPos), d);
     assert_ne!(
         render_query(q, EmbedPreproc::PruneKwPos),
         render_query(q, EmbedPreproc::PruneKwPosQ0)

@@ -29,7 +29,10 @@ fn main() {
 
     println!("cargo:rustc-env=GORP_GIT_SHA={sha}");
     println!("cargo:rustc-env=GORP_GIT_DIRTY={dirty}");
-    println!("cargo:rustc-env=GORP_BUILD_PROFILE={}", std::env::var("PROFILE").unwrap_or_default());
+    println!(
+        "cargo:rustc-env=GORP_BUILD_PROFILE={}",
+        std::env::var("PROFILE").unwrap_or_default()
+    );
     // Rerun when HEAD moves, so the stamp does not go stale across commits.
     println!("cargo:rerun-if-changed=../../.git/HEAD");
     println!("cargo:rerun-if-changed=../../.git/index");

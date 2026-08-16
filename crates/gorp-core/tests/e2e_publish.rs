@@ -89,7 +89,8 @@ fn a_staging_directory_is_never_discoverable_but_is_always_reclaimable() {
     );
 
     let seen = cache::cache_status();
-    let mine = seen.iter().find(|e| e.dir == staging).expect("still counted against the budget");
+    let mine =
+        seen.iter().find(|e| e.dir == staging).expect("still counted against the budget");
     assert!(mine.incomplete, "a meta.json inside a staging dir does not make it an entry");
     assert!(mine.bytes >= 8192, "its bytes must count");
 
@@ -168,9 +169,7 @@ fn an_undeletable_entry_does_not_take_the_healthy_ones_with_it() {
 
     // Count only the four this test made. Every test in this binary shares one
     // cache directory, so a global count is whatever else has run.
-    let mine = |v: &[cache::CacheEntryInfo]| {
-        v.iter().filter(|e| dirs.contains(&e.dir)).count()
-    };
+    let mine = |v: &[cache::CacheEntryInfo]| v.iter().filter(|e| dirs.contains(&e.dir)).count();
     let before = mine(&cache::cache_status());
     let r = cache::enforce_budget_with_cap(0, 600);
     let after = mine(&cache::cache_status());
@@ -179,7 +178,11 @@ fn an_undeletable_entry_does_not_take_the_healthy_ones_with_it() {
     fs::set_permissions(stuck, original).unwrap();
 
     assert_eq!(before, 4, "four entries to begin with");
-    assert_eq!(r.stuck.len(), 1, "the undeletable entry must be reported, not silently skipped");
+    assert_eq!(
+        r.stuck.len(),
+        1,
+        "the undeletable entry must be reported, not silently skipped"
+    );
     assert!(
         after >= 2,
         "one stuck entry must not cascade into the healthy ones: {after} of {before} survived"
@@ -207,7 +210,11 @@ fn repair_serves_a_small_drift_and_rebuilds_a_large_one() {
         )
         .unwrap();
     }
-    let base = SearchOptions { k: 5, params: ChunkParams { window: 8, overlap: 2, ..Default::default() }, ..Default::default() };
+    let base = SearchOptions {
+        k: 5,
+        params: ChunkParams { window: 8, overlap: 2, ..Default::default() },
+        ..Default::default()
+    };
     search(dir.path(), "stable symbol", &base).unwrap();
 
     // One file of forty: under the bound, so the overlay handles it and the
@@ -232,7 +239,9 @@ fn repair_serves_a_small_drift_and_rebuilds_a_large_one() {
     for i in 10..30 {
         fs::write(
             dir.path().join(format!("src/mod{i}.rs")),
-            format!("//! Rewritten {i}.\npub fn circuit_breaker_trips_{i}() -> bool {{ true }}\n"),
+            format!(
+                "//! Rewritten {i}.\npub fn circuit_breaker_trips_{i}() -> bool {{ true }}\n"
+            ),
         )
         .unwrap();
     }
@@ -263,7 +272,10 @@ fn a_repo_local_index_is_repaired_however_far_it_has_drifted() {
     fixture(dir.path());
     gorp_core::store::build(
         dir.path(),
-        &gorp_core::store::BuildOptions { params: ChunkParams { window: 8, overlap: 2, ..Default::default() }, ..Default::default() },
+        &gorp_core::store::BuildOptions {
+            params: ChunkParams { window: 8, overlap: 2, ..Default::default() },
+            ..Default::default()
+        },
         |_, _| {},
     )
     .unwrap();
@@ -279,7 +291,11 @@ fn a_repo_local_index_is_repaired_however_far_it_has_drifted() {
         }
     }
 
-    let o = SearchOptions { k: 5, params: ChunkParams { window: 8, overlap: 2, ..Default::default() }, ..Default::default() };
+    let o = SearchOptions {
+        k: 5,
+        params: ChunkParams { window: 8, overlap: 2, ..Default::default() },
+        ..Default::default()
+    };
     let r = search(dir.path(), "circuit breaker tripping", &o).unwrap();
     assert!(r.report.used_index, "a repo-local index still answers");
     assert!(!r.report.wrote_cache, "and is never rebuilt behind the user's back");
@@ -331,8 +347,10 @@ fn a_narrow_scope_returns_hits_even_when_the_corpus_head_excludes_it() {
 
     // Warm an index covering the whole tree, then query only the subtree.
     let all = search(dir.path(), "exponential backoff retry policy", &o).unwrap();
-    assert!(all.hits.iter().all(|h| h.path.starts_with("noise/")),
-            "the corpus head should be all noise, or this proves nothing");
+    assert!(
+        all.hits.iter().all(|h| h.path.starts_with("noise/")),
+        "the corpus head should be all noise, or this proves nothing"
+    );
 
     let scoped =
         search(&dir.path().join("target"), "exponential backoff retry policy", &o).unwrap();
@@ -434,10 +452,14 @@ fn a_single_file_scope_returns_hits_in_every_mode() {
         for no_index in [true, false] {
             let o = SearchOptions { mode, no_index, k: 3, ..opts(mode) };
             let r = search(&file, "compute the backoff delay", &o).unwrap();
-            assert!(!r.hits.is_empty(),
-                    "{mode:?} (no_index={no_index}) found nothing in a file scope");
-            assert!(!r.hits[0].path.is_empty(),
-                    "{mode:?} (no_index={no_index}) produced an empty path");
+            assert!(
+                !r.hits.is_empty(),
+                "{mode:?} (no_index={no_index}) found nothing in a file scope"
+            );
+            assert!(
+                !r.hits[0].path.is_empty(),
+                "{mode:?} (no_index={no_index}) produced an empty path"
+            );
         }
     }
 
@@ -482,7 +504,6 @@ fn a_file_scope_does_not_write_a_cache_entry() {
     let r = search(dir.path(), "compute the backoff delay", &opts(Mode::Semantic)).unwrap();
     assert!(r.report.wrote_cache, "a directory scope must still write through");
 }
-
 
 /// cold == warm must survive path rendering too (RESEARCH.md §20.1). Separate
 /// from the tier loop because `PathRender` is the orthogonal axis: a bug that
@@ -534,12 +555,7 @@ fn a_budgeted_entry_never_answers_a_line_windowed_query() {
     };
     let budgeted = SearchOptions {
         bm25_pin: 0,
-        params: ChunkParams {
-            window: 8,
-            overlap: 2,
-            budget: Some(200),
-            ..Default::default()
-        },
+        params: ChunkParams { window: 8, overlap: 2, budget: Some(200), ..Default::default() },
         ..opts(Mode::Semantic)
     };
     // Warm both, in that order. If they shared an entry the second would be
@@ -569,8 +585,8 @@ fn cold_and_warm_agree_under_a_character_budget() {
         let cold =
             search(dir.path(), query, &SearchOptions { params, ..stream_opts(Mode::Semantic) })
                 .unwrap();
-        let warm =
-            search(dir.path(), query, &SearchOptions { params, ..opts(Mode::Semantic) }).unwrap();
+        let warm = search(dir.path(), query, &SearchOptions { params, ..opts(Mode::Semantic) })
+            .unwrap();
         assert!(!cold.report.used_index && warm.report.used_index);
         let c: Vec<_> = cold.hits.iter().map(|h| (&h.path, h.start_line)).collect();
         let w: Vec<_> = warm.hits.iter().map(|h| (&h.path, h.start_line)).collect();
@@ -635,15 +651,12 @@ fn cold_and_warm_agree_under_function_chunking() {
         ..Default::default()
     };
     for query in ["compute the backoff delay", "check whether a session token is valid"] {
-        let cold = search(
-            dir.path(),
-            query,
-            &SearchOptions { params, ..stream_opts(Mode::Semantic) },
-        )
-        .unwrap();
+        let cold =
+            search(dir.path(), query, &SearchOptions { params, ..stream_opts(Mode::Semantic) })
+                .unwrap();
         assert!(!cold.report.used_index);
-        let warm =
-            search(dir.path(), query, &SearchOptions { params, ..opts(Mode::Semantic) }).unwrap();
+        let warm = search(dir.path(), query, &SearchOptions { params, ..opts(Mode::Semantic) })
+            .unwrap();
         assert!(warm.report.used_index);
         let shape = |r: &gorp_core::search::SearchResult| -> Vec<(String, u32, u32)> {
             r.hits.iter().map(|h| (h.path.clone(), h.start_line, h.end_line)).collect()
@@ -684,12 +697,8 @@ fn repair_recuts_a_drifted_file_the_way_a_build_would() {
     // TTL 0 in tests, so the next warm query repairs around the drift.
     let repaired = search(dir.path(), query, &o).unwrap();
     assert!(repaired.report.used_index, "the entry should be patched, not discarded");
-    let fresh = search(
-        dir.path(),
-        query,
-        &SearchOptions { no_index: true, ..o.clone() },
-    )
-    .unwrap();
+    let fresh =
+        search(dir.path(), query, &SearchOptions { no_index: true, ..o.clone() }).unwrap();
     let shape = |r: &gorp_core::search::SearchResult| -> Vec<(String, u32, u32)> {
         r.hits.iter().map(|h| (h.path.clone(), h.start_line, h.end_line)).collect()
     };
@@ -742,11 +751,12 @@ fn each_phrase_is_represented_in_the_top_k() {
     .unwrap();
     let phrases: std::collections::HashSet<_> =
         r.hits.iter().filter_map(|h| h.phrase).collect();
-    assert!(phrases.contains(&0) && phrases.contains(&1),
-            "both phrases must be represented: {:?}",
-            r.hits.iter().map(|h| (&h.path, h.phrase)).collect::<Vec<_>>());
-    let homes: std::collections::HashSet<_> =
-        r.hits.iter().map(|h| h.path.as_str()).collect();
+    assert!(
+        phrases.contains(&0) && phrases.contains(&1),
+        "both phrases must be represented: {:?}",
+        r.hits.iter().map(|h| (&h.path, h.phrase)).collect::<Vec<_>>()
+    );
+    let homes: std::collections::HashSet<_> = r.hits.iter().map(|h| h.path.as_str()).collect();
     assert!(homes.contains("src/retry.rs"), "backoff's home surfaced");
     assert!(homes.contains("src/auth.rs"), "the token phrase's home surfaced");
 }
@@ -773,12 +783,7 @@ fn a_floored_phrase_is_named_and_the_rest_still_answer() {
     assert!(r.hits.iter().all(|h| h.phrase == Some(0)), "no hit from the dead phrase");
 
     // Both dead: the refusal shape of §29.2, with per-phrase detail.
-    let r2 = search(
-        dir.path(),
-        "quantum chromodynamics | lattice gauge boson",
-        &o,
-    )
-    .unwrap();
+    let r2 = search(dir.path(), "quantum chromodynamics | lattice gauge boson", &o).unwrap();
     assert!(r2.hits.is_empty() && r2.report.floored);
     assert_eq!(r2.report.floored_mask, 0b11);
 }
@@ -828,8 +833,10 @@ fn bm25_pin_is_honored_and_cold_warm_agree() {
 
     let cold = search(dir.path(), q, &SearchOptions { no_index: true, ..pinned }).unwrap();
     assert!(!cold.report.used_index);
-    let warm_paths: Vec<_> = warm.hits.iter().map(|h| (&h.path, h.start_line, h.end_line)).collect();
-    let cold_paths: Vec<_> = cold.hits.iter().map(|h| (&h.path, h.start_line, h.end_line)).collect();
+    let warm_paths: Vec<_> =
+        warm.hits.iter().map(|h| (&h.path, h.start_line, h.end_line)).collect();
+    let cold_paths: Vec<_> =
+        cold.hits.iter().map(|h| (&h.path, h.start_line, h.end_line)).collect();
     assert_eq!(warm_paths, cold_paths, "the pin must not split cold from warm");
 }
 
@@ -885,8 +892,10 @@ fn bridge_expansion_finds_the_wired_file_and_cold_warm_agree() {
 
     let cold = search(dir.path(), q, &SearchOptions { no_index: true, ..exp }).unwrap();
     assert!(!cold.report.used_index);
-    assert_eq!(warm.report.bridge_terms, cold.report.bridge_terms,
-               "both paths must mine identical terms");
+    assert_eq!(
+        warm.report.bridge_terms, cold.report.bridge_terms,
+        "both paths must mine identical terms"
+    );
     let wp: Vec<_> = warm.hits.iter().map(|h| (&h.path, h.start_line, h.end_line)).collect();
     let cp: Vec<_> = cold.hits.iter().map(|h| (&h.path, h.start_line, h.end_line)).collect();
     assert_eq!(wp, cp, "bridge expansion must not split cold from warm");
@@ -912,7 +921,8 @@ fn prf_expansion_is_cold_warm_identical() {
     .unwrap();
     fs::write(
         dir.path().join("src/stampede.rs"),
-        "//! Stampede control.\npub fn spread_retries(delay: u64) -> u64 { delay * 2 }\n".repeat(4),
+        "//! Stampede control.\npub fn spread_retries(delay: u64) -> u64 { delay * 2 }\n"
+            .repeat(4),
     )
     .unwrap();
 

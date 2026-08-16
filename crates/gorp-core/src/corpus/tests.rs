@@ -31,7 +31,10 @@ fn with_window_holds_the_overlap_share_not_the_line_count() {
     assert!((p.overlap as f32 / p.window as f32) < 0.5, "must stay under the dedupe threshold");
     // A budget measures the same thing in a different unit and would silently
     // win over the window we just set.
-    assert_eq!(ChunkParams { budget: Some(900), ..Default::default() }.with_window(12).budget, None);
+    assert_eq!(
+        ChunkParams { budget: Some(900), ..Default::default() }.with_window(12).budget,
+        None
+    );
 }
 
 #[test]

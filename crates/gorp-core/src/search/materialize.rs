@@ -6,14 +6,13 @@
 //! because a budget that counts only content does not control output
 //! (RESEARCH.md §26.4).
 
-use super::hit::Candidate;
 use super::SearchHit;
 use super::SearchOptions;
+use super::hit::Candidate;
 use crate::corpus;
 use crate::text::token as tokenize;
 use std::collections::HashSet;
 use std::path::Path;
-
 
 /// What one printed line costs beyond its own text: a line number and its
 /// separators.

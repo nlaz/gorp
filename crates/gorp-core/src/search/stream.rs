@@ -83,7 +83,8 @@ pub fn run(
                 mode: Mode::Semantic,
                 ..opts.clone()
             };
-            let pass2 = corpus_pass(root, &files, &expanded_phrases, &sem_only, pool, &mut trace);
+            let pass2 =
+                corpus_pass(root, &files, &expanded_phrases, &sem_only, pool, &mut trace);
             pass.nearest = pass2.nearest;
         }
     }
@@ -167,7 +168,9 @@ pub fn run(
             let as_dist: Vec<(u32, f32)> = ranked.iter().map(|&(id, s)| (id, -s)).collect();
             let o = SearchOptions { maxsim_post: false, ..opts.clone() };
             rerank_maxsim(root, &files, &pass.chunks, sem_query, as_dist, &o, &mut trace)
-                .into_iter().map(|(id, pd)| (id, -pd)).collect()
+                .into_iter()
+                .map(|(id, pd)| (id, -pd))
+                .collect()
         } else {
             ranked
         };
@@ -212,8 +215,11 @@ pub fn run(
         let fm = &files[c.chunk.file_id as usize];
         let text = corpus::lines(root, &fm.path, &c.chunk)?;
         let doc = corpus::doc_text(&fm.path, &text);
-        let embedded =
-            text::embed_query(&text::prose_render_doc(&doc, opts.embed_preproc, opts.path_render));
+        let embedded = text::embed_query(&text::prose_render_doc(
+            &doc,
+            opts.embed_preproc,
+            opts.path_render,
+        ));
         // Through the index's quantization, so diversity reranking sees the
         // same vectors it would warm. Without this the two paths diversify
         // differently and a cached scope answers a query differently from an
@@ -377,11 +383,10 @@ impl Embedder {
             return;
         }
         let start = Instant::now();
-        let mut vecs =
-            ese::encode(
-            self.pending.iter().map(|(_, t)| {
-                text::prose_render_doc(t, self.preproc, self.path_render)
-            }),
+        let mut vecs = ese::encode(
+            self.pending
+                .iter()
+                .map(|(_, t)| text::prose_render_doc(t, self.preproc, self.path_render)),
         );
         for ((id, _), v) in self.pending.iter().zip(vecs.iter_mut()) {
             // Exactly what store::build writes into emb.bin, so the two paths
@@ -410,8 +415,7 @@ fn candidates(
 ) -> Vec<hit::Candidate> {
     // Same pinned-ride-along rule as `indexed::candidates`: ids the
     // `bm25_pin` guarantee appended past the width cut must survive it.
-    let pinned: std::collections::HashSet<u32> =
-        bm25_head.iter().take(pin).copied().collect();
+    let pinned: std::collections::HashSet<u32> = bm25_head.iter().take(pin).copied().collect();
     let mut out: Vec<hit::Candidate> = Vec::with_capacity(limit.min(ranked.len()));
     for (id, score) in ranked {
         if out.len() >= limit {
@@ -476,11 +480,7 @@ fn rerank_maxsim(
                     .map(|text| {
                         let raw = corpus::doc_text(&fm.path, &text);
                         let doc = text::token_vectors(
-                            &text::prose_render_doc(
-                                &raw,
-                                opts.embed_preproc,
-                                opts.path_render,
-                            ),
+                            &text::prose_render_doc(&raw, opts.embed_preproc, opts.path_render),
                             None,
                         );
                         rank::maxsim(&query_tokens, &doc)

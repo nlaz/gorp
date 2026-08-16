@@ -155,10 +155,8 @@ impl FlatBm25 {
             let o = self.off[2] as usize + n_terms as usize * 8;
             u64::from_le_bytes(self.map[o..o + 8].try_into().unwrap())
         };
-        for (i, size, what) in [
-            (1usize, term_bytes, "term text"),
-            (3, post_bytes, "postings"),
-        ] {
+        for (i, size, what) in [(1usize, term_bytes, "term text"), (3, post_bytes, "postings")]
+        {
             let end = self.off[i].checked_add(size).ok_or_else(|| {
                 anyhow::anyhow!("bm25.flat {what} offset overflows; index is corrupt")
             })?;

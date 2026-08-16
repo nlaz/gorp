@@ -46,9 +46,30 @@ fn df_ceiling(n_docs: usize) -> usize {
 /// A deny-list rather than a source allow-list, so a language nobody
 /// enumerated still gets to wire things together.
 const NOT_A_BRIDGE: &[&str] = &[
-    "json", "yml", "yaml", "toml", "ini", "cfg", "conf", "properties", "csv",
-    "tsv", "md", "rst", "txt", "po", "pot", "lock", "sum", "html", "htm",
-    "xml", "svg", "map", "snap", "log",
+    "json",
+    "yml",
+    "yaml",
+    "toml",
+    "ini",
+    "cfg",
+    "conf",
+    "properties",
+    "csv",
+    "tsv",
+    "md",
+    "rst",
+    "txt",
+    "po",
+    "pot",
+    "lock",
+    "sum",
+    "html",
+    "htm",
+    "xml",
+    "svg",
+    "map",
+    "snap",
+    "log",
 ];
 
 fn minable(path: &str) -> bool {
@@ -100,11 +121,8 @@ fn bridge_files(
             e.1 += 1;
         }
     }
-    let mut scored: Vec<(f64, String)> = cover
-        .into_iter()
-        .filter(|(_, (_, n))| *n >= 2)
-        .map(|(p, (s, _))| (s, p))
-        .collect();
+    let mut scored: Vec<(f64, String)> =
+        cover.into_iter().filter(|(_, (_, n))| *n >= 2).map(|(p, (s, _))| (s, p)).collect();
     scored.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
     scored.into_iter().take(N_BRIDGES).map(|(_, p)| p).collect()
 }
@@ -168,10 +186,7 @@ pub fn bridge_terms(
     }
     let qtokens: Vec<String> = {
         let mut seen = HashSet::new();
-        tokenize::tokens(query)
-            .into_iter()
-            .filter(|t| seen.insert(t.clone()))
-            .collect()
+        tokenize::tokens(query).into_iter().filter(|t| seen.insert(t.clone())).collect()
     };
     if qtokens.len() < 2 {
         return Vec::new(); // a bridge covers >= 2 tokens; one token has none
@@ -218,11 +233,11 @@ mod tests {
         // identifier; the gold contains only its own identifier; a distractor
         // contains one query token amid noise.
         let docs = [
-            "zebraq quokkaz hiddenfn route setup",            // bridge 1
-            "zebraq quokkaz hiddenfn registry wiring",        // bridge 2
-            "hiddenfn implementation detail work",            // gold
-            "zebraq unrelated noise elsewhere padding",       // distractor
-            "totally different content here",                 // filler
+            "zebraq quokkaz hiddenfn route setup",      // bridge 1
+            "zebraq quokkaz hiddenfn registry wiring",  // bridge 2
+            "hiddenfn implementation detail work",      // gold
+            "zebraq unrelated noise elsewhere padding", // distractor
+            "totally different content here",           // filler
         ];
         let s = store(&docs);
         let terms = bridge_terms(
@@ -259,11 +274,23 @@ mod tests {
     fn single_token_queries_and_lone_bridges_expand_to_nothing() {
         let docs = ["zebraq hiddenfn only one file has this"];
         let s = store(&docs);
-        let one_token = bridge_terms("zebraq", &s, |c| format!("f{c}"), None,
-                                     |_| Some(docs[0].to_string()), 4);
+        let one_token = bridge_terms(
+            "zebraq",
+            &s,
+            |c| format!("f{c}"),
+            None,
+            |_| Some(docs[0].to_string()),
+            4,
+        );
         assert!(one_token.is_empty(), "one token cannot be wired to anything");
-        let one_bridge = bridge_terms("zebraq hiddenfn", &s, |c| format!("f{c}"), None,
-                                      |_| Some(docs[0].to_string()), 4);
+        let one_bridge = bridge_terms(
+            "zebraq hiddenfn",
+            &s,
+            |c| format!("f{c}"),
+            None,
+            |_| Some(docs[0].to_string()),
+            4,
+        );
         assert!(one_bridge.is_empty(), "a lone bridge has no committee");
     }
 
@@ -272,8 +299,11 @@ mod tests {
         let w = weighted_terms("alpha alpha beta", &["gamma".into()], 0.4);
         assert_eq!(
             w,
-            vec![("alpha".to_string(), 2.0), ("beta".to_string(), 1.0),
-                 ("gamma".to_string(), 0.4)],
+            vec![
+                ("alpha".to_string(), 2.0),
+                ("beta".to_string(), 1.0),
+                ("gamma".to_string(), 0.4)
+            ],
         );
     }
 }

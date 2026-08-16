@@ -125,11 +125,11 @@ pub(crate) fn compute(lines: &[&str], path: &str, start: u32, end: u32) -> Vec<U
         }
         if let Some(o) = opener {
             let (mut rows, mut chars) = (0usize, 0usize);
-            for j in o..ws {
+            for (j, line) in lines.iter().enumerate().take(ws).skip(o) {
                 if rows >= BLOCK_LINES_CAP {
                     break;
                 }
-                chars += lines[j].trim().chars().count();
+                chars += line.trim().chars().count();
                 // The opener itself is exempt from the character cap, the
                 // same rule `grow_to_budget` applies to the matched line: a
                 // trigger that shows nothing is worse than one long line.
@@ -244,10 +244,8 @@ fn is_flow(trimmed: &str) -> bool {
     if trimmed.starts_with('}') {
         return true;
     }
-    let first: String = trimmed
-        .chars()
-        .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
-        .collect();
+    let first: String =
+        trimmed.chars().take_while(|c| c.is_ascii_alphanumeric() || *c == '_').collect();
     matches!(
         first.as_str(),
         "else"

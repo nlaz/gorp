@@ -160,12 +160,9 @@ fn walk_and_load_are_no_longer_the_same_field() {
     let dir = tempfile::tempdir().unwrap();
     corpus(dir.path());
 
-    let cold = search(
-        dir.path(),
-        "backoff",
-        &SearchOptions { no_index: true, ..Default::default() },
-    )
-    .unwrap();
+    let cold =
+        search(dir.path(), "backoff", &SearchOptions { no_index: true, ..Default::default() })
+            .unwrap();
     assert!(cold.report.walk_ms() > 0.0, "the cold path walks");
     assert_eq!(cold.report.load_ms(), 0.0, "the cold path loads nothing");
 
@@ -284,12 +281,9 @@ fn a_scope_with_no_index_reports_not_applicable() {
     let _guard = isolate_cache();
     let dir = tempfile::tempdir().unwrap();
     corpus(dir.path());
-    let r = search(
-        dir.path(),
-        "backoff",
-        &SearchOptions { no_index: true, ..Default::default() },
-    )
-    .unwrap();
+    let r =
+        search(dir.path(), "backoff", &SearchOptions { no_index: true, ..Default::default() })
+            .unwrap();
     assert_eq!(r.report.repair, gorp_core::cache::repair::RepairOutcome::NotApplicable);
 }
 

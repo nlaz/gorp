@@ -209,6 +209,7 @@ fn merge(mut base: Value, extra: Value) -> Value {
 }
 
 /// Build the envelope for one search invocation.
+#[allow(clippy::too_many_arguments)] // one envelope, one argument per field
 pub fn search_envelope(
     phase: Phase,
     mode: Mode,

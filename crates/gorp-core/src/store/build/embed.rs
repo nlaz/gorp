@@ -5,7 +5,7 @@
 //! same working set. `ese` also parallelizes internally above 16 texts, so
 //! batches are the unit of that too.
 
-use crate::text::{self, EmbedPreproc, PathRender, GorpHnsw, SifStats};
+use crate::text::{self, EmbedPreproc, GorpHnsw, PathRender, SifStats};
 use crate::trace::elapsed_ms;
 use anyhow::{Context, Result};
 use rayon::prelude::*;

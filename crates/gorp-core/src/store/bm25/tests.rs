@@ -246,7 +246,7 @@ fn an_inflated_doc_count_is_an_error() {
 #[test]
 fn a_valid_index_still_opens_and_answers() {
     // The bounds checks must not reject anything real.
-    let idx = open_bytes(&sample_bytes()).ok().expect("a valid index must open");
+    let idx = open_bytes(&sample_bytes()).expect("a valid index must open");
     assert_eq!(idx.n_docs(), 4);
     assert!(!idx.query("dequeue urgent", 5).is_empty());
 }

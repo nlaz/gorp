@@ -112,4 +112,3 @@ pub fn opts(mode: Mode) -> SearchOptions {
 pub fn stream_opts(mode: Mode) -> SearchOptions {
     SearchOptions { no_index: true, ..opts(mode) }
 }
-
