@@ -212,6 +212,14 @@ that involve embeddings all moved, BM25 and keyword did not.
   kernel. ~3% of a warm kernel query and ~9% of a small-corpus one. It buys
   +0.039 strict / +0.048 overlap on file-scoped agent queries and +0.017 bm25
   on directory-scoped ones (RESEARCH.md §24.2)
+- the learned checklist (`--learned-blend`, default 0.5 since §35.6) is
+  arithmetic over the ≤30 finalize candidates — cost unmeasurable against a
+  file read. It buys +0.012 strict [+0.005, +0.020] on directory-scoped real
+  agent queries, +0.010 on file-scoped, +0.025 file rank, with the bm25
+  tripwire improving rather than holding; the const weights live in
+  `search/checklist.rs`, retrained by `eval/locbench/checklist_train.py`
+  from a `guessplay.py --dump-hits` harvest (the two feature lists must not
+  drift — both say so)
 - corpus walk (parallel since FIXES.md #24): 272 ms on the 84k-file kernel,
   19 ms on vscode, ~5 ms on tokio/jekyll. Paid by a build, by `--check-stale`,
   and — the reason it was worth parallelizing — by read-repair on every warm
