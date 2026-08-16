@@ -4,9 +4,9 @@ name: release
 # ranking snapshot, and publishes a GitHub Release with prebuilt binaries.
 #
 # PREREQUISITE: same as ci.yml — the `BOG_TOKEN` secret must grant
-# `contents: read` on flowercomputers/ese and flowercomputers/anny, which are
-# checked out as siblings. The first build per cache key downloads the ese
-# weight table (~40 MB) from Hugging Face.
+# `contents: read` on the nlaz/ese and nlaz/anny mirrors, which are checked
+# out as siblings (see ci.yml for why mirrors). The first build per cache key
+# downloads the ese weight table (~40 MB) from Hugging Face.
 #
 # Two ways to run it:
 #   - push a tag `v<version>` (must equal the workspace version in Cargo.toml)
@@ -49,12 +49,12 @@ jobs:
           path: gorp
       - uses: actions/checkout@v4
         with:
-          repository: flowercomputers/ese
+          repository: nlaz/ese
           path: ese
           token: ${{ secrets.BOG_TOKEN }}
       - uses: actions/checkout@v4
         with:
-          repository: flowercomputers/anny
+          repository: nlaz/anny
           path: anny
           token: ${{ secrets.BOG_TOKEN }}
 

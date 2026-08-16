@@ -1,10 +1,11 @@
 name: ci
 
 # PREREQUISITE: this workspace builds against sibling checkouts of the Bog
-# stack (`../ese`, `../anny`), which live in a different org than this repo.
-# CI therefore needs read access to them: set the `BOG_TOKEN` secret to a PAT
-# with `contents: read` on flowercomputers/ese and flowercomputers/anny, or
-# make those repositories public and drop the `token:` lines below.
+# stack (`../ese`, `../anny`). The canonical repos live in the flowercomputers
+# org, which this account can read but not write and whose forking is
+# disabled — so CI builds from the nlaz/ese and nlaz/anny mirrors, kept in
+# sync by pushing the local checkouts. The `BOG_TOKEN` secret must grant
+# `contents: read` on those mirrors.
 #
 # The first build downloads the ese weight table over the network (~40 MB into
 # OUT_DIR); the cargo cache below keeps that to once per lockfile change.
@@ -27,12 +28,12 @@ jobs:
           path: gorp
       - uses: actions/checkout@v4
         with:
-          repository: flowercomputers/ese
+          repository: nlaz/ese
           path: ese
           token: ${{ secrets.BOG_TOKEN }}
       - uses: actions/checkout@v4
         with:
-          repository: flowercomputers/anny
+          repository: nlaz/anny
           path: anny
           token: ${{ secrets.BOG_TOKEN }}
 
