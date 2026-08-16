@@ -121,7 +121,13 @@ mod palette {
     /// the code on it is just code.
     pub const LINE_CTX: &str = "\x1b[90m";
     /// A word of the query, found in the text (see [`super::Emphasis`]).
-    pub const TERM: &str = "\x1b[1;92m";
+    ///
+    /// Colour without weight, deliberately. Bold said two things at once and
+    /// the loud one was winning: on a TypeScript tree, emphasis put bold text
+    /// on 37% of printed rows while the thing bold is *supposed* to mean —
+    /// the chosen line — is 13% of them. Green already says "your word is
+    /// here"; bold now says only "the engine picked this line".
+    pub const TERM: &str = "\x1b[92m";
     pub const RESET: &str = "\x1b[0m";
 }
 
@@ -152,11 +158,24 @@ fn paint(on: bool, style: &str, text: impl std::fmt::Display) -> String {
 /// noisier to read than painting the identifier, and the reader is looking
 /// for the line, not the character.
 ///
-/// Two guards keep this from painting the whole screen. Words shorter than
-/// three characters and the closed stoplist below are dropped, because a
-/// query is usually a sentence and `the` occurs in every row of every result;
-/// and `terms` is empty whenever colour is off, so the whole mechanism costs
-/// one branch under a pipe.
+/// Four guards keep this from painting the whole screen, and the measurement
+/// that motivated them is in the commit that added the last two: over 60 real
+/// harvested agent queries, emphasis painted **11.5% of every printed
+/// character** on the vscode tree (7.4% on tokio, 3.3% on prose), and a third
+/// of one screen in green is not emphasis.
+///
+/// 1. Words shorter than three characters and the closed stoplist below are
+///    dropped — a query is usually a sentence and `the` is in every row.
+/// 2. `terms` is empty whenever colour is off, so the whole mechanism costs
+///    one branch under a pipe.
+/// 3. [`Emphasis::for_result`] drops a word this *particular answer* repeats
+///    everywhere ([`COMMON_SHARE`]).
+/// 4. At most [`ROW_PAINT_CAP`] runs are painted on any one row.
+///
+/// Both budgets are ranked-only, and that asymmetry is the point: in ranked
+/// mode emphasis is a *hint* and may be rationed, while in exact mode it is
+/// the *match itself* — rationing that would hide a hit the caller asked for
+/// and is entitled to see. [`Match`] is what tells the two apart.
 #[derive(Default)]
 pub struct Emphasis {
     terms: Vec<String>,
@@ -178,6 +197,36 @@ pub enum Match {
     /// and emphasis that outruns the match is a lie about the result.
     Literal,
 }
+
+/// Painted runs allowed on one row of a ranked result.
+///
+/// Two, because a row that lights up three times has stopped pointing at
+/// anything: the eye needs somewhere to land, not a highlighted paragraph.
+/// The rest of the row prints plain — nothing is hidden, the line is right
+/// there, only the paint stops.
+const ROW_PAINT_CAP: usize = 2;
+
+/// Share of a result's printed rows a query word may appear in before it
+/// stops being emphasised *in that result*.
+///
+/// The display-side twin of idf, and the same argument BM25 makes with
+/// weights: a word in every row distinguishes nothing, so painting it costs
+/// ink and returns no information. Searching "watchers" inside
+/// `parcelWatcher.ts` is the shape this exists for — every identifier on
+/// screen contains it, so emphasis marks the whole file and points nowhere.
+///
+/// The cost, stated plainly because it is real: this makes emphasis
+/// *result-dependent*. The same word can be painted in one search and not the
+/// next, and a reader cannot deduce the threshold from what they are looking
+/// at. That is a genuine loss of predictability, accepted because the
+/// alternative — a green screen whenever the query word is the subject of the
+/// file — loses more.
+const COMMON_SHARE: f32 = 0.35;
+
+/// Below this many printed rows there is no distribution to judge, so no word
+/// is dropped: in a four-row answer, "appears in two rows" is 50% and means
+/// nothing at all.
+const ROWS_TO_JUDGE: usize = 6;
 
 /// Query words that carry no location information. Not the engine's business
 /// — BM25 handles these with idf and needs no list — but a *display* one:
@@ -234,6 +283,56 @@ impl Emphasis {
         self.terms.is_empty()
     }
 
+    /// This answer's emphasis: the query's words, minus the ones *these rows*
+    /// repeat everywhere ([`COMMON_SHARE`]).
+    ///
+    /// Computed per result rather than per block, because "everywhere in the
+    /// answer" is the claim being tested and a block is too small a sample to
+    /// test it on. Exact mode is returned untouched — see [`Match`].
+    pub fn for_result<'a>(&self, rows: impl Iterator<Item = &'a str>) -> Self {
+        let terms = self.terms.clone();
+        if self.how == Match::Literal || terms.is_empty() {
+            return Self { terms, how: Match::Literal };
+        }
+        let mut seen = vec![0usize; terms.len()];
+        let mut n = 0usize;
+        for row in rows {
+            n += 1;
+            // One row can only count once per term, which is what makes this
+            // a document frequency rather than a total.
+            let mut hit = vec![false; terms.len()];
+            for (is_word, part) in runs(row) {
+                if !is_word {
+                    continue;
+                }
+                for tok in gorp_core::text::token::tokens(part) {
+                    if let Ok(i) = terms.binary_search(&tok) {
+                        hit[i] = true;
+                    }
+                }
+            }
+            for (i, h) in hit.iter().enumerate() {
+                seen[i] += *h as usize;
+            }
+        }
+        if n < ROWS_TO_JUDGE {
+            return Self { terms, how: Match::Subtoken };
+        }
+        let cut = (n as f32 * COMMON_SHARE).ceil() as usize;
+        let kept: Vec<String> =
+            terms.into_iter().zip(&seen).filter(|(_, c)| **c <= cut).map(|(t, _)| t).collect();
+        Self { terms: kept, how: Match::Subtoken }
+    }
+
+    /// Painted runs allowed on one row: [`ROW_PAINT_CAP`] for a ranked hint,
+    /// unbounded for an exact match, which is a result rather than a hint.
+    fn cap(&self) -> usize {
+        match self.how {
+            Match::Subtoken => ROW_PAINT_CAP,
+            Match::Literal => usize::MAX,
+        }
+    }
+
     /// Does this run of `[alphanumeric_]` characters carry a query word?
     fn hits_run(&self, run: &str) -> bool {
         match self.how {
@@ -258,6 +357,16 @@ impl Emphasis {
     /// query word. Returned unchanged when there is nothing to paint, so the
     /// no-colour path allocates a plain copy and no escapes at all.
     fn apply(&self, text: &str, base: &str, on: bool) -> String {
+        self.apply_capped(text, base, on, self.cap())
+    }
+
+    /// As [`Emphasis::apply`], with the row budget overridden.
+    ///
+    /// A path is the one string that takes no budget: it is a single line
+    /// with a handful of tokens, and the token that matters most — the file's
+    /// own name — is the last one, so a cap counted from the left would spend
+    /// itself on directories and leave the filename plain.
+    fn apply_capped(&self, text: &str, base: &str, on: bool, cap: usize) -> String {
         if !on {
             return text.to_string();
         }
@@ -272,8 +381,10 @@ impl Emphasis {
         out.push_str(base);
         // Runs are split exactly as the tokenizer splits them, so what is
         // tested is what is painted.
+        let mut painted = 0;
         for (is_word, part) in runs(text) {
-            if is_word && self.hits_run(part) {
+            if is_word && painted < cap && self.hits_run(part) {
+                painted += 1;
                 out.push_str(palette::TERM);
                 out.push_str(part);
                 out.push_str(RESET);
@@ -484,6 +595,26 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
         keyword_blocks(root, &hits[..shown], opts);
         return;
     }
+    // The emphasis is narrowed to this answer before a row of it is printed
+    // ([`Emphasis::for_result`]): a query word that turns up in a third of
+    // the rows about to print marks the whole result and points at nothing,
+    // so it stops being painted here. The rows counted are the ones the hits
+    // carry; `-C` widening is not, because a caller asking for context is
+    // asking to see more of the same file, not to change what stands out in
+    // it. `..*opts` rather than a second parameter threaded through six call
+    // sites: `Print` is a `Copy` handle holding a borrow, so shadowing it is
+    // how the narrowed set reaches every writer below.
+    let mut printed: Vec<&str> = Vec::new();
+    for hit in &hits[..shown] {
+        match (hit.unit_rows.as_ref().filter(|r| !r.is_empty()), hit.lines.as_ref()) {
+            (Some(rows), _) => printed.extend(rows.iter().map(|r| r.text.as_str())),
+            (None, Some(lines)) => printed.extend(lines.iter().map(String::as_str)),
+            (None, None) => printed.push(hit.text.as_str()),
+        }
+    }
+    let live = opts.emphasis.for_result(printed.into_iter());
+    let opts = &Print { emphasis: &live, ..*opts };
+
     for hit in &hits[..shown] {
         if opts.json {
             // Shaped here too, rather than left raw for a machine consumer: the
@@ -743,7 +874,7 @@ impl Print<'_> {
     /// where the question is asked.
     fn path(&self, path: &str) -> String {
         let quoted = quote_path(path);
-        self.emphasis.apply(&quoted, palette::PATH, self.color)
+        self.emphasis.apply_capped(&quoted, palette::PATH, self.color, usize::MAX)
     }
 }
 

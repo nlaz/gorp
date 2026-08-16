@@ -43,6 +43,44 @@ cases record `--json`).
   no-op for hit display (it still restores the path to a one-file `-c`
   count).
 
+## 2026-08-16 — an ink budget for emphasis
+
+Query-word emphasis was measured before it was tuned: 60 real harvested agent
+queries (`kind=guess_ranked`, `eval/queries/guesses-v1.jsonl`) at `-k 5`
+against three corpora, counting the escape codes in stdout. It painted
+**11.5% of every printed character** on the vscode tree — 7.4% on tokio, 3.3%
+on prose, and 35% on the worst single query. A third of a screen in green is
+not emphasis.
+
+Three changes, display only (`tools/snapshot.sh --check` byte-identical):
+
+- **A word this answer repeats everywhere stops being painted in it.** Any
+  query word appearing in more than 35% of the rows about to print is dropped
+  from the emphasis for that result — the display-side twin of idf, and the
+  same argument BM25 already makes with weights. Searching `watchers` inside
+  `parcelWatcher.ts` used to mark the whole file and point nowhere. The cost
+  is real and is stated in the code: emphasis becomes result-dependent, so
+  the same word can paint in one search and not the next.
+- **At most two painted runs on a row.** A row that lights up three times has
+  stopped pointing at anything. Nothing is hidden — the line prints in full,
+  only the paint stops.
+- **Terms are no longer bold**, just green (`92`, was `1;92`). Bold said two
+  things at once and the loud one won: bold text landed on 37% of printed
+  rows against a bold gutter number — the line the engine chose — on 13%.
+  Bold now means only "the engine picked this line".
+
+Both budgets are ranked-only, and the asymmetry is the point: in ranked mode
+emphasis is a *hint* and may be rationed; in exact mode it is the *match*, and
+rationing it would hide a hit the caller asked for. A path is exempt from the
+row cap too — its last segment is the filename, and a cap counted from the
+left would spend itself on directories.
+
+Result on the same measurement: **8.0% ink on vscode** (−30%), 4.9% on tokio
+(−34%), 2.9% median on prose. Worst query 35% → 23%. One consequence worth
+knowing: 4 of 60 vscode queries now paint nothing at all, because every word
+they used was everywhere in their own result — "no green" now means either
+"no lexical overlap" or "your word is the whole file".
+
 ## 2026-08-16 — colour on a terminal, and a gutter that is two spaces
 
 Display only; ranking is untouched (`tools/snapshot.sh --check` is

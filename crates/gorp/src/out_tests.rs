@@ -67,8 +67,8 @@ fn ranked_emphasis_follows_the_engine_tokenizer() {
     let e = Emphasis::of("how is the user name validated");
     let painted = |text: &str| e.apply(text, "", true);
 
-    assert!(painted("fn getUserName(&self)").contains("\x1b[1;92mgetUserName\x1b[0m"));
-    assert!(painted("let user_name = 1;").contains("\x1b[1;92muser_name\x1b[0m"));
+    assert!(painted("fn getUserName(&self)").contains("\x1b[92mgetUserName\x1b[0m"));
+    assert!(painted("let user_name = 1;").contains("\x1b[92muser_name\x1b[0m"));
     // Stopwords and short words carry no location and are dropped, or every
     // row of every result would light up.
     assert_eq!(painted("how is the cat"), "how is the cat");
@@ -83,8 +83,50 @@ fn ranked_emphasis_follows_the_engine_tokenizer() {
 #[test]
 fn literal_emphasis_does_not_decompose_the_pattern() {
     let e = Emphasis::literal("compute_backoff_delay");
-    assert!(e.apply("fn compute_backoff_delay(n)", "", true).contains("\x1b[1;92m"));
+    assert!(e.apply("fn compute_backoff_delay(n)", "", true).contains("\x1b[92m"));
     assert_eq!(e.apply("/// Delay before attempt", "", true), "/// Delay before attempt");
+}
+
+/// The row budget: at most two runs painted, the rest printed plain. Nothing
+/// is hidden by it — the line prints in full, only the paint stops — and a
+/// row that lights up three times has stopped pointing at anything anyway.
+#[test]
+fn a_row_paints_at_most_twice() {
+    let e = Emphasis::of("watcher parcel throttle");
+    let row = e.apply("const watcher = parcel.throttle(watcher)", "", true);
+    assert_eq!(row.matches("\x1b[92m").count(), 2, "cap holds: {row:?}");
+    assert!(row.contains("throttle"), "the unpainted run still prints: {row:?}");
+
+    // Not in exact mode: there the emphasis IS the match, and rationing it
+    // would hide a hit the caller asked for.
+    let lit = Emphasis::literal("watcher");
+    let row = lit.apply("watcher watcher watcher", "", true);
+    assert_eq!(row.matches("\x1b[92m").count(), 3, "a literal is never rationed: {row:?}");
+}
+
+/// The result budget: a word this answer repeats everywhere stops being
+/// emphasised in it, because a word in every row distinguishes no row. The
+/// cost is that emphasis is result-dependent — asserted here so the trade is
+/// visible in the tests and not only in a comment.
+#[test]
+fn a_word_in_every_row_stops_being_painted() {
+    let e = Emphasis::of("watcher throttle");
+    let rows = [
+        "class Watcher {",
+        "  watcher.start()",
+        "  watcher.stop()",
+        "  return watcher",
+        "  let w = watcher",
+        "  throttle(w)",
+        "  drop(watcher)",
+    ];
+    let live = e.for_result(rows.iter().copied());
+    assert!(!live.apply("watcher.start()", "", true).contains("\x1b[92m"), "common word drops");
+    assert!(live.apply("throttle(w)", "", true).contains("\x1b[92m"), "the rare one stays");
+
+    // Too few rows to judge a distribution on: nothing is dropped.
+    let live = e.for_result(["watcher", "watcher"].iter().copied());
+    assert!(live.apply("watcher.start()", "", true).contains("\x1b[92m"), "no cut on 2 rows");
 }
 
 /// A base style survives an emphasis inside it: the reset that closes the

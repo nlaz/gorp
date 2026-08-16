@@ -295,8 +295,8 @@ fn emphasis_marks_the_chosen_line_its_context_and_the_query_words() {
     assert!(r.stdout.contains("\x1b[90m"), "context rows carry a grey gutter: {:?}", r.stdout);
 
     // A query word is emphasised, and it is a word of the query.
-    let i = r.stdout.find("\x1b[1;92m").expect("a query word is emphasised");
-    let painted: String = r.stdout[i + 7..].chars().take_while(|c| *c != '\x1b').collect();
+    let i = r.stdout.find("\x1b[92m").expect("a query word is emphasised");
+    let painted: String = r.stdout[i + 5..].chars().take_while(|c| *c != '\x1b').collect();
     assert!(
         ["retry", "delay", "computed", "compute"].contains(&painted.to_lowercase().as_str()),
         "emphasis lands on a query word, got {painted:?}"
@@ -308,7 +308,7 @@ fn emphasis_marks_the_chosen_line_its_context_and_the_query_words() {
     let ctx: Vec<&str> =
         exact.lines().into_iter().filter(|l| l.contains("Delay before")).collect();
     assert_eq!(ctx.len(), 1, "the context line is printed: {:?}", exact.stdout);
-    assert!(!ctx[0].contains("\x1b[1;92m"), "a subtoken is not the literal: {:?}", ctx[0]);
+    assert!(!ctx[0].contains("\x1b[92m"), "a subtoken is not the literal: {:?}", ctx[0]);
 }
 
 /// The gutter between a row's line number and its text is two spaces, not a
