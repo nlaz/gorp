@@ -36,7 +36,9 @@ jobs:
         include:
           - runner: macos-14
             target: aarch64-apple-darwin
-          - runner: macos-13
+          # macos-13, the old intel image, was retired by GitHub in late 2025
+          # and queues forever; macos-15-intel is the supported x86_64 image.
+          - runner: macos-15-intel
             target: x86_64-apple-darwin
           - runner: ubuntu-latest
             target: x86_64-unknown-linux-gnu
