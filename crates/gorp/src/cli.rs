@@ -115,6 +115,17 @@ pub struct Cli {
     #[arg(short = 'F', long)]
     pub fixed_string: bool,
 
+    /// Match whole words only (exact mode)
+    #[arg(short = 'w', long = "word-regexp")]
+    pub word: bool,
+
+    /// Print match counts per file instead of matches (exact mode).
+    /// Files with zero matches are not listed — ripgrep's rule, not GNU
+    /// grep's: a recursive tool enumerating every zero-count file is noise.
+    /// With --json, one {"path", "count"} object per line.
+    #[arg(short = 'c', long = "count")]
+    pub count: bool,
+
     /// Print every match in exact mode (default: first 250 plus a count)
     #[arg(long)]
     pub all: bool,
@@ -122,11 +133,11 @@ pub struct Cli {
     /// Number of ranked results (bare `-k` means 20)
     ///
     /// Two defaults, because the flag's absence and its emptiness are different
-    /// statements. Absent means "no opinion" and gets the engine's 10. Present
+    /// statements. Absent means "no opinion" and gets the engine's 5. Present
     /// with nothing after it means "more than you were going to give me" — the
-    /// only thing typing `-k` at all can be asking for, since 10 is already
+    /// only thing typing `-k` at all can be asking for, since 5 is already
     /// what you get for free. 20 is that: the mode of every explicit `-k` in
-    /// the measured agent corpus (31 of 98) and twice the default.
+    /// the measured agent corpus (31 of 98).
     ///
     /// This is not grep compatibility — neither grep nor ripgrep has `-k` in
     /// any form, so there is no other tool's behavior to honor here. It is the
@@ -202,12 +213,14 @@ pub struct Cli {
     /// Emit the full machine-readable trace envelope (one JSON object per
     /// engine invocation) to stderr. Set GORP_TRACE_FILE to append it to a
     /// file instead, which also captures invocations this flag cannot see.
-    #[arg(long)]
+    /// Hidden: a harness surface, and the env var is the more capable one.
+    #[arg(long, hide = true)]
     pub stats_json: bool,
 
     /// Re-walk the corpus after an indexed search to report stale files
-    /// (costs a directory walk; independent of --stats)
-    #[arg(long)]
+    /// (costs a directory walk; independent of --stats). Hidden: an operator
+    /// probe, not part of the promised search surface.
+    #[arg(long, hide = true)]
     pub check_stale: bool,
 
     /// grep compatibility, for callers arriving with grep muscle memory.
@@ -323,7 +336,9 @@ pub struct Tuning {
     /// Passing it at all opts out of the fine-window display and back into a
     /// chunk-cut passage, which is why the default lives in `SearchOptions`
     /// rather than here: the engine needs to know asked-for from defaulted.
-    #[arg(long = "passage-chars")]
+    /// Hidden like the rest of `Tuning` — it was the one member visible in
+    /// --help, an accident, not a decision.
+    #[arg(long = "passage-chars", hide = true)]
     pub passage_chars: Option<u32>,
 
     /// Disable the fine rerank: rank and display whole chunks, the pre-§28.2
@@ -451,6 +466,63 @@ pub struct Tuning {
     /// definition recurses and window-splits
     #[arg(long, hide = true, default_value_t = gorp_core::FUNC_CAP_DEFAULT)]
     pub chunk_cap: u32,
+}
+
+/// The resolved passage request. Four flags express it (`--full`,
+/// `--passage-lines`, `--passage-chars`, and their absence) and all four keep
+/// parsing so RESEARCH.md's arms reproduce — but their precedence lives here,
+/// once, instead of being hand-resolved expression by expression in
+/// `options()`.
+pub struct PassageShape {
+    /// Line budget; `u32::MAX` under `--full`, 0 means "use `chars`".
+    pub lines: u32,
+    /// Character budget, defaulted from the engine when not passed.
+    pub chars: u32,
+    /// Whether any passage flag was passed at all. The engine needs asked-for
+    /// distinct from defaulted: an explicit passage request opts out of the
+    /// fine-window/unit display (`passage_override`).
+    pub explicit: bool,
+}
+
+impl Tuning {
+    /// Precedence: `--full` beats `--passage-lines` beats `--passage-chars` —
+    /// coarsest request wins, and a line budget bypasses the character one.
+    pub fn passage_shape(&self) -> PassageShape {
+        PassageShape {
+            lines: if self.full { u32::MAX } else { self.passage_lines },
+            chars: self.passage_chars.unwrap_or(SearchOptions::default().passage_chars),
+            explicit: self.passage_chars.is_some() || self.passage_lines > 0 || self.full,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    fn tuning(args: &[&str]) -> Tuning {
+        Cli::parse_from([&["gorp", "q"], args].concat()).tuning
+    }
+
+    /// The precedence table `passage_shape` promises: full > lines > chars,
+    /// and `explicit` exactly when any of the three was passed.
+    #[test]
+    fn passage_shape_resolves_the_precedence_in_one_place() {
+        let none = tuning(&[]).passage_shape();
+        assert_eq!(none.lines, 0);
+        assert_eq!(none.chars, SearchOptions::default().passage_chars);
+        assert!(!none.explicit);
+
+        let chars = tuning(&["--passage-chars", "100"]).passage_shape();
+        assert_eq!((chars.lines, chars.chars, chars.explicit), (0, 100, true));
+
+        let lines = tuning(&["--passage-lines", "6", "--passage-chars", "100"]).passage_shape();
+        assert_eq!((lines.lines, lines.chars, lines.explicit), (6, 100, true));
+
+        let full = tuning(&["--full", "--passage-lines", "6"]).passage_shape();
+        assert_eq!((full.lines, full.explicit), (u32::MAX, true));
+    }
 }
 
 #[derive(Subcommand)]

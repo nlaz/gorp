@@ -51,7 +51,7 @@ pub fn run(cli: &Cli, query: &str) -> Result<i32> {
         None => opts.clone(),
     };
     let mut result = search(&root, query, &search_opts)?;
-    let dropped = filter.apply(&mut result.hits, opts.k);
+    let dropped = filter.apply(&mut result.hits, (mode != Mode::Keyword).then_some(opts.k));
     // The filter selects from the complete hit list (retention was off), so
     // the post-filter list IS the answer — restate the totals the footer
     // reads, or it would report matches the filter just dropped.
@@ -91,7 +91,13 @@ pub fn run(cli: &Cli, query: &str) -> Result<i32> {
     } else {
         result.hits.len()
     };
-    out::hits(&root, &result.hits, shown, &print_opts(cli, &given));
+    // `-c` beats `-l`, grep's own precedence: counts are the more specific
+    // request, and a caller passing both gets the one that says more.
+    if cli.count {
+        out::counts(&per_file_counts(mode, &filter, &result), &print_opts(cli, &given));
+    } else {
+        out::hits(&root, &result.hits, shown, &print_opts(cli, &given));
+    }
     if dropped {
         // Name the filter that actually dropped them. Saying "the paths given"
         // when `--lines` did the cutting sends the caller to widen a scope that
@@ -102,11 +108,15 @@ pub fn run(cli: &Cli, query: &str) -> Result<i32> {
                  range were dropped",
                 if hi == u32::MAX { "end".to_string() } else { hi.to_string() }
             ),
-            None => eprintln!(
+            // Ranked mode only: there the paths cut into a corpus-wide top-k
+            // and the caller should hear that. In exact mode filtering to the
+            // paths given is grep's ordinary contract — nothing was "narrowed".
+            None if mode != Mode::Keyword => eprintln!(
                 "{PROG}: results narrowed to the paths given · some ranked matches \
                  elsewhere in {} were dropped",
                 root.display()
             ),
+            None => {}
         }
     }
 
@@ -117,7 +127,13 @@ pub fn run(cli: &Cli, query: &str) -> Result<i32> {
         && result.hits.is_empty()
         && suggest_ranked_alternatives(cli, &root, query, &opts);
 
-    out::footer(mode, &result, shown, suggested);
+    // When `-c` answered, the exact-mode footer would restate the counts the
+    // caller just read on stdout. The miss footer still prints: an empty
+    // count list needs its "wrong path?" guidance as much as an empty match
+    // list does, and the walk-errors note rides it.
+    if !(cli.count && mode == Mode::Keyword && !result.hits.is_empty()) {
+        out::footer(mode, &result, shown, suggested);
+    }
     if cli.stats {
         out::stats(mode, &result);
     }
@@ -258,9 +274,20 @@ impl Filter {
         under && globbed
     }
 
-    /// Retain matching hits and truncate to `k`. Returns whether anything was
-    /// dropped *by the filter* — not by the truncation, which is ordinary top-k.
-    fn apply(&self, hits: &mut Vec<gorp_core::search::SearchHit>, k: usize) -> bool {
+    /// Retain matching hits, then truncate to `truncate_to` when given.
+    /// Returns whether anything was dropped *by the filter* — not by the
+    /// truncation, which is ordinary top-k.
+    ///
+    /// Truncation keys off mode, not filter presence: ranked mode's contract
+    /// is top-k, and `widen`'s over-fetch (up to 2000) makes cutting back to
+    /// `k` mandatory there. Exact mode's contract is enumeration — a filter
+    /// selects which matches count, never how many are reported — so its
+    /// caller passes `None` and the print cap alone bounds the output.
+    fn apply(
+        &self,
+        hits: &mut Vec<gorp_core::search::SearchHit>,
+        truncate_to: Option<usize>,
+    ) -> bool {
         if !self.active() {
             return false;
         }
@@ -270,7 +297,9 @@ impl Filter {
                 && self.lines.is_none_or(|(lo, hi)| h.line >= lo && h.line <= hi)
         });
         let dropped = hits.len() < before;
-        hits.truncate(k);
+        if let Some(k) = truncate_to {
+            hits.truncate(k);
+        }
         dropped
     }
 }
@@ -293,6 +322,30 @@ fn parse_lines(spec: &str) -> Result<(u32, u32)> {
         anyhow::bail!("bad --lines {spec:?}: {lo} is after {hi}");
     }
     Ok((lo, hi))
+}
+
+/// What `-c` prints: matches per file, in the order the hits would have
+/// printed. Exact mode with no filter reads the scan's own counts, which
+/// survive retention; exact mode with a filter counts the filtered hits,
+/// which are complete because retention is off whenever a filter is active.
+/// Ranked mode counts the k ranked hits in rank order — the counting analog
+/// of `-l`.
+fn per_file_counts(
+    mode: Mode,
+    filter: &Filter,
+    result: &gorp_core::search::SearchResult,
+) -> Vec<(String, usize)> {
+    if mode == Mode::Keyword && !filter.active() {
+        return result.report.keyword_per_file.clone();
+    }
+    let mut counts: Vec<(String, usize)> = Vec::new();
+    for h in &result.hits {
+        match counts.iter_mut().find(|(p, _)| p == &h.path) {
+            Some((_, n)) => *n += 1,
+            None => counts.push((h.path.clone(), 1)),
+        }
+    }
+    counts
 }
 
 fn print_opts(cli: &Cli, given: &[PathBuf]) -> out::Print {
@@ -333,6 +386,7 @@ fn resolve_mode(cli: &Cli) -> Result<(Mode, &'static str)> {
 
 fn options(cli: &Cli, mode: Mode) -> Result<SearchOptions> {
     let t = &cli.tuning;
+    let passage = t.passage_shape();
     let embed_preproc = crate::cmd::index::parse_preproc(&t.embed_preproc)?;
     let path_render = crate::cmd::index::parse_path_render(&t.chunk_path)?;
     Ok(SearchOptions {
@@ -352,10 +406,8 @@ fn options(cli: &Cli, mode: Mode) -> Result<SearchOptions> {
         // dump, which must not widen the CLI surface agents see.
         debug_features: std::env::var("GORP_DUMP_FEATURES").is_ok_and(|v| v == "1"),
         learned_blend: t.learned_blend,
-        // `--full` wins over both: it is the coarsest request, and it is a
-        // line budget so it bypasses the character one.
-        passage_lines: if t.full { u32::MAX } else { t.passage_lines },
-        passage_chars: t.passage_chars.unwrap_or(SearchOptions::default().passage_chars),
+        passage_lines: passage.lines,
+        passage_chars: passage.chars,
         defines: t.headers,
         fine_rerank: !t.no_fine,
         fine_lines: t.fine_lines,
@@ -367,7 +419,7 @@ fn options(cli: &Cli, mode: Mode) -> Result<SearchOptions> {
         bridge_weight: t.bridge_weight,
         // Any explicit passage request switches display back to a chunk cut;
         // the fine window keeps choosing the anchor and the order either way.
-        passage_override: t.passage_chars.is_some() || t.passage_lines > 0 || t.full,
+        passage_override: passage.explicit,
         unit_view: !t.no_unit,
         prf_terms: t.prf,
         // MaxSim reranks the semantic candidate list before fusion, so it can
@@ -392,6 +444,7 @@ fn options(cli: &Cli, mode: Mode) -> Result<SearchOptions> {
         keyword: KeywordOptions {
             case_insensitive: cli.ignore_case,
             fixed_string: cli.fixed_string,
+            word: cli.word,
             max_hits: 0,
             // Set by `run` once it knows whether a filter needs the full list.
             retain: 0,

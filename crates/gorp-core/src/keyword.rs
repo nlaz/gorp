@@ -14,6 +14,10 @@ pub struct KeywordOptions {
     pub case_insensitive: bool,
     /// Treat the pattern as a literal string, not a regex.
     pub fixed_string: bool,
+    /// Match whole words only, grep's `-w`: the engine wraps the pattern in
+    /// word boundaries, which composes with `fixed_string` (a literal is
+    /// word-matched, not re-parsed) — ripgrep's own `-wF` behavior.
+    pub word: bool,
     /// Stop after this many total hits (0 = unlimited).
     pub max_hits: usize,
     /// Keep at most this many hits in memory (0 = unlimited), while still
@@ -45,6 +49,11 @@ pub struct KeywordScan {
     pub total: usize,
     /// Files with at least one match.
     pub files: usize,
+    /// Matches per file, sorted by path — every file with at least one match,
+    /// whether or not `retain` dropped its hit text. Counted here, in the
+    /// scan, because it cannot be recovered downstream: retention keeps only
+    /// the printable head. `-c` reads this.
+    pub per_file: Vec<(String, usize)>,
     /// Directory entries the walk could not read (permissions, races).
     pub walk_errors: usize,
 }
@@ -54,6 +63,7 @@ pub struct KeywordScan {
 pub fn scan(root: &Path, pattern: &str, opts: &KeywordOptions) -> Result<KeywordScan> {
     let mut builder = RegexMatcherBuilder::new();
     builder.case_insensitive(opts.case_insensitive);
+    builder.word(opts.word);
     if opts.fixed_string {
         builder.fixed_strings(true);
     }
@@ -64,10 +74,14 @@ pub fn scan(root: &Path, pattern: &str, opts: &KeywordOptions) -> Result<Keyword
         /// Max-heap on (path, line): popping evicts the hit that sorts last.
         hits: std::collections::BinaryHeap<KeywordHit>,
         total: usize,
-        files: usize,
+        /// One entry per file with matches; each file arrives as one batch.
+        per_file: Vec<(String, usize)>,
     }
-    let shared =
-        Mutex::new(Shared { hits: std::collections::BinaryHeap::new(), total: 0, files: 0 });
+    let shared = Mutex::new(Shared {
+        hits: std::collections::BinaryHeap::new(),
+        total: 0,
+        per_file: Vec::new(),
+    });
     let walk_errors = std::sync::atomic::AtomicUsize::new(0);
     let done = std::sync::atomic::AtomicBool::new(false);
 
@@ -125,7 +139,7 @@ pub fn scan(root: &Path, pattern: &str, opts: &KeywordOptions) -> Result<Keyword
             );
             if !local.is_empty() {
                 let mut s = shared.lock().unwrap();
-                s.files += 1;
+                s.per_file.push((rel, local.len()));
                 s.total += local.len();
                 s.hits.extend(local);
                 if retain > 0 {
@@ -149,10 +163,15 @@ pub fn scan(root: &Path, pattern: &str, opts: &KeywordOptions) -> Result<Keyword
     if opts.max_hits > 0 {
         hits.truncate(opts.max_hits);
     }
+    // The parallel walk pushed files in visit order; sort so `-c` output is
+    // deterministic and ordered the same way the hits are.
+    let mut per_file = s.per_file;
+    per_file.sort();
     Ok(KeywordScan {
         hits,
         total: s.total,
-        files: s.files,
+        files: per_file.len(),
+        per_file,
         walk_errors: walk_errors.into_inner(),
     })
 }
@@ -191,6 +210,18 @@ mod tests {
     }
 
     #[test]
+    fn word_matches_whole_words_and_composes_with_fixed_string() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("a.txt"), "foo\nfoobar\na.b\naXb\n").unwrap();
+        let word = KeywordOptions { word: true, ..Default::default() };
+        assert_eq!(scan(dir.path(), "foo", &word).unwrap().total, 1);
+        assert_eq!(scan(dir.path(), "foo", &KeywordOptions::default()).unwrap().total, 2);
+        // -wF: the literal is word-matched, never re-parsed as a regex.
+        let word_lit = KeywordOptions { word: true, fixed_string: true, ..Default::default() };
+        assert_eq!(scan(dir.path(), "a.b", &word_lit).unwrap().total, 1);
+    }
+
+    #[test]
     fn retention_bounds_memory_but_not_the_count() {
         let dir = tempfile::tempdir().unwrap();
         // 30 matches across 3 files; the parallel walk visits them in an
@@ -203,6 +234,12 @@ mod tests {
         let scan = scan(dir.path(), "needle", &opts).unwrap();
         assert_eq!(scan.total, 30);
         assert_eq!(scan.files, 3);
+        // Per-file counts survive retention too — they come from the walk,
+        // not from the retained hit text.
+        assert_eq!(
+            scan.per_file,
+            vec![("a.txt".into(), 10), ("b.txt".into(), 10), ("c.txt".into(), 10)]
+        );
         // The 5 retained hits are the 5 smallest by (path, line) — the head
         // of the full sorted output, so capped printing stays byte-identical.
         assert_eq!(scan.hits.len(), 5);

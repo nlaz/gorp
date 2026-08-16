@@ -70,9 +70,9 @@ score scales. Exact keyword hits can optionally boost (v1.1).
 | `emb.bin` | i8-quantized unit-normalized matrix, `n_chunks × 512` bytes, mmap'd. 4× smaller than f32 — the brute scan is page-fault/IO bound, so bytes-on-disk is the latency lever |
 | `hnsw.bin` | optional `anny` graph (`index --hnsw`). Skipped at query time when > 1 GiB: one-shot deserialize (~20 s at kernel scale) loses to the quantized brute scan until the graph has a zero-copy format; a persistent server mode would amortize it |
 
-Staleness: on search, compare file table against the live tree; warn (and
-optionally `--reindex`) if drift exceeds a threshold. v1 reindex is a full
-rebuild; incremental is the fold-based v2.
+Staleness: on search, compare file table against the live tree and
+read-repair around the drift; past `--repair-max-drift` the entry rebuilds
+instead. v1 rebuild is full; incremental is the fold-based v2.
 
 HNSW compile-time params: `DIM=512, M0=32 (M=16), K=128, EF_SEARCH=192,
 EF_BUILD=128, MAX_LEVEL=16`. Runtime `k ≤ 128` served from HNSW; larger k
@@ -81,16 +81,15 @@ falls back to exact brute-force over `emb.bin`.
 ## CLI
 
 ```
-gorp <QUERY> [PATH]              # search (default mode: semantic; auto-uses .gorp/ if present & fresh)
-  --mode semantic|keyword|bm25|hybrid
-  -k, --top N                   # ranked modes, default 10
-  -C, --context N               # context lines around the hit line
-  -i, --ignore-case             # keyword mode
-  -e, --regex                   # alias for --mode keyword
-  --json                        # JSONL: {path, start_line, end_line, line, score, mode, snippet}
-  --no-index                    # force unindexed path even if .gorp/ exists
+gorp <QUERY> [PATHS…]            # search (default: ranked semantic; auto-uses .gorp/ if present & fresh)
+  -e, --exact                   # exact regex, grep semantics: every match, exit 1 on none
+  -i / -F / -w / -c / --all     # exact mode: case / literal / whole words / counts / uncapped
+  -k, --top N                   # ranked results, default 5 (bare -k means 20)
+  -C, --context N               # context lines around each hit, both modes
+  --json                        # JSONL: {path, start_line, end_line, line, text, score}
   --stats                       # print timing/memory footprint to stderr
-gorp index [PATH]                # build/refresh .gorp/
+  --mode …, --no-index, …       # hidden harness knobs (see cli.rs `Tuning`)
+gorp index [PATH]                # build/refresh .gorp/ (hidden; prewarming only)
 gorp index --status              # index freshness report
 ```
 

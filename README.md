@@ -62,8 +62,9 @@ question; paths default to the current directory. Exit 0 on hits, 1 on none.
 |---|---|
 | `-k N` | ranked results to return (default 5; bare `-k` means 20) |
 | `-e` | exact regex mode, grep semantics: every match, exit 1 on none |
-| `-i` / `-F` / `--all` | exact mode: ignore case / literal string / print every match |
-| `-C` / `-A` / `-B N` | context lines around each hit |
+| `-i` / `-F` / `-w` | exact mode: ignore case / literal string / whole words only |
+| `-c` / `--all` | exact mode: per-file counts only / print every match |
+| `-C` / `-A` / `-B N` | context lines around each hit, both modes |
 | `-l` | matching paths only, in rank order |
 | `-g GLOB` (`--include`) | keep only paths matching the glob (repeatable) |
 | `--lines A-B` | keep only results in a line range |
@@ -88,7 +89,7 @@ stdout — data only, pipeable
   41:		u32 delay = base << attempt;
 
 stderr — guidance, never in the way of a pipe
-  gorp: ranked top 10 of 1,514 candidates · not it? rephrase the query
+  gorp: ranked top 5 of 1,514 candidates · not it? rephrase the query
 ```
 
 `GORP_NO_HINTS=1` silences the footers. Lines print dedented and capped at

@@ -679,6 +679,10 @@ fn lines_narrows_to_a_range_in_every_spelling() {
         let got = nums(&r);
         assert!(!got.is_empty(), "--lines {spec} dropped everything");
         assert!(got.iter().all(|n| *n >= lo && *n <= hi), "--lines {spec} leaked {got:?}");
+        // The count, not just the range: a filter selects which matches
+        // count, never how many are reported (the -e truncation defect).
+        let expected = (lo..=hi.min(999)).filter(|i| i % 37 == 0).count();
+        assert_eq!(got.len(), expected, "--lines {spec} lost matches: {got:?}");
     }
 
     // `-B` in the spaced form. Without allow_hyphen_values clap reads `-100` as
@@ -1317,4 +1321,246 @@ fn version_reports_build_provenance() {
     let short = sg.run_bare(&["-V"]);
     assert_eq!(short.code, 0);
     assert_eq!(short.stdout.lines().count(), 1, "-V is one line: {}", short.stdout);
+}
+
+// ---------------------------------------------------------------------------
+// the 2026-08 flag redesign: exact filters enumerate, -w/-c, ranked -C
+// ---------------------------------------------------------------------------
+
+/// `-e` plus a filter must still enumerate: the filter selects which matches
+/// count, never how many are reported. This used to truncate to the ranked
+/// default of 5 whenever any filter was active — multiple paths, `-g`, or
+/// `--lines` — and the footer restated the totals to match, so the loss was
+/// self-consistent and invisible.
+#[test]
+fn exact_mode_with_multiple_paths_returns_every_match() {
+    let dir = tempfile::tempdir().unwrap();
+    for sub in ["one", "two"] {
+        std::fs::create_dir(dir.path().join(sub)).unwrap();
+        let body: String = (1..=10).map(|i| format!("needle {i}\n")).collect();
+        std::fs::write(dir.path().join(sub).join("f.txt"), body).unwrap();
+    }
+    let sg = Sg::new();
+    let out = std::process::Command::new(bin())
+        .args(["-e", "needle"])
+        .arg(dir.path().join("one"))
+        .arg(dir.path().join("two"))
+        .env("GORP_CACHE_DIR", &sg.cache)
+        .env("GORP_CACHE_TTL_SECS", "0")
+        .output()
+        .expect("run gorp");
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(0), "stderr: {stderr}");
+    assert_eq!(stdout.lines().count(), 20, "every match, not the ranked k: {stdout}");
+    assert!(
+        !stderr.contains("narrowed to the paths"),
+        "filtering to the paths given is exact mode's ordinary contract: {stderr}"
+    );
+}
+
+#[test]
+fn exact_mode_with_a_glob_returns_every_match() {
+    let dir = tempfile::tempdir().unwrap();
+    let body: String = (1..=12).map(|i| format!("needle {i}\n")).collect();
+    std::fs::write(dir.path().join("a.py"), &body).unwrap();
+    std::fs::write(dir.path().join("b.txt"), &body).unwrap();
+    let sg = Sg::new();
+    let r = sg.run_in(&["-e", "needle", "-g", "*.py"], dir.path());
+    assert_eq!(r.code, 0, "stderr: {}", r.stderr);
+    assert_eq!(r.lines().len(), 12, "every .py match survives the glob: {}", r.stdout);
+    assert!(r.lines().iter().all(|l| l.starts_with("a.py:")), "glob leaked: {}", r.stdout);
+}
+
+/// `-w`: whole words only, and `-wF` word-matches the literal (grep
+/// semantics, straight from the engine's own word() builder).
+#[test]
+fn word_regexp_matches_whole_words() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("a.txt"), "foo\nfoobar\na.b\naXb\n").unwrap();
+    let sg = Sg::new();
+    assert_eq!(sg.run_in(&["-e", "foo"], dir.path()).lines().len(), 2);
+    let word = sg.run_in(&["-e", "-w", "foo"], dir.path());
+    assert_eq!(word.code, 0, "stderr: {}", word.stderr);
+    assert_eq!(word.lines().len(), 1, "-w must exclude foobar: {}", word.stdout);
+
+    let lit = sg.run_in(&["-e", "-w", "-F", "a.b"], dir.path());
+    assert_eq!(lit.lines().len(), 1, "-wF word-matches the literal: {}", lit.stdout);
+    assert!(lit.stdout.contains("a.b"), "{}", lit.stdout);
+
+    // Combined shorts parse, same as the grep-compat set.
+    assert_ne!(sg.run_in(&["-e", "-wiF", "FOO"], dir.path()).code, 2);
+}
+
+/// In ranked mode `-w` is accepted by construction: ranked matching is
+/// subtoken-based, so there is nothing for a word boundary to constrain and
+/// the output must be byte-identical to the flagless run.
+#[test]
+fn word_regexp_is_inert_in_ranked_mode() {
+    let sg = Sg::new();
+    let base = sg.run(&["-k", "3", "retry backoff"]);
+    let word = sg.run(&["-w", "-k", "3", "retry backoff"]);
+    assert_eq!(word.code, base.code);
+    assert_eq!(word.stdout, base.stdout, "-w must not change ranked output");
+}
+
+/// `-c` prints per-file counts: the true totals even past the 250-line
+/// retention bound, `path:count` per line in the hits' own order.
+#[test]
+fn count_prints_per_file_totals_past_retention() {
+    let dir = tempfile::tempdir().unwrap();
+    for name in ["a.txt", "b.txt", "c.txt"] {
+        let body: String = (1..=100).map(|i| format!("needle line {i}\n")).collect();
+        std::fs::write(dir.path().join(name), body).unwrap();
+    }
+    let sg = Sg::new();
+    let r = sg.run_in(&["-e", "needle", "-c"], dir.path());
+    assert_eq!(r.code, 0, "stderr: {}", r.stderr);
+    assert_eq!(r.lines(), vec!["a.txt:100", "b.txt:100", "c.txt:100"], "{}", r.stdout);
+    assert!(
+        !r.stderr.contains("matches in"),
+        "the footer must not restate what stdout just said: {}",
+        r.stderr
+    );
+
+    // -c beats -l, grep's own precedence.
+    let both = sg.run_in(&["-e", "needle", "-c", "-l"], dir.path());
+    assert_eq!(both.lines(), vec!["a.txt:100", "b.txt:100", "c.txt:100"], "{}", both.stdout);
+
+    // A filter narrows what gets counted, not whether counting is honest.
+    let globbed = sg.run_in(&["-e", "needle", "-c", "-g", "a.txt"], dir.path());
+    assert_eq!(globbed.lines(), vec!["a.txt:100"], "{}", globbed.stdout);
+
+    // --json: one {"path", "count"} object per line.
+    let json = sg.run_in(&["-e", "needle", "-c", "--json"], dir.path());
+    for line in json.lines() {
+        let v: serde_json::Value = serde_json::from_str(line).expect("count json parses");
+        assert!(v["path"].is_string() && v["count"].is_u64(), "{line}");
+    }
+
+    // A miss: empty stdout, exit 1 — consistent with the no-zero-rows rule.
+    let miss = sg.run_in(&["-e", "absent_needle", "-c"], dir.path());
+    assert_eq!(miss.code, 1);
+    assert!(miss.stdout.is_empty(), "no zero-count rows: {}", miss.stdout);
+}
+
+/// grep's single-file rule applies to `-c` too: one named file prints a bare
+/// count, and `-H` restores the path.
+#[test]
+fn count_drops_the_path_for_one_named_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let body: String = (1..=7).map(|i| format!("needle {i}\n")).collect();
+    std::fs::write(dir.path().join("f.txt"), body).unwrap();
+    let f = dir.path().join("f.txt");
+    let sg = Sg::new();
+    let bare = sg.run_in(&["-e", "needle", "-c"], &f);
+    assert_eq!(bare.lines(), vec!["7"], "{}", bare.stdout);
+    let with_path = sg.run_in(&["-e", "needle", "-c", "-H"], &f);
+    assert_eq!(with_path.lines(), vec!["f.txt:7"], "{}", with_path.stdout);
+}
+
+/// Ranked `-c` is the counting analog of `-l`: per-file counts of the k
+/// ranked hits, in rank order.
+#[test]
+fn count_in_ranked_mode_counts_the_ranked_hits() {
+    let sg = Sg::new();
+    let r = sg.run(&["-c", "-k", "5", "retry backoff"]);
+    assert_eq!(r.code, 0, "stderr: {}", r.stderr);
+    let lines = r.lines();
+    assert!(!lines.is_empty() && lines.len() <= 5, "{}", r.stdout);
+    let mut total = 0usize;
+    for l in &lines {
+        let (_, n) = l.rsplit_once(':').expect("path:count shape");
+        total += n.parse::<usize>().expect("count is a number");
+    }
+    assert_eq!(total, 5, "the counts sum to the k hits: {}", r.stdout);
+}
+
+/// Ranked `-C/-A/-B`: context widens the unit view — the header span grows
+/// with the rows, so first/last row == header span stays true, and every row
+/// still parses in the one row grammar.
+#[test]
+fn context_widens_the_unit_view_in_ranked_mode() {
+    let sg = Sg::new();
+    let span = |r: &Run| -> (u32, u32) {
+        let header = r.lines()[0];
+        let (a, b) = header.rsplit_once(':').unwrap().1.split_once('-').unwrap();
+        (a.parse().unwrap(), b.parse().unwrap())
+    };
+    let base = sg.run(&["-k", "1", "retry backoff"]);
+    assert_eq!(base.code, 0, "stderr: {}", base.stderr);
+    let (b_first, b_last) = span(&base);
+
+    let ctx = sg.run(&["-k", "1", "-C", "3", "retry backoff"]);
+    let (c_first, c_last) = span(&ctx);
+    assert!(
+        c_first <= b_first && c_last >= b_last && (c_first, c_last) != (b_first, b_last),
+        "-C must widen the span: {b_first}-{b_last} vs {c_first}-{c_last}"
+    );
+    assert!(
+        ctx.lines().len() > base.lines().len(),
+        "-C must add rows:\n{}\nvs\n{}",
+        base.stdout,
+        ctx.stdout
+    );
+    // Every non-header line is still a unit row or an elision marker.
+    for line in ctx.lines().iter().skip(1).filter(|l| !l.trim().is_empty()) {
+        assert!(
+            *line == "⋮"
+                || line.split_once(":\t").is_some_and(|(n, _)| n.parse::<u32>().is_ok())
+                || line.rsplit_once(':').is_some_and(|(_, s)| s.contains('-')),
+            "row grammar broken by -C: {line:?}"
+        );
+    }
+
+    // -A alone grows only the tail.
+    let after = sg.run(&["-k", "1", "-A", "2", "retry backoff"]);
+    let (a_first, a_last) = span(&after);
+    assert_eq!(a_first, b_first, "-A must not touch the head");
+    assert!(a_last >= b_last, "-A grows the tail");
+
+    // Context never rides --json: the schema is frozen.
+    let json_base = sg.run(&["--json", "-k", "2", "retry backoff"]);
+    let json_ctx = sg.run(&["--json", "-k", "2", "-C", "3", "retry backoff"]);
+    assert_eq!(json_ctx.stdout, json_base.stdout, "-C must not change --json");
+}
+
+/// Ranked `-C` under `--no-unit` widens the passage in its own shape.
+#[test]
+fn context_widens_the_passage_under_no_unit() {
+    let sg = Sg::new();
+    let base = sg.run(&["--no-unit", "-k", "1", "retry backoff"]);
+    let ctx = sg.run(&["--no-unit", "-k", "1", "-C", "3", "retry backoff"]);
+    assert_eq!(ctx.code, 0, "stderr: {}", ctx.stderr);
+    assert!(
+        ctx.lines().len() > base.lines().len(),
+        "-C must widen the passage:\n{}\nvs\n{}",
+        base.stdout,
+        ctx.stdout
+    );
+}
+
+/// The visible surface is the README's Usage table and nothing else: the
+/// tuning knobs, the trace surface, and the operator probes stay functional
+/// but hidden.
+#[test]
+fn help_lists_the_promised_surface_and_nothing_hidden() {
+    let sg = Sg::new();
+    let help = sg.run_bare(&["--help"]);
+    assert_eq!(help.code, 0);
+    for visible in
+        ["-e", "-w,", "-c,", "-k,", "-C,", "-g,", "--lines", "--json", "--stats", "cache"]
+    {
+        assert!(help.stdout.contains(visible), "{visible} missing from --help");
+    }
+    for hidden in
+        ["--passage-chars", "--stats-json", "--check-stale", "--mode", "--path ", "-n,"]
+    {
+        assert!(!help.stdout.contains(hidden), "{hidden} must stay hidden");
+    }
+
+    // Hidden is not gone: each still parses.
+    assert_ne!(sg.run(&["--stats-json", "-k", "2", "retry backoff"]).code, 2);
+    assert_ne!(sg.run(&["--check-stale", "-k", "2", "retry backoff"]).code, 2);
+    assert_ne!(sg.run(&["--passage-chars", "100", "-k", "2", "retry backoff"]).code, 2);
 }

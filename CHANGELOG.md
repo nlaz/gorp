@@ -4,6 +4,41 @@ Findings and performance improvements, newest first. Measured numbers are
 medians on an M-series Mac; "kernel" = Linux 6.9 source (1.15 GB, 1.51M
 chunks). Full data: `RESULTS.md`, `bench/results/`, `eval/data/`.
 
+## 2026-08-16 — the flag surface says what it does, and does what it says
+
+Four changes, no default behavior moved (`tools/snapshot.sh --check` is
+byte-identical):
+
+- **Defect fixed: `-e` plus any filter truncated to the ranked k.** Multiple
+  paths, `-g`, or `--lines` cut exact-mode output to 5 matches and restated
+  the footer totals to match, so the loss was self-consistent and invisible.
+  Truncation now keys off *mode*, not filter presence: ranked mode keeps its
+  top-k contract (the over-fetch makes that mandatory), exact mode
+  enumerates. The "results narrowed to the paths given" notice is ranked-only
+  now — in exact mode, filtering to the paths given is grep's ordinary
+  contract.
+- **`-C/-A/-B` work in ranked mode.** They were advertised generally and
+  silently did nothing outside `-e`. Context joins the unit view as ordinary
+  rows — the header span widens with them, so first/last row == header span
+  still holds and no second row grammar appears — and extends `--no-unit`
+  passages in their own shape. Display-side only (`out.rs`), opt-in only, and
+  never rides `--json` (schema frozen).
+- **`-w` and `-c`, exact mode.** `-w`/`--word-regexp` from the engine's own
+  word-boundary builder, so `-wF` word-matches the literal (ripgrep
+  semantics). `-c`/`--count` prints `path:count` per file — counts collected
+  in the scan, so they survive the 250-line retention bound — with grep's
+  precedence (`-c` beats `-l`) and single-file rule (bare count, `-H`
+  restores the path). Zero-count files are not listed. In ranked mode both
+  are accepted by construction: `-w` changes nothing (ranked matching is
+  subtoken-based) and `-c` counts the k ranked hits in rank order.
+- **The visible surface now matches the README table.** `--passage-chars`
+  (the one `Tuning` member accidentally left visible), `--stats-json`
+  (`GORP_TRACE_FILE` is the capable surface), and `--check-stale` are hidden
+  but fully functional; every eval-arm knob keeps parsing so RESEARCH.md's
+  arms reproduce. The `-k` help text stops claiming a default of 10 (it is
+  5), and DESIGN.md's CLI sketch drops flags that never shipped
+  (`--reindex`, `-e` as `--regex`).
+
 ## 2026-08-15 — ranked hits print as a unit view
 
 Ranked output stops repeating `path:line:` on every passage line and prints a

@@ -18,7 +18,7 @@ pub const PROG: &str = "gorp";
 
 use gorp_core::corpus;
 use gorp_core::rank::Mode;
-use gorp_core::search::{SearchHit, SearchResult};
+use gorp_core::search::{SearchHit, SearchResult, UnitRow};
 use std::borrow::Cow;
 use std::collections::HashSet;
 use std::path::Path;
@@ -192,6 +192,16 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
         // bare blank line, which would end the hit's block early for every
         // consumer that splits records on blank lines.
         if let Some(rows) = hit.unit_rows.as_ref().filter(|r| !r.is_empty()) {
+            // `-C/-A/-B` join the unit view as ordinary rows, not a second
+            // grammar: a separator or `-`-gutter line would break every
+            // consumer that parses `split_once(":\t")`. The header span
+            // widens with them, so first/last row == header span stays true,
+            // and the added rows join the block dedent below — the same rule
+            // `frame` applies to exact-mode context, for the same reason.
+            let widened = (opts.before > 0 || opts.after > 0)
+                .then(|| widen_rows(root, &hit.path, rows, opts.before, opts.after))
+                .flatten();
+            let rows = widened.as_deref().unwrap_or(rows);
             let (first, last) = (rows[0].line, rows[rows.len() - 1].line);
             println!("{}:{}-{}", quote_path(&hit.path), first, last);
             let dedent = rows
@@ -223,8 +233,21 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
         // chunk. Numbering from the chunk start would misnumber every line of
         // every result, and the line number is the thing a caller navigates by.
         if let Some(body) = hit.lines.as_ref() {
+            let mut from = hit.lines_from.unwrap_or(hit.start_line);
+            // `-C/-A/-B` extend the passage in its own shape — wider, not
+            // reframed — so the block stays parseable line by line.
+            let widened = (opts.before > 0 || opts.after > 0)
+                .then(|| widen_passage(root, &hit.path, body, from, opts.before, opts.after))
+                .flatten();
+            let body = match &widened {
+                Some((b, f)) => {
+                    from = *f;
+                    b
+                }
+                None => body,
+            };
             for (i, line) in body.iter().enumerate() {
-                let n = hit.lines_from.unwrap_or(hit.start_line) + i as u32;
+                let n = from + i as u32;
                 let text = clip(line.trim_start(), opts.max_columns);
                 if opts.with_path {
                     println!("{}:{}:{}", quote_path(&hit.path), n, text);
@@ -266,6 +289,23 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
                 }
             }
             println!("--");
+        }
+    }
+}
+
+/// `-c`: one `path:count` line per file with matches, in the same order the
+/// hits themselves would print. Bare count when the caller named exactly one
+/// file — grep's rule, same as [`Print::with_path`] — and `-H` restores the
+/// path. Under `--json`, one `{"path", "count"}` object per line, so stdout
+/// stays machine-parseable in both formats.
+pub fn counts(per_file: &[(String, usize)], opts: &Print) {
+    for (path, n) in per_file {
+        if opts.json {
+            println!("{}", serde_json::json!({ "path": path, "count": n }));
+        } else if opts.with_path {
+            println!("{}:{}", quote_path(path), n);
+        } else {
+            println!("{n}");
         }
     }
 }
@@ -481,6 +521,63 @@ pub fn stats(mode: Mode, result: &SearchResult) {
             r.stale_files
         );
     }
+}
+
+/// Ranked `-C/-A/-B` on the unit view: the rows re-read from the file, up to
+/// `before` above the first row and `after` below the last, the originals in
+/// between. `None` when the file cannot be read (moved since indexing), which
+/// falls back to the unwidened rows rather than losing the hit.
+fn widen_rows(
+    root: &Path,
+    path: &str,
+    rows: &[UnitRow],
+    before: usize,
+    after: usize,
+) -> Option<Vec<UnitRow>> {
+    let text = corpus::read_text(&corpus::resolve(root, path))?;
+    let lines: Vec<&str> = text.lines().collect();
+    let (first, last) = (rows[0].line as usize, rows[rows.len() - 1].line as usize);
+    // The file may have shrunk since the rows were materialized; widening
+    // would then attach the wrong lines, so show the rows as they are.
+    if first > lines.len() + 1 {
+        return None;
+    }
+    let lo = first.saturating_sub(before).max(1);
+    let hi = (last + after).min(lines.len());
+    let row = |i: usize| UnitRow { line: i as u32, text: lines[i - 1].to_string() };
+    let mut out: Vec<UnitRow> = (lo..first).map(row).collect();
+    out.extend(rows.iter().cloned());
+    out.extend(((last + 1)..=hi).map(row));
+    Some(out)
+}
+
+/// Ranked `-C/-A/-B` on a passage (`--no-unit` or a passage override): the
+/// body extended in place, plus the line number it now starts from.
+fn widen_passage(
+    root: &Path,
+    path: &str,
+    body: &[String],
+    from: u32,
+    before: usize,
+    after: usize,
+) -> Option<(Vec<String>, u32)> {
+    if body.is_empty() {
+        return None;
+    }
+    let text = corpus::read_text(&corpus::resolve(root, path))?;
+    let lines: Vec<&str> = text.lines().collect();
+    let first = from as usize;
+    let last = first + body.len() - 1;
+    // Same shrunk-file guard as `widen_rows`.
+    if first > lines.len() + 1 {
+        return None;
+    }
+    let lo = first.saturating_sub(before).max(1);
+    let hi = (last + after).min(lines.len());
+    let mut out: Vec<String> = (lo..first).map(|i| lines[i - 1].to_string()).collect();
+    out.extend(body.iter().cloned());
+    out.extend(((last + 1)..=hi).map(|i| lines[i - 1].to_string()));
+    Some((out, lo as u32))
 }
 
 /// The lines `-C` prints around a hit, and the indentation the block shares.

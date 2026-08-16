@@ -324,6 +324,12 @@ pub struct SearchReport {
     pub keyword_total: usize,
     #[serde(default)]
     pub keyword_files: usize,
+    /// Exact mode's matches per file, sorted by path — immune to retention
+    /// for the same reason the totals above are. `-c` reads this. Skipped in
+    /// the trace envelope: it is plumbing for one output mode, and a broad
+    /// pattern would put thousands of paths in every trace record.
+    #[serde(skip)]
+    pub keyword_per_file: Vec<(String, usize)>,
     /// Why the warm path did or did not repair. A duration cannot distinguish
     /// a throttled check from a clean tree from a failed walk.
     pub repair: RepairOutcome,
@@ -616,8 +622,10 @@ fn keyword_search(
     t0: Instant,
 ) -> Result<SearchResult> {
     let mut trace = Trace::new(SCHEDULE_KEYWORD);
-    let scan = trace.time(Stage::KeywordScan, || keyword::scan(root, query, &opts.keyword))?;
+    let mut scan =
+        trace.time(Stage::KeywordScan, || keyword::scan(root, query, &opts.keyword))?;
     let (total, files, walk_errors) = (scan.total, scan.files, scan.walk_errors);
+    let per_file = std::mem::take(&mut scan.per_file);
     let hits = trace.time(Stage::FinalizeMaterialize, || {
         scan.hits
             .into_iter()
@@ -647,6 +655,7 @@ fn keyword_search(
         report: SearchReport {
             keyword_total: total,
             keyword_files: files,
+            keyword_per_file: per_file,
             walk_errors,
             stages: trace.finish(),
             total_ms: elapsed_ms(t0),

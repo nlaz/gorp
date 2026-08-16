@@ -299,7 +299,7 @@ in a doc comment. This is the model the rest of the suite should follow.
 | store | flat-vs-memory BM25 (1 fixture), staleness count | format guards (version/dims/size mismatch produce the right error), chunk-id lockstep invariant, HNSW skip threshold, atomicity, `to_flat_bytes` round-trip on adversarial input (empty terms, 65k+ tf saturation) |
 | cache | strong (see above) | discovery boundary rules (`.git` stop, `$HOME` stop) — untestable today because `discover` reads the real environment; orphan entries; concurrent build; params mismatch (B1) |
 | repair | 1 test, 3 assertions | deletion, rename, file→binary, empty file, TTL honored/expired, scope-limited repair, delta-vs-rebuild equivalence |
-| CLI | **nothing — `crates/semgrep` has 0 tests** | exit codes (0/1/2), `-e` grep semantics, `--json` schema stability, `-C` context format, the 250-cap and `--all`, stderr footer contract, `index --status`, `cache --status/--prune/--clear`, miss-suggestion fallback |
+| CLI | **nothing — `crates/semgrep` has 0 tests** | exit codes (0/1/2), `-e` grep semantics, `--json` schema stability, `-C` context format, the 250-cap and `--all`, stderr footer contract, `index --status`, `cache` (bare = status) `/--prune/--clear`, miss-suggestion fallback |
 | harness | **nothing — `eval/` and `bench/` have 0 tests** | `scoring.py:score_instance/func_match/parse_gold`, `symbols.py:extract`, `run_eval.py:correct` + bootstrap/sign-test, `bench/report.py:gate` |
 
 Three of those deserve emphasis:
