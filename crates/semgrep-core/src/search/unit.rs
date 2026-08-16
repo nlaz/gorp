@@ -53,8 +53,31 @@ pub(crate) fn compute(lines: &[&str], path: &str, start: u32, end: u32) -> Vec<U
         we -= 1;
     }
 
-    let anchor =
-        (ws..=we).filter(|&i| !blank(lines[i])).map(|i| indent_of(lines[i])).min();
+    // Truncate at the unit's visible end (§34.4): the fine window likes
+    // landing on boundaries — a declaration line embeds strongly — so ~5% of
+    // real windows arrive as [last statement, `}`, blank, next declaration].
+    // A closer-only line shallower than the window's opening line says the
+    // unit demonstrably ends there; everything after it belongs to the next
+    // unit and misleads twice, dangling foreign rows below the match and
+    // dragging the anchor so far down the head walk finds nothing.
+    if let Some(open) = (ws..=we).find(|&i| !blank(lines[i])) {
+        let open_ind = indent_of(lines[open]);
+        if let Some(end) = (open + 1..=we)
+            .find(|&i| is_closer_only(lines[i]) && indent_of(lines[i]) < open_ind)
+        {
+            we = end;
+        }
+    }
+
+    // The anchor the head walk descends from: the shallowest *content* line.
+    // Closer-only rows are excluded (§34.4) — a trailing `}` two levels out
+    // would otherwise set the anchor and the walk would overshoot the
+    // enclosing function to whatever sits above the whole block.
+    let anchor = (ws..=we)
+        .filter(|&i| !blank(lines[i]) && !is_closer_only(lines[i]))
+        .map(|i| indent_of(lines[i]))
+        .min()
+        .or_else(|| (ws..=we).filter(|&i| !blank(lines[i])).map(|i| indent_of(lines[i])).min());
     let Some(anchor) = anchor else {
         // An all-blank window frames nothing; ship it bare rather than
         // decorate emptiness.
@@ -245,6 +268,18 @@ fn find_head(lines: &[&str], below: usize, max_indent: usize) -> Option<usize> {
             continue;
         }
         let t = l.trim_start();
+        // A comment is structure only for its own block (§34.4): when the
+        // window sits inside a comment, the block's opening line completes
+        // the sentence the window starts mid-list — the one head that
+        // earns its row. A comment reached across code is never a head; a
+        // `/* ... works:` two hundred lines up passed the shape checks
+        // once and fabricated structure that was not there.
+        if is_comment(l) {
+            if (i + 1..below).all(|j| blank(lines[j]) || is_comment(lines[j])) {
+                return Some(i);
+            }
+            continue;
+        }
         if t.starts_with(')') || t.starts_with(']') {
             return Some(statement_start(lines, i));
         }
@@ -303,6 +338,16 @@ fn outer_head_is_informative(path: &str, line: &str) -> bool {
     })
 }
 
+/// Does this line open or continue a comment? The `#` prefix also matches
+/// Rust attributes and C preprocessor lines — acceptable on both call
+/// sites: neither should head a window, and neither is a doc line worth
+/// promoting.
+fn is_comment(line: &str) -> bool {
+    const DOC: [&str; 7] = ["#", "//", "/*", "*", "\"\"\"", "'''", "--"];
+    let t = line.trim_start();
+    DOC.iter().any(|p| t.starts_with(p))
+}
+
 /// The first doc or comment line directly under a head, when it sits above
 /// the window: a docstring's opening sentence is the densest context line a
 /// unit has. Attaches to the innermost head only — under a namespace line
@@ -312,9 +357,7 @@ fn doc_line_under(lines: &[&str], head: usize, window_start: usize) -> Option<us
     if d >= window_start || d >= lines.len() {
         return None;
     }
-    let t = lines[d].trim();
-    const DOC: [&str; 7] = ["#", "//", "/*", "*", "\"\"\"", "'''", "--"];
-    DOC.iter().any(|p| t.starts_with(p)).then_some(d)
+    is_comment(lines[d]).then_some(d)
 }
 
 #[cfg(test)]
@@ -445,6 +488,67 @@ mod tests {
         // Window at 7..8: gap of five stays a jump.
         let jumped = compute(&f, "pkg/mod.py", 7, 8);
         assert_eq!(nums(&jumped), vec![1, 7, 8], "a gap of five is an elision");
+    }
+
+    #[test]
+    fn a_window_truncates_at_its_units_visible_end() {
+        // The sendEncrypt.ts shape (§34.4): the fine window elects
+        // [last statement, `};`, blank, next declaration]. The rows after
+        // the shallow closer belong to a different unit, and the closer
+        // used to drag the anchor to column 0 so no head was found at all.
+        let f = [
+            "const encryptBody = async (pack) => {",          // 1
+            "    const encrypted = await encrypt(pack);",     // 2
+            "    pack.Body = toBase64(encrypted);",           // 3
+            "};",                                             // 4
+            "",                                               // 5
+            "const encryptPackage = async ({",                // 6
+        ];
+        let rows = compute(&f, "lib/mail/send/sendEncrypt.ts", 3, 6);
+        let n = nums(&rows);
+        assert!(!n.contains(&6), "the next unit's opener never dangles: {n:?}");
+        assert!(n.contains(&4), "the unit's own close survives");
+        assert!(n.contains(&1), "with the anchor undragged, the head resolves: {n:?}");
+    }
+
+    #[test]
+    fn a_comment_across_code_is_never_a_head() {
+        // The expire.c shape (§34.4): a `/* ... met:` comment far above the
+        // window ends in a colon and passed the declaration shape checks,
+        // fabricating structure. Code sits between it and the window, so it
+        // heads nothing.
+        let f = [
+            "void active_cycle(int type) {",                       // 1
+            "    int checked = 0;",                                // 2
+            "    setup(type);",                                    // 3
+            "    prime_counters();",                               // 4
+            "    reset_clock();",                                  // 5
+            "    /* Stop iteration when a condition is met:",      // 6
+            "     * 1) enough databases were checked. */",         // 7
+            "    while (running) {",                               // 8
+            "        do_work();",                                  // 9
+            "        checked++;",                                  // 10
+        ];
+        let rows = compute(&f, "src/expire.c", 10, 10);
+        let n = nums(&rows);
+        assert!(!n.contains(&6), "a comment across code heads nothing: {n:?}");
+        assert!(n.contains(&1), "the walk continues to the real declaration: {n:?}");
+    }
+
+    #[test]
+    fn a_comment_block_may_head_its_own_window() {
+        // The aof.c shape (§34.4): the match is INSIDE a comment block, and
+        // the block's opening line completes the sentence the window starts
+        // mid-list. Every line between head and window is comment, so the
+        // head stands.
+        let f = [
+            "/* This is how background rewrite works:",  // 1
+            " *",                                        // 2
+            " * 1) The user calls BGREWRITEAOF",         // 3
+            " * 2) The server forks a child",            // 4
+        ];
+        let rows = compute(&f, "src/aof.c", 3, 4);
+        assert_eq!(rows[0].line, 1, "the block's own opener heads the window: {:?}", nums(&rows));
     }
 
     #[test]

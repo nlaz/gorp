@@ -8754,3 +8754,36 @@ moves the path out of the body rows. A `disp-unit` vs `disp-nounit`
 campaign on those two endpoints (reads-after-search, right-file-wrong-lines)
 is the standing follow-up; if line precision regresses, the revert is one
 default flip, not a format rip-out.
+
+#### 34.4 The 26-query audit: three residual defects, two rules (2026-08-15)
+
+The shipped renderer was audited live: 26 fresh queries over the ten
+SWE-Explore languages plus this repo, 78 hits, every added row checked
+against its source file. The calibrated classes held — zero namespace
+leaks, zero flow heads, zero closes-after-elision, median 1 added row per
+hit, bytes at 1.04× the grep form. Three defects survived:
+
+- **The unit-boundary straddle** (4/78 harmful, ~5% with milder cases).
+  The fine window likes landing on boundaries — a declaration line embeds
+  strongly — so windows arrive as [last statement, `}`, blank, next
+  declaration]. The foreign tail misleads, and the shallow closer drags
+  the anchor down so the head walk finds nothing, exactly on the hits
+  that most need a head.
+- **A comment elected as head** (2 observed). `/* ... works:` ends in a
+  colon and passed the declaration shape checks. The second sighting
+  changed the prescription: when the window sits *inside* a comment
+  block, the block's own opening line is the one head worth having — so
+  the rule is not "comments are never heads" but "a comment heads only
+  its own block".
+- **Anchor drag without visible harm** (~5 hits): closer-heavy windows
+  resolving the head one level too far out (an `enum` where the
+  enclosing `fn` would be righter). Same mechanism as the straddle,
+  lower stakes.
+
+Two rules fix all three, both in `search::unit` with pinning tests:
+truncate the window at the first interior closer-only line shallower
+than its opening line (the unit demonstrably ends there), and compute
+the head-walk anchor from the window's content lines, closers excluded.
+Plus the comment rule above. The fine-window election itself is
+deliberately untouched: its boundary appetite is scoring-side behavior
+with §28.2 calibration behind it, and the renderer absorbs the symptom.
