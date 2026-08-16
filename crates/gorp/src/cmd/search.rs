@@ -93,10 +93,14 @@ pub fn run(cli: &Cli, query: &str) -> Result<i32> {
     };
     // `-c` beats `-l`, grep's own precedence: counts are the more specific
     // request, and a caller passing both gets the one that says more.
+    let emphasis = emphasis_for(cli, mode, query);
     if cli.count {
-        out::counts(&per_file_counts(mode, &filter, &result), &print_opts(cli, &given));
+        out::counts(
+            &per_file_counts(mode, &filter, &result),
+            &print_opts(cli, &given, &emphasis),
+        );
     } else {
-        out::hits(&root, &result.hits, shown, &print_opts(cli, &given));
+        out::hits(&root, &result.hits, shown, &print_opts(cli, &given, &emphasis));
     }
     if dropped {
         // Name the filter that actually dropped them. Saying "the paths given"
@@ -348,8 +352,32 @@ fn per_file_counts(
     counts
 }
 
-fn print_opts(cli: &Cli, given: &[PathBuf]) -> out::Print {
+/// The words to emphasise in the results, or nothing.
+///
+/// Ranked mode: the query is prose or a name guess, and its words are exactly
+/// what a reader is looking for in the text. Exact mode: the pattern is
+/// authoritative when it is a literal — `-F`, or a pattern with no regex
+/// metacharacter in it — and unreadable as words when it is not. `fn \w+_token`
+/// tokenizes to `fn`, `w`, `token`, and emphasising `token` in every line
+/// would be claiming a match the engine never made, so a real regex gets no
+/// emphasis at all until the matcher's own spans are plumbed through.
+fn emphasis_for(cli: &Cli, mode: Mode, query: &str) -> out::Emphasis {
+    if !out::color_enabled(&cli.color) || cli.json {
+        return out::Emphasis::default();
+    }
+    if mode != Mode::Keyword {
+        return out::Emphasis::of(query);
+    }
+    // A literal is its own emphasis; a regex is not readable as words.
+    if cli.fixed_string || !query.contains(|c| "\\[](){}.*+?|^$".contains(c)) {
+        return out::Emphasis::literal(query);
+    }
+    out::Emphasis::default()
+}
+
+fn print_opts<'a>(cli: &Cli, given: &[PathBuf], emphasis: &'a out::Emphasis) -> out::Print<'a> {
     out::Print {
+        emphasis,
         json: cli.json,
         paths_only: cli.files_with_matches,
         before: cli.before_context.unwrap_or(cli.context),

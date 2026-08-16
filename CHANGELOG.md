@@ -11,12 +11,32 @@ and will not be in a fresh clone.
 Display only; ranking is untouched (`tools/snapshot.sh --check` is
 byte-identical, and it records `--json` besides).
 
-- **Colour, ripgrep's flag and ripgrep's palette**: `--color auto|always|never`
-  (default `auto`), paths magenta and line numbers green, so gorp and rg read
-  the same in the same terminal. `auto` means stdout is a terminal, `NO_COLOR`
-  is unset, and `TERM` is not `dumb` — under a pipe, a harness, or `--json`
-  the bytes are exactly what they were. Nothing else is painted: a semantic
-  hit has no matched substring to paint red.
+- **Colour**: `--color auto|always|never` (default `auto`), ripgrep's flag and
+  ripgrep's three values. `auto` means stdout is a terminal, `NO_COLOR` is
+  unset, and `TERM` is not `dumb` — under a pipe, a harness, or `--json` the
+  bytes are exactly what they were, and stripping the escapes from a coloured
+  run gives the piped run byte for byte (asserted, not assumed).
+- **Three hues and a neutral, not ripgrep's two.** Blue names the file, cyan
+  counts the lines and goes bold on the one the engine chose, green is your
+  own words coming back, and grey is everything the view added around the
+  answer. Sixteen-colour codes only (`94`, `2;36`, `1;36`, `90`, `1;92`), so
+  the terminal's own theme still decides what "blue" looks like. Furniture is
+  grey `90` rather than SGR `2`: dim is the one attribute terminals routinely
+  drop, and a "recedes" state that can render identical to "matters" is not a
+  state.
+- **Emphasis, for a tool with no exact match.** ripgrep bolds the substring
+  its regex matched; gorp has no such substring, so weight carries the
+  engine's reasoning instead. **Bold is what it chose** — the best line of the
+  span (`SearchHit::line`), the one thing gorp knows that grep cannot.
+  **Grey is what it added** — de-orphaning rows and `-C` context, everything
+  outside the scored window. **Green is where your words landed**, matched
+  through the engine's own tokenizer, so `getUserName` lights up for "user
+  name" and a purely semantic hit lights up nowhere — which is a true
+  statement about that hit, not a failure. Exact mode emphasises the literal
+  and never its subtokens (`-e compute_backoff_delay` leaves a nearby `delay`
+  alone); a real regex gets no emphasis until the matcher's spans are plumbed
+  through. Path emphasis included, because BM25 counts path tokens as
+  evidence and a file that ranked on its name should say so.
 - **The no-path gutter is two spaces, not a tab.** `264:  text` where it used
   to be `264:<TAB>text`. A tab renders at whatever tab stop the consumer
   happens to use, and a tab inside the row's own text re-aligned everything

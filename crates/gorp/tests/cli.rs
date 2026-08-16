@@ -231,17 +231,66 @@ fn color_is_off_under_a_pipe_and_purely_additive_when_forced() {
         "a piped search must not colour: {:?}",
         plain.stdout
     );
-    assert!(painted.stdout.contains("\x1b[35m"), "--color always paints the path magenta");
-    assert!(painted.stdout.contains("\x1b[32m"), "--color always paints line numbers green");
+    assert!(painted.stdout.contains("\x1b[94m"), "--color always paints the path blue");
+    assert!(painted.stdout.contains("\x1b[2;36m"), "--color always paints line numbers cyan");
 
-    let stripped =
-        painted.stdout.replace("\x1b[35m", "").replace("\x1b[32m", "").replace("\x1b[0m", "");
-    assert_eq!(stripped, plain.stdout, "colour must not change the data under it");
+    assert_eq!(strip_ansi(&painted.stdout), plain.stdout, "colour must not change the data");
 
     // `--json` owns its own escaping, and an ANSI escape inside a string
     // field is corrupt data rather than a colour.
     let json = sg.run(&["retry delay", "-k", "2", "--json", "--color", "always"]);
     assert!(!json.stdout.contains('\x1b'), "--json is never coloured: {:?}", json.stdout);
+}
+
+/// Every `\x1b[...m` sequence removed. Written out rather than matched on the
+/// styles this build happens to use, so re-tuning the palette cannot quietly
+/// turn the "colour is additive" assertion above into a weaker one.
+fn strip_ansi(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
+    while let Some(i) = rest.find('\x1b') {
+        out.push_str(&rest[..i]);
+        match rest[i..].find('m') {
+            Some(j) => rest = &rest[i + j + 1..],
+            None => return out + &rest[i..],
+        }
+    }
+    out + rest
+}
+
+/// The three things emphasis says, which are three things ripgrep cannot say
+/// because it has no ranking: which line the engine chose, which rows are
+/// furniture around it, and where the words of the query landed.
+#[test]
+fn emphasis_marks_the_chosen_line_its_context_and_the_query_words() {
+    let sg = Sg::new();
+    let r =
+        sg.run(&["how is the retry delay computed", "-k", "1", "-C", "2", "--color", "always"]);
+    assert_eq!(r.code, 0, "stderr: {}", r.stderr);
+
+    // The best line is bold, and it is exactly one row of the block.
+    let best: Vec<&str> =
+        r.lines().into_iter().filter(|l| l.starts_with("\x1b[1;36m")).collect();
+    assert_eq!(best.len(), 1, "exactly one row is the chosen line: {:?}", r.stdout);
+
+    // `-C` rows are dim: outside the scored window, and marked as such.
+    assert!(r.stdout.contains("\x1b[90m"), "context rows carry a grey gutter: {:?}", r.stdout);
+
+    // A query word is emphasised, and it is a word of the query.
+    let i = r.stdout.find("\x1b[1;92m").expect("a query word is emphasised");
+    let painted: String = r.stdout[i + 7..].chars().take_while(|c| *c != '\x1b').collect();
+    assert!(
+        ["retry", "delay", "computed", "compute"].contains(&painted.to_lowercase().as_str()),
+        "emphasis lands on a query word, got {painted:?}"
+    );
+
+    // And an exact-mode literal emphasises the literal, not its subtokens:
+    // `-e compute_backoff_delay` must leave a nearby `Delay` alone.
+    let exact = sg.run(&["-e", "compute_backoff_delay", "-C", "1", "--color", "always"]);
+    let ctx: Vec<&str> =
+        exact.lines().into_iter().filter(|l| l.contains("Delay before")).collect();
+    assert_eq!(ctx.len(), 1, "the context line is printed: {:?}", exact.stdout);
+    assert!(!ctx[0].contains("\x1b[1;92m"), "a subtoken is not the literal: {:?}", ctx[0]);
 }
 
 /// The gutter between a row's line number and its text is two spaces, not a

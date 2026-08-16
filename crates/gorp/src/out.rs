@@ -7,10 +7,13 @@
 //! hit. Footers, warnings, stats, and suggestions go to stderr, so a pipeline
 //! gets clean data and a human still gets told what happened.
 //!
-//! Colour is a second, strictly optional layer over that same grammar: the
-//! escapes wrap the path and the line number and nothing else, so removing
-//! them gives back the bytes a parser sees. It is off unless stdout is a
-//! terminal, which is what keeps the contract intact under a pipe.
+//! Colour is a second, strictly optional layer over that same grammar: every
+//! escape wraps a field the plain output already had, so removing them gives
+//! back the bytes a parser sees. It is off unless stdout is a terminal, which
+//! is what keeps the contract intact under a pipe. What it paints is not a
+//! decoration but the engine's own reasoning — see [`palette`] for what each
+//! hue answers and [`Emphasis`] for what "the match" means when there is no
+//! match to point at.
 //!
 //! Printing lives here rather than beside the commands so the commands are about
 //! deciding what to show, not how.
@@ -66,13 +69,49 @@ const ELISION: &str = "⋮";
 /// `264:code` from running the number into the code, not to build a table.
 const GUTTER: &str = "  ";
 
-/// ripgrep's default palette, so output from the two tools reads the same in
-/// the same terminal: paths magenta, line numbers green. Nothing else is
-/// coloured — gorp's ranked hits have no match offsets to paint red, because
-/// a semantic hit does not match a substring in the first place.
-const PATH_STYLE: &str = "\x1b[35m";
-const LINE_STYLE: &str = "\x1b[32m";
-const RESET: &str = "\x1b[0m";
+/// The palette, as roles rather than colours.
+///
+/// Three cool hues and a neutral, each answering a different question.
+/// **Blue names the file.** **Cyan counts the lines**, and goes bold on the
+/// one line the engine chose. **Green is your own words**, coming back at
+/// you wherever they landed. **Grey is everything the view added** around the
+/// answer — the de-orphaning rows and `-C` context that are there to make the
+/// window readable rather than because anything matched in them.
+///
+/// So a block reads before a word of it is read: one bold row is the ranking's
+/// actual answer, the plain cyan rows are the window it was scored in, and
+/// the grey rows are scaffolding. Weight and hue carry different axes, which
+/// is why the chosen line is the *same* cyan as its neighbours rather than a
+/// fourth colour — it is not a different kind of thing, it is the one the
+/// engine picked.
+///
+/// Only the sixteen ANSI colours are used, never 256-colour or truecolor
+/// codes, so the output takes the terminal's *theme* rather than overriding
+/// it: the same escape is a muted teal in one scheme and a bright one in
+/// another, which is the behaviour a user configuring their terminal expects
+/// and the reason ripgrep does the same. Grey is `90` (bright black) rather
+/// than SGR `2`, because dim is the one attribute terminals routinely drop —
+/// a palette whose "recedes" state can silently render identical to its
+/// "matters" state is not a palette.
+mod palette {
+    /// The path, on a header line.
+    pub const PATH: &str = "\x1b[94m";
+    /// A line number, and the `start-end` span in a header.
+    pub const LINE: &str = "\x1b[2;36m";
+    /// The line the engine actually chose out of the span (`SearchHit::line`)
+    /// — the single most useful thing gorp knows that ripgrep does not.
+    pub const LINE_BEST: &str = "\x1b[1;36m";
+    /// A row outside the scored window: de-orphaning furniture, or a `-C`
+    /// context row the caller asked for.
+    pub const LINE_CTX: &str = "\x1b[90m";
+    /// The text of such a row.
+    pub const TEXT_CTX: &str = "\x1b[90m";
+    /// A word of the query, found in the text (see [`super::Emphasis`]).
+    pub const TERM: &str = "\x1b[1;92m";
+    pub const RESET: &str = "\x1b[0m";
+}
+
+use palette::RESET;
 
 /// `text` wrapped in an ANSI escape when `on`, untouched when not.
 ///
@@ -81,6 +120,176 @@ const RESET: &str = "\x1b[0m";
 /// from forking the output grammar into two.
 fn paint(on: bool, style: &str, text: impl std::fmt::Display) -> String {
     if on { format!("{style}{text}{RESET}") } else { text.to_string() }
+}
+
+/// The words of the query, for emphasis inside a result's text.
+///
+/// ripgrep bolds the substring its regex matched. gorp has no such substring:
+/// a semantic hit is a hit because two vectors are close, and the answer can
+/// share no word at all with the question. So the honest analogue is not
+/// "what matched" but **"where your words landed"** — and the emphasis has to
+/// be allowed to find nothing, because finding nothing is a true and useful
+/// statement about a purely semantic hit.
+///
+/// Matching runs through the engine's own tokenizer rather than a second idea
+/// of what a word is, which is what makes `getUserName` light up for a query
+/// of "user name" and `retry_backoff` for "backoff". A *whole* run lights up
+/// when any of its subtokens is a query word: painting half an identifier is
+/// noisier to read than painting the identifier, and the reader is looking
+/// for the line, not the character.
+///
+/// Two guards keep this from painting the whole screen. Words shorter than
+/// three characters and the closed stoplist below are dropped, because a
+/// query is usually a sentence and `the` occurs in every row of every result;
+/// and `terms` is empty whenever colour is off, so the whole mechanism costs
+/// one branch under a pipe.
+#[derive(Default)]
+pub struct Emphasis {
+    terms: Vec<String>,
+    how: Match,
+}
+
+/// How a term is compared against a run of text — the difference between the
+/// two modes gorp searches in.
+#[derive(Default, PartialEq)]
+pub enum Match {
+    /// Ranked mode: a run lights up when the tokenizer finds a query word
+    /// *inside* it, so `getUserName` answers "user name". The engine scored
+    /// this hit on those same subtokens, so this is what it saw.
+    #[default]
+    Subtoken,
+    /// Exact mode: a run lights up when it contains the literal, and nothing
+    /// is decomposed. `-e compute_backoff_delay` must not light up the word
+    /// `delay` in a comment three lines up — the pattern did not match there,
+    /// and emphasis that outruns the match is a lie about the result.
+    Literal,
+}
+
+/// Query words that carry no location information. Not the engine's business
+/// — BM25 handles these with idf and needs no list — but a *display* one:
+/// emphasis that fires on `the` is emphasis nobody can read past.
+/// Function words only — nothing that could name a thing in a codebase. `set`
+/// and `get` were on this list once and had to come off: they are half the
+/// accessors in the tree, and a query that says `get` means it.
+const STOPWORDS: &[&str] = &[
+    "about", "after", "also", "and", "any", "are", "been", "before", "being", "between",
+    "both", "but", "can", "could", "does", "each", "for", "from", "has", "have", "her", "here",
+    "him", "his", "how", "into", "its", "just", "more", "most", "much", "must", "not", "now",
+    "off", "one", "only", "onto", "other", "our", "out", "over", "same", "she", "should",
+    "since", "some", "such", "than", "that", "the", "their", "them", "then", "there", "these",
+    "they", "this", "those", "through", "too", "under", "until", "use", "used", "using",
+    "very", "was", "were", "what", "when", "where", "which", "why", "will", "with", "would",
+    "you", "your",
+];
+
+impl Emphasis {
+    /// The query's emphasis words, in the engine's tokenization.
+    pub fn of(query: &str) -> Self {
+        let terms = gorp_core::text::token::tokens(query)
+            .into_iter()
+            .filter(|t| t.chars().count() >= 3 && !STOPWORDS.contains(&t.as_str()))
+            .collect();
+        Self { terms, how: Match::Subtoken }.sorted()
+    }
+
+    /// The literal words of an exact-mode pattern, undecomposed.
+    ///
+    /// No stoplist and no length floor here: `-e of` is a search the caller
+    /// typed on purpose, and every line printed contains a real match, so
+    /// there is nothing to protect them from.
+    pub fn literal(pattern: &str) -> Self {
+        let terms = pattern
+            .split(|c: char| !c.is_alphanumeric() && c != '_')
+            .filter(|w| !w.is_empty())
+            .map(str::to_lowercase)
+            .collect();
+        Self { terms, how: Match::Literal }.sorted()
+    }
+
+    /// Sorted and deduped, which is what makes the per-run lookup a binary
+    /// search rather than a scan of a list a long query can make long.
+    fn sorted(mut self) -> Self {
+        self.terms.sort();
+        self.terms.dedup();
+        self
+    }
+
+    /// Nothing to emphasise — either the caller built it from a pattern it
+    /// could not read as words (a regex), or every word was a stopword.
+    pub fn is_empty(&self) -> bool {
+        self.terms.is_empty()
+    }
+
+    /// Does this run of `[alphanumeric_]` characters carry a query word?
+    fn hits_run(&self, run: &str) -> bool {
+        match self.how {
+            Match::Subtoken => gorp_core::text::token::tokens(run)
+                .iter()
+                .any(|t| self.terms.binary_search(t).is_ok()),
+            // Lowercased once per run rather than per term: a `-i` search is
+            // the common one, and a case-sensitive comparison would leave
+            // half of a case-insensitive match unpainted.
+            Match::Literal => {
+                let run = run.to_lowercase();
+                self.terms.iter().any(|t| run.contains(t.as_str()))
+            }
+        }
+    }
+
+    /// `text` with its query words emphasised and everything else in `base`.
+    ///
+    /// `base` is re-opened after every emphasised run rather than assumed:
+    /// the reset that closes an emphasis closes the surrounding style too, so
+    /// a greyed context row would silently stop being grey at its first
+    /// query word. Returned unchanged when there is nothing to paint, so the
+    /// no-colour path allocates a plain copy and no escapes at all.
+    fn apply(&self, text: &str, base: &str, on: bool) -> String {
+        if !on {
+            return text.to_string();
+        }
+        if self.is_empty() {
+            return if base.is_empty() {
+                text.to_string()
+            } else {
+                format!("{base}{text}{RESET}")
+            };
+        }
+        let mut out = String::with_capacity(text.len() + 16);
+        out.push_str(base);
+        // Runs are split exactly as the tokenizer splits them, so what is
+        // tested is what is painted.
+        for (is_word, part) in runs(text) {
+            if is_word && self.hits_run(part) {
+                out.push_str(palette::TERM);
+                out.push_str(part);
+                out.push_str(RESET);
+                out.push_str(base);
+            } else {
+                out.push_str(part);
+            }
+        }
+        if !base.is_empty() {
+            out.push_str(RESET);
+        }
+        out
+    }
+}
+
+/// `text` cut into alternating word / non-word runs, a word being the
+/// `[alphanumeric_]+` run `text::token` tokenizes.
+fn runs(text: &str) -> impl Iterator<Item = (bool, &str)> {
+    let mut rest = text;
+    std::iter::from_fn(move || {
+        if rest.is_empty() {
+            return None;
+        }
+        let word = |c: char| c.is_alphanumeric() || c == '_';
+        let is_word = rest.starts_with(word);
+        let end = rest.find(|c: char| word(c) != is_word).unwrap_or(rest.len());
+        let (head, tail) = rest.split_at(end);
+        rest = tail;
+        Some((is_word, head))
+    })
 }
 
 /// Whether to colour, from `--color`'s three values.
@@ -205,7 +414,7 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
         let mut seen = HashSet::new();
         for hit in &hits[..shown] {
             if seen.insert(hit.path.as_str()) {
-                println!("{}", paint(opts.color, PATH_STYLE, quote_path(&hit.path)));
+                println!("{}", opts.path(&hit.path));
             }
         }
         return;
@@ -230,8 +439,8 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
             let span = format!("{}-{}", hit.start_line, hit.end_line);
             println!(
                 "# {}:{}  defines: {}",
-                paint(opts.color, PATH_STYLE, quote_path(&hit.path)),
-                paint(opts.color, LINE_STYLE, span),
+                opts.path(&hit.path),
+                paint(opts.color, palette::LINE, span),
                 defs.join(", ")
             );
         }
@@ -261,8 +470,8 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
             let (first, last) = (rows[0].line, rows[rows.len() - 1].line);
             println!(
                 "{}:{}",
-                paint(opts.color, PATH_STYLE, quote_path(&hit.path)),
-                paint(opts.color, LINE_STYLE, format_args!("{first}-{last}")),
+                opts.path(&hit.path),
+                paint(opts.color, palette::LINE, format_args!("{first}-{last}")),
             );
             let dedent = rows
                 .iter()
@@ -276,10 +485,22 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
                     println!("{ELISION}");
                 }
                 let cut = indent_within(&row.text, dedent);
+                // Three roles, one per row, and the engine already decided
+                // all three (see [`palette`]): the line it scored best, the
+                // window it scored, and everything the unit view added around
+                // that window to keep it readable.
+                let (gutter, base) = match row.line {
+                    n if n == hit.line => (palette::LINE_BEST, ""),
+                    n if n < hit.start_line || n > hit.end_line => {
+                        (palette::LINE_CTX, palette::TEXT_CTX)
+                    }
+                    _ => (palette::LINE, ""),
+                };
+                let text = clip(&row.text[cut..], opts.max_columns);
                 println!(
                     "{}:{GUTTER}{}",
-                    paint(opts.color, LINE_STYLE, row.line),
-                    clip(&row.text[cut..], opts.max_columns),
+                    paint(opts.color, gutter, row.line),
+                    opts.emphasis.apply(&text, base, opts.color),
                 );
                 prev = Some(row.line);
             }
@@ -313,14 +534,22 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
             for (i, line) in body.iter().enumerate() {
                 let n = from + i as u32;
                 let text = clip(line.trim_start(), opts.max_columns);
+                let (gutter, base) = if n == hit.line {
+                    (palette::LINE_BEST, "")
+                } else if n < hit.start_line || n > hit.end_line {
+                    (palette::LINE_CTX, palette::TEXT_CTX)
+                } else {
+                    (palette::LINE, "")
+                };
+                let text = opts.emphasis.apply(&text, base, opts.color);
                 if opts.with_path {
                     println!(
                         "{}:{}:{text}",
-                        paint(opts.color, PATH_STYLE, quote_path(&hit.path)),
-                        paint(opts.color, LINE_STYLE, n),
+                        opts.path(&hit.path),
+                        paint(opts.color, gutter, n),
                     );
                 } else {
-                    println!("{}:{GUTTER}{text}", paint(opts.color, LINE_STYLE, n));
+                    println!("{}:{GUTTER}{text}", paint(opts.color, gutter, n));
                 }
             }
             println!();
@@ -337,6 +566,10 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
             .map_or_else(|| hit.text.len() - hit.text.trim_start().len(), |f| f.dedent);
         let cut = indent_within(&hit.text, dedent);
         let text = clip(&hit.text[cut..], opts.max_columns);
+        // The hit's own line is the best line by construction here, so it
+        // takes the bold gutter and its text keeps the foreground; the `-C`
+        // rows below it are context and step back to grey.
+        let text = opts.emphasis.apply(&text, "", opts.color);
         // A `GUTTER` after the line number when the path is suppressed:
         // without a path in front, `264:code` runs the number into the code
         // and the eye has nothing to anchor on. With a path, the compact
@@ -345,24 +578,25 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
         if opts.with_path {
             println!(
                 "{}:{}:{text}",
-                paint(opts.color, PATH_STYLE, quote_path(&hit.path)),
-                paint(opts.color, LINE_STYLE, hit.line),
+                opts.path(&hit.path),
+                paint(opts.color, palette::LINE_BEST, hit.line),
             );
         } else {
-            println!("{}:{GUTTER}{text}", paint(opts.color, LINE_STYLE, hit.line));
+            println!("{}:{GUTTER}{text}", paint(opts.color, palette::LINE_BEST, hit.line));
         }
         if let Some(f) = framed {
             for (i, line) in &f.lines {
                 let cut = indent_within(line, dedent);
                 let text = clip(&line[cut..], opts.max_columns);
+                let text = opts.emphasis.apply(&text, palette::TEXT_CTX, opts.color);
                 if opts.with_path {
                     println!(
                         "{}-{}-{text}",
-                        paint(opts.color, PATH_STYLE, quote_path(&hit.path)),
-                        paint(opts.color, LINE_STYLE, i),
+                        opts.path(&hit.path),
+                        paint(opts.color, palette::LINE_CTX, i),
                     );
                 } else {
-                    println!("{}-{GUTTER}{text}", paint(opts.color, LINE_STYLE, i));
+                    println!("{}-{GUTTER}{text}", paint(opts.color, palette::LINE_CTX, i));
                 }
             }
             println!("--");
@@ -380,7 +614,7 @@ pub fn counts(per_file: &[(String, usize)], opts: &Print) {
         if opts.json {
             println!("{}", serde_json::json!({ "path": path, "count": n }));
         } else if opts.with_path {
-            println!("{}:{n}", paint(opts.color, PATH_STYLE, quote_path(path)));
+            println!("{}:{n}", opts.path(path));
         } else {
             println!("{n}");
         }
@@ -391,7 +625,7 @@ pub fn counts(per_file: &[(String, usize)], opts: &Print) {
 /// `path:line:text` contract has one writer, and its options should arrive as
 /// one thing.
 #[derive(Clone, Copy)]
-pub struct Print {
+pub struct Print<'a> {
     pub json: bool,
     pub paths_only: bool,
     pub before: usize,
@@ -412,13 +646,37 @@ pub struct Print {
     /// whose first hit is coloured and whose last is not would be a stranger
     /// bug than no colour at all.
     pub color: bool,
+    /// The query's words, emphasised wherever they appear in a result.
+    ///
+    /// Borrowed rather than owned so `Print` stays `Copy` — it is passed by
+    /// reference to every writer here and copied into none of them. Empty
+    /// (`&NO_EMPHASIS`) is the honest default: no query to speak of, or a
+    /// pattern this cannot read as words.
+    pub emphasis: &'a Emphasis,
+}
+
+/// The empty emphasis, for a `Print` built by `..Default::default()`.
+static NO_EMPHASIS: Emphasis = Emphasis { terms: Vec::new(), how: Match::Subtoken };
+
+impl Print<'_> {
+    /// A path as it prints: quoted if it has to be, painted if colour is on,
+    /// and with any query word in it emphasised.
+    ///
+    /// Path emphasis is not decoration. BM25 counts path tokens as evidence,
+    /// so a file can rank because of its *name*, and that is precisely the
+    /// case where a reader wonders why a hit is there — the answer belongs
+    /// where the question is asked.
+    fn path(&self, path: &str) -> String {
+        let quoted = quote_path(path);
+        self.emphasis.apply(&quoted, palette::PATH, self.color)
+    }
 }
 
 /// Hand-written rather than derived so that the default width is `MAX_COLUMNS`
 /// and not `usize`'s zero, which would read as "no limit" and quietly make a
 /// caller that built a `Print` by `..Default::default()` the one unbounded
 /// writer in the process.
-impl Default for Print {
+impl Default for Print<'_> {
     fn default() -> Self {
         Self {
             json: false,
@@ -430,6 +688,7 @@ impl Default for Print {
             // Off, matching every non-terminal consumer: a `Print` built by
             // `..Default::default()` is one in a test or a harness.
             color: false,
+            emphasis: &NO_EMPHASIS,
         }
     }
 }

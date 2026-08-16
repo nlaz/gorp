@@ -1,6 +1,6 @@
 //! Tests for [`super::out`]: clipping, quoting and the unit renderer.
 
-use super::{color_enabled, paint, quote_path};
+use super::{Emphasis, color_enabled, paint, quote_path};
 
 /// The six names the simulation put on disk (SIMULATION.md §1.5). Six files
 /// produced seven stdout lines, and one of the six mis-parsed silently.
@@ -56,6 +56,49 @@ fn painting_only_wraps_and_never_edits() {
     let on = paint(true, "\x1b[35m", "src/rank/bm25.rs");
     assert_eq!(on, "\x1b[35msrc/rank/bm25.rs\x1b[0m");
     assert_eq!(on.replace("\x1b[35m", "").replace("\x1b[0m", ""), "src/rank/bm25.rs");
+}
+
+/// Ranked emphasis runs through the engine's tokenizer, which is the whole
+/// point: the reader is shown the same subtokens the ranker scored on, so a
+/// query of "user name" lights up `getUserName` and a query the text answers
+/// without sharing a word lights up nothing at all.
+#[test]
+fn ranked_emphasis_follows_the_engine_tokenizer() {
+    let e = Emphasis::of("how is the user name validated");
+    let painted = |text: &str| e.apply(text, "", true);
+
+    assert!(painted("fn getUserName(&self)").contains("\x1b[1;92mgetUserName\x1b[0m"));
+    assert!(painted("let user_name = 1;").contains("\x1b[1;92muser_name\x1b[0m"));
+    // Stopwords and short words carry no location and are dropped, or every
+    // row of every result would light up.
+    assert_eq!(painted("how is the cat"), "how is the cat");
+    // A semantic hit that shares no word is emphasised nowhere, and that is
+    // information rather than a failure.
+    assert_eq!(painted("def rotate(x): return x"), "def rotate(x): return x");
+}
+
+/// Exact-mode emphasis is the literal and only the literal. Painting a
+/// subtoken there would mark text the pattern did not match — the one thing
+/// emphasis must never do, because `-e` output is used as proof.
+#[test]
+fn literal_emphasis_does_not_decompose_the_pattern() {
+    let e = Emphasis::literal("compute_backoff_delay");
+    assert!(e.apply("fn compute_backoff_delay(n)", "", true).contains("\x1b[1;92m"));
+    assert_eq!(e.apply("/// Delay before attempt", "", true), "/// Delay before attempt");
+}
+
+/// A base style survives an emphasis inside it: the reset that closes the
+/// emphasised word closes the base too, so a dim context row would stop being
+/// dim halfway through the line unless the base is re-opened.
+#[test]
+fn a_base_style_is_reopened_after_each_emphasis() {
+    let e = Emphasis::of("retry backoff");
+    let dim = e.apply("retry the backoff now", "\x1b[2m", true);
+    assert!(dim.starts_with("\x1b[2m"), "{dim:?}");
+    assert!(dim.ends_with("\x1b[0m"), "{dim:?}");
+    assert_eq!(dim.matches("\x1b[2m").count(), 3, "base re-opened after each word: {dim:?}");
+    // Colour off is the identity, base style or not.
+    assert_eq!(e.apply("retry the backoff now", "\x1b[2m", false), "retry the backoff now");
 }
 
 /// `never` and `always` are unconditional, and `auto` is false here because
