@@ -72,19 +72,28 @@ const GUTTER: &str = "  ";
 
 /// The palette, as roles rather than colours.
 ///
-/// Three cool hues and a neutral, each answering a different question.
-/// **Blue names the file.** **Cyan counts the lines**, and goes bold on the
-/// one line the engine chose. **Green is your own words**, coming back at
-/// you wherever they landed. **Grey is everything the view added** around the
-/// answer — the de-orphaning rows and `-C` context that are there to make the
-/// window readable rather than because anything matched in them.
+/// **Colour lives in the gutter; the code is left alone.** That is the rule
+/// the rest follows from. A row's line number says where the row stands in
+/// the answer — chosen, scored, or added around the edges — and the source
+/// text on that row is the same source text either way. Styling it too made
+/// one file's code render in two colours inside one block, which reads as
+/// syntax highlighting that has lost its mind.
 ///
-/// So a block reads before a word of it is read: one bold row is the ranking's
-/// actual answer, the plain cyan rows are the window it was scored in, and
-/// the grey rows are scaffolding. Weight and hue carry different axes, which
-/// is why the chosen line is the *same* cyan as its neighbours rather than a
-/// fourth colour — it is not a different kind of thing, it is the one the
-/// engine picked.
+/// So: three cool hues and a neutral, each answering a different question.
+/// **Blue names the file.** **Cyan counts the lines**, and goes bold on the
+/// one line the engine chose. **Grey marks the numbers of rows the view
+/// added** — de-orphaning furniture and `-C` context, there to make the
+/// window readable rather than because anything matched in them. **Green is
+/// your own words**, and it is the one colour that does reach into the text,
+/// because a word of the query is a fact about the text rather than about
+/// the row.
+///
+/// A block therefore reads before a word of it is read: one bold number is
+/// the ranking's actual answer, the plain cyan numbers are the window it was
+/// scored in, the grey numbers are scaffolding, and green anywhere is you.
+/// Weight and hue carry different axes, which is why the chosen line is the
+/// *same* cyan as its neighbours rather than a fourth colour — it is not a
+/// different kind of thing, it is the one the engine picked.
 ///
 /// Only the sixteen ANSI colours are used, never 256-colour or truecolor
 /// codes, so the output takes the terminal's *theme* rather than overriding
@@ -102,11 +111,15 @@ mod palette {
     /// The line the engine actually chose out of the span (`SearchHit::line`)
     /// — the single most useful thing gorp knows that ripgrep does not.
     pub const LINE_BEST: &str = "\x1b[1;36m";
-    /// A row outside the scored window: de-orphaning furniture, or a `-C`
-    /// context row the caller asked for.
+    /// The *number* of a row outside the scored window: de-orphaning
+    /// furniture, or a `-C` context row the caller asked for.
+    ///
+    /// The number only. Greying the text as well was the first version and it
+    /// read as nonsense: the same source line came out two different colours
+    /// depending on which hit it turned up in, and a block of code became a
+    /// gradient. A row's position in the answer is a fact about the gutter —
+    /// the code on it is just code.
     pub const LINE_CTX: &str = "\x1b[90m";
-    /// The text of such a row.
-    pub const TEXT_CTX: &str = "\x1b[90m";
     /// A word of the query, found in the text (see [`super::Emphasis`]).
     pub const TERM: &str = "\x1b[1;92m";
     pub const RESET: &str = "\x1b[0m";
@@ -496,19 +509,18 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
                 // Three roles, one per row, and the engine already decided
                 // all three (see [`palette`]): the line it scored best, the
                 // window it scored, and everything the unit view added around
-                // that window to keep it readable.
-                let (gutter, base) = match row.line {
-                    n if n == hit.line => (palette::LINE_BEST, ""),
-                    n if n < hit.start_line || n > hit.end_line => {
-                        (palette::LINE_CTX, palette::TEXT_CTX)
-                    }
-                    _ => (palette::LINE, ""),
+                // that window to keep it readable. All three live in the
+                // gutter — the text of a row is never restyled for its role.
+                let gutter = match row.line {
+                    n if n == hit.line => palette::LINE_BEST,
+                    n if n < hit.start_line || n > hit.end_line => palette::LINE_CTX,
+                    _ => palette::LINE,
                 };
                 let text = clip(&row.text[cut..], opts.max_columns);
                 println!(
                     "{}:{GUTTER}{}",
                     paint(opts.color, gutter, row.line),
-                    opts.emphasis.apply(&text, base, opts.color),
+                    opts.emphasis.apply(&text, "", opts.color),
                 );
                 prev = Some(row.line);
             }
@@ -542,14 +554,14 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
             for (i, line) in body.iter().enumerate() {
                 let n = from + i as u32;
                 let text = clip(line.trim_start(), opts.max_columns);
-                let (gutter, base) = if n == hit.line {
-                    (palette::LINE_BEST, "")
+                let gutter = if n == hit.line {
+                    palette::LINE_BEST
                 } else if n < hit.start_line || n > hit.end_line {
-                    (palette::LINE_CTX, palette::TEXT_CTX)
+                    palette::LINE_CTX
                 } else {
-                    (palette::LINE, "")
+                    palette::LINE
                 };
-                let text = opts.emphasis.apply(&text, base, opts.color);
+                let text = opts.emphasis.apply(&text, "", opts.color);
                 if opts.with_path {
                     println!(
                         "{}:{}:{text}",
@@ -596,7 +608,7 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
             for (i, line) in &f.lines {
                 let cut = indent_within(line, dedent);
                 let text = clip(&line[cut..], opts.max_columns);
-                let text = opts.emphasis.apply(&text, palette::TEXT_CTX, opts.color);
+                let text = opts.emphasis.apply(&text, "", opts.color);
                 if opts.with_path {
                     println!(
                         "{}-{}-{text}",
@@ -1014,16 +1026,16 @@ fn keyword_blocks(root: &Path, hits: &[SearchHit], opts: &Print) {
                 println!("{ELISION}");
             }
             let cut = indent_within(&row.text, dedent);
-            let (gutter, base) = if matched.contains(&row.line) {
-                (palette::LINE_BEST, "")
+            let gutter = if matched.contains(&row.line) {
+                palette::LINE_BEST
             } else {
-                (palette::LINE_CTX, palette::TEXT_CTX)
+                palette::LINE_CTX
             };
             let text = clip(&row.text[cut..], opts.max_columns);
             println!(
                 "{}:{GUTTER}{}",
                 paint(opts.color, gutter, row.line),
-                opts.emphasis.apply(&text, base, opts.color),
+                opts.emphasis.apply(&text, "", opts.color),
             );
             prev = Some(row.line);
         }
