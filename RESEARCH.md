@@ -9044,3 +9044,22 @@ hit, a quarter of hits correctly bare, bytes at 1.11× the grep form, and
 10 of the 21 hits the detector first flagged as "mid-comment-open" turned
 out to already render their opener via the §34.4 own-block rule — the
 detector was not looking above the window.
+
+### 35.6 The checklist gate (in progress) — an interim look, documented before the end
+
+The trimmed gate (semantic, control/0.5/1.0, full corpus) was stopped at
+the halfway mark by request and scored — a deliberate interim look, so
+it is recorded here §33.1f-style before the run finishes, and the final
+analysis must be read knowing it happened.
+
+At 198 dir/root instances (alphabetical truncation, pairing intact):
+blend 0.5 read rank_func +0.013 [+0.004, +0.023], ovl +0.013 [+0.004,
++0.024] (the two moving together — §24.1's ranking-not-geometry
+signature), file rank +0.027 [+0.015, +0.043], file scopes +0.003 not
+regressed. Blend 1.0: larger points, wider CIs, discordance both ways.
+
+The run was then resumed to the registered full corpus rather than
+declared on the peek: the effect sits exactly at the +0.014 adoption
+bar, which is where half-sample CIs mislead. The full-sample §35.6
+verdict, the bm25 tripwire for the surviving arm, and the adoption
+decision follow below when the data exists.
