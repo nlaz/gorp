@@ -8937,3 +8937,37 @@ everything injects its neighbors into every query, which is why the
 ambiguity deny and the weight exist. If gate 1 fails, the residual
 diagnosis is resolver reach vs. fusion drown, and the two prescribe
 different follow-ups (better resolution vs. seed-quality gating).
+
+### 35.4 Graph expansion: the gate-1 kill, and which residual it was
+
+Built as registered (§35.3): extraction, resolver, `graph.bin`, both
+query channels, cold mirror, parity twin with a `graph_injected`
+vacuity guard. The pool-recall probe then killed it on the first rung,
+and the discriminator says why.
+
+    arm              vocab-gap regions   gold ≤30   gold ≤5
+    --graph-expand 8       138              1 (0.7%)    0
+    --graph-expand 2       138              0 (0.0%)    0
+                                        [gate: ≥10%]
+
+The mechanism is not inert — the trace envelope shows injection firing
+and saturating its 256-chunk cap on ansible-scale repos — and the
+pre-registered reach-vs-drown discriminator ran in the direction that
+settles it: fewer seeds means less cap pressure and sharper
+neighborhoods, and it got *worse*, not better. So the failure is
+**reach**: the exact resolver's 1-hop neighborhoods of the actual seed
+heads simply do not contain gold for these regions. §32.4b's 48% was
+measured with generous matching from any top-10 file, and it warned it
+was a ceiling; the conversion under exact resolution and real seeds is
+under 1%. (Context: over the full 302-region never-surfaced set the
+same replay puts gold ≤30 for 37% — the ordering bucket is reachable,
+as §32.4a said; the vocabulary-gap bucket stays out of reach through
+this door too.)
+
+Verdict: **kill at gate 1**, as registered. `--graph-expand` stays 0
+and no guessplay or campaign spend follows. The code stays as a
+measured-and-dormant lever beside `--bridge-expand` and `--prf`: the
+next credible attempt at this bucket is not more neighbors but better
+*resolution* (per-language module resolution instead of path suffixes)
+or a different seed source — and either one re-enters through this same
+probe, which now costs minutes.
