@@ -31,6 +31,35 @@ fn weighted_rrf_favors_bm25() {
 }
 
 #[test]
+fn a_path_matching_chunk_outranks_an_equal_scored_sibling() {
+    // Equal fused scores; only id 1's path carries a query token. With the
+    // declaration term off, any movement is the path term's alone.
+    let mut ranked = vec![(0u32, 1.0f32), (1u32, 1.0f32)];
+    let opts = SearchOptions { decl_boost: 0.0, path_boost: 1.0, ..Default::default() };
+    let shares = super::apply_structural_boost(&mut ranked, "retry backoff", &opts, |id| {
+        let path = if id == 1 { "src/retry.rs" } else { "src/other.rs" };
+        (path.to_string(), Some("fn body() {}".to_string()))
+    });
+    assert_eq!(ranked[0].0, 1, "the path match should lead");
+    // Shares come back in pre-boost order: (id, decl_share, path_share).
+    assert_eq!(shares[0], (0, 0.0, 0.0));
+    assert_eq!(shares[1].0, 1);
+    assert_eq!(shares[1].2, 0.5, "one of two query tokens appears in the path");
+}
+
+#[test]
+fn path_share_is_zero_without_a_query_token_in_the_path() {
+    let mut ranked = vec![(0u32, 2.0f32), (1u32, 1.0f32)];
+    let opts = SearchOptions { decl_boost: 0.0, path_boost: 4.0, ..Default::default() };
+    let shares = super::apply_structural_boost(&mut ranked, "quantum flux", &opts, |id| {
+        let path = if id == 1 { "src/retry.rs" } else { "src/other.rs" };
+        (path.to_string(), Some("fn body() {}".to_string()))
+    });
+    assert!(shares.iter().all(|&(_, d, p)| d == 0.0 && p == 0.0));
+    assert_eq!(ranked, vec![(0, 2.0), (1, 1.0)], "an inert boost changes nothing");
+}
+
+#[test]
 fn mmr_prefers_diverse_over_redundant() {
     // a and b are near-identical vectors with top scores; c is distinct
     // with a slightly lower score. With diversity on, c should beat b.

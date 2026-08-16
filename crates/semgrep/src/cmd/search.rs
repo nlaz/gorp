@@ -330,6 +330,7 @@ fn options(cli: &Cli, mode: Mode) -> Result<SearchOptions> {
         dedupe_overlap: t.dedupe_overlap,
         file_scope_window: t.file_scope_window,
         decl_boost: t.decl_boost,
+        path_boost: t.path_boost,
         // `--full` wins over both: it is the coarsest request, and it is a
         // line budget so it bypasses the character one.
         passage_lines: if t.full { u32::MAX } else { t.passage_lines },

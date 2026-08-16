@@ -987,6 +987,62 @@ fn cold_and_warm_agree_with_the_declaration_boost() {
     assert!(moved, "decl_boost changed no result on this fixture — the test is vacuous");
 }
 
+/// cold == warm must hold with the path boost on (RESEARCH.md §35.1).
+///
+/// Same trap, same shape as `cold_and_warm_agree_with_the_declaration_boost`:
+/// the boost rescores post-fusion on *both* paths through the one
+/// `apply_structural_boost`, and a version living on only one of them would
+/// answer a cached scope differently from an uncached one. `auth` and
+/// `cooking` appear in fixture paths but not in file bodies, so the path term
+/// has candidates only it can lift; the weight is large so it reorders rather
+/// than sneaking through on ties.
+#[test]
+fn cold_and_warm_agree_with_the_path_boost() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+
+    let queries = [
+        "session token in the auth module",
+        "backoff cooking",
+        "retry compute backoff",
+        "quantum chromodynamics lattice gauge",
+    ];
+
+    let mut moved = false;
+    for mode in [Mode::Bm25, Mode::Semantic, Mode::Hybrid] {
+        for query in queries {
+            // Fine rerank off for the same reason as the declaration twin: at
+            // blend 1.0 the fine window owns the final order and within-pool
+            // reordering is invisible to the vacuity assert.
+            let pb = |o: SearchOptions| {
+                SearchOptions { path_boost: 4.0, fine_rerank: false, ..o }
+            };
+            let cold = search(dir.path(), query, &pb(stream_opts(mode))).unwrap();
+            assert!(!cold.report.used_index);
+            let warm = search(dir.path(), query, &pb(opts(mode))).unwrap();
+            assert!(warm.report.used_index);
+
+            let shape = |r: &semgrep_core::search::SearchResult| -> Vec<(String, u32)> {
+                r.hits.iter().map(|h| (h.path.clone(), h.start_line)).collect()
+            };
+            assert_eq!(
+                shape(&cold),
+                shape(&warm),
+                "cold != warm for {mode:?} {query:?} with path_boost on"
+            );
+            let plain = search(
+                dir.path(),
+                query,
+                &SearchOptions { fine_rerank: false, ..opts(mode) },
+            )
+            .unwrap();
+            moved |= shape(&plain) != shape(&warm);
+        }
+    }
+    assert!(moved, "path_boost changed no result on this fixture — the test is vacuous");
+}
+
 /// cold == warm must survive prose rendering (RESEARCH.md §14.2): the cold
 /// path renders inline, the warm path renders per the meta the write-through
 /// build persisted, and the two must be the same function of the same option.

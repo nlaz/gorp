@@ -172,16 +172,17 @@ pub fn run(
             ranked
         };
 
-        // Declaration boost, post-fusion, mirroring `indexed`. Both paths must
-        // apply it at the same point or a cached scope answers differently
-        // from an uncached one — the same contract `rerank_maxsim` above is
-        // bound by.
+        // Structural boost (declarations + paths), post-fusion, mirroring
+        // `indexed`. Both paths must apply it at the same point or a cached
+        // scope answers differently from an uncached one — the same contract
+        // `rerank_maxsim` above is bound by.
         let mut ranked = ranked;
-        trace.time(Stage::RankDeclBoost, || {
-            super::apply_decl_boost(&mut ranked, query, opts, |id| {
+        let _shares = trace.time(Stage::RankDeclBoost, || {
+            super::apply_structural_boost(&mut ranked, query, opts, |id| {
                 let chunk = pass.chunks[id as usize];
                 let fm = &files[chunk.file_id as usize];
-                corpus::lines(root, &fm.path, &chunk)
+                let text = corpus::lines(root, &fm.path, &chunk);
+                (fm.path.clone(), text)
             })
         });
 

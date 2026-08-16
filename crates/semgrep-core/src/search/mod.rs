@@ -96,8 +96,11 @@ pub(crate) fn append_bm25_pins(
     ranked
 }
 
-/// Declaration boost (RESEARCH.md §24.1): scale each fused score by
-/// `1 + w · (share of query tokens declared in that chunk)`.
+/// Structural boost (RESEARCH.md §24.1 declarations, §35.1 paths): scale each
+/// fused score by `(1 + w_decl · decl_share) · (1 + w_path · path_share)`,
+/// where `decl_share` is the fraction of query tokens declared in the chunk
+/// and `path_share` the fraction appearing in the path's tail (last two
+/// segments, tokenized as BM25 tokenizes them).
 ///
 /// One implementation, called from both paths at the same point, for the reason
 /// `rerank_maxsim` is: a scope that happens to be indexed must not answer a
@@ -106,43 +109,68 @@ pub(crate) fn append_bm25_pins(
 ///
 /// Multiplicative because it has to work in three score spaces at once — raw
 /// BM25, cosine, and RRF, whose fused scores are ~1e-3. An additive boost sized
-/// for one of them swamps or vanishes in the others.
+/// for one of them swamps or vanishes in the others. The two terms compose
+/// multiplicatively too, so either weight at 0 is exactly a no-op for its term.
 ///
-/// `text_of` returns the chunk body; a chunk whose text cannot be read scores
-/// its share as 0 rather than being dropped, since a missing file is already
-/// `materialize`'s problem and dropping here would silently change the pool.
-pub(crate) fn apply_decl_boost(
+/// `source_of` returns the chunk's path and body; a chunk whose text cannot be
+/// read scores its declaration share as 0 rather than being dropped, since a
+/// missing file is already `materialize`'s problem and dropping here would
+/// silently change the pool.
+///
+/// Returns `(id, decl_share, path_share)` for the boosted head, in pre-boost
+/// order: the learned checklist consumes the shares as features.
+pub(crate) fn apply_structural_boost(
     ranked: &mut [(u32, f32)],
     query: &str,
     opts: &SearchOptions,
-    text_of: impl Fn(u32) -> Option<String> + Sync,
-) {
-    if opts.decl_boost <= 0.0 || ranked.is_empty() {
-        return;
+    source_of: impl Fn(u32) -> (String, Option<String>) + Sync,
+) -> Vec<(u32, f32, f32)> {
+    if (opts.decl_boost <= 0.0 && opts.path_boost <= 0.0) || ranked.is_empty() {
+        return Vec::new();
     }
     let qtokens: std::collections::HashSet<String> =
         text::token::tokens(query).into_iter().collect();
     if qtokens.is_empty() {
-        return;
+        return Vec::new();
     }
     use rayon::prelude::*;
     let head = candidate_width(opts.k).min(ranked.len());
-    let shares: Vec<f32> = ranked[..head]
+    let shares: Vec<(u32, f32, f32)> = ranked[..head]
         .par_iter()
         .map(|&(id, _)| {
-            let Some(t) = text_of(id) else { return 0.0 };
-            let decl = text::declaration_tokens(&t);
-            if decl.is_empty() {
-                return 0.0;
-            }
-            let n = qtokens.iter().filter(|q| decl.contains(*q)).count();
-            n as f32 / qtokens.len() as f32
+            let (path, text) = source_of(id);
+            let decl_share = match text {
+                Some(t) if opts.decl_boost > 0.0 => {
+                    let decl = text::declaration_tokens(&t);
+                    if decl.is_empty() {
+                        0.0
+                    } else {
+                        let n = qtokens.iter().filter(|q| decl.contains(*q)).count();
+                        n as f32 / qtokens.len() as f32
+                    }
+                }
+                _ => 0.0,
+            };
+            let path_share = {
+                let tail = text::prose::tail_segments(&path, 2);
+                let ptoks: std::collections::HashSet<String> =
+                    text::token::tokens(tail).into_iter().collect();
+                if ptoks.is_empty() {
+                    0.0
+                } else {
+                    let n = qtokens.iter().filter(|q| ptoks.contains(*q)).count();
+                    n as f32 / qtokens.len() as f32
+                }
+            };
+            (id, decl_share, path_share)
         })
         .collect();
-    for (slot, share) in ranked[..head].iter_mut().zip(shares) {
-        slot.1 *= 1.0 + opts.decl_boost * share;
+    for (slot, &(_, decl_share, path_share)) in ranked[..head].iter_mut().zip(&shares) {
+        slot.1 *= (1.0 + opts.decl_boost.max(0.0) * decl_share)
+            * (1.0 + opts.path_boost.max(0.0) * path_share);
     }
     ranked.sort_by(|a, b| b.1.total_cmp(&a.1));
+    shares
 }
 
 /// Same, for a scope that is one file: everything (RESEARCH.md §24.1).
@@ -236,6 +264,18 @@ pub struct SearchOptions {
     /// would let one declared token dominate a fused score in a corpus that
     /// would never show it.
     pub decl_boost: f32,
+    /// Weight of the path term of the structural boost: scores in the boosted
+    /// head are scaled by `1 + path_boost · path_share`, where `path_share` is
+    /// the fraction of query tokens found in the path's last two segments
+    /// (tokenized as BM25 tokenizes them). **Default 0.0 — off**, pending the
+    /// §35.1 gate.
+    ///
+    /// Path tokens already reach both retrieval channels as content via
+    /// `path_render: Full`, so this flag measures the *increment* of an
+    /// explicit rank-time boost over path-as-content. Same head, same file
+    /// reads, and the same multiplicative form as `decl_boost` — the two terms
+    /// compose, and either at 0 is exactly a no-op for its term.
+    pub path_boost: f32,
     /// How many lines of each hit to show, centred on the best-matching line
     /// and clamped to the chunk. **Default 18** (RESEARCH.md §26.3).
     ///
@@ -456,6 +496,7 @@ impl Default for SearchOptions {
             dedupe_overlap: 0.0,
             file_scope_window: 0,
             decl_boost: 0.5,
+            path_boost: 0.0,
             passage_lines: 0,
             passage_chars: 800,
             defines: false,

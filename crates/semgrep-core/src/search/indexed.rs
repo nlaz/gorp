@@ -100,14 +100,16 @@ pub fn run(
             ranked
         };
 
-        // Declaration boost, post-fusion. `stream` applies it at the same
-        // point and through the same function, because a scope that happens to
-        // be indexed must not answer differently from one that is not.
+        // Structural boost (declarations + paths), post-fusion. `stream`
+        // applies it at the same point and through the same function, because
+        // a scope that happens to be indexed must not answer differently from
+        // one that is not.
         let mut ranked = ranked;
-        trace.time(Stage::RankDeclBoost, || {
-            super::apply_decl_boost(&mut ranked, query, opts, |id| {
+        let _shares = trace.time(Stage::RankDeclBoost, || {
+            super::apply_structural_boost(&mut ranked, query, opts, |id| {
                 let (chunk, path) = rows.chunk(id);
-                corpus::lines(&d.root, &path, &chunk)
+                let text = corpus::lines(&d.root, &path, &chunk);
+                (path, text)
             })
         });
 

@@ -536,7 +536,7 @@ fn render_path_into(
 }
 
 /// The last `n` `/`-separated segments of a path.
-fn tail_segments(path: &str, n: usize) -> &str {
+pub(crate) fn tail_segments(path: &str, n: usize) -> &str {
     let mut cut = path.len();
     for _ in 0..n {
         match path[..cut].rfind('/') {

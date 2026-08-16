@@ -272,6 +272,11 @@ pub struct Tuning {
     #[arg(long, hide = true, default_value_t = SearchOptions::default().decl_boost)]
     pub decl_boost: f32,
 
+    /// Prefer chunks whose file path carries a query term, weighted
+    /// (0 = off, experimental RESEARCH.md §35.1)
+    #[arg(long, hide = true, default_value_t = SearchOptions::default().path_boost)]
+    pub path_boost: f32,
+
     /// Characters shown per result, grown around the match (0 = the matched
     /// line alone; default 800). A budget in characters rather than lines
     /// because a line of prose is not a line of code — RESEARCH.md §26.4.

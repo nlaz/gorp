@@ -137,6 +137,7 @@ fn opts_block(opts: &SearchOptions) -> Value {
         "passage_override": opts.passage_override,
         "min_score": opts.min_score,
         "decl_boost": opts.decl_boost,
+        "path_boost": opts.path_boost,
         "bm25_pin": opts.bm25_pin,
         "dedupe_overlap": opts.dedupe_overlap,
         "keep_coarse_top": opts.keep_coarse_top,
