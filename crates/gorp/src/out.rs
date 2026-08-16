@@ -42,9 +42,10 @@ pub const EXACT_PRINT_CAP: usize = 250;
 /// so ordinary code is never cut.
 pub const MAX_COLUMNS: usize = 200;
 
-/// Appended to a line that `MAX_COLUMNS` cut. ripgrep's own wording for its
-/// `-M/--max-columns`, so a caller that has read one has read both.
-const OMITTED: &str = " [... omitted end of long line]";
+/// Opens the marker appended to a line that `MAX_COLUMNS` cut; the count of
+/// characters dropped and a closing `chars]` follow. Carrying the count lets a
+/// caller weigh `-M 0` against what it would actually buy before paying for it.
+const OMITTED: &str = " [… +";
 
 /// A unit-view row printed where the row numbers jump: lines were elided
 /// there. Bare — no count, no gutter — because the numbers on either side
@@ -63,7 +64,10 @@ fn clip(text: &str, max: usize) -> Cow<'_, str> {
     }
     match text.char_indices().nth(max) {
         None => Cow::Borrowed(text),
-        Some((end, _)) => Cow::Owned(format!("{}{OMITTED}", &text[..end])),
+        Some((end, _)) => {
+            let cut = text[end..].chars().count();
+            Cow::Owned(format!("{}{OMITTED}{cut} chars]", &text[..end]))
+        }
     }
 }
 
@@ -459,7 +463,7 @@ pub fn footer(mode: Mode, result: &SearchResult, shown: usize, suggested: bool) 
         walk_errors_note(result);
     } else {
         eprintln!(
-            "{PROG}: ranked top {n} of {} candidates · not it? rephrase the query",
+            "{PROG}: top {n} of {} · not it? rephrase",
             result.report.n_chunks_considered.max(n)
         );
     }

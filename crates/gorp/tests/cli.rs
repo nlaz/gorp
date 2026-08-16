@@ -565,14 +565,15 @@ fn one_long_line_cannot_crowd_out_the_hits_beneath_it() {
     let r = sg.run_in(&["add_code", "-k", "5"], dir.path());
     assert_eq!(r.code, 0, "stderr: {}", r.stderr);
     assert!(r.stdout.len() < 4_000, "capped, got {} bytes", r.stdout.len());
-    assert!(r.stdout.contains("omitted end of long line"), "the cut is declared, not silent");
+    assert!(r.stdout.contains("[… +"), "the cut is declared, not silent");
+    assert!(r.stdout.contains(" chars]"), "the marker says how much was cut");
     assert!(r.stdout.contains("real.py"), "the hit ranked below the long line survives it");
 
     // The escape hatch, for a caller that wants the bytes and knows the cost.
     let full = sg.run_in(&["add_code", "-k", "5", "-M", "0"], dir.path());
     assert_eq!(full.code, 0, "stderr: {}", full.stderr);
     assert!(full.stdout.len() > 100_000, "-M 0 restores the whole line");
-    assert!(!full.stdout.contains("omitted end of long line"));
+    assert!(!full.stdout.contains("[… +"));
 }
 
 /// Indentation is the one part of a line that is pure position — already carried
