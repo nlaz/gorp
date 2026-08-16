@@ -331,6 +331,9 @@ fn options(cli: &Cli, mode: Mode) -> Result<SearchOptions> {
         file_scope_window: t.file_scope_window,
         decl_boost: t.decl_boost,
         path_boost: t.path_boost,
+        // Env rather than a flag: the only consumer is the §35.2 training
+        // dump, which must not widen the CLI surface agents see.
+        debug_features: std::env::var("SEMGREP_DUMP_FEATURES").is_ok_and(|v| v == "1"),
         // `--full` wins over both: it is the coarsest request, and it is a
         // line budget so it bypasses the character one.
         passage_lines: if t.full { u32::MAX } else { t.passage_lines },

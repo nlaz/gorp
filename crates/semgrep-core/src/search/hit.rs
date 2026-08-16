@@ -803,5 +803,14 @@ fn materialize(
             v
         }),
         unit_rows,
+        features: opts.debug_features.then(|| super::HitFeatures {
+            coarse: c.score,
+            fine: c.fine.map(|f| f.score),
+            bm25_rank: c.bm25_rank,
+            phrases: c.phrases,
+            decl_share: c.decl_share,
+            path_share: c.path_share,
+            chunk_lines: chunk.end_line.saturating_sub(chunk.start_line) + 1,
+        }),
     })
 }

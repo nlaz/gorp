@@ -276,6 +276,10 @@ pub struct SearchOptions {
     /// reads, and the same multiplicative form as `decl_boost` — the two terms
     /// compose, and either at 0 is exactly a no-op for its term.
     pub path_boost: f32,
+    /// Emit [`HitFeatures`] on every hit (RESEARCH.md §35.2). Not a CLI flag —
+    /// the CLI sets it from `SEMGREP_DUMP_FEATURES=1`, keeping the flag
+    /// surface clean; the only consumer is the checklist training dump.
+    pub debug_features: bool,
     /// How many lines of each hit to show, centred on the best-matching line
     /// and clamped to the chunk. **Default 18** (RESEARCH.md §26.3).
     ///
@@ -497,6 +501,7 @@ impl Default for SearchOptions {
             file_scope_window: 0,
             decl_boost: 0.5,
             path_boost: 0.0,
+            debug_features: false,
             passage_lines: 0,
             passage_chars: 800,
             defines: false,
@@ -597,6 +602,35 @@ pub struct SearchHit {
     /// same absent-by-default contract as every optional field above.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unit_rows: Option<Vec<UnitRow>>,
+    /// Per-candidate ranking features (RESEARCH.md §35.2), present only when
+    /// [`SearchOptions::debug_features`] asked for them — the training dump
+    /// for the learned checklist rides the JSON output rather than a second
+    /// format. Absent in every ordinary run, so the JSON contract is
+    /// unchanged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub features: Option<HitFeatures>,
+}
+
+/// The candidate-local facts the learned checklist scores (RESEARCH.md §35.2),
+/// as they stood when the hit was materialized. Candidate-local on purpose:
+/// anything query-global (query length, mode) is already recorded by whoever
+/// asked for the dump, and anything index-global would break cold==warm.
+#[derive(Debug, Clone, Copy, serde::Serialize)]
+pub struct HitFeatures {
+    /// The fused (coarse) score, pre-fine.
+    pub coarse: f32,
+    /// Fine-window cosine, when the fine rerank scored this candidate.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fine: Option<f32>,
+    /// 1-based rank in the lexical head, when the BM25 channel ranked it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bm25_rank: Option<u16>,
+    /// Retriever bitmask over the query's phrases.
+    pub phrases: u8,
+    pub decl_share: f32,
+    pub path_share: f32,
+    /// Chunk height in lines.
+    pub chunk_lines: u32,
 }
 
 #[derive(Debug, Default, Clone, serde::Serialize)]
@@ -1031,6 +1065,7 @@ fn keyword_search(
                 lines_from: None,
                 defines: None,
                 unit_rows: None,
+                features: None,
             })
             .collect()
     });
