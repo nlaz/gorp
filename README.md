@@ -69,7 +69,7 @@ question; paths default to the current directory. Exit 0 on hits, 1 on none.
 | `-g GLOB` (`--include`) | keep only paths matching the glob (repeatable) |
 | `--lines A-B` | keep only results in a line range |
 | `-M N` | truncate printed lines at N characters (default 200; 0 = off) |
-| `--json` | JSONL: `{path, start_line, end_line, line, text, score}` |
+| `--json` | JSONL: one object per hit — `{path, start_line, end_line, line, text, score, …}` |
 | `--stats` | per-stage timing and provenance, on stderr |
 | `gorp cache` | show what the cache holds; `--prune` reclaims, `--clear` empties |
 
@@ -92,9 +92,10 @@ stderr — guidance, never in the way of a pipe
   gorp: ranked top 5 of 1,514 candidates · not it? rephrase the query
 ```
 
-`GORP_NO_HINTS=1` silences the footers. Lines print dedented and capped at
-200 characters (`-M`), so k hits cost about k × 200 bytes — uncapped, a
-single minified line was measured carrying 73% of everything the tool ever
+`GORP_NO_HINTS=1` silences the footers. Lines print dedented and each row is
+capped at 200 characters (`-M`), with a per-hit passage budget on top, so a
+ranked hit costs a small multiple of that rather than a whole file — uncapped,
+a single minified line was measured carrying 73% of everything the tool ever
 printed to one agent, pushing real hits out of its context.
 
 ## Set up your agent
@@ -163,7 +164,7 @@ numbers, is below and in [eval/REPORT.md](eval/REPORT.md).
 
 Every miss is a full round-trip that never needed to happen, and a miss is
 not cheap: an agent falling back through phrase, AND, then OR patterns pays
-~8 full kernel scans (~25 s) to fail, against gorp's single ~100 ms warm
+~8 full kernel scans (~25 s) to fail, against gorp's single sub-150 ms warm
 query.
 
 ## No index to manage: the index is a cache
@@ -236,7 +237,7 @@ scope streams and caches, every later one serves from the cache:
 |---|---|---|---|
 | VS Code repo (49 MB, 4k files) | 2.5 s | **10 ms** | 63 MB |
 | kernel `drivers/net/` (145 MB) | 3.9 s | **20 ms** | 150 MB |
-| whole kernel (1.15 GB, 84k files) | 32 s | **115 ms** | 946 MB |
+| whole kernel (1.15 GB, 84k files) | 32 s | **~140 ms** | 946 MB |
 
 Medians of 3 runs after warmup, M-series Mac; competitors invoked by absolute
 path with stdout written to real files, since some short-circuit on
@@ -247,7 +248,8 @@ path with stdout written to real files, since some short-circuit on
 
 Built on [`ese`](https://github.com/flowercomputers/ese) and
 [`anny`](https://github.com/flowercomputers/anny). One query fans out to two
-engines over one shared chunk table, then fuses:
+engines over one shared chunk table, then combines them into a single ranked
+list:
 
 ```
    corpus  (streamed on a cache miss, mmap'd on a hit)
@@ -267,7 +269,12 @@ engines over one shared chunk table, then fuses:
      top-128                          top-128
         └───────────────┬───────────────┘
                         ▼
-          weighted RRF  (semantic × 0.2)
+        ranked list  (default: semantic, with the
+        top BM25 hits pinned in so a strong lexical
+        match is never dropped; --mode hybrid fuses
+        the two lists by weighted RRF instead)
+                        │
+         fine rerank  (best window inside the chunk)
                         │
             MMR  (spread across files)
                         ▼
@@ -275,15 +282,21 @@ engines over one shared chunk table, then fuses:
 ```
 
 - **One chunk table for everything.** BM25 and embeddings score the same
-  chunks, so fusion is apples-to-apples and every result maps back to
-  `file:line`.
+  chunks, so the two channels are apples-to-apples and every result maps back
+  to `file:line`.
 - **Code-aware lexical ranking.** The BM25 tokenizer splits
   `camelCase`/`snake_case` into subtokens while keeping the whole
   identifier, and chunk text is path-augmented so file names count as
   evidence.
-- **Weighted fusion + diversity.** RRF over the two lists (semantic
-  down-weighted to 0.2 — tuned, not guessed), then MMR so results spread
-  across files instead of stacking in one.
+- **Both channels always run.** The default mode ranks semantically but pins
+  the top 5 BM25 hits into the candidate set (`--bm25-pin`), so a query that
+  is really an identifier still gets an exact-match answer. `--mode hybrid`
+  instead fuses both lists with RRF, semantic down-weighted to 0.2 — tuned,
+  not guessed.
+- **Then narrowing and diversity.** A fine rerank picks the best window inside
+  each candidate chunk, a declaration boost favors chunks whose window sits in
+  a definition, and MMR spreads results across files instead of stacking them
+  in one.
 
 Full design in [docs/DESIGN.md](docs/DESIGN.md); the research log — agent
 economics, CLI-surface collapse, cache design, reranker post-mortems — in

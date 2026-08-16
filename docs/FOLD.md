@@ -5,8 +5,10 @@ deferred fold to v2; this is the record of what ending that deferral would
 actually involve, written while the evidence was in hand. §9 is the root-cause
 analysis of the one blocker, drafted for upstream.
 
-Nothing here is implemented. It is a design and a set of verified facts, so that
-the next person to pick this up does not have to re-derive them.
+The overlay itself is not implemented — items 4 and 5 of §7. Items 1–3 were
+prerequisites and have since shipped, so this is a design, a set of verified
+facts, and a record of what the evaluation already caused, kept so that the next
+person to pick it up does not have to re-derive any of it.
 
 ---
 
@@ -16,6 +18,12 @@ Simulation testing measured read-repair as a cliff (`SIMULATION.md` §1.3): at 5
 corpus drift a query costs more than a full cold pass, and it **never
 amortizes** — the tenth identical query costs what the first did. Overlay memory
 is likewise unbounded, 9 MB → 63 MB across the drift sweep.
+
+That is pre-#17 behavior at the far end: the 5% drift threshold now rebuilds
+instead of repairing, so 50% drift costs 168 ms once and 8.2 ms thereafter. The
+cliff is capped, not removed — every query under the threshold still rebuilds
+its overlay from scratch and still discards it at exit, which is the property
+below.
 
 Both follow from one property: **the overlay is rebuilt every query and discarded
 at process exit.** Tombstones, the union id space in `search/rows.rs`, the
@@ -122,21 +130,21 @@ So expect **~+2%**, against gorp-bench's `report.py` `SIZE_BUDGET = 1.15`. Allow
 (~50–60 crates) and supply-chain surface, not size. A crate count is a bad proxy
 when a binary is 89% static data.
 
-**`corpus::walk` is single-threaded.** `corpus/mod.rs:25` uses
-`ignore::WalkBuilder::new(root).build()`, while `keyword.rs:43` already uses
-`.build_parallel()` on the same trees in the same crate. The walk is ~7 ms on
-tokio and ~1 s on the 84k-file kernel — and it is *why the TTL exists*, which is
-why answers can be stale by design (`SIMULATION.md` §1.7). Parallelizing it is
-independent of everything here and probably the best ratio of value to risk
-available right now.
+**`corpus::walk` was single-threaded — since fixed.** It used
+`ignore::WalkBuilder::new(root).build()` while `keyword.rs` already used
+`.build_parallel()` on the same trees in the same crate, and it cost ~7 ms on
+tokio and ~1 s on the 84k-file kernel. It is now parallel over
+`rayon::current_num_threads()` (`corpus/mod.rs`), which took the kernel walk to
+**272 ms** and tokio to 5.2 ms — `FIXES.md` #24. Read-repair pays this walk on
+every warm query past the TTL, which is why it was worth doing.
 
-One hazard if it is parallelized: today's `sort_by(path)` is **not a total
-order**. `to_string_lossy` maps invalid UTF-8 to `U+FFFD` and `\` is rewritten to
-`/`, so two distinct entries can collide on one `String`. Serial, that is merely
-reproducible; parallel, a stable sort would preserve *thread arrival order* and
-chunk ids would shift between runs of the same tree. Sort on
-`(path, size, mtime)` and land that change **on its own, still serial**, so
-ordering is isolated from parallelism.
+The hazard identified here was real and was answered differently than proposed:
+rather than sorting on `(path, size, mtime)` to get a total order, the walk
+sorts with `sort_unstable_by` on the path alone, because paths in a single tree
+*are* unique and so the order is already total and independent of which thread
+found what. Verified by walking the same 846-file tree twenty times for
+byte-identical output, and against the pre-change binary for an identical
+table.
 
 ## 6. What to measure before committing to this
 
@@ -161,24 +169,29 @@ ordering is isolated from parallelism.
 
 ## 7. Sequencing
 
-Ordered by dependency, and each of the first four is worth having whether or not
-fold ever lands:
+Ordered by dependency. The first three were worth having whether or not fold
+ever landed, and all three have since shipped:
 
-1. `corpus::walk` total sort key (serial), then parallel — §5
-2. recursive `cache/budget.rs::dir_bytes` — an fjall store is a *subdirectory*,
-   so without this the overlay's bytes are invisible to the budget enforcer and
-   the cache grows unbounded while reporting itself under budget. Pre-registered
-   as sim finding `s5c`
-3. the delta-size threshold RESEARCH.md §8 specifies and `repair.rs` never
-   implemented — reuse the existing corrupt-entry arm at `search/mod.rs:222`
-   (`remove_dir_all` + `stream::run`), which converges on the next query via the
-   existing write-through
+1. ~~`corpus::walk` parallel, on a total order~~ — **done**, `FIXES.md` #24. See
+   §5 for what was actually built.
+2. ~~recursive `cache/budget.rs::dir_bytes`~~ — **done**, `FIXES.md` #19. An
+   fjall store is a *subdirectory*, so without this the overlay's bytes would be
+   invisible to the budget enforcer and the cache would grow unbounded while
+   reporting itself under budget. Pre-registered as sim finding `s5c`, which now
+   expects `subdirectory_bytes_counted: True`.
+3. ~~the delta-size threshold RESEARCH.md §8 specifies and `repair.rs` never
+   implemented~~ — **done**, `FIXES.md` #17, as `repair::DEFAULT_MAX_DRIFT =
+   0.05` with `RepairOutcome::DriftTooLarge` and a `--repair-max-drift` flag.
+   Note the shipped mechanism is *not* the one proposed here: past the threshold
+   the entry rebuilds through `build_through` and re-runs `indexed::run`, rather
+   than reusing the corrupt-entry arm's `remove_dir_all` + `stream::run`, which
+   would have streamed one answer and kept nothing.
 4. `repair::index_paths` / `assemble` — §3, no new dependencies
 5. `fold::Stream::try_new` (cross-repo, additive) and the overlay itself
 
-Note that (3) fixes the *first* query after a branch switch and persistence fixes
-queries 2..N. They are complementary, and (3) is ~15 lines with no dependency, no
-lock, and no new crates.
+Note that (3) fixes the *first* query after a branch switch and persistence
+would fix queries 2..N. They are complementary, which is why (3) landing does
+not settle the question this document asks.
 
 ## 8. Correction to `SIMULATION.md`'s framing
 

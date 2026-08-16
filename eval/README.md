@@ -147,8 +147,8 @@ nothing published was reproducible from the repo alone. See
 pins every clone to a SHA and `manifest.py` records a content digest of each
 tree:
 
-    python3 bench/manifest.py           # record  (run from gorp-bench)
-    python3 bench/manifest.py --check   # detect a tree that has changed
+    python3 ../gorp-bench/bench/manifest.py           # record  (run from gorp-bench)
+    python3 ../gorp-bench/bench/manifest.py --check   # detect a tree that has changed
 
 vscode and wikipedia were unpinned until 2026-07-30, so the trees on disk have
 `revision: unknown` — that cannot be recovered and is not invented. The digest
@@ -185,7 +185,7 @@ RESEARCH.md, so they have their own tests:
 
     python3 -m pytest eval/tests -q
 
-`test_scoring.py` covers the Loc-Bench scorer (§11) — the cases where a scorer
+gorp-bench's `tests/test_scoring.py` covers the Loc-Bench scorer (§11) — the cases where a scorer
 is tempted to over-credit, since that is the failure that flatters the tool
 under test. `test_run_eval.py` covers the hit predicate that decides every
 recall@k and MRR figure. `test_symbols.py` covers symbol extraction, which
@@ -201,5 +201,5 @@ defines the ground truth for the symbol-anchored query sets (§11.4).
 `levers.sh` groups conditions by index flags and rebuilds a corpus once per
 distinct build rather than once per condition, and restores a default index
 afterwards so a later run does not silently measure against whatever the last
-condition built. It uses its own `SEMGREP_CACHE_DIR`; see FIXES.md #10 for why
+condition built. It uses its own `GORP_CACHE_DIR`; see FIXES.md #10 for why
 that matters.

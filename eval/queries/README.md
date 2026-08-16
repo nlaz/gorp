@@ -72,7 +72,7 @@ test**, so these sets cannot referee a chunking change. The four language sets
 use `--anchor symbol` and do not have this problem.
 
 **Leakage (§12.3, and the path column added 2026-07-30).** Run
-`python3 eval/leakage.py eval/queries/<set>.jsonl bench/corpora/<corpus>` for
+`python3 eval/leakage.py eval/queries/<set>.jsonl ../gorp-bench/bench/corpora/<corpus>` for
 the live table, or read it out of `MANIFEST.json`. Summary:
 
 | set | kind | ident% | med words | stem% | dirseg% | pathseg-not-in-gold% |
@@ -98,7 +98,7 @@ user would actually type and runs 17 words where real users type 6, and agents
 type 4. Neither pole is where anyone is.
 
 The path columns are the leak §12 did not measure: `generate.py` passed the
-file path into the generator prompt while semgrep's tokenizer does path
+file path into the generator prompt while gorp's tokenizer does path
 augmentation. Two things to read off the table:
 
 - **It was as bad for `paraphrase` as for `direct`** on the old sets (17.1% vs
@@ -125,7 +125,7 @@ Don't, unless you mean to — a regenerated set is a *different* set, and
 `queries_fp` will refuse to compare it against any existing baseline. That
 refusal is the feature. To make a new set:
 
-    python3 eval/generate.py bench/corpora/<corpus> --anchor symbol \
+    python3 eval/generate.py ../gorp-bench/bench/corpora/<corpus> --anchor symbol \
         --n 200 --out eval/queries/<name>.jsonl
 
 then re-run the manifest generator and commit both.

@@ -1,21 +1,21 @@
 # Observed simulation testing
 
 2026-07-31. 19 scenarios × 3 corpora (a synthetic tree, `tokio` 865 files,
-`jekyll` 501 files): 660 semgrep invocations carrying 651 trace envelopes, and
+`jekyll` 501 files): 660 gorp invocations carrying 651 trace envelopes, and
 240 pre-registered checks. Predictions were committed in
 `eval/sim/PREREGISTER.md` **before any of it ran** (`a616b02`); the sessions are
-in `eval/sim/results/` (3.8 MB, checked in) and the generated tables in
+in `eval/sim/results/` (7.5 MB, checked in) and the generated tables in
 `eval/sim/results/INDEX.md`.
 
 Numbers below are from the **post-fix** run unless marked otherwise. The
 pre-fix run is what found the panic; both are described where they differ.
 
 > **2026-07-31, later the same day.** All eight remaining findings are now fixed
-> (`FIXES.md` #16–#24), plus the walk parallelized. Each section below keeps what
+> (`FIXES.md` #16–#23), plus the walk parallelized (#24). Each section below keeps what
 > was measured and adds what it measures now; §7 collects the results and the two
 > places this report turned out to be wrong about its own findings.
 
-Why a third harness. `eval/` scores single queries, `bench/` times single
+Why a third harness. `eval/` scores single queries, gorp-bench times single
 queries. The index is a cache (RESEARCH.md §8), so almost everything
 structurally interesting — write-through, read-repair, the TTL gate, LRU
 eviction, corrupt-entry disposal — only exists across a *sequence*, where step N
@@ -76,7 +76,7 @@ is the finding. `search/mod.rs:173-181` makes a cache entry disposable — any
 `Err` deletes it and falls through to the streaming path — but a panic is not an
 `Err`. The disposal never runs, the entry is never evicted, and **every
 subsequent invocation panics on the same bytes.** Recovery requires
-`semgrep cache --clear`; nothing the engine does gets there on its own.
+`gorp cache --clear`; nothing the engine does gets there on its own.
 
 `bm25.flat` is the only artifact in the format that is not size-checked.
 `emb.bin` is (`store/load.rs:97`), `chunks.bin` is via postcard, `meta.json` via
@@ -84,7 +84,7 @@ serde — and all of those degraded cleanly to a cold answer with correct result
 as predicted. In the pre-fix run, **30 invocations exited 101, and all 30 were
 this bug**; it was the only crash class found anywhere.
 
-It is worse for a repo-local `.semgrep/`, which is meant to surface errors
+It is worse for a repo-local `.gorp/`, which is meant to surface errors
 rather than degrade: it should exit 2, and exited 101 instead. A panic does not
 respect that distinction either.
 
@@ -197,7 +197,7 @@ now a bounded cost rather than an unbounded one.
 ### 1.4 Build, evict, then stream anyway (P1)
 
 Not predicted; found because the envelope needed a name for a state I did not
-think was reachable. With `SEMGREP_CACHE_MAX_BYTES` set to 1.5× one entry and
+think was reachable. With `GORP_CACHE_MAX_BYTES` set to 1.5× one entry and
 four corpora queried round-robin, **5 of 8 queries** came back as:
 
 ```
@@ -224,7 +224,7 @@ built.
 
 ### 1.5 A newline in a filename breaks the stdout contract (P2)
 
-`out::hits` (`crates/semgrep/src/out.rs:42`) writes a bare
+`out::hits` (`crates/gorp/src/out.rs:42`) writes a bare
 `println!("{}:{}:{}", path, line, text)` with no escaping or quoting. Six files,
 one per hostile filename, in their own directory:
 
@@ -245,7 +245,7 @@ does not. Reproduced identically on all three corpora.
 
 This matters more than the input looks. "stdout is data, stderr is commentary"
 is the CLI's central promise and a tested invariant, and `path:line:text` is what
-makes semgrep drop-in for grep. A consumer splitting on `:` mis-parses `od:d.py`
+makes gorp drop-in for grep. A consumer splitting on `:` mis-parses `od:d.py`
 silently, and a newline turns one result into two.
 
 **Fixed** (`FIXES.md` #20): a path containing a control character, a quote, or a
@@ -256,7 +256,7 @@ lines.
 **The first version of this check passed for the wrong reason** — run against
 the whole adversarial tree, `huge.py`'s 200k matching lines overflowed the
 harness's 64 KB capture cap long before the odd names appeared, and it also made
-the harness report "semgrep emits invalid JSON" when what it had actually found
+the harness report "gorp emits invalid JSON" when what it had actually found
 was its own truncation. Both are noted in `harness.py`; the scenario now scopes
 to a directory holding only the hostile names, and records how many files were
 on disk so a vacuous pass is visible as one.
@@ -264,9 +264,9 @@ on disk so a vacuous pass is visible as one.
 ### 1.6 A mistyped path answers "no results" (P2)
 
 ```
-$ semgrep "exponential backoff retry policy" ./no_such_subdir
-semgrep: first ranked search of this scope — caching it (later searches are fast)
-semgrep: no results · try broader phrasing or a nearby concept
+$ gorp "exponential backoff retry policy" ./no_such_subdir
+gorp: first ranked search of this scope — caching it (later searches are fast)
+gorp: no results · try broader phrasing or a nearby concept
 $ echo $?
 1
 ```
@@ -445,7 +445,7 @@ how the residual paid for itself within an hour of existing.
 
 | measure | value | site |
 |---|---|---|
-| index resolutions per **warm** query | **2** | `warn_if_first_search` re-does the work the engine is about to do, to decide whether to print one line |
+| index resolutions per **warm** query | **2**, now 1 | `warn_if_first_search` re-did the work the engine was about to do, to decide whether to print one line. Fixed by `FIXES.md` #22 — the engine reports it through an `on_first_search` callback instead; see §7 |
 | index resolutions per **cold** query | **3** | one more from the post-build re-discovery |
 | extra full searches run by a failed `-e` | 1 per miss | `suggest_ranked_alternatives` runs a complete hybrid search that `--stats` never showed |
 | queries that rebuilt a repair overlay from scratch | 100% of drifted warm queries | the overlay is never written back |
@@ -471,7 +471,7 @@ measured.
   `write_cache_entry` — never fired. Both *passed*. They now record how many
   files were on disk and whether the condition was constructed, so a vacuous pass
   is visible.
-- **One scenario reported a false finding.** "semgrep emits invalid JSON" was the
+- **One scenario reported a false finding.** "gorp emits invalid JSON" was the
   harness's own 64 KB truncation cutting a line in half. `Step.stdout_lines()`
   now drops a torn final line and the record carries a `stdout_truncated` flag.
 - **One scenario could not build its condition by racing the clock.** The
@@ -480,7 +480,7 @@ measured.
   reproduces exactly what `corpus::diff` sees.
 - **Corpus-shape assumptions.** Three scenarios named `core/m0.py`, which exists
   only in the synthetic tree; and the first tokio run copied the corpus's
-  leftover `.semgrep/` directory, so every "first search of this scope" resolved
+  leftover `.gorp/` directory, so every "first search of this scope" resolved
   warm and the cold-start and fault-injection scenarios were no-ops that still
   reported numbers.
 - **Two brittle thresholds that reported noise as signal.** "Warm query time is
@@ -507,7 +507,7 @@ builds the entry and every later one walks, finds nothing, and returns
 `NoDrift` — `Repair` is `None` for all 114 cases. The snapshot is a real gate for
 anything touching walk order or ranking; it is what proves a change did not move
 a score. But a byte-identical snapshot says nothing whatsoever about the repair
-path. That is `crates/semgrep-core/tests/repair.rs`'s job, and anything built on
+path. That is `crates/gorp-core/tests/repair.rs`'s job, and anything built on
 the overlay needs its own gate.
 
 ---
@@ -532,13 +532,13 @@ duplicate discovery on every warm query, and the narrow-scope starvation.
 `Stage` is a closed enum with a declared per-path schedule, zero-filled so the
 report has a fixed shape; every stage is a leaf in exactly one bucket so
 `walk`/`load`/`rank` are derived sums and `unattributed_ms` means something; and
-`SEMGREP_TRACE_FILE` / `--stats-json` emit one JSON envelope per *engine*
+`GORP_TRACE_FILE` / `--stats-json` emit one JSON envelope per *engine*
 invocation, which is how the hidden second search became visible.
 
 **Harness**: `eval/sim/` — `harness.py` (sessions), `corpora.py` (synthetic and
 adversarial trees, mutations, fault injection), `scenarios.py` (the catalog with
 machine-readable expectations), `run.py`, `report.py`. Stdlib only, like the rest
-of `eval/` and `bench/`.
+of `eval/` and gorp-bench.
 
 ## 7. What the fixes changed
 
@@ -600,7 +600,7 @@ quietly relaxed to green is not.
 
 ### And one more scenario that was testing nothing
 
-`s5c-dir-bytes-is-not-recursive` invoked `semgrep cache <path>`, which is a clap
+`s5c-dir-bytes-is-not-recursive` invoked `gorp cache <path>`, which is a clap
 usage error: exit 2, empty stdout. Its check then confirmed that a size was
 *absent* from that empty string, and passed — for its entire life, including in
 the run this report describes. §5 predicted this failure mode in general and
@@ -616,12 +616,12 @@ invocation succeeded before reading its output.
 ```sh
 cargo build --release
 python3 eval/sim/run.py --tier 2 --run-id myrun                        # synthetic
-python3 eval/sim/run.py --tier 2 --run-id tokio --corpus bench/corpora/tokio
+python3 eval/sim/run.py --tier 2 --run-id tokio --corpus ../gorp-bench/bench/corpora/tokio
 python3 eval/sim/report.py                                             # regenerate INDEX.md
 ```
 
-Each session gets its own `SEMGREP_CACHE_DIR`, printed for auditability; no
-scenario can be answered from another's entry. `python3 bench/manifest.py --check`
+Each session gets its own `GORP_CACHE_DIR`, printed for auditability; no
+scenario can be answered from another's entry. `python3 ../gorp-bench/bench/manifest.py --check`
 before and after — a simulation that mutated a bench corpus and failed to restore
 it would silently invalidate every published benchmark. Scenarios copy their
 corpus to `eval/data/sim/` (gitignored) and never touch the original.

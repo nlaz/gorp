@@ -1,6 +1,8 @@
 # gorp — a semantic grep for agents
 
-**Status:** v1 design, 2026-07-27
+**Status:** v1 design, 2026-07-27, kept current on structure — the shape below
+is what shipped. Measured numbers here are the v1 round; CLAUDE.md's "Known
+costs" is the live table, and RESEARCH.md records what changed and why.
 **Name:** `gorp` — semantic grep. Chosen for direct lineage with grep/ripgrep,
 which is the incumbent agent search tool this project benchmarks against.
 (Distinct from r2c Semgrep, the static-analysis tool.)
@@ -21,8 +23,8 @@ search (embeddings), fused into one result list. Success is measured two ways:
 
 | Crate  | Role here |
 | ------ | --------- |
-| `ese`  | Static text embeddings (default 512-dim f32), compiled into the binary, CPU-only, very fast (`encode` is rayon-parallel). Makes *unindexed* semantic search feasible. |
-| `anny` | HNSW ANN index. `Hnsw<f32, Cosine, 512, …>` with `to_bytes`/`from_bytes` for on-disk persistence. Cosine handles unnormalized vectors (`1 − cos`). |
+| `ese`  | Static text embeddings (256-dim f32 via ese's `dim-256` feature; its own default is 512), compiled into the binary, CPU-only, very fast (`encode` is rayon-parallel). Makes *unindexed* semantic search feasible. |
+| `anny` | HNSW ANN index. `Hnsw<f32, Cosine, 256, …>` with `to_bytes`/`from_bytes` for on-disk persistence. Cosine handles unnormalized vectors (`1 − cos`). |
 | `fold` | Incremental dataflow over fjall. **Deferred to v2** (watch mode / incremental reindex). v1 indexes with a lean purpose-built format so the memory story stays clean. |
 
 Both are consumed as path dependencies (`../anny`, `../ese`) for now.
@@ -33,7 +35,7 @@ Both are consumed as path dependencies (`../anny`, `../ese`) for now.
 | ---------- | ---------- | ---------------- | -------------- |
 | `keyword`  | Regex/literal match, grep semantics | Parallel scan via ripgrep's own crates (`grep-regex`, `grep-searcher`, `ignore`) | Same scan (no keyword index in v1 — rg is already near-optimal here; this keeps our keyword numbers honest) |
 | `bm25`     | Ranked lexical search over chunks | One-pass in-memory index build, then query | Serialized postings |
-| `semantic` | Embedding similarity over chunks (default mode — semantic-first, RESEARCH.md §14) | Stream files → chunk → `ese::encode` → brute-force top-k (bounded memory: only a k-heap retained) | Default: exact rayon brute-force over the mmap'd embedding matrix (memory-light; ~2 GB of vectors would otherwise sit resident in HNSW for a kernel-sized corpus). `gorp index --hnsw` opts into the `anny` graph for ~ms queries; benchmarks compare both. |
+| `semantic` | Embedding similarity over chunks (default mode — semantic-first, RESEARCH.md §14) | Stream files → chunk → `ese::encode` → brute-force top-k (bounded memory: only a k-heap retained) | Default: exact rayon brute-force over the mmap'd embedding matrix (memory-light; ~1.5 GB of f32 vectors would otherwise sit resident in HNSW for a kernel-sized corpus). `gorp index --hnsw` opts into the `anny` graph for ~ms queries; benchmarks compare both. |
 | `hybrid`   | Reciprocal-rank fusion of `bm25` + `semantic` (off by default until semantic carries its weight, RESEARCH.md §14) | Both cold paths share one corpus pass | Both warm paths |
 
 **Why chunks for both BM25 and semantic:** one document table, one granularity,
@@ -44,8 +46,11 @@ so fusion and eval scoring are apples-to-apples, and every result maps back to
 
 Line-window chunks: `W` lines with `O` lines of overlap (defaults `W=32`,
 `O=8`, configurable). Chunk record = `(file_id, start_line, end_line)`.
-Chunk text is embedded as-is (ese normalizes/case-folds internally). Files are
-skipped if binary (NUL sniff) or > max-file-size (default 4 MiB).
+Chunk text is path-augmented before both BM25 and embedding — `corpus::doc_text`
+prepends the relative path, so file names count as evidence — and any further
+rendering is recorded in `meta.json` so the warm path replays exactly what the
+build did. Files are skipped if binary (NUL sniff) or > max-file-size
+(default 4 MiB).
 
 ### Tokenizer (BM25)
 
@@ -64,17 +69,18 @@ score scales. Exact keyword hits can optionally boost (v1.1).
 
 | File | Contents |
 | ---- | -------- |
-| `meta.json` | Format version (v2), chunk params, dims, `normalized`/`quantized` flags, file table (path, size, mtime) for staleness detection |
+| `meta.json` | Format version (v2), dims, chunk params, chunk count, `has_hnsw`, the `sif`/`embed_preproc`/`path_render` settings the warm path must replay, and the file table (path, size, mtime) for staleness detection |
 | `chunks.bin` | postcard: `Vec<Chunk{file_id, start_line, end_line}>` |
 | `bm25.flat` | Flat mmap-able BM25: sorted term table (binary-searched in place) + postings blob + doc lengths. Zero deserialization — provenance showed the old postcard load cost ~840 ms/query on the kernel |
-| `emb.bin` | i8-quantized unit-normalized matrix, `n_chunks × 512` bytes, mmap'd. 4× smaller than f32 — the brute scan is page-fault/IO bound, so bytes-on-disk is the latency lever |
+| `emb.bin` | i8-quantized unit-normalized matrix, `n_chunks × 256` bytes, mmap'd. 4× smaller than f32 — the brute scan is page-fault/IO bound, so bytes-on-disk is the latency lever |
+| `sif.bin` | rarity weights for the SIF pooling described in RESEARCH.md §9.1 |
 | `hnsw.bin` | optional `anny` graph (`index --hnsw`). Skipped at query time when > 1 GiB: one-shot deserialize (~20 s at kernel scale) loses to the quantized brute scan until the graph has a zero-copy format; a persistent server mode would amortize it |
 
 Staleness: on search, compare file table against the live tree and
 read-repair around the drift; past `--repair-max-drift` the entry rebuilds
 instead. v1 rebuild is full; incremental is the fold-based v2.
 
-HNSW compile-time params: `DIM=512, M0=32 (M=16), K=128, EF_SEARCH=192,
+HNSW compile-time params: `DIM=256, M0=32 (M=16), K=128, EF_SEARCH=192,
 EF_BUILD=128, MAX_LEVEL=16`. Runtime `k ≤ 128` served from HNSW; larger k
 falls back to exact brute-force over `emb.bin`.
 
@@ -86,7 +92,7 @@ gorp <QUERY> [PATHS…]            # search (default: ranked semantic; auto-uses
   -i / -F / -w / -c / --all     # exact mode: case / literal / whole words / counts / uncapped
   -k, --top N                   # ranked results, default 5 (bare -k means 20)
   -C, --context N               # context lines around each hit, both modes
-  --json                        # JSONL: {path, start_line, end_line, line, text, score}
+  --json                        # JSONL: {path, start_line, end_line, line, text, score, …}
   --stats                       # print timing/memory footprint to stderr
   --mode …, --no-index, …       # hidden harness knobs (see cli.rs `Tuning`)
 gorp index [PATH]                # build/refresh .gorp/ (hidden; prewarming only)
@@ -135,7 +141,8 @@ the corpora live in the sibling `gorp-bench` repo and are re-runnable end to end
 
 **Measured after the v2 tuning round** (kernel corpus, warm): bm25 80 ms,
 semantic 80 ms, hybrid 135 ms end-to-end; peak RSS 70 MB (bm25) / ~840 MB
-(semantic, quantized matrix resident). Per-stage timings via `--stats`
+(semantic, quantized matrix resident). *Superseded by the dim-256 switch —
+CLAUDE.md's "Known costs" carries the current numbers.* Per-stage timings via `--stats`
 ("performance provenance": load:meta/chunks/bm25/mmap/hnsw,
 rank:bm25/embed-query/brute|ann/fuse, finalize).
 
@@ -163,15 +170,19 @@ tool available per condition; measure success rate, tool calls to success, and
 tokens consumed. This measures the actual product goal: fewer, better search
 round-trips for agents.
 
-Harness in `eval/`: `generate.py` (query gen via claude CLI), `run.py`
-(executes queries against each tool/mode), `score.py` (recall/MRR tables).
+Harness in `eval/`: `generate.py` (query gen via claude CLI), `run_eval.py`
+(executes queries against each tool/mode and scores recall@k / MRR), and
+`results.py` for the tables.
 
 ## Milestones
 
-- **M1** — core engine + CLI + tests (this repo builds, fixture-corpus
-  integration tests pass).
-- **M2** — bench harness runs on all three corpora; first speed/RSS/CPU
-  tables.
-- **M3** — retrieval evals generated + scored; quality tables.
-- **M4** — agent-task evals; tune (chunking, fusion, EF) on findings.
-- **v2** — fold-based incremental/watch indexing; MCP server mode.
+M1–M4 have all shipped; only v2 remains.
+
+- ~~**M1** — core engine + CLI + tests (this repo builds, fixture-corpus
+  integration tests pass).~~
+- ~~**M2** — bench harness runs on all three corpora; first speed/RSS/CPU
+  tables.~~ (the harness now lives in the sibling `gorp-bench` repo)
+- ~~**M3** — retrieval evals generated + scored; quality tables.~~
+- ~~**M4** — agent-task evals; tune (chunking, fusion, EF) on findings.~~
+- **v2** — fold-based incremental/watch indexing (see `FOLD.md`); MCP server
+  mode.

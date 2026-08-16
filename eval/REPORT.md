@@ -12,7 +12,7 @@ per-query ranks that produced them. Regenerate the index with
 An agent searching a codebase has one job: get to the right code in as few
 round-trips as possible. Today it does that with `ripgrep`, which means every
 natural-language intent is compressed into a regex guess before the tool sees
-it. semgrep takes the intent verbatim and ranks.
+it. gorp takes the intent verbatim and ranks.
 
 So the question this eval answers is narrow and testable:
 
@@ -26,12 +26,12 @@ conditions can be compared statistically later.
 
 ## 2. Setup
 
-### 2.1 Corpora — seven, spanning 166 to 84,225 files
+### 2.1 Corpora — eight, spanning 166 to 84,225 files
 
 | corpus | language | files | source | pinned |
 |---|---|---|---|---|
 | linux | C | 84,225 | 1,147 MB | v6.9 |
-| vscode | TS/JS | 4,389 | 64 MB | SHA (since 2026-07-30) |
+| vscode | TS/JS | 4,389 | 64 MB | SHA since 2026-07-30 — but the tree these numbers came from predates the pin and records `revision: unknown` |
 | wikipedia | English prose | 1,008 | 262 MB | **cannot be** — dumps expire |
 | cosqa | Python (one fn/file) | 20,604 | 5.7 MB | HF dataset |
 | etcd | Go | 1,110 | 15 MB | SHA |
@@ -45,8 +45,8 @@ Go, Java, Ruby and Rust extractors were tested against hand-written fixtures
 alone. They also sit in the **<2k-file band where RESEARCH.md §9.7 found engine
 variants actually diverge**; the original three are 84k, 4k and 1k.
 
-Every tree carries a content digest in `bench/corpora/MANIFEST.json`, so a
-corpus that changed is detectable (`python3 bench/manifest.py --check`) whether
+Every tree carries a content digest in `../gorp-bench/bench/corpora/MANIFEST.json`, so a
+corpus that changed is detectable (`python3 ../gorp-bench/bench/manifest.py --check`) whether
 or not it could be pinned.
 
 ### 2.2 Query sets — and which to trust
@@ -86,8 +86,8 @@ rather than an error.
 |---|---|
 | `eval/leakage.py` | how much of the answer the query already contains — printed above every table |
 | `eval/validate_queries.py` | gold spans that drifted from the corpus; run refuses rather than scoring 0 |
-| `bench/manifest.py --check` | a corpus tree that changed under a comparison |
-| index-freshness check | semgrep modes scored against an index older than the binary |
+| `../gorp-bench/bench/manifest.py --check` | a corpus tree that changed under a comparison |
+| index-freshness check | gorp modes scored against an index older than the binary |
 | `--checkpoint` | a multi-hour run losing everything to an interruption |
 
 ---
@@ -98,9 +98,9 @@ Six conditions, all scored on the same queries, same corpus, same k.
 
 | condition | what it does | is it a baseline? |
 |---|---|---|
-| **`bm25`** | rarity-weighted lexical ranking over code-aware tokens | semgrep |
-| **`semantic`** | 256-dim static embeddings, cosine, MaxSim-reranked (default since §13.10) | semgrep |
-| **`hybrid`** | bm25 + semantic fused (the shipped default) | semgrep |
+| **`bm25`** | rarity-weighted lexical ranking over code-aware tokens | gorp |
+| **`semantic`** | 256-dim static embeddings, cosine, MaxSim-reranked (default since §13.10) | gorp |
+| **`hybrid`** | bm25 + semantic fused (the shipped default) | gorp |
 | **`rg`** | legacy baseline: tokenizer excludes `_`, picks 2 longest words | **weak — kept only for comparability** |
 | **`rg-strong`** | what a competent agent does: grep the identifiers first | **the fair baseline** |
 | **`rg-oracle`** | tries *every* query token, keeps whichever scored best | **a ceiling, not a baseline** |
@@ -173,8 +173,8 @@ eval. The oracle is allowed to read the answer and try every token, and it
 **returns nothing at all**, because there is no shared token to try. Grep skill
 is irrelevant when the query and the target share no vocabulary.
 
-Note that **semgrep misses this one too.** The paraphrase stratum is hard for
-everything; semgrep gets 4% of them and ripgrep gets 0%.
+Note that **gorp misses this one too.** The paraphrase stratum is hard for
+everything; gorp gets 4% of them and ripgrep gets 0%.
 
 ### 4.3 Where ranking beats token choice (CoSQA)
 
@@ -215,7 +215,7 @@ bm25 top 5:  d11479.py, d20352.py, d7408.py ← GOLD, d17645.py, d15517.py
 
 ## 5. Results
 
-### 5.1 Recall@5 across all seven corpora
+### 5.1 Recall@5 across all eight corpora
 
 **`direct` / identifier-style queries:**
 
@@ -291,7 +291,7 @@ embedding functions as a fuzzy lexical matcher (`def~function` 0.037,
 **The paraphrase asymmetry is the strongest evidence in the eval.** `rg-oracle`
 scores **exactly 0.000** on all 199 kernel paraphrase queries. Not 0.005. A
 ripgrep that inspects the answer and tries every token cannot locate one of 199
-targets once the query stops naming them; semgrep finds 4%.
+targets once the query stops naming them; gorp finds 4%.
 
 §12.2 argued this asymmetry showed a real capability difference rather than an
 artifact — "improving the opponent closes the gap exactly where theory says it
@@ -315,7 +315,7 @@ would have been caught by the harness checking itself.
 |---|---|---|
 | the ceiling losing to what it bounds (53/1374) | single-token vocabulary can't bound a conjunctive one | property check on real corpora |
 | 12 residual violations | **ripgrep's output order was never deterministic** | 6 repeat runs, 2 orderings |
-| kernel semgrep numbers drifting | **not** the stale index — that changed nothing | rebuilt and rescored: 1,194/1,194 ranks identical |
+| kernel gorp numbers drifting | **not** the stale index — that changed nothing | rebuilt and rescored: 1,194/1,194 ranks identical |
 | a fast-rg rewrite agreeing on every spot-check | rg sorts path *components*; `tokio/` before `tokio-macros/` | full comparison, 3 of 27 pairs differed |
 
 The nondeterminism one matters most: **every `rg` figure this harness ever
@@ -331,12 +331,12 @@ as a miss rather than reframed.
 
 ## 7. Limitations
 
-- **wikipedia cannot be symbol-anchored** — it is prose, 0 of 1,013 files are
+- **wikipedia cannot be symbol-anchored** — it is prose, 0 of 1,008 files are
   parseable — so §11.4's chunking-neutrality caveat still applies to it.
 - **The `linux`/`vscode`/`wikipedia` sets are window-anchored**, so they cannot
   referee a chunking change: their ground truth is one of the strategies under
   test. The four language sets are symbol-anchored and can.
-- **The kernel semgrep column does not reproduce §12.2 exactly** (−0.021
+- **The kernel gorp column does not reproduce §12.2 exactly** (−0.021
   direct) and the cause is open. Index staleness was tested and ruled out.
 - **CoSQA scores one gold function out of 20,604**, so 0.222 is a floor, not an
   accuracy.
@@ -348,8 +348,8 @@ as a miss rather than reframed.
 ## 8. Reproducing
 
 ```sh
-bench/fetch-corpora.sh                    # pinned corpora + tree digests
-python3 bench/manifest.py --check         # confirm no tree moved
+../gorp-bench/bench/fetch-corpora.sh                    # pinned corpora + tree digests
+python3 ../gorp-bench/bench/manifest.py --check         # confirm no tree moved
 
 python3 eval/run_eval.py eval/queries/cosqa-1200.jsonl eval/data/cosqa/corpus \
     --modes bm25,semantic,hybrid,rg,rg-strong,rg-oracle \

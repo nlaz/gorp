@@ -2,8 +2,9 @@
 
 Every defect found during the 2026-07 reorganization, how it was found, and
 what it cost to fix. Kept because the *how it was found* column turned
-out to be the useful one: nine of these thirteen were invisible to reading and
-surfaced only when something mechanical was pointed at them.
+out to be the useful one: nine of the original thirteen were invisible to
+reading and surfaced only when something mechanical was pointed at them. The
+ledger has kept growing since; it now runs to #26.
 
 Also records the wrong turns. Four diagnoses in here were mine and were wrong,
 and two of them I had already written into a comment as fact.
@@ -12,7 +13,7 @@ and two of them I had already written into a comment as fact.
 
 ## The single-file scope: a search that answered nothing and said it succeeded
 
-**Symptom.** `semgrep "query" <path/to/file.py>` returned zero results and
+**Symptom.** `gorp "query" <path/to/file.py>` returned zero results and
 exit 1, in every ranked mode, cold and warm. Exact mode returned hits but
 printed them as `:9:text` — no filename.
 
@@ -39,7 +40,7 @@ of that campaign's 27% cost premium.
 `root` when root is a file; all four sites call it. Keyword path fixed
 alongside. Regression test: `a_single_file_scope_returns_hits_in_every_mode`.
 
-**Prevention.** `eval/locbench/preflight.py` replays real agent invocation
+**Prevention.** `../gorp-bench/harness/locbench/preflight.py` replays real agent invocation
 shapes (harvested from the logs, including file scopes) against a fixture and
 fails the campaign before it spends money. Verified against the pre-fix
 binary: it flags all four failure modes, including "12 of 25 real invocation
@@ -62,7 +63,7 @@ seconds earlier. Not visible to any test that existed, and not visible to readin
 
 ### 2. The e2e suite was racy — P0, hardened P3
 Every test shares one process-wide cache directory, and the budget test set
-`SEMGREP_CACHE_MAX_BYTES=0` then evicted every other test's entries mid-run.
+`GORP_CACHE_MAX_BYTES=0` then evicted every other test's entries mid-run.
 Failures surfaced as `repair should report the drift` — a test-isolation bug
 wearing a repair bug's clothes, which would have been blamed on the refactor.
 
@@ -110,9 +111,9 @@ that did not exist yet, and — a cache load failure being a miss —
 publishes an index, and removing it before a rebuild begins.
 **Guarded by** `an_index_is_invisible_until_it_is_complete`.
 
-### 7. Searching wrote into a repo-local `.semgrep/` — P2 (audit B5)
+### 7. Searching wrote into a repo-local `.gorp/` — P2 (audit B5)
 Read-repair touched `last_check` inside the index directory on every validation,
-including a committed `.semgrep/`. A read-only query dirtied a tracked directory.
+including a committed `.gorp/`. A read-only query dirtied a tracked directory.
 
 **Found by** reading. **Fixed by** putting the marker under the cache for
 repo-local indexes; cache entries keep theirs, where it doubles as the LRU access
@@ -152,9 +153,9 @@ spans of the wrong size.
 **Found by** reading, then reproduced against the binary before and after:
 
 ```
-$ semgrep --window 8 --overlap 2 "retry backoff" .
+$ gorp --window 8 --overlap 2 "retry backoff" .
 {"start_line":79,"end_line":84,...}
-$ semgrep "retry backoff" .            # default window is 32
+$ gorp "retry backoff" .            # default window is 32
 before: {"start_line":79,"end_line":84,...}   <- still 8-line spans
 after:  {"start_line":73,"end_line":84,...}   <- its own entry
 ```
@@ -276,7 +277,7 @@ The panic is the bug, not the corruption. `search::search` treats any failure to
 read a cache entry as a miss — it deletes the entry and answers from the
 streaming path — but only on `Err`. A panic bypasses that, so the entry was never
 evicted and *every subsequent invocation panicked on the same bytes*. A cache
-that only `semgrep cache --clear` could recover.
+that only `gorp cache --clear` could recover.
 
 Found by simulation testing (SIMULATION.md §1.1), which was pre-registered to
 predict exactly this and measured it as three consecutive runs at exit 101 with
@@ -333,7 +334,7 @@ is the entire argument for having a threshold.
 A plain option rather than an env var behind a `OnceLock`: latching a tunable per
 process is what makes `cache_base` untestable (open item 3 below), and a
 threshold with no test that crosses it is not a threshold. The CLI reads
-`SEMGREP_REPAIR_MAX_DRIFT` into it so the sim can still sweep.
+`GORP_REPAIR_MAX_DRIFT` into it so the sim can still sweep.
 
 Measured on tokio, against SIMULATION.md §1.3's own table:
 
@@ -367,7 +368,7 @@ permissions anomaly, not ordinary pressure, and pressing on trades the whole
 cache for nothing.
 
 `enforce_budget` returns a `Reclaimed { removed, freed, stuck }` rather than a
-pair, because `semgrep-core` does not print — every word the user sees is written
+pair, because `gorp-core` does not print — every word the user sees is written
 by the CLI's `out`, which is what keeps "stdout is data, stderr is commentary"
 checkable in one place. `dir_bytes` also recurses now; it was correct only
 because entries happen to be flat.
@@ -463,7 +464,7 @@ handed, so one minified line **deleted the hits ranked beneath it** — the repl
 was wrong, not merely expensive, and wrong in a way that looks like a thin
 result rather than a truncated one. Generated files were also *winning top
 slots* over real code, which is a ranking observation this fix does not
-address (`eval/locbench/replay.py` can score a down-weight offline).
+address (`../gorp-bench/harness/locbench/replay.py` can score a down-weight offline).
 
 `out::hits` — already the single writer of `path:line:text` — now strips each
 line's indentation and clips it to `MAX_COLUMNS` (200, over ripgrep's
@@ -485,6 +486,10 @@ is the guard.
 
 ## Open, and deliberately not fixed
 
+Numbering is stable — source comments cite `FIXES.md open #3` by number — so
+items that have since been closed are struck through in place rather than
+removed, with the entry that closed them. Genuinely open today: #1, #3, #4.
+
 1. **Tombstone residual in corpus statistics.** Two of 147 repair-vs-rebuild
    comparisons return the same chunks in a different order. A tombstoned chunk
    stops being served but stays in the base's term table and document count, so
@@ -493,12 +498,13 @@ is the guard.
    pinned by name in `repair.rs`, so a new divergence fails the test and an
    improvement forces the list to shrink.
 
-2. **Concurrent cache builds (#3) are narrowed, not closed.** Publication is
+2. ~~**Concurrent cache builds (#3) are narrowed, not closed.** Publication is
    atomic now, but two processes can still interleave. Closing it needs a staging
-   directory and a rename.
+   directory and a rename.~~ **Closed by #16** — builds go to
+   `store::staging_path` and publish by rename; `unpublish` is gone.
 
 3. **Cache tests are serialized, not isolated.** `cache_base()` latches
-   `SEMGREP_CACHE_DIR` in a `OnceLock`, so one process gets one cache and per-test
+   `GORP_CACHE_DIR` in a `OnceLock`, so one process gets one cache and per-test
    isolation is impossible. The real fix is making the cache root an explicit
    parameter, as `enforce_budget_with_cap` did for the budget.
 
@@ -521,13 +527,18 @@ is the guard.
 
    So the quantization change is quality-neutral to within what 400 queries can
    resolve, and it buys exact cold/warm agreement. Raw output in
-   `eval/data/refactor-ab-*.json`.
+   `eval/results/refactor-ab-*.json`. (The pre-refactor SHA quoted above no
+   longer resolves — history was rewritten when the harnesses moved to
+   gorp-bench.)
 
    Still outstanding, and separate: #10 means the published §9 lever numbers were
    measured through a cache a `--window` sweep could contaminate. Those want a
    re-run on their own terms; this A/B does not substitute for it.
 
-6. **Concurrent first-searches SIGBUS, not merely return zero hits.** #3 above
+6. ~~**Concurrent first-searches SIGBUS, not merely return zero hits.**~~
+   **Closed by #16**, the staging-and-rename publication this item asks for.
+   (The text below credits the fix to "#2"; #2 is the racy e2e suite — the
+   staging fix is #16.) #3 above
    describes the race as producing "an occasional zero-hit run". Simulation
    testing measured it: 20 trials x 8 parallel first-searches of one fresh scope
    produced **exit -10 (SIGBUS) in 5-8 of 20 trials** on a small corpus, and
@@ -538,7 +549,9 @@ is the guard.
    closes this and makes `unpublish` unnecessary. Rate measured in
    SIMULATION.md §1.2; nobody had one before.
 
-7. **Read-repair has no delta-size bound.** RESEARCH.md §8 mechanism 2 specifies
+7. ~~**Read-repair has no delta-size bound.**~~ **Closed by #17** —
+   `repair::DEFAULT_MAX_DRIFT = 0.05`, surfaced as `RepairOutcome::DriftTooLarge`
+   and `--repair-max-drift`. RESEARCH.md §8 mechanism 2 specifies
    treating drift above ~5% of files as a full miss; `repair.rs` never bounds
    `drift.len()`. Measured on tokio: at 50% drift a repaired query costs 131 ms
    against a 127 ms full cold pass, and at 100% drift 197 ms — and it never
@@ -547,39 +560,48 @@ is the guard.
    re-embedding, which the threshold would skip. After a branch switch this is
    the steady state. SIMULATION.md §1.3.
 
-8. **A corpus that cannot fit the budget is built and then immediately evicted.**
-   `write_cache_entry` calls `enforce_budget()` before returning, so with a
+8. ~~**A corpus that cannot fit the budget is built and then immediately
+   evicted.**~~ **Closed by #18** — `write_cache_entry` now calls
+   `enforce_budget_protecting`, which will not evict the entry the running query
+   just paid for. As found, it called `enforce_budget()` before returning, so with a
    budget below one entry the query builds a complete index, has it reclaimed,
    misses on re-discovery, and falls through to a full streaming pass — paying
    for both and keeping neither. Observed on 5 of 8 queries under budget
    pressure. #5 moved reclamation after registration so the enforcer could see
    the new entry; it can now see it, and evicts it. SIMULATION.md §1.4.
 
-9. **LRU eviction destroys healthy entries when a delete fails.**
-   `budget.rs:115-122` pops the victim before attempting `remove_dir_all` and
+9. ~~**LRU eviction destroys healthy entries when a delete fails.**~~
+   **Closed by #19** — a failed delete now records the entry as stuck and breaks
+   the loop, and `dir_bytes` recurses. As found, the eviction loop
+   popped the victim before attempting `remove_dir_all` and
    decrements the running total only on success, so a failure neither stops the
    loop nor accounts for itself. With one entry `chmod 0500`: four entries
    before, one after, and the survivor is the undeletable one. Exit 0, no
    warning. Also `dir_bytes` is non-recursive, correct only because entries
    happen to be flat.
 
-10. **`out::hits` does not escape paths.** `println!("{}:{}:{}")` means a
+10. ~~**`out::hits` does not escape paths.**~~ **Closed by #20** — paths are
+    C-quoted through `out::quote_path`. As found, `println!("{}:{}:{}")` meant a
     filename containing a newline splits one hit across two stdout lines, and one
     containing `:` mis-parses. Six files on disk produced seven output lines.
     `--json` is unaffected. This breaks the `path:line:text` contract that
     "stdout is data" rests on. SIMULATION.md §1.5.
 
-11. **A nonexistent search path exits 1, not 2.** "No results" is what an agent
+11. ~~**A nonexistent search path exits 1, not 2.**~~ **Closed by #21.**
+    "No results" is what an agent
     reads as "the code is not there", when the path was simply wrong. Ranked mode
     additionally announces it is caching a scope that does not exist.
 
-12. **Every warm ranked query resolves the index twice.**
-    `warn_if_first_search` calls `cache::discover` on every ranked search, not
+12. ~~**Every warm ranked query resolves the index twice.**~~ **Closed by
+    #22** — the engine reports the first search through an `on_first_search`
+    callback instead, so a warm query resolves once. As found,
+    `warn_if_first_search` called `cache::discover` on every ranked search, not
     only the first, to decide whether to print one line — then the engine
     resolves the same scope again. Each resolution canonicalizes the path and
     scans the generation directory. The engine already reports `wrote_cache`.
 
-13. **A narrow scope can return zero hits.** `candidates()` filters to the
+13. ~~**A narrow scope can return zero hits.**~~ **Closed by #23** — ranking is
+    scope-aware now. As found, `candidates()` filtered to the
     query's subtree before truncating, but the fused list is only
     `FUSION_POOL * 2 = 256` rows wide. On tokio, `.github` and `docs` returned 0
     hits from 8,042 indexed chunks. SIMULATION.md §1.7.

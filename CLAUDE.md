@@ -66,8 +66,10 @@ read). **stdout is data, stderr is commentary** —
 `crates/gorp/tests/cli.rs` enforces it.
 
 Engine integration tests split by concern under `crates/gorp-core/tests/`:
-`e2e_general.rs` (the four modes and cold==warm), `e2e_cache.rs` (§8 cache
-behaviors), `e2e_publish.rs` (publication is a swap), over a shared
+`e2e_general.rs` (the four modes, and indexed==unindexed parity),
+`e2e_cache.rs` (§8 cache behaviors, and `cold_and_warm_return_identical_results`
+itself), `e2e_publish.rs` (publication is a swap), `repair.rs` (a warm index
+plus its overlay answers as a fresh build would), over a shared
 `common/mod.rs`. Each is its own process and therefore its own cache dir.
 
 ### Harnesses
@@ -181,7 +183,8 @@ behaviors), `e2e_publish.rs` (publication is a swap), over a shared
 - Chunk ids are assigned in walk order and must stay in lockstep between the
   chunk table, BM25 add order, and `emb.bin` row order. The pass is parallel
   (`corpus::pass`, the single implementation of that guarantee) with a serial
-  in-order fold that preserves it; `store::build_at` asserts the three agree.
+  in-order fold that preserves it; `store::build_at` `debug_assert`s the three
+  agree — so the check runs in tests, not in the release binary.
 - The index is a cache (RESEARCH.md §8): cold ranked searches write-through
   to `~/.cache/gorp` (override `GORP_CACHE_DIR`; tests and the eval
   harness isolate it). `cache::discover` resolves local/.gorp, ancestor
@@ -209,7 +212,7 @@ behaviors), `e2e_publish.rs` (publication is a swap), over a shared
 Re-measured 2026-07-29 after the dim-256 switch (RESEARCH.md §10.7); numbers
 that involve embeddings all moved, BM25 and keyword did not.
 
-- binary 39.0 MB (was 72.8 MB at 512 dims — `weights.bin` is
+- binary ~48 MB (was 72.8 MB at 512 dims — `weights.bin` is
   `TABLE_SIZE × (8 + dims × 4)`, so halving dims halves the compiled table)
 - keyword ≈ rg (same engine crates), ~12 MB RSS
 - cold (unindexed): semantic ~20 s / 154 MB; bm25 ~39 s / 916 MB (postings —
@@ -227,7 +230,7 @@ that involve embeddings all moved, BM25 and keyword did not.
   search, so a warm default-mode query now pays both — ~140 ms at kernel
   scale, negligible on ordinary corpora
 - the declaration boost (`--decl-boost`, on by default since §24.3) costs
-  **1.1–1.5 ms** and is flat in corpus size — it re-reads the `k*3` candidate
+  **1.1–1.5 ms** and is flat in corpus size — it re-reads the `k*6` candidate
   chunks, so the cost is 30 file reads whether the corpus is vscode or the
   kernel. ~3% of a warm kernel query and ~9% of a small-corpus one. It buys
   +0.039 strict / +0.048 overlap on file-scoped agent queries and +0.017 bm25

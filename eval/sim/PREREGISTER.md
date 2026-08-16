@@ -23,7 +23,7 @@ this file is the prose. If they disagree, `scenarios.py` is what ran.
 
 ## What is being tested, and why it needs a new harness
 
-`eval/` measures retrieval quality on single queries. `bench/` measures speed on
+`eval/` measures retrieval quality on single queries. gorp-bench measures speed on
 single queries. Neither observes **behavior over a sequence of steps against
 evolving state** — and the index is a cache (RESEARCH.md §8), so almost
 everything structurally interesting only appears across several invocations
@@ -32,25 +32,25 @@ read-repair, the TTL gate, LRU eviction, generation churn, corrupt-entry
 disposal.
 
 A **session** is an ordered sequence of steps against one corpus root under one
-isolated `SEMGREP_CACHE_DIR`. A **step** is `mutate` (the world changes),
+isolated `GORP_CACHE_DIR`. A **step** is `mutate` (the world changes),
 `invoke` (one gorp process), or `assert` (an expectation below, evaluated
 against everything observed so far).
 
 ## Conditions common to every scenario
 
-- `SEMGREP_CACHE_DIR` is a per-session temp dir, and its path is printed, so a
+- `GORP_CACHE_DIR` is a per-session temp dir, and its path is printed, so a
   run is auditable and no scenario can be answered from another's entry.
-- `SEMGREP_CACHE_TTL_SECS` is **pinned explicitly** in every scenario, never
+- `GORP_CACHE_TTL_SECS` is **pinned explicitly** in every scenario, never
   left at the 60 s default.
 - Every mutation either changes file size or crosses a second boundary.
   `FileMeta.mtime` is whole seconds (`lib.rs:57`) and `corpus::diff` compares
   `(size, mtime)`, so a same-second same-size edit is invisible. That is a
   flakiness source for every other scenario and the finding of S3d.
-- Tier 1 = synthetic corpora + the frozen `crates/gorp-core/tests/corpus`
+- Tier 1 = synthetic corpora + the frozen `tests/corpus`
   fixture. Tier 2 = `tokio`, `etcd`, `commons-lang`, `jekyll` (166–1,500 files).
   The 84k-file kernel is **out of scope** for this run by decision; predictions
   are therefore not made about kernel-scale numbers.
-- `python3 bench/manifest.py --check` runs before and after. A simulation that
+- `python3 ../gorp-bench/bench/manifest.py --check` runs before and after. A simulation that
   mutates a bench corpus and fails to restore it would silently invalidate every
   published benchmark, so the digest check is part of the protocol, not a nicety.
 
@@ -127,7 +127,7 @@ performance finding of the exercise.
 
 ## S5 — Cache budget and LRU
 
-**S5a — thrash.** `SEMGREP_CACHE_MAX_BYTES` = 1.5× one entry; query 4 corpora
+**S5a — thrash.** `GORP_CACHE_MAX_BYTES` = 1.5× one entry; query 4 corpora
 round-robin ×3. *Predict:* every query cold, 12 full builds, evictions on nearly
 every write.
 
@@ -156,7 +156,7 @@ accumulates dead generations indefinitely.
 
 ## S7 — Adversarial corpus
 
-**Setup** (synthetic, built by `eval/sim/corpus.py`): binary file with NULs; a
+**Setup** (synthetic, built by `eval/sim/corpora.py`): binary file with NULs; a
 file over `max_file_bytes`; an empty file; a `chmod 000` file; invalid UTF-8;
 UTF-16 with BOM; a symlink loop `a → b → a`; a symlink escaping the root;
 filenames containing a **newline**, a `:`, a quote, and emoji; a 200k-line

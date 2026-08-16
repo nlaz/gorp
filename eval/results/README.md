@@ -52,7 +52,7 @@ checked in.
 
 1. Find the run in `INDEX.md`.
 2. Check its provenance row. No provenance, or a `corpus_digest` that does not
-   match `bench/corpora/MANIFEST.json` today, means it was measured against a
+   match `../gorp-bench/bench/corpora/MANIFEST.json` today, means it was measured against a
    tree that may no longer exist — quote it as historical.
 3. For a comparison, use the `ranks` arrays and `run_eval.py --baseline`, not
    the rounded metrics. `queries_fp` must match, or the two runs scored

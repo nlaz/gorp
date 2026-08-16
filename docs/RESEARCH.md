@@ -1,10 +1,20 @@
 # Research: collapsing modes & beating ripgrep as the agent search primitive
 
-**Status:** research phase, 2026-07-27. Feeds a redesign of the CLI surface
-(DESIGN.md is the v1 design this revisits). Question under study: semgrep
-currently exposes four modes (`hybrid|keyword|bm25|semantic`); should the
-agent-facing surface have *no modes at all* — and how much of the "smart
-driver" work that Claude Code does in prompts can we push down into the tool?
+**Status:** research phase, opened 2026-07-27. Feeds a redesign of the CLI
+surface (DESIGN.md is the v1 design this revisits). Question under study, as
+posed then: the tool exposed four modes (`hybrid|keyword|bm25|semantic`);
+should the agent-facing surface have *no modes at all* — and how much of the
+"smart driver" work that Claude Code does in prompts can we push down into the
+tool? (Answered in effect: `--mode` is now a hidden harness knob, not part of
+the promised interface.)
+
+**Reading this log.** Entries are dated and supersede each other in place; a
+claim carries the date of its section, not today's. Two things drifted under
+the whole document after it was written: the binary was renamed `semgrep`/`sg`
+→ `gorp` in 2026-08, and the agent harnesses moved out to the sibling
+`../gorp-bench` repo, so `eval/locbench/…` and `eval/swexplore/…` paths below
+resolve to `../gorp-bench/harness/…` today. Both are left as written except in
+the runnable command blocks, which are kept executable.
 
 ---
 
@@ -4185,13 +4195,13 @@ is a further arm, not something this frame answers.
 The five-arm campaign §19.5 reports, kept for reproduction:
 
     OUT=../data/locbench/results-desc-tier1.jsonl LIMIT=40 \
-    CONDITIONS=rg,desc-v5,desc-v6,desc-v7,desc-v8 eval/locbench/campaign.sh
+    CONDITIONS=rg,desc-v5,desc-v6,desc-v7,desc-v8 ../gorp-bench/harness/locbench/campaign.sh
 
 §19.6's blind-enriched frame:
 
-    INSTANCES=$(python3 eval/locbench/tierframe.py) \
+    INSTANCES=$(python3 ../gorp-bench/harness/locbench/tierframe.py) \
     OUT=../data/locbench/results-desc-v8-blind.jsonl \
-    CONDITIONS=rg,desc-v8 BUDGET=1.5 eval/locbench/campaign.sh
+    CONDITIONS=rg,desc-v8 BUDGET=1.5 ../gorp-bench/harness/locbench/campaign.sh
 
 Analysis, in the order the predictions are gated:
 
@@ -4207,11 +4217,11 @@ Analysis, in the order the predictions are gated:
     # replication*: desc-v8's identifier share on this frame against the 65% it
     # produced in §19.5 and desc-v5's 45% baseline there. Weaker than a paired
     # delta, and the strongest form this arm pairing allows.
-    python3 eval/locbench/queryshape.py --since <run-id>
+    python3 ../gorp-bench/harness/locbench/queryshape.py --since <run-id>
 
-    python3 eval/locbench/ab_analyze.py \
+    python3 ../gorp-bench/harness/locbench/ab_analyze.py \
       --results ../data/locbench/results-desc-v8-blind.jsonl --a desc-v8 --b rg
-    python3 eval/locbench/reweight.py \
+    python3 ../gorp-bench/harness/locbench/reweight.py \
       --results ../data/locbench/results-desc-v8-blind.jsonl --a desc-v8 --b rg
 
 `campaign.sh` takes arms, frame and budget as parameters rather than literals;
@@ -5158,7 +5168,7 @@ queries agents actually typed.
 
 ### 21.1 Pre-registration (written before the first row)
 
-**Instrument.** `eval/locbench/guessplay.py` over `eval/queries/guesses-v1-descv9.jsonl`
+**Instrument.** `../gorp-bench/harness/locbench/guessplay.py` over `eval/queries/guesses-v1-descv9.jsonl`
 — re-harvested from `runs/`, desc-v9 only: **854 ranked queries over 186
 instances**. Five index configs: `default` (shipped `none`), `split`,
 `prune-kw`, `prune-decl`, `champion` (`split`+`sif`). Modes semantic (shipped)
@@ -6070,28 +6080,28 @@ ARMS="--dedupe-overlap 0.0 --file-scope-window 0 --decl-boost 0.0"
 for d in 0.0 0.5; do for w in 0 12; do for b in 0.0 1.0; do
   ARMS="$ARMS;--dedupe-overlap $d --file-scope-window $w --decl-boost $b"
 done; done; done
-python3 eval/locbench/guessplay.py \
+python3 ../gorp-bench/harness/locbench/guessplay.py \
   --corpus eval/queries/guesses-v1-desc-all.jsonl \
   --out eval/data/locbench/guessplay-v4.jsonl \
   --file-scopes-only --configs default --modes semantic --scopes orig \
   --extra-search-flags "$ARMS"
 
 # §24.2 P6 — the full-corpus confirmation (31,668 rows, both scopes, ~1 h)
-python3 eval/locbench/guessplay.py \
+python3 ../gorp-bench/harness/locbench/guessplay.py \
   --corpus eval/queries/guesses-v1-desc-all.jsonl \
   --out eval/data/locbench/guessplay-v5.jsonl \
   --configs default --modes semantic,bm25 --scopes orig \
   --extra-search-flags ";--decl-boost 1.0"
 
 # §24.3 — the weight sweep (21,080 rows, ~25 min)
-python3 eval/locbench/guessplay.py \
+python3 ../gorp-bench/harness/locbench/guessplay.py \
   --corpus eval/queries/guesses-v1-desc-all.jsonl \
   --out eval/data/locbench/guessplay-v6.jsonl \
   --file-scopes-only --configs default --modes semantic --scopes orig \
   --extra-search-flags ";--decl-boost 0.5;--decl-boost 1.0;--decl-boost 2.0;--decl-boost 4.0"
 
 # read any of them back, both metrics, both scopes
-python3 eval/locbench/guessplay.py --out eval/data/locbench/guessplay-v5.jsonl \
+python3 ../gorp-bench/harness/locbench/guessplay.py --out eval/data/locbench/guessplay-v5.jsonl \
   --compare ",--decl-boost 1.0" --compare-by arm_flags \
   --compare-metrics rank,rank_func,rank_func_ovl
 ```
@@ -8788,6 +8798,43 @@ Plus the comment rule above. The fine-window election itself is
 deliberately untouched: its boundary appetite is scoring-side behavior
 with §28.2 calibration behind it, and the renderer absorbs the symptom.
 
+#### 34.5 The polish pass: three shapes out of 309 hits (2026-08-15)
+
+A second live audit — 103 queries, 33 scopes, 309 hits — found zero
+misinforming defects (§34.4's classes stayed extinct at 4× the sample) and
+13 polish cases in three shapes, all fixed in `search::unit`:
+
+- **A: the dangling `*/`** (4/309). The fine window opens on the closing
+  line of the doc block above the declaration it matched. Fixed by
+  definition rather than by rule: `*/` closes something the window does
+  not show, so it *is* a closer-only line, and the existing snap peels it.
+- **B: mid-block, opener locked out** (7/309). A window starting
+  mid-javadoc usually contains the col-0 declaration it documents, so the
+  anchor is 0 and no head walk can reach the `/**` a few lines up. Fixed
+  by a walk-back: scan up through the comment block (≤12 lines) for the
+  opener and prepend the block's top — where a doc comment front-loads
+  its summary — under two caps, 3 rows and 240 characters, opener exempt
+  from the character cap. The block's middle elides like any gap; the `⋮`
+  between block top and window is the truncation. Gap-fill learned the
+  same character bound, both because a line longer than the budget costs
+  more than the marker it replaces and because the fill would otherwise
+  undo the cap one line later. Python docstring middles carry no per-line
+  marker and stay out of scope by design.
+- **C: namespace as innermost head** (2/309, the one rule bug). A window
+  directly at module scope made `module Fluent` the *innermost* head,
+  which shipped unconditionally — the §34.2 path-redundancy rule only ran
+  for outer heads, and this was the door it left open. Namespace-keyword
+  lines (`module`/`namespace`/`package`) now take the informative check
+  at any position; redundant ones walk past, usually ending bare, which
+  is accurate — the header's path already carries the name.
+
+Also measured by the same sweep, for the record: median 1 added row per
+hit, a quarter of hits correctly bare, bytes at 1.11× the grep form, and
+10 of the 21 hits the detector first flagged as "mid-comment-open" turned
+out to already render their opener via the §34.4 own-block rule — the
+detector was not looking above the window.
+
+
 ## 35 Structural signals: path boost, learned checklist, graph expansion (2026-08-15)
 
 The §32.4 census said the loss splits into a 54% vocabulary-gap bucket no
@@ -9008,42 +9055,6 @@ shipped fine blend** — including, retroactively, part of why §24.3's
 decl weight sweep was flat. A future boost of this shape must either
 act on the fine-blended order (the checklist's slot) or argue for a
 `fine_blend < 1` regime first.
-
-#### 34.5 The polish pass: three shapes out of 309 hits (2026-08-15)
-
-A second live audit — 103 queries, 33 scopes, 309 hits — found zero
-misinforming defects (§34.4's classes stayed extinct at 4× the sample) and
-13 polish cases in three shapes, all fixed in `search::unit`:
-
-- **A: the dangling `*/`** (4/309). The fine window opens on the closing
-  line of the doc block above the declaration it matched. Fixed by
-  definition rather than by rule: `*/` closes something the window does
-  not show, so it *is* a closer-only line, and the existing snap peels it.
-- **B: mid-block, opener locked out** (7/309). A window starting
-  mid-javadoc usually contains the col-0 declaration it documents, so the
-  anchor is 0 and no head walk can reach the `/**` a few lines up. Fixed
-  by a walk-back: scan up through the comment block (≤12 lines) for the
-  opener and prepend the block's top — where a doc comment front-loads
-  its summary — under two caps, 3 rows and 240 characters, opener exempt
-  from the character cap. The block's middle elides like any gap; the `⋮`
-  between block top and window is the truncation. Gap-fill learned the
-  same character bound, both because a line longer than the budget costs
-  more than the marker it replaces and because the fill would otherwise
-  undo the cap one line later. Python docstring middles carry no per-line
-  marker and stay out of scope by design.
-- **C: namespace as innermost head** (2/309, the one rule bug). A window
-  directly at module scope made `module Fluent` the *innermost* head,
-  which shipped unconditionally — the §34.2 path-redundancy rule only ran
-  for outer heads, and this was the door it left open. Namespace-keyword
-  lines (`module`/`namespace`/`package`) now take the informative check
-  at any position; redundant ones walk past, usually ending bare, which
-  is accurate — the header's path already carries the name.
-
-Also measured by the same sweep, for the record: median 1 added row per
-hit, a quarter of hits correctly bare, bytes at 1.11× the grep form, and
-10 of the 21 hits the detector first flagged as "mid-comment-open" turned
-out to already render their opener via the §34.4 own-block rule — the
-detector was not looking above the window.
 
 ### 35.6 The checklist gate (in progress) — an interim look, documented before the end
 

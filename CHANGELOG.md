@@ -2,7 +2,9 @@
 
 Findings and performance improvements, newest first. Measured numbers are
 medians on an M-series Mac; "kernel" = Linux 6.9 source (1.15 GB, 1.51M
-chunks). Full data: `docs/RESEARCH.md`, `eval/REPORT.md`, `eval/data/`.
+chunks). Full data: `docs/RESEARCH.md` and `eval/REPORT.md`; the query sets
+are checked in under `eval/queries/`, while `eval/data/` is gitignored scratch
+and will not be in a fresh clone.
 
 ## 2026-08-16 — the flag surface says what it does, and does what it says
 
