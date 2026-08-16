@@ -97,10 +97,10 @@ pub fn run(cli: &Cli, query: &str) -> Result<i32> {
     if cli.count {
         out::counts(
             &per_file_counts(mode, &filter, &result),
-            &print_opts(cli, &given, &emphasis),
+            &print_opts(cli, &given, &emphasis, mode),
         );
     } else {
-        out::hits(&root, &result.hits, shown, &print_opts(cli, &given, &emphasis));
+        out::hits(&root, &result.hits, shown, &print_opts(cli, &given, &emphasis, mode));
     }
     if dropped {
         // Name the filter that actually dropped them. Saying "the paths given"
@@ -375,9 +375,17 @@ fn emphasis_for(cli: &Cli, mode: Mode, query: &str) -> out::Emphasis {
     out::Emphasis::default()
 }
 
-fn print_opts<'a>(cli: &Cli, given: &[PathBuf], emphasis: &'a out::Emphasis) -> out::Print<'a> {
+fn print_opts<'a>(
+    cli: &Cli,
+    given: &[PathBuf],
+    emphasis: &'a out::Emphasis,
+    mode: Mode,
+) -> out::Print<'a> {
     out::Print {
         emphasis,
+        // Keyed off the resolved mode, not the `-e` flag, so `--mode keyword`
+        // renders the same blocks.
+        exact: mode == Mode::Keyword,
         json: cli.json,
         paths_only: cli.files_with_matches,
         before: cli.before_context.unwrap_or(cli.context),

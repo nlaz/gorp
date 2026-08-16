@@ -36,6 +36,17 @@ impl Run {
     }
 }
 
+/// The `N:␣␣text` rows of block-formatted stdout — every printed source line.
+/// In exact mode without `-C` these are exactly the matches, which is how the
+/// enumeration tests count them now that headers and blank separators share
+/// the stream.
+fn gutter_rows(stdout: &str) -> Vec<&str> {
+    stdout
+        .lines()
+        .filter(|l| l.split_once(":  ").is_some_and(|(n, _)| n.parse::<u32>().is_ok()))
+        .collect()
+}
+
 /// A `gorp` invocation with its own cache.
 ///
 /// Per-test rather than per-process on purpose: these tests run real processes
@@ -143,14 +154,21 @@ fn stdout_is_parseable_and_advice_goes_to_stderr() {
     let sg = Sg::new();
     let r = sg.run(&["-e", "fn \\w+_token"]);
     assert_eq!(r.code, 0);
-    for line in r.lines() {
-        let mut parts = line.splitn(3, ':');
-        let path = parts.next().unwrap_or_default();
-        let line_no = parts.next().unwrap_or_default();
-        assert!(!path.is_empty(), "expected path:line:text, got {line:?}");
+    // Exact mode speaks the block grammar too: every non-blank line is a
+    // `path:start-end` header, a bare elision, or a `line:␣␣text` row.
+    for line in r.lines().into_iter().filter(|l| !l.is_empty()) {
+        if line == "⋮" {
+            continue;
+        }
+        if line.split_once(":  ").is_some_and(|(n, _)| n.parse::<u32>().is_ok()) {
+            continue;
+        }
+        let (path, span) = line.rsplit_once(':').expect("a header is path:start-end");
+        assert!(!path.is_empty(), "header carries a path: {line:?}");
+        let (lo, hi) = span.split_once('-').unwrap_or_else(|| panic!("no span in {line:?}"));
         assert!(
-            line_no.parse::<u32>().is_ok(),
-            "second field must be a line number, got {line_no:?} in {line:?}"
+            lo.parse::<u32>().is_ok() && hi.parse::<u32>().is_ok(),
+            "header span must be numeric, got {span:?} in {line:?}"
         );
     }
     // The footer teaches the next move, and must not pollute stdout.
@@ -362,22 +380,22 @@ fn unit_rows_ride_json_and_the_stable_fields_stand() {
     assert!(!bare.stdout.contains("\"unit_rows\""), "--no-unit JSON is the old schema");
 }
 
-/// Exact mode stays out of §34 entirely: keyword hits never grow unit rows,
-/// so `-e` output is grep's `path:line:text` per line, one line per match.
+/// Exact mode's `--json` stays out of §34 entirely: keyword hits never grow
+/// unit rows or passages, so the flat per-match schema — the contract the
+/// snapshot and gorp-bench read — is untouched by the block display.
 #[test]
-fn exact_mode_never_grows_a_unit_view() {
+fn exact_json_stays_flat() {
     let sg = Sg::new();
-    let r = sg.run(&["-e", "compute_backoff_delay"]);
+    let r = sg.run(&["-e", "compute_backoff_delay", "--json"]);
     assert_eq!(r.code, 0, "stderr: {}", r.stderr);
-    for line in r.lines().into_iter().filter(|l| !l.trim().is_empty()) {
-        let mut parts = line.splitn(3, ':');
-        parts.next();
-        assert!(
-            parts.next().map(|n| n.parse::<u32>().is_ok()).unwrap_or(false),
-            "exact mode is still path:line:text: {line:?}"
-        );
+    assert!(!r.stdout.is_empty());
+    for line in r.lines() {
+        let v: serde_json::Value = serde_json::from_str(line).expect("each line is JSON");
+        assert!(v.get("unit_rows").is_none(), "no unit rows on a keyword hit: {line:?}");
+        assert!(v.get("lines").is_none(), "no passage on a keyword hit: {line:?}");
+        assert_eq!(v["start_line"], v["line"], "a keyword hit is one line: {line:?}");
+        assert_eq!(v["line"], v["end_line"], "a keyword hit is one line: {line:?}");
     }
-    assert!(!r.stdout.contains('⋮'), "no elision markers in exact mode");
 }
 
 /// A floored search is a refusal, not a miss: empty stdout, exit 1, and a
@@ -555,7 +573,8 @@ fn exact_mode_enumerates_every_match() {
     let sg = Sg::new();
     let r = sg.run(&["-e", "pub fn", "-k", "3"]);
     assert_eq!(r.code, 0);
-    assert!(r.lines().len() > 3, "-k must not truncate exact mode; got {}", r.lines().len());
+    let rows = gutter_rows(&r.stdout);
+    assert!(rows.len() > 3, "-k must not truncate exact mode; got {}", rows.len());
 }
 
 #[test]
@@ -582,10 +601,15 @@ fn context_flag_frames_the_hit() {
     let sg = Sg::new();
     let r = sg.run(&["-e", "fn compute_backoff_delay", "-C", "2"]);
     assert_eq!(r.code, 0);
-    // Context lines use `path-line-text`; the hit itself uses `path:line:text`.
-    assert!(r.stdout.contains("--"), "context blocks are separated by --");
-    let context_lines = r.lines().iter().filter(|l| l.contains(".rs-")).count();
-    assert!(context_lines >= 2, "expected context lines around the hit");
+    // Context joins the block as ordinary rows — no `path-line-text` grammar,
+    // no `--` separators — and the header span widens to cover it.
+    assert!(!r.lines().contains(&"--"), "no -- separators in the block format: {}", r.stdout);
+    assert!(!r.stdout.contains(".rs-"), "no dash-form context rows: {}", r.stdout);
+    let (_, span) = r.lines()[0].rsplit_once(':').expect("first line is a header");
+    let (lo, hi) = span.split_once('-').expect("header span is start-end");
+    let (lo, hi): (u32, u32) = (lo.parse().unwrap(), hi.parse().unwrap());
+    assert!(hi - lo >= 2, "-C 2 must widen the span past the one matched line: {span:?}");
+    assert!(gutter_rows(&r.stdout).len() >= 3, "context rows frame the hit: {}", r.stdout);
 }
 
 /// The block is dedented by what its lines *share*, not by the hit's own indent.
@@ -609,20 +633,87 @@ fn context_dedents_the_block_without_flattening_it() {
     // `class Handler:` is outside the window, so the four framed lines share the
     // `def`'s four spaces and only those come off. What nests deeper stays deeper.
     assert!(
-        r.stdout.contains("nest.py-2-def add_code(self, payload):"),
+        r.stdout.contains("nest.py:2-5"),
+        "the header spans the widened block: {:?}",
+        r.stdout
+    );
+    assert!(
+        r.stdout.contains("2:  def add_code(self, payload):"),
         "the shallowest line reaches the margin: {:?}",
         r.stdout
     );
     assert!(
-        r.stdout.contains("nest.py-3-    if payload:"),
+        r.stdout.contains("3:      if payload:"),
         "one level in stays one level in: {:?}",
         r.stdout
     );
     assert!(
-        r.stdout.contains("nest.py:4:        return self.registry.add_code(payload)"),
+        r.stdout.contains("4:          return self.registry.add_code(payload)"),
         "the hit keeps its offset from the block too: {:?}",
         r.stdout
     );
+}
+
+/// Exact mode speaks the unit-view grammar (§34), grouped one block per FILE:
+/// all of a file's matches under one `path:first-last` header, `⋮` where the
+/// line numbers jump, a blank line between files — and none of the old grep
+/// grammar (`path:line:text` rows, `--` separators) anywhere.
+#[test]
+fn exact_mode_prints_one_block_per_file() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    std::fs::write(dir.path().join("a.py"), "needle one\nfiller\nfiller\nfiller\nneedle two\n")
+        .expect("write");
+    std::fs::write(dir.path().join("b.py"), "needle three\n").expect("write");
+    let sg = Sg::new();
+    let r = sg.run_in(&["-e", "needle"], dir.path());
+    assert_eq!(r.code, 0, "stderr: {}", r.stderr);
+
+    let blocks: Vec<Vec<&str>> = r
+        .stdout
+        .split("\n\n")
+        .map(|b| b.lines().collect::<Vec<_>>())
+        .filter(|b: &Vec<&str>| !b.is_empty())
+        .collect();
+    assert_eq!(blocks.len(), 2, "one block per file, blank-line separated: {:?}", r.stdout);
+    assert_eq!(blocks[0][0], "a.py:1-5", "header span is first to last match");
+    assert_eq!(
+        blocks[0][1..],
+        ["1:  needle one", "⋮", "5:  needle two"],
+        "matches only, the gap elided"
+    );
+    assert_eq!(blocks[1], ["b.py:1-1", "1:  needle three"]);
+    assert!(!r.stdout.contains("--"), "no -- separators: {:?}", r.stdout);
+}
+
+/// Exact mode's colour roles: every matched line takes the bold gutter (there
+/// is no single chosen line — each match is one), `-C` rows are grey, and
+/// overlapping context windows merge into the block without duplicating rows.
+/// Colour stays additive, same as ranked mode.
+#[test]
+fn exact_context_rows_are_grey_and_matches_are_bold() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    std::fs::write(dir.path().join("f.txt"), "one\nneedle a\nbetween\nneedle b\nfive\n")
+        .expect("write");
+    let sg = Sg::new();
+    let plain = sg.run_in(&["-e", "needle", "-C", "1"], dir.path());
+    let painted = sg.run_in(&["-e", "needle", "-C", "1", "--color", "always"], dir.path());
+    assert_eq!(painted.code, 0, "stderr: {}", painted.stderr);
+
+    // The two windows (1-3 and 3-5) merge: five rows, no duplicated line 3.
+    assert_eq!(plain.lines()[0], "f.txt:1-5", "the header spans the merged windows");
+    let nums: Vec<&str> =
+        gutter_rows(&plain.stdout).iter().map(|l| l.split_once(':').unwrap().0).collect();
+    assert_eq!(nums, ["1", "2", "3", "4", "5"], "merged, sorted, no duplicates");
+
+    let bold: Vec<&str> =
+        painted.lines().into_iter().filter(|l| l.starts_with("\x1b[1;36m")).collect();
+    assert_eq!(bold.len(), 2, "every matched line is bold: {:?}", painted.stdout);
+    assert!(
+        painted.stdout.contains("\x1b[90m"),
+        "context rows carry the grey gutter: {:?}",
+        painted.stdout
+    );
+    assert_eq!(strip_ansi(&painted.stdout), plain.stdout, "colour must not change the data");
 }
 
 // ---------------------------------------------------------------------------
@@ -685,10 +776,11 @@ fn result_lines_arrive_without_their_indentation() {
     let sg = Sg::new();
     let r = sg.run(&["-e", "def _reap"]);
     assert_eq!(r.code, 0, "stderr: {}", r.stderr);
-    let line = r.lines()[0].to_string();
-    let text = line.splitn(3, ':').nth(2).expect("path:line:text");
-    assert!(!text.starts_with(' ') && !text.starts_with('\t'), "indent stripped: {line:?}");
-    assert!(text.starts_with("def _reap"), "the code itself is untouched: {line:?}");
+    // Line 0 is the block header; line 1 is the match, dedented to the margin.
+    let row = r.lines()[1].to_string();
+    let (_, text) = row.split_once(":  ").expect("line:  text row");
+    assert!(!text.starts_with(' ') && !text.starts_with('\t'), "indent stripped: {row:?}");
+    assert!(text.starts_with("def _reap"), "the code itself is untouched: {row:?}");
 }
 
 /// `-k` typed with nothing after it used to exit 2 and cost the caller a whole
@@ -831,12 +923,13 @@ fn a_dash_reads_paths_from_stdin() {
     assert!(!stdout.contains("other"), "searched a path stdin did not name: {stdout}");
 }
 
-/// grep's rule: one named file means the path is on every line and tells the
-/// reader nothing they did not just type. The snapshot cannot catch a
-/// regression here — all 114 of its cases search the corpus directory — and a
-/// single file is 53% of real agent invocations (RESEARCH.md §19.9).
+/// The block format replaces grep's one-named-file rule: the path appears
+/// once per block header rather than on every line, so a single named file
+/// keeps its header too — once per block is not per-line noise — and `-H`
+/// changes nothing. A single file is 53% of real agent invocations
+/// (RESEARCH.md §19.9), so the shape is pinned here.
 #[test]
-fn one_named_file_drops_the_path_and_leads_with_the_line() {
+fn a_block_header_names_the_file_even_when_only_one_was_given() {
     let dir = tempfile::tempdir().expect("tempdir");
     std::fs::write(dir.path().join("f.py"), "def target(): pass\n").expect("write");
     let f = dir.path().join("f.py");
@@ -844,27 +937,16 @@ fn one_named_file_drops_the_path_and_leads_with_the_line() {
 
     let one = sg.run_in(&["-e", "def target"], &f);
     assert_eq!(one.code, 0, "stderr: {}", one.stderr);
-    assert_eq!(
-        one.lines()[0],
-        "1:  def target(): pass",
-        "one named file: line, gutter, text — no path"
-    );
+    assert_eq!(one.lines()[0], "f.py:1-1", "the header names the file and its span");
+    assert_eq!(one.lines()[1], "1:  def target(): pass", "the row leads with the line");
 
-    // -H asks for it back, which is what a caller splitting on `:` wants.
+    // -H is a display no-op here: the header already carries the path.
     let forced = sg.run_in(&["-e", "def target", "-H"], &f);
-    assert!(
-        forced.lines()[0].starts_with("f.py:1:"),
-        "-H restores the path: {:?}",
-        forced.lines()[0]
-    );
+    assert_eq!(forced.stdout, one.stdout, "-H changes nothing in the block format");
 
-    // A directory scope is unchanged: the path is doing real work there.
+    // A directory scope prints the same shape.
     let many = sg.run_in(&["-e", "def target"], dir.path());
-    assert!(
-        many.lines()[0].starts_with("f.py:1:"),
-        "dir scope keeps the path: {:?}",
-        many.lines()[0]
-    );
+    assert_eq!(many.stdout, one.stdout, "one file and its directory agree on the shape");
 
     // --json and -l are path-carrying formats by definition.
     let js = sg.run_in(&["-e", "def target", "--json"], &f);
@@ -1158,18 +1240,25 @@ fn one_hit_per_file_however_the_file_is_named() {
     let sg = Sg::new();
     let r = sg.run_in(&["-e", "compute_backoff"], dir.path());
     assert_eq!(r.code, 0, "stderr: {}", r.stderr);
+    let blocks: Vec<Vec<&str>> = r
+        .stdout
+        .split("\n\n")
+        .map(|b| b.lines().collect::<Vec<_>>())
+        .filter(|b: &Vec<&str>| !b.is_empty())
+        .collect();
     assert_eq!(
-        r.lines().len(),
+        blocks.len(),
         written,
-        "{written} files on disk must give {written} stdout lines, got {:?}",
-        r.lines()
+        "{written} files on disk must give {written} blocks, got {:?}",
+        r.stdout
     );
 
-    // Every line must still parse as path:line:text — the promise that makes
-    // gorp drop-in for grep. A quoted path is unambiguous; a bare one must
+    // Every header must still parse as path:span — the promise that makes the
+    // block grammar consumable. A quoted path is unambiguous; a bare one must
     // not contain the separator.
-    for line in r.lines() {
-        let (path, rest) = if let Some(after) = line.strip_prefix('"') {
+    for b in &blocks {
+        let header = b[0];
+        let (path, rest) = if let Some(after) = header.strip_prefix('"') {
             // The closing quote is the first unescaped one — `qu"ote.py` quotes
             // to `"qu\"ote.py"`, and a parser that stops at the first `"` it
             // sees splits the path in half. Consumers have to do this too, which
@@ -1186,14 +1275,14 @@ fn one_hit_per_file_however_the_file_is_named() {
                 .expect("a quoted path closes its quote");
             (&after[..end], &after[end + 1..])
         } else {
-            let i = line.find(':').expect("an unquoted line has a separator");
-            (&line[..i], &line[i..])
+            let i = header.find(':').expect("an unquoted header has a separator");
+            (&header[..i], &header[i..])
         };
-        assert!(!path.is_empty(), "empty path in {line:?}");
-        let rest = rest.strip_prefix(':').expect("path is followed by :line:text");
-        let (num, text) = rest.split_once(':').expect("line number is followed by :text");
-        assert!(num.parse::<u32>().is_ok(), "{num:?} is not a line number in {line:?}");
-        assert_eq!(text, body.trim_end(), "wrong text in {line:?}");
+        assert!(!path.is_empty(), "empty path in {header:?}");
+        let span = rest.strip_prefix(':').expect("path is followed by :span");
+        assert_eq!(span, "1-1", "one match on line 1 in {header:?}");
+        assert_eq!(b.len(), 2, "one match means one row: {b:?}");
+        assert_eq!(b[1], format!("1:  {}", body.trim_end()), "wrong row in {b:?}");
     }
 }
 
@@ -1387,11 +1476,13 @@ fn exact_mode_caps_printing_but_counts_everything() {
     let sg = Sg::new();
     let r = sg.run_in(&["-e", "needle"], dir.path());
     assert_eq!(r.code, 0, "{}", r.stderr);
-    assert_eq!(r.lines().len(), 250, "printing is capped at 250");
-    assert!(r.lines()[0].starts_with("a.txt:1:"), "the head of the sort prints first");
-    assert!(
-        r.lines()[249].starts_with("c.txt:50:"),
-        "…through the 250th in (path, line) order"
+    assert_eq!(gutter_rows(&r.stdout).len(), 250, "printing is capped at 250 matched rows");
+    // The head of the sort prints first, and the cap cuts the last block short.
+    let headers: Vec<&str> = r.lines().into_iter().filter(|l| l.contains(".txt:")).collect();
+    assert_eq!(
+        headers,
+        ["a.txt:1-100", "b.txt:1-100", "c.txt:1-50"],
+        "blocks arrive in (path, line) order and the 250th match ends the last"
     );
     assert!(
         r.stderr.contains("showing 250 of 300 matches in 3 files"),
@@ -1400,7 +1491,7 @@ fn exact_mode_caps_printing_but_counts_everything() {
     );
 
     let all = sg.run_in(&["-e", "needle", "--all"], dir.path());
-    assert_eq!(all.lines().len(), 300, "--all still prints every match");
+    assert_eq!(gutter_rows(&all.stdout).len(), 300, "--all still prints every match");
 }
 
 /// A permission-denied subtree must not be silently invisible: on a zero-hit
@@ -1501,7 +1592,7 @@ fn exact_mode_with_multiple_paths_returns_every_match() {
     let stdout = String::from_utf8_lossy(&out.stdout);
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert_eq!(out.status.code(), Some(0), "stderr: {stderr}");
-    assert_eq!(stdout.lines().count(), 20, "every match, not the ranked k: {stdout}");
+    assert_eq!(gutter_rows(&stdout).len(), 20, "every match, not the ranked k: {stdout}");
     assert!(
         !stderr.contains("narrowed to the paths"),
         "filtering to the paths given is exact mode's ordinary contract: {stderr}"
@@ -1517,8 +1608,14 @@ fn exact_mode_with_a_glob_returns_every_match() {
     let sg = Sg::new();
     let r = sg.run_in(&["-e", "needle", "-g", "*.py"], dir.path());
     assert_eq!(r.code, 0, "stderr: {}", r.stderr);
-    assert_eq!(r.lines().len(), 12, "every .py match survives the glob: {}", r.stdout);
-    assert!(r.lines().iter().all(|l| l.starts_with("a.py:")), "glob leaked: {}", r.stdout);
+    assert_eq!(
+        gutter_rows(&r.stdout).len(),
+        12,
+        "every .py match survives the glob: {}",
+        r.stdout
+    );
+    assert!(r.stdout.contains("a.py:1-12"), "the .py file heads its block: {}", r.stdout);
+    assert!(!r.stdout.contains("b.txt"), "glob leaked: {}", r.stdout);
 }
 
 /// `-w`: whole words only, and `-wF` word-matches the literal (grep
@@ -1528,13 +1625,18 @@ fn word_regexp_matches_whole_words() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("a.txt"), "foo\nfoobar\na.b\naXb\n").unwrap();
     let sg = Sg::new();
-    assert_eq!(sg.run_in(&["-e", "foo"], dir.path()).lines().len(), 2);
+    assert_eq!(gutter_rows(&sg.run_in(&["-e", "foo"], dir.path()).stdout).len(), 2);
     let word = sg.run_in(&["-e", "-w", "foo"], dir.path());
     assert_eq!(word.code, 0, "stderr: {}", word.stderr);
-    assert_eq!(word.lines().len(), 1, "-w must exclude foobar: {}", word.stdout);
+    assert_eq!(gutter_rows(&word.stdout).len(), 1, "-w must exclude foobar: {}", word.stdout);
 
     let lit = sg.run_in(&["-e", "-w", "-F", "a.b"], dir.path());
-    assert_eq!(lit.lines().len(), 1, "-wF word-matches the literal: {}", lit.stdout);
+    assert_eq!(
+        gutter_rows(&lit.stdout).len(),
+        1,
+        "-wF word-matches the literal: {}",
+        lit.stdout
+    );
     assert!(lit.stdout.contains("a.b"), "{}", lit.stdout);
 
     // Combined shorts parse, same as the grep-compat set.

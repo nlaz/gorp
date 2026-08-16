@@ -113,12 +113,14 @@ gorp index [PATH]                # build/refresh .gorp/ (hidden; the explicit op
 gorp index --status              # index freshness report
 ```
 
-Exact mode prints grep-compatible `path:line:text`. Ranked modes print a unit
-view per hit (RESEARCH.md §34): a `path:start-end` header, then `line:`
-numbered rows dedented as a block — the fine window plus its enclosing
-declaration, `⋮` where rows were elided — in ranked order, hits separated by
-a blank line (`--no-unit` restores the bare `path:line:text` passage; `score`
-only in `--json`). Exit code 0 if hits, 1 if none — same contract as grep.
+Both modes print the unit view (RESEARCH.md §34): a `path:start-end` header,
+then `line:` numbered rows dedented as a block, `⋮` where rows were elided,
+blocks separated by a blank line. Ranked modes print one block per hit — the
+fine window plus its enclosing declaration, in ranked order (`--no-unit`
+restores the bare `path:line:text` passage; `score` only in `--json`). Exact
+mode prints one block per file, all of that file's matches as bold rows
+(`--json` keeps the flat per-match schema). Exit code 0 if hits, 1 if none —
+same contract as grep.
 
 `gorp-core` is a library crate; the CLI is a thin wrapper, so the-library and
 other Flower Computer apps can embed the engine directly.

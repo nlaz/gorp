@@ -207,8 +207,8 @@ pub struct Cli {
     /// ripgrep's flag, ripgrep's values, and ripgrep's default palette, so
     /// the two tools' output reads the same in the same terminal. `auto`
     /// also honors `NO_COLOR`. Under a pipe this is off and stdout is the
-    /// same bytes it always was — the `path:line:text` contract does not
-    /// bend for a display preference.
+    /// same bytes it always was — the output contract does not bend for a
+    /// display preference.
     #[arg(long, value_name = "WHEN", default_value = "auto",
           value_parser = ["auto", "always", "never"])]
     pub color: String,
@@ -245,11 +245,13 @@ pub struct Cli {
 
 /// Flags gorp already satisfies unconditionally.
 ///
-/// These are accepted and read by nothing, and that is not a stub: gorp's
-/// `path:line:text` output *is* grep's `-rn` form, always. `-n` asks for line
-/// numbers and gets them; `-r`/`-R` ask for recursion and get it; `-H` asks for
-/// filenames and gets them. Each flag's postcondition holds the moment it is
-/// accepted, so honoring it costs nothing.
+/// These are accepted and read by almost nothing, and that is not a stub:
+/// gorp's output always carries what they ask for. `-n` asks for line numbers
+/// and every row leads with one; `-r`/`-R` ask for recursion and get it; `-H`
+/// asks for filenames and every block header names its file (`-H`'s one
+/// remaining job is restoring the path to a single named file's `-c` count).
+/// Each flag's postcondition holds the moment it is accepted, so honoring it
+/// costs nothing.
 ///
 /// Honoring their *absence* is what gorp declines to do — no `-n` would mean
 /// dropping line numbers, no `-r` refusing a directory, `-h` dropping the path.

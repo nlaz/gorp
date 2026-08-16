@@ -1,11 +1,11 @@
 //! Everything that writes to stdout or stderr.
 //!
 //! One rule, and the CLI tests enforce it: **stdout is data, stderr is
-//! commentary.** Exact mode prints `path:line:text`, parseable by anything
-//! that parses grep; ranked mode prints the unit view (RESEARCH.md §34) — a
-//! `path:start-end` header, then `line:␣␣text` rows, blank-line separated per
-//! hit. Footers, warnings, stats, and suggestions go to stderr, so a pipeline
-//! gets clean data and a human still gets told what happened.
+//! commentary.** Both modes print the unit view (RESEARCH.md §34) — a
+//! `path:start-end` header, then `line:␣␣text` rows, blank-line separated —
+//! ranked mode one block per hit, exact mode one block per file with every
+//! matched line bold. Footers, warnings, stats, and suggestions go to stderr,
+//! so a pipeline gets clean data and a human still gets told what happened.
 //!
 //! Colour is a second, strictly optional layer over that same grammar: every
 //! escape wraps a field the plain output already had, so removing them gives
@@ -31,8 +31,9 @@ use std::borrow::Cow;
 use std::collections::HashSet;
 use std::path::Path;
 
-/// Exact mode prints at most this many matches unless --all is given; the footer
-/// reports the true total, so enumeration is never silently lossy.
+/// Exact mode prints at most this many matched lines unless --all is given
+/// (`-C` context rows ride on top); the footer reports the true total, so
+/// enumeration is never silently lossy.
 pub const EXACT_PRINT_CAP: usize = 250;
 
 /// Characters of a hit's line that get printed, before `-M` overrides it.
@@ -396,8 +397,8 @@ pub fn human(bytes: u64) -> String {
     if i == 0 { format!("{bytes} B") } else { format!("{v:.1} {}", U[i]) }
 }
 
-/// One result line per hit, plus optional context. The only writer of result
-/// data, so the `path:line:text` contract has a single home — and the only place
+/// One result block per hit — or, in exact mode, per file. The only writer of
+/// result data, so the output grammar has a single home — and the only place
 /// a hit's text is shaped, so ranked mode, exact mode and `--json` cannot drift
 /// into three different ideas of how wide a line may be.
 ///
@@ -417,6 +418,13 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
                 println!("{}", opts.path(&hit.path));
             }
         }
+        return;
+    }
+    // Exact mode's human display: the unit-view grammar, one block per file
+    // (`keyword_blocks`). `--json` stays on the flat per-hit loop below — the
+    // keyword hit schema is a contract the snapshot and gorp-bench read.
+    if opts.exact && !opts.json {
+        keyword_blocks(root, &hits[..shown], opts);
         return;
     }
     for hit in &hits[..shown] {
@@ -653,6 +661,12 @@ pub struct Print<'a> {
     /// (`&NO_EMPHASIS`) is the honest default: no query to speak of, or a
     /// pattern this cannot read as words.
     pub emphasis: &'a Emphasis,
+    /// Exact keyword mode: render one unit-view block per *file*, every
+    /// matched line bold, instead of one block per ranked hit. An explicit
+    /// flag rather than sniffing a keyword hit's absent fields, because a
+    /// ranked hit can legitimately arrive without them too. Set from the
+    /// resolved mode, so `-e` and `--mode keyword` print identically.
+    pub exact: bool,
 }
 
 /// The empty emphasis, for a `Print` built by `..Default::default()`.
@@ -689,6 +703,7 @@ impl Default for Print<'_> {
             // `..Default::default()` is one in a test or a harness.
             color: false,
             emphasis: &NO_EMPHASIS,
+            exact: false,
         }
     }
 }
@@ -965,6 +980,96 @@ fn frame(root: &Path, hit: &SearchHit, before: usize, after: usize) -> Option<Fr
     let lines =
         (lo..=hi).filter(|i| *i != center).map(|i| (i, lines[i - 1].to_string())).collect();
     Some(Frame { lines, dedent })
+}
+
+/// Exact mode's human display: the same header/row/elision grammar as the
+/// ranked unit view, grouped one block per FILE rather than per hit — a
+/// keyword hit is one line, and a header per line would drown the matches in
+/// their own addresses. Every matched line takes the bold gutter (exact mode
+/// has no single chosen line; each match is one), and `-C/-A/-B` rows join
+/// the block in grey, overlapping windows merged by [`keyword_rows`]. The
+/// header always carries the path, even for one named file — the ranked
+/// branch's rule, for the same reason: once per block is not per-line noise.
+fn keyword_blocks(root: &Path, hits: &[SearchHit], opts: &Print) {
+    for file in hits.chunk_by(|a, b| a.path == b.path) {
+        let matched: HashSet<u32> = file.iter().map(|h| h.line).collect();
+        let rows = keyword_rows(root, file, opts.before, opts.after);
+        let (first, last) = (rows[0].line, rows[rows.len() - 1].line);
+        println!(
+            "{}:{}",
+            opts.path(&file[0].path),
+            paint(opts.color, palette::LINE, format_args!("{first}-{last}")),
+        );
+        // Block dedent, elision, and clipping: the same rules as the ranked
+        // unit branch, so the two displays cannot drift into two grammars.
+        let dedent = rows
+            .iter()
+            .filter(|r| !r.text.trim().is_empty())
+            .map(|r| r.text.len() - r.text.trim_start().len())
+            .min()
+            .unwrap_or(0);
+        let mut prev: Option<u32> = None;
+        for row in &rows {
+            if prev.is_some_and(|p| row.line > p + 1) {
+                println!("{ELISION}");
+            }
+            let cut = indent_within(&row.text, dedent);
+            let (gutter, base) = if matched.contains(&row.line) {
+                (palette::LINE_BEST, "")
+            } else {
+                (palette::LINE_CTX, palette::TEXT_CTX)
+            };
+            let text = clip(&row.text[cut..], opts.max_columns);
+            println!(
+                "{}:{GUTTER}{}",
+                paint(opts.color, gutter, row.line),
+                opts.emphasis.apply(&text, base, opts.color),
+            );
+            prev = Some(row.line);
+        }
+        println!();
+    }
+}
+
+/// One file's rows for [`keyword_blocks`]: the matched lines, plus the
+/// `-C/-A/-B` window around each, re-read from the file in one read and
+/// merged — a set of line numbers, so overlapping windows dedupe and the rows
+/// come out sorted. Falls back to the matches' own scanned text when the file
+/// cannot be re-read or has shrunk past a match (the `widen_rows` guard, per
+/// file), so context can vanish but a match never does.
+fn keyword_rows(
+    root: &Path,
+    file_hits: &[SearchHit],
+    before: usize,
+    after: usize,
+) -> Vec<UnitRow> {
+    let bare =
+        || file_hits.iter().map(|h| UnitRow { line: h.line, text: h.text.clone() }).collect();
+    if before == 0 && after == 0 {
+        return bare();
+    }
+    let Some(text) = corpus::read_text(&corpus::resolve(root, &file_hits[0].path)) else {
+        return bare();
+    };
+    let lines: Vec<&str> = text.lines().collect();
+    let mut wanted = std::collections::BTreeSet::new();
+    for h in file_hits {
+        let lo = (h.line as usize).saturating_sub(before).max(1);
+        let hi = (h.line as usize + after).min(lines.len());
+        wanted.extend((lo..=hi).map(|i| i as u32));
+        wanted.insert(h.line);
+    }
+    wanted
+        .into_iter()
+        .map(|n| UnitRow {
+            line: n,
+            text: lines
+                .get(n as usize - 1)
+                .map(|l| (*l).to_string())
+                .or_else(|| file_hits.iter().find(|h| h.line == n).map(|h| h.text.clone()))
+                .unwrap_or_default(),
+        })
+        .collect()
 }
 
 /// One JSON object on stderr. Stderr, not stdout: `--json` owns stdout and the

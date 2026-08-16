@@ -6,6 +6,27 @@ chunks). Full data: `docs/RESEARCH.md` and `eval/REPORT.md`; the query sets
 are checked in under `eval/queries/`, while `eval/data/` is gitignored scratch
 and will not be in a fresh clone.
 
+## 2026-08-16 — exact mode joins the unit view
+
+Display only; matching, ordering, counts, and the keyword JSON schema are
+untouched (`tools/snapshot.sh --check` is byte-identical — its exact-mode
+cases record `--json`).
+
+- `-e`'s human output now speaks the block grammar ranked mode already does,
+  grouped **one block per file**: a `path:first-last` header, `N:  text` rows
+  dedented as a block, `⋮` where the line numbers jump, a blank line between
+  files. Every matched line takes the bold gutter — exact mode has no single
+  chosen line, each match is one — and `-C/-A/-B` rows join the block in
+  grey, overlapping windows merging instead of repeating.
+- **Consumers that parsed the old `path:line:text` / `path-line-text` / `--`
+  grammar must update** — in-tree ones were; gorp-bench's `scoring.py` is the
+  known one outside this repo. `--json`, `-l`, `-c`, the footer, and the
+  250-match print cap are unchanged.
+- One named file gets a header too, where it used to drop the path from every
+  line: the path once per block is not per-line noise, and `-H` becomes a
+  no-op for hit display (it still restores the path to a one-file `-c`
+  count).
+
 ## 2026-08-16 — colour on a terminal, and a gutter that is two spaces
 
 Display only; ranking is untouched (`tools/snapshot.sh --check` is

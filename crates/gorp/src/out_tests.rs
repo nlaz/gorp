@@ -1,6 +1,6 @@
 //! Tests for [`super::out`]: clipping, quoting and the unit renderer.
 
-use super::{Emphasis, color_enabled, paint, quote_path};
+use super::{Emphasis, color_enabled, keyword_rows, paint, quote_path};
 
 /// The six names the simulation put on disk (SIMULATION.md §1.5). Six files
 /// produced seven stdout lines, and one of the six mis-parsed silently.
@@ -99,6 +99,55 @@ fn a_base_style_is_reopened_after_each_emphasis() {
     assert_eq!(dim.matches("\x1b[2m").count(), 3, "base re-opened after each word: {dim:?}");
     // Colour off is the identity, base style or not.
     assert_eq!(e.apply("retry the backoff now", "\x1b[2m", false), "retry the backoff now");
+}
+
+/// A keyword hit as the engine emits one: a single line, nothing optional.
+fn khit(path: &str, line: u32, text: &str) -> gorp_core::search::SearchHit {
+    gorp_core::search::SearchHit {
+        path: path.into(),
+        start_line: line,
+        end_line: line,
+        line,
+        text: text.into(),
+        score: 1.0,
+        chunk_start_line: None,
+        chunk_end_line: None,
+        phrase: None,
+        lines: None,
+        lines_from: None,
+        defines: None,
+        unit_rows: None,
+        features: None,
+    }
+}
+
+/// The per-file row builder behind exact mode's blocks: overlapping `-C`
+/// windows merge without duplicate rows, context clamps to the file's bounds,
+/// and a file that cannot be re-read loses its context but never a match —
+/// the matches still carry the text the scan saw.
+#[test]
+fn keyword_rows_merge_windows_and_survive_a_missing_file() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let body: String = (1..=10).map(|i| format!("line {i}\n")).collect();
+    std::fs::write(dir.path().join("f.txt"), body).expect("write");
+    let hits =
+        [khit("f.txt", 2, "line 2"), khit("f.txt", 4, "line 4"), khit("f.txt", 9, "line 9")];
+
+    // No context: the matches themselves, no file read.
+    let bare = keyword_rows(dir.path(), &hits, 0, 0);
+    assert_eq!(bare.iter().map(|r| r.line).collect::<Vec<_>>(), [2, 4, 9]);
+
+    // -C 1: the 2±1 and 4±1 windows overlap at 3 and merge; the edges clamp
+    // to lines 1 and 10.
+    let rows = keyword_rows(dir.path(), &hits, 1, 1);
+    assert_eq!(rows.iter().map(|r| r.line).collect::<Vec<_>>(), [1, 2, 3, 4, 5, 8, 9, 10]);
+    assert_eq!(rows[0].text, "line 1", "context is re-read from the file");
+
+    // A file that cannot be re-read: context vanishes, the match does not.
+    let gone = [khit("gone.txt", 3, "scanned text")];
+    let rows = keyword_rows(dir.path(), &gone, 2, 2);
+    assert_eq!(rows.len(), 1, "no invented context for an unreadable file");
+    assert_eq!((rows[0].line, rows[0].text.as_str()), (3, "scanned text"));
 }
 
 /// `never` and `always` are unconditional, and `auto` is false here because
