@@ -67,13 +67,20 @@ behaviors), `e2e_publish.rs` (publication is a swap), over a shared
 
 ### Harnesses
 
-- `bench/` — perf harness vs grep/ggrep/rg/ugrep/ack (`fetch-corpora.sh`,
-  `run.py`, `report.py`, `queries.json`); corpora + results are gitignored
+- **The agent harnesses and the perf benchmark live in `../gorp-bench`**
+  (github.com/nlaz/gorp-bench): SWE-Explore-Bench and Loc-Bench campaigns,
+  the PATH shim, guess harvesting, and the grep/ripgrep comparison. They run
+  live agents against real repositories, which costs money and hours — the
+  opposite lifecycle from a `cargo test`, which is why they moved out. That
+  repo consumes this one as a sibling checkout: `GORP_BIN` for the binary,
+  and this repo's `eval/` for the shared scoring library (`leakage`,
+  `symbols`, `corpus_text`, `run_eval`'s statistics). References to
+  Harness paths named below resolve in *that* repo, not this one.
 - **Agentic-guess search is the primary regime since 2026-08-02** (RESEARCH.md
   §16): success = one ranked query built from a real agent's own guess lands a
   gold file in the top 5 more often than the agent's actual exact-mode
   workflow (clustered CI excluding zero), and hybrid must not trail bm25 on
-  the guess corpora (`eval/queries/guesses-*.jsonl`, harvested from locbench
+  the guess corpora (`eval/queries/guesses-*.jsonl`, harvested from campaign
   shim logs — real agent queries, never written by us). Strict-blind (§15) is
   retained as the **model-experiment instrument** — the gate the §9.9
   code-teacher swap must move (`<corpus>-blind.jsonl`, `eval/blind.sh`,
@@ -87,7 +94,7 @@ behaviors), `e2e_publish.rs` (publication is a swap), over a shared
   [−0.065, +0.039]** on real agent queries. Offline *losses* fail to transfer,
   not just gains, so a negative offline result is not grounds to reject a
   design either. Use it for regression floors and leakage cuts; gate any engine
-  change on `eval/locbench/guessplay.py`, which replays real harvested agent
+  change on gorp-bench's `guessplay.py`, which replays real harvested agent
   queries against real gold for free. Three confirmations now: §9.7, §10.6, §21. §23.2 closes the direction with a
   powered bound: **no document-side rendering improves retrieval on real agent
   queries by more than 0.023** (7,657 queries, 467 instances), `split` is
@@ -110,29 +117,9 @@ behaviors), `e2e_publish.rs` (publication is a swap), over a shared
   `generate.py --anchor symbol` makes chunking-neutral query sets via
   `symbols.py`; `fetch-cosqa.sh` pulls 9k real human queries (the only set we
   didn't write — prefer it for quality claims, RESEARCH.md §12);
-  `locbench/replay.py` replays real agent queries offline (§13.2).
-  `locbench/triage.py` is the **gate between campaign tiers** (§18): it reads
-  the per-invocation trace envelopes (`GORP_TRACE_FILE`, set by `run.py`)
-  beside the shim logs and exits nonzero on tool failures, agent distress
-  (help probes, consecutive empty searches, a query repeated fruitlessly),
-  or harness trouble. `locbench/capture.py` → `locbench/viewer.py` turn a
-  campaign into one self-contained HTML page carrying the numbers *and* the
-  trajectories behind them — every search an agent ran, what came back, and
-  what the engine did. Nothing external, opens offline.
-  `locbench/queryshape.py` reads query *style* by condition out of the shim
-  logs (via `harvest.py`; `--since` scopes it to one campaign, or it sweeps
-  every campaign ever run and compares arms across different instances). It is
-  how a **tool-description** arm gets checked before any scoring: §19's A/B
-  registers "did agents change how they write queries" as the gate on its
-  accuracy endpoints, because a description that changed no behavior cannot be
-  evidence about behavior. Style and not length, because
-  `locbench/stylecut.py` — which reproduces §19.2b — measured that a *blind*
-  description finds the gold 13% of the time against a blind name's 50%, so
-  paraphrases are the longest queries and the worst, and a description that
-  raised mean length by teaching questions would be a regression reported as a
-  win.
-  `locbench/campaign.sh` takes its arms as `CONDITIONS=`/`LIMIT=` parameters
-  (defaults reproduce §16.9 exactly), so a new A/B does not fork the loop.
+  The campaign-side tools those numbers come from — `replay.py`, `triage.py`
+  (the §18 gate between tiers), `capture.py` → `viewer.py`, `queryshape.py`,
+  `stylecut.py`, `campaign.sh` — are in `../gorp-bench/harness/locbench/`.
   **Query sets live in `eval/queries/`, checked in** — `eval/data/` is
   gitignored and the sets are `claude`-generated, so nothing published was
   reproducible without them. Three rg conditions exist on purpose: `rg`
@@ -154,9 +141,9 @@ behaviors), `e2e_publish.rs` (publication is a swap), over a shared
 - Guards that run beside the numbers: `eval/leakage.py` (how much of the
   answer a query already contains — §12.5 made structural),
   `eval/validate_queries.py` (`run_eval` refuses to score a query set that has
-  drifted from its corpus), `bench/manifest.py --check` (detects a corpus tree
-  that changed), `eval/reclaim.sh --dry-run` (what the harness holds on disk
-  and what rebuilds it).
+  drifted from its corpus), `eval/reclaim.sh --dry-run` (what the harness
+  holds on disk and what rebuilds it). Corpus-tree drift is checked by
+  gorp-bench's `manifest.py --check`.
 
 ## Conventions
 
@@ -186,19 +173,18 @@ behaviors), `e2e_publish.rs` (publication is a swap), over a shared
   `meta.json` is written last: writing it is what publishes an index.
   Read-repair validation is throttled by `GORP_CACHE_TTL_SECS`
   (default 60; 0 = always validate). `--no-index` never reads or writes.
-- `bench/run.py` invokes competitors by absolute path (`/usr/bin/grep`,
-  `/opt/homebrew/bin/*`) because dev shells wrap `grep`.
 - Smoke tests in sibling repos: set `GORP_CACHE_DIR` to a temp dir (a
   plain ranked search now writes a cache entry for that scope).
-- The benchmark corpora live in `bench/corpora/` (~5 GB with the linux index;
-  refetch with `bench/fetch-corpora.sh`). Seven of them: linux (C, 84k files),
+- The benchmark corpora live in `../gorp-bench/bench/corpora/` (~5 GB with the
+  linux index; refetch with that repo's fetch-corpora script). Seven:
+  linux (C, 84k files),
   vscode (TS, 4k), wikipedia (prose, 1k), plus tokio/commons-lang/etcd/jekyll
   (rust/java/go/ruby, 166–1,500 files, ~35 MB total) which sit in the <2k-file
   band where §9.7 found engine variants actually diverge. Every clone is
   pinned to a SHA; wikipedia cannot be (Wikimedia expires dated dumps), and
   the vscode/wikipedia trees fetched before pinning carry
   `revision: unknown` — recorded honestly rather than invented. Tree digests
-  in `bench/corpora/MANIFEST.json` make a corpus checkable either way.
+  in their `MANIFEST.json` make a corpus checkable either way.
 
 ## Known costs (measured, M-series mac, linux kernel corpus, index v2, 256 dims)
 
@@ -214,8 +200,9 @@ that involve embeddings all moved, BM25 and keyword did not.
   peak RSS 0.8–1.6 GB. vscode 2.1 s / 63 MB, wikipedia 205 MB.
   The spread is real, not sloppy measurement: wall time is dominated by
   page-cache state (a corpus already resident reads far faster) and peak RSS
-  by rayon batch timing. Quote the range, or re-measure with `bench/run.py`
-  and compare via `report.py --against` — single samples here mislead.
+  by rayon batch timing. Quote the range, or re-measure with gorp-bench's
+  perf harness and compare via its `report.py --against` — single samples
+  here mislead.
 - warm queries: bm25 88 ms, semantic 53 ms, hybrid 115 ms (halving dims
   halved the embedding scan; the old f32 scan was fault/IO-bound at ~3-4 s).
   `--bm25-pin` (default 5 since §32.4b) adds the bm25 scan to every ranked
@@ -232,7 +219,7 @@ that involve embeddings all moved, BM25 and keyword did not.
   file read. It buys +0.012 strict [+0.005, +0.020] on directory-scoped real
   agent queries, +0.010 on file-scoped, +0.025 file rank, with the bm25
   tripwire improving rather than holding; the const weights live in
-  `search/checklist.rs`, retrained by `eval/locbench/checklist_train.py`
+  `search/checklist.rs`, retrained by gorp-bench's `checklist_train.py`
   from a `guessplay.py --dump-hits` harvest (the two feature lists must not
   drift — both say so)
 - corpus walk (parallel since FIXES.md #24): 272 ms on the 84k-file kernel,

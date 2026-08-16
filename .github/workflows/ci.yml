@@ -77,11 +77,11 @@ jobs:
         with:
           python-version: "3.12"
 
-      # Explicit file list, not the directories: bench/corpora and eval/data
-      # hold multi-gigabyte third-party checkouts whose syntax is not our
-      # problem (and whose warnings would bury ours).
+      # Explicit file list, not the directory: eval/data holds multi-gigabyte
+      # third-party checkouts whose syntax is not our problem (and whose
+      # warnings would bury ours). The agent harnesses moved to gorp-bench.
       - name: compile
-        run: python -m compileall -q bench/*.py eval/*.py eval/locbench/*.py eval/tests/*.py
+        run: python -m compileall -q eval/*.py eval/sim/*.py eval/tests/*.py
 
       # The scorers decide every published number in RESEARCH.md.
       - name: test

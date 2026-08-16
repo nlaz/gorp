@@ -11,26 +11,33 @@ caveats. This file is the operator's guide; REPORT.md is the findings.
 > Generated queries hand the engine the gold identifier ~70% of the time; real
 > agent queries do it 0.6% of the time. Use `run_eval.py` for regression floors,
 > leakage cuts and corpus-level comparisons. Gate engine changes on
-> `locbench/guessplay.py` — it replays real harvested agent queries against real
-> gold files and functions, costs nothing, and is the instrument §14.5 and §22
-> both decided on.
+> gorp-bench's `guessplay.py` — it replays real harvested agent queries against
+> real gold files and functions, costs nothing, and is the instrument §14.5 and
+> §22 both decided on.
 
-Two harnesses:
+What is here, and what is not:
 
 - **Retrieval evals** (`generate.py`, `run_eval.py`) — LLM-generated query
   sets over the bench corpora, scored recall@k / MRR. Results in
   `RESULTS.md` §3. See the caveat above before using these to accept or reject
   an engine change.
-- **Loc-Bench agent evals** (`locbench/`) — real GitHub issues, headless
-  agents, one search-tool condition per run, full per-search provenance
-  (wall time, tokens, cost, every invocation logged via PATH shims).
-  Protocol sketch in `agent-eval.md`; findings in `RESEARCH.md` §7.
+- **Simulation testing** (`sim/`) — behavior over a *sequence* of steps
+  against evolving cache state, which neither of the above can see.
+- **The agent evals moved to [gorp-bench](https://github.com/nlaz/gorp-bench)**
+  — SWE-Explore-Bench and Loc-Bench campaigns, the PATH shims, guess
+  harvesting, and the perf benchmark. They run live agents against real
+  repositories, so they cost money and hours; this repo's evals are free and
+  run on every change. gorp-bench consumes this directory as a library (its
+  `harness/common/gorp_repo.py` puts it on `sys.path`), so `leakage.py`'s
+  identifier predicate is literally the same code on both sides rather than
+  two copies that agree today.
 
 ## The comparison principle
 
 gorp is benchmarked against ripgrep at two levels, and they must not be
 conflated. **Keyword mode vs rg** is the mechanics-level comparison — same
-engine crates, no index involved, kept honest in `bench/`. **Ranked search
+engine crates, no index involved, kept honest in gorp-bench's `bench/`.
+**Ranked search
 vs agentic rg** is the contract-level comparison — same grep-shaped
 interface, which primitive gets an agent to the answer in fewer tokens and
 round-trips. The second is the product claim, and an index is not cheating
@@ -42,7 +49,7 @@ its costs are never hidden:
 > keep — with its costs printed next to its wins.
 
 Concretely: every result table that credits gorp's warm path must carry
-index build time and bytes next to it (`locbench/report.py` shows
+index build time and bytes next to it (gorp-bench's `report.py` shows
 efficiency with index cost both excluded and amortized), exact mode (`-e`)
 never answers from the index (proof-of-absence always reads live bytes),
 and staleness is surfaced, not smoothed over.
@@ -108,10 +115,11 @@ used to live in gitignored `eval/data/`, and they are `claude`-generated, so
 nothing published was reproducible from the repo alone. See
 `eval/queries/README.md` for what each set is and which biases it carries.
 
-**The corpora are pinned and digested** — `bench/fetch-corpora.sh` pins every
-clone to a SHA, and `bench/manifest.py` records a content digest of each tree:
+**The corpora are pinned and digested** — in gorp-bench, `fetch-corpora.sh`
+pins every clone to a SHA and `manifest.py` records a content digest of each
+tree:
 
-    python3 bench/manifest.py           # record
+    python3 bench/manifest.py           # record  (run from gorp-bench)
     python3 bench/manifest.py --check   # detect a tree that has changed
 
 vscode and wikipedia were unpinned until 2026-07-30, so the trees on disk have
@@ -124,7 +132,7 @@ identifier share, median length, gold-token overlap, and path leakage. §12.5
 said no quality claim should be read without knowing which pole produced it;
 this makes that structural rather than advisory. Standalone:
 
-    python3 eval/leakage.py eval/queries/linux.jsonl bench/corpora/linux
+    python3 eval/leakage.py eval/queries/linux.jsonl ../gorp-bench/bench/corpora/linux
 
 `run_eval.py` also validates gold spans against the corpus first and **refuses
 to score a drifted set** (`--allow-stale` overrides). A stale set does not
@@ -139,7 +147,7 @@ symptom the embedding-width mismatch produced.
 `eval/reclaim.sh --dry-run` prints everything the harness holds, its size, and
 the command that rebuilds it. The rule: anything a checked-in script can
 rebuild is reclaimable; anything that cost money or nondeterministic model
-calls is not. `eval/data/locbench/runs/` ($39.07 of agent spend) and
+calls is not. gorp-bench's `data/locbench/runs/` ($39.07 of agent spend) and
 `eval/queries/` are never offered.
 
 ## Tests

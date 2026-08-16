@@ -398,9 +398,11 @@ project came from reading trajectories — a silently-empty search, a verb in
 `--help` that taught agents the wrong model — and each one took a person
 opening JSONL by hand:
 
+Those live in [gorp-bench](https://github.com/nlaz/gorp-bench):
+
 ```
-python3 eval/locbench/capture.py     # results + run dirs -> one JSON bundle
-python3 eval/locbench/viewer.py      # bundle -> results-viewer.html
+python3 harness/locbench/capture.py   # results + run dirs -> one JSON bundle
+python3 harness/locbench/viewer.py    # bundle -> results-viewer.html
 ```
 
 One self-contained page: the gate verdict, the paired scoreboard with

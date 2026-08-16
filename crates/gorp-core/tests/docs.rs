@@ -144,16 +144,28 @@ fn research_citations_resolve() {
 /// The files CLAUDE.md tells an agent to look at have to be there. It is the
 /// first thing read in a session and the last thing anyone thinks to update.
 ///
-/// Only repo-rooted paths are checked. CLAUDE.md also names modules relative to
-/// a layer (`build/embed`, `locbench/replay.py`), which are unambiguous in
-/// context but not resolvable from the root without guessing which prefix to
+/// Only repo-rooted paths are checked, and only paths in *this* repo: modules
+/// named relative to a layer (`build/embed`) and paths in the sibling
+/// gorp-bench checkout (`../gorp-bench/...`, `bench/...`) are unambiguous in
+/// context but not resolvable from this root without guessing which prefix to
 /// try — and a checker that guesses is one that fails for the wrong reason.
 #[test]
 fn claude_md_paths_exist() {
     let root = repo_root();
     let text = std::fs::read_to_string(root.join("CLAUDE.md")).expect("CLAUDE.md");
 
-    const ROOTED: [&str; 6] = ["crates/", "eval/", "bench/", "tools/", "tests/", ".github/"];
+    const ROOTED: [&str; 5] = ["crates/", "eval/", "tools/", "tests/", ".github/"];
+
+    // Gitignored trees cannot be required to exist: `eval/data/` is scratch
+    // and multi-gigabyte, present on a developer's disk and absent in CI.
+    // Read the patterns rather than hardcoding them, so this stays true when
+    // .gitignore changes.
+    let ignored: Vec<String> = std::fs::read_to_string(root.join(".gitignore"))
+        .unwrap_or_default()
+        .lines()
+        .map(|l| l.trim().trim_start_matches('/').trim_end_matches('/').to_string())
+        .filter(|l| !l.is_empty() && !l.starts_with('#') && !l.contains('*'))
+        .collect();
 
     let mut missing = Vec::new();
     for token in text.split('`').skip(1).step_by(2) {
@@ -162,6 +174,9 @@ fn claude_md_paths_exist() {
             continue;
         }
         if candidate.contains(' ') || candidate.contains('*') || candidate.contains("::") {
+            continue;
+        }
+        if ignored.iter().any(|i| candidate == i || candidate.starts_with(&format!("{i}/"))) {
             continue;
         }
         if !root.join(candidate).exists() {
