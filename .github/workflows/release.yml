@@ -1,0 +1,150 @@
+name: release
+
+# Builds the four supported targets, gates each on the full test suite and the
+# ranking snapshot, and publishes a GitHub Release with prebuilt binaries.
+#
+# PREREQUISITE: same as ci.yml — the `BOG_TOKEN` secret must grant
+# `contents: read` on flowercomputers/ese and flowercomputers/anny, which are
+# checked out as siblings. The first build per cache key downloads the ese
+# weight table (~40 MB) from Hugging Face.
+#
+# Two ways to run it:
+#   - push a tag `v<version>` (must equal the workspace version in Cargo.toml)
+#     -> builds and publishes the release.
+#   - workflow_dispatch on a branch -> dry run: builds and uploads artifacts,
+#     publishes nothing. Dispatching on a tag ref with publish=true also
+#     publishes, which is the recovery path for a partially failed tag build.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish a release (requires running on a v* tag ref)"
+        type: boolean
+        default: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            target: aarch64-apple-darwin
+          - runner: macos-13
+            target: x86_64-apple-darwin
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: gorp
+      - uses: actions/checkout@v4
+        with:
+          repository: flowercomputers/ese
+          path: ese
+          token: ${{ secrets.BOG_TOKEN }}
+      - uses: actions/checkout@v4
+        with:
+          repository: flowercomputers/anny
+          path: anny
+          token: ${{ secrets.BOG_TOKEN }}
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            gorp/target
+          key: release-${{ matrix.target }}-${{ hashFiles('gorp/Cargo.lock') }}
+          restore-keys: release-${{ matrix.target }}-
+
+      # A tag that does not match the workspace version would publish a binary
+      # whose --version disagrees with its release page. Refuse early.
+      - name: version guard
+        if: startsWith(github.ref, 'refs/tags/v')
+        working-directory: gorp
+        run: |
+          v=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)
+          if [ "v$v" != "${GITHUB_REF_NAME}" ]; then
+            echo "tag ${GITHUB_REF_NAME} does not match workspace version v$v" >&2
+            exit 1
+          fi
+
+      # Stamp the exact checked-out sha rather than trusting the build cwd.
+      - name: stamp build identity
+        run: |
+          echo "GORP_GIT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+          echo "GORP_GIT_DIRTY=false" >> "$GITHUB_ENV"
+
+      - name: test
+        working-directory: gorp
+        run: cargo test --workspace
+
+      - name: build
+        working-directory: gorp
+        run: cargo build --release
+
+      # The behavior tripwire, per target: ranked output over the frozen
+      # fixture must be byte-identical on every platform we ship.
+      - name: snapshot
+        working-directory: gorp
+        run: tools/snapshot.sh --check
+
+      # Smoke-test the artifact itself: version provenance, exact mode, and a
+      # ranked (cache-writing) search under an isolated cache dir.
+      - name: smoke test
+        working-directory: gorp
+        run: |
+          target/release/gorp --version
+          target/release/gorp -e "compute_backoff_delay" tests/corpus >/dev/null
+          GORP_CACHE_DIR="$(mktemp -d)" target/release/gorp -k 3 "retry backoff" tests/corpus >/dev/null
+
+      # Unversioned asset names, so releases/latest/download/ URLs stay stable
+      # for install.sh; the version lives in the tag and in `gorp --version`.
+      - name: package
+        working-directory: gorp
+        run: |
+          staging="gorp-${{ matrix.target }}"
+          mkdir "$staging"
+          cp target/release/gorp README.md LICENSE NOTICE "$staging"/
+          tar czf "$staging.tar.gz" "$staging"
+          shasum -a 256 "$staging.tar.gz" > "$staging.tar.gz.sha256"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gorp-${{ matrix.target }}
+          path: |
+            gorp/gorp-${{ matrix.target }}.tar.gz
+            gorp/gorp-${{ matrix.target }}.tar.gz.sha256
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || inputs.publish)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "gorp ${GITHUB_REF_NAME}" \
+            --generate-notes \
+            artifacts/*

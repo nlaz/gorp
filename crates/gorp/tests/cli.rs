@@ -1184,3 +1184,137 @@ fn an_unreadable_scope_says_so_rather_than_reporting_a_miss() {
         r.stderr
     );
 }
+
+// ---------------------------------------------------------------------------
+// production hardening: argv edge cases, bounded retention, reclamation
+// ---------------------------------------------------------------------------
+
+/// `gorp ""` used to embed the empty string and return an arbitrary-looking
+/// top-k; `gorp -e ""` matched every line of the corpus. Both are usage
+/// errors: exit 2, nothing on stdout.
+#[test]
+fn an_empty_query_is_a_usage_error() {
+    let sg = Sg::new();
+    for args in [&[""][..], &["   "][..], &["-e", ""][..]] {
+        let r = sg.run(args);
+        assert_eq!(r.code, 2, "{args:?} must be a usage error, not a search");
+        assert!(r.stdout.is_empty(), "{args:?} must print nothing to stdout");
+        assert!(
+            r.stderr.contains("usage"),
+            "{args:?} should point at usage, got: {}",
+            r.stderr
+        );
+    }
+}
+
+/// `-k` flows into allocations and width arithmetic; an absurd value must be
+/// a range error that names the legal bound (the caller is usually an agent
+/// that invented the number), never an allocation abort.
+#[test]
+fn an_absurd_k_is_a_range_error_not_an_abort() {
+    let sg = Sg::new();
+    let r = sg.run(&["-k", "99999999999999", "retry backoff"]);
+    assert_eq!(r.code, 2, "out-of-range -k is a usage error");
+    assert!(r.stderr.contains("10000"), "the error names the bound: {}", r.stderr);
+
+    let ok = sg.run(&["-k", "10000", "-e", "compute_backoff_delay"]);
+    assert_eq!(ok.code, 0, "the top of the range is accepted\nstderr: {}", ok.stderr);
+}
+
+/// Exact mode prints at most 250 matches but must count (and be able to show
+/// with --all) every one — and the printed 250 are the head of the sorted
+/// output even though retention now bounds what the scan keeps in memory.
+#[test]
+fn exact_mode_caps_printing_but_counts_everything() {
+    let dir = tempfile::tempdir().unwrap();
+    for name in ["a.txt", "b.txt", "c.txt"] {
+        let body: String = (1..=100).map(|i| format!("needle line {i}\n")).collect();
+        std::fs::write(dir.path().join(name), body).unwrap();
+    }
+    let sg = Sg::new();
+    let r = sg.run_in(&["-e", "needle"], dir.path());
+    assert_eq!(r.code, 0, "{}", r.stderr);
+    assert_eq!(r.lines().len(), 250, "printing is capped at 250");
+    assert!(r.lines()[0].starts_with("a.txt:1:"), "the head of the sort prints first");
+    assert!(
+        r.lines()[249].starts_with("c.txt:50:"),
+        "…through the 250th in (path, line) order"
+    );
+    assert!(
+        r.stderr.contains("showing 250 of 300 matches in 3 files"),
+        "the true totals survive bounded retention: {}",
+        r.stderr
+    );
+
+    let all = sg.run_in(&["-e", "needle", "--all"], dir.path());
+    assert_eq!(all.lines().len(), 300, "--all still prints every match");
+}
+
+/// A permission-denied subtree must not be silently invisible: on a zero-hit
+/// search the caller is told the walk skipped things it could not read,
+/// because "no results" over a partly-unreadable scope is otherwise silence
+/// that looks like a real answer (the §16.11 shape).
+#[cfg(unix)]
+#[test]
+fn an_unreadable_subdirectory_is_reported_not_silently_skipped() {
+    use std::os::unix::fs::PermissionsExt;
+    if unsafe { libc::geteuid() } == 0 {
+        return; // root reads anything; the scenario cannot be constructed
+    }
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("open.txt"), "nothing relevant here\n").unwrap();
+    let secret = dir.path().join("secret");
+    std::fs::create_dir(&secret).unwrap();
+    std::fs::write(secret.join("hidden.txt"), "the needle lives here\n").unwrap();
+    std::fs::set_permissions(&secret, std::fs::Permissions::from_mode(0o000)).unwrap();
+
+    let sg = Sg::new();
+    let r = sg.run_in(&["-e", "needle"], dir.path());
+    std::fs::set_permissions(&secret, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+    assert_eq!(r.code, 1, "stdout: {}\nstderr: {}", r.stdout, r.stderr);
+    assert!(
+        r.stderr.contains("could not be read"),
+        "walk errors surface on a zero-hit search: {}",
+        r.stderr
+    );
+}
+
+/// `gorp index` with stderr piped (an agent harness, CI) must not emit
+/// `\r`-rewriting progress — that is terminal furniture. The summary line
+/// still prints.
+#[test]
+fn index_progress_is_tty_only_but_the_summary_is_not() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("a.rs"), "fn alpha() {}\n").unwrap();
+    let sg = Sg::new();
+    let r = sg.run_in(&["index"], dir.path());
+    assert_eq!(r.code, 0, "{}", r.stderr);
+    assert!(!r.stderr.contains('\r'), "no carriage returns in captured stderr: {:?}", r.stderr);
+    assert!(!r.stderr.contains("indexing "), "per-batch progress is TTY-only: {}", r.stderr);
+    assert!(r.stderr.contains("indexed "), "the summary still prints: {}", r.stderr);
+}
+
+/// `-R` stays accepted (grep muscle memory), even though gorp never follows
+/// symlinks — its help text says so rather than promising dereferencing.
+#[test]
+fn dash_r_is_still_accepted() {
+    let sg = Sg::new();
+    assert_eq!(sg.run(&["-R", "-e", "compute_backoff_delay"]).code, 0);
+}
+
+/// `--version` carries build provenance (the same fields the telemetry
+/// envelope stamps); `-V` stays the terse one-liner.
+#[test]
+fn version_reports_build_provenance() {
+    let sg = Sg::new();
+    let long = sg.run_bare(&["--version"]);
+    assert_eq!(long.code, 0);
+    assert!(long.stdout.contains(env!("CARGO_PKG_VERSION")), "{}", long.stdout);
+    assert!(long.stdout.contains("embed dim:"), "provenance block present: {}", long.stdout);
+    assert!(long.stdout.contains("compat key:"), "provenance block present: {}", long.stdout);
+
+    let short = sg.run_bare(&["-V"]);
+    assert_eq!(short.code, 0);
+    assert_eq!(short.stdout.lines().count(), 1, "-V is one line: {}", short.stdout);
+}

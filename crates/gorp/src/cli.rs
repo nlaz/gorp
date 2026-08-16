@@ -17,6 +17,38 @@ use std::path::PathBuf;
 /// Read here, in the CLI, rather than inside the engine: the engine takes it as
 /// an ordinary option so a test can cross the threshold without mutating the
 /// environment of every other test in the process.
+/// The provenance block behind `--version`; `-V` stays the terse line. The
+/// same fields the telemetry envelope's `binary` block carries, so a bug
+/// report's `--version` output and a trace file describe a build the same way.
+fn long_version() -> &'static str {
+    static VERSION: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    VERSION.get_or_init(|| {
+        let sha = option_env!("GORP_GIT_SHA").unwrap_or("");
+        format!(
+            "{}\ncommit: {}{}\nprofile: {}\nembed dim: {}\ncompat key: {}",
+            env!("CARGO_PKG_VERSION"),
+            if sha.is_empty() { "unknown" } else { sha },
+            if option_env!("GORP_GIT_DIRTY") == Some("true") { " (dirty)" } else { "" },
+            option_env!("GORP_BUILD_PROFILE").unwrap_or("unknown"),
+            gorp_core::EMBED_DIM,
+            gorp_core::cache::compat_key(),
+        )
+    })
+}
+
+/// `-k` bounded, because its value flows into `Vec::with_capacity` and a
+/// couple of width multiplications: an absurd value must be a one-line range
+/// error (which teaches the caller the legal range — the caller is usually an
+/// agent that invented the number), never an allocation abort. 10,000 is far
+/// past any measured real `-k` and far short of overflow.
+fn parse_top(s: &str) -> Result<usize, String> {
+    let v: usize = s.parse().map_err(|_| String::from("not a number"))?;
+    if !(1..=10_000).contains(&v) {
+        return Err(String::from("must be between 1 and 10000"));
+    }
+    Ok(v)
+}
+
 fn default_max_drift() -> f32 {
     std::env::var("GORP_REPAIR_MAX_DRIFT")
         .ok()
@@ -29,6 +61,7 @@ fn default_max_drift() -> f32 {
 #[command(
     name = "gorp",
     version,
+    long_version = long_version(),
     // The tool description is a deliverable, not decoration (RESEARCH.md §6):
     // identity framing as measured in §16.8/§16.10, no mention of `-e` —
     // naming the exact-mode escape hatch here moved agents off ranked search
@@ -111,6 +144,7 @@ pub struct Cli {
         default_value_t = SearchOptions::default().k,
         default_missing_value = "20",
         num_args = 0..=1,
+        value_parser = parse_top,
     )]
     pub top: usize,
 
@@ -212,7 +246,8 @@ pub struct GrepCompat {
     #[arg(short = 'r', long = "recursive", hide = true)]
     pub recursive: bool,
 
-    /// Recurse into directories, following symlinks (gorp always recurses)
+    /// Accepted for grep compatibility (gorp always recurses; it does not
+    /// follow symlinks)
     #[arg(short = 'R', long = "dereference-recursive", hide = true)]
     pub dereference_recursive: bool,
 

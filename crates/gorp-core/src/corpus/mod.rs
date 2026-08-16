@@ -11,7 +11,6 @@ mod chunk;
 mod diff;
 #[cfg(feature = "func-chunk")]
 mod funcchunk;
-#[cfg(feature = "func-chunk")]
 mod pass;
 
 pub use chunk::{chunk_lines, lines};
@@ -38,7 +37,24 @@ use std::time::UNIX_EPOCH;
 /// larger half of a small query (6.7 ms of 8.7 ms on tokio) and 1.7 s on the
 /// 84k-file kernel.
 pub fn walk(root: &Path, params: &ChunkParams) -> Result<Vec<FileMeta>> {
+    Ok(walk_counted(root, params)?.files)
+}
+
+/// What a walk saw: the files, and how many directory entries it could not
+/// read (permissions, races). Most callers only want the files — [`walk`] —
+/// but the search paths surface the error count, because a subtree the walk
+/// silently skipped makes "no results" a claim about the readable part of the
+/// corpus, and the caller deserves to know that (the §16.11 shape: silence
+/// that looks like a real answer).
+pub struct Walked {
+    pub files: Vec<FileMeta>,
+    pub errors: usize,
+}
+
+/// [`walk`], with the unreadable-entry count kept rather than dropped.
+pub fn walk_counted(root: &Path, params: &ChunkParams) -> Result<Walked> {
     let files = std::sync::Mutex::new(Vec::new());
+    let errors = std::sync::atomic::AtomicUsize::new(0);
     let max_bytes = params.max_file_bytes;
 
     ignore::WalkBuilder::new(root)
@@ -52,12 +68,19 @@ pub fn walk(root: &Path, params: &ChunkParams) -> Result<Vec<FileMeta>> {
         .filter_entry(|e| e.depth() != 1 || !is_index_dir(&e.file_name().to_string_lossy()))
         .build_parallel()
         .run(|| {
-            Box::new(|entry| {
-                let Ok(entry) = entry else { return ignore::WalkState::Continue };
+            let (files, errors) = (&files, &errors);
+            Box::new(move |entry| {
+                let Ok(entry) = entry else {
+                    errors.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    return ignore::WalkState::Continue;
+                };
                 if !entry.file_type().is_some_and(|t| t.is_file()) {
                     return ignore::WalkState::Continue;
                 }
-                let Ok(meta) = entry.metadata() else { return ignore::WalkState::Continue };
+                let Ok(meta) = entry.metadata() else {
+                    errors.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    return ignore::WalkState::Continue;
+                };
                 if meta.len() > max_bytes {
                     return ignore::WalkState::Continue;
                 }
@@ -94,7 +117,7 @@ pub fn walk(root: &Path, params: &ChunkParams) -> Result<Vec<FileMeta>> {
     // Unstable is fine and is the point: paths are unique, so the order is total
     // and does not depend on which thread found what.
     files.sort_unstable_by(|a, b| a.path.cmp(&b.path));
-    Ok(files)
+    Ok(Walked { files, errors: errors.into_inner() })
 }
 
 /// A repo-local index directory, or one of the transient siblings a build swaps

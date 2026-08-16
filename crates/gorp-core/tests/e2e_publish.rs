@@ -1003,3 +1003,66 @@ fn bridge_mining_ignores_locale_and_doc_ballast() {
         "the source bridges' shared identifier should be mined instead: {terms:?}",
     );
 }
+
+/// A valid `meta.json` from one build paired with a `chunks.bin` from another
+/// (a partial rsync of the cache, a mixed-generation restore) used to load
+/// fine and panic later on the first `meta.files[chunk.file_id]` — bypassing
+/// the disposable-entry contract. `load_dir` now refuses it up front.
+#[test]
+fn a_file_table_shorter_than_the_chunk_ids_is_a_load_error_not_a_panic() {
+    let _cache = isolate_cache();
+    let repo = tempfile::tempdir().unwrap();
+    fixture(repo.path());
+    gorp_core::store::build(repo.path(), &gorp_core::store::BuildOptions::default(), |_, _| {})
+        .expect("build");
+    let dir = gorp_core::store::index_dir(repo.path());
+
+    // Truncate meta.json's file table to a single entry while every other
+    // artifact still references the full corpus.
+    let meta_path = dir.join("meta.json");
+    let mut meta: serde_json::Value =
+        serde_json::from_slice(&fs::read(&meta_path).unwrap()).unwrap();
+    let files = meta["files"].as_array().expect("file table").clone();
+    assert!(files.len() > 1, "fixture indexes more than one file");
+    meta["files"] = serde_json::Value::Array(files[..1].to_vec());
+    fs::write(&meta_path, serde_json::to_vec(&meta).unwrap()).unwrap();
+
+    let loaded =
+        gorp_core::store::LoadedIndex::load(repo.path(), gorp_core::store::LoadNeeds::all());
+    let err = match loaded {
+        Ok(_) => panic!("a chunk table pointing past the file table must not load"),
+        Err(e) => e,
+    };
+    assert!(err.to_string().contains("file_id"), "the error names the invariant, got: {err:#}");
+}
+
+/// Ctrl-C during `gorp index` leaves `.gorp.building-<pid>` (and, between the
+/// two publish renames, `.gorp.trash-<pid>`) in the user's tree. The sweep
+/// removes the ones whose owning process is gone and leaves live builds alone.
+#[test]
+fn sweeping_transients_removes_dead_pids_and_spares_live_ones() {
+    let repo = tempfile::tempdir().unwrap();
+    fixture(repo.path());
+    let dir = gorp_core::store::index_dir(repo.path());
+    fs::create_dir_all(&dir).unwrap();
+
+    let make = |name: String| {
+        let d = repo.path().join(name);
+        fs::create_dir_all(&d).unwrap();
+        fs::write(d.join("emb.bin"), b"partial").unwrap();
+        d
+    };
+    // i32::MAX is above every real pid_max, so it can never be a live process.
+    let dead_staging = make(format!(".gorp.building-{}", i32::MAX));
+    let dead_trash = make(format!(".gorp.trash-{}", i32::MAX - 1));
+    let live_staging = make(format!(".gorp.building-{}", std::process::id()));
+    let unrelated = make(".gorp-notes".to_string());
+
+    let removed = gorp_core::store::sweep_transients(&dir);
+    assert_eq!(removed, 2, "exactly the two dead transients go");
+    assert!(!dead_staging.exists(), "a dead pid's staging dir is reclaimed");
+    assert!(!dead_trash.exists(), "a dead pid's trash dir is reclaimed");
+    assert!(live_staging.exists(), "a live pid's staging dir is someone's build in flight");
+    assert!(unrelated.exists(), "non-transient siblings are untouched");
+    assert!(dir.exists(), "the index dir itself is untouched");
+}

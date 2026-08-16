@@ -26,7 +26,8 @@ pub fn run(
     let mut trace = Trace::new(SCHEDULE_COLD);
     trace.replay(prelude);
 
-    let files = trace.time(Stage::Walk, || corpus::walk(root, &opts.params))?;
+    let walked = trace.time(Stage::Walk, || corpus::walk_counted(root, &opts.params))?;
+    let (files, walk_errors) = (walked.files, walked.errors);
 
     // ONE pass over the corpus regardless of phrase count (RESEARCH.md §31):
     // the pass is the whole cost of a cold search, and the Embedder scores
@@ -232,6 +233,7 @@ pub fn run(
             used_index: false,
             n_chunks_considered: pass.chunks.len(),
             files_walked: files.len(),
+            walk_errors,
             floored: fin.floored,
             best_signal: fin.best_signal,
             n_phrases: q.phrases.len(),

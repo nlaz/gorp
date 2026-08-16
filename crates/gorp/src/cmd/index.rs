@@ -101,15 +101,30 @@ pub fn run(args: Args) -> Result<i32> {
         embed_preproc,
         path_render,
     };
+    // A build killed mid-swap leaves `.gorp.building-<pid>` / `.gorp.trash-<pid>`
+    // siblings that nothing else ever revisits (the cache's sweeps only cover
+    // ~/.cache/gorp). An explicit build is the natural moment to reclaim them.
+    let swept = store::sweep_transients(&store::index_dir(&root));
+    if swept > 0 {
+        eprintln!(
+            "{}: removed {swept} leftover build director{} from an interrupted index",
+            crate::out::PROG,
+            if swept == 1 { "y" } else { "ies" }
+        );
+    }
+    // `\r`-rewriting progress is for terminals; under a captured stderr it is
+    // hundreds of glued-together lines. The final summary always prints.
+    let tty = std::io::IsTerminal::is_terminal(&std::io::stderr());
     let stats = store::build(&root, &opts, |done, total| {
         // Every 500 files: often enough to look alive on a big corpus, rare
         // enough not to spend the build writing to a terminal.
-        if done % 500 == 0 || done == total {
+        if tty && (done % 500 == 0 || done == total) {
             eprint!("\rindexing {done}/{total} files");
         }
     })?;
     eprintln!(
-        "\rindexed {} files, {} chunks ({:.1} MB source) -> {} in {:.1}s ({:.1} MB)",
+        "{}indexed {} files, {} chunks ({:.1} MB source) -> {} in {:.1}s ({:.1} MB)",
+        if tty { "\r" } else { "" },
         stats.n_files,
         stats.n_chunks,
         stats.bytes_indexed as f64 / 1e6,

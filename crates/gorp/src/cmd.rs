@@ -46,6 +46,9 @@ pub fn dispatch(cli: Cli) -> Result<i32> {
             let Some(query) = cli.query.clone() else {
                 anyhow::bail!("usage: gorp <QUERY> [PATH]  (see --help)");
             };
+            if query.trim().is_empty() {
+                anyhow::bail!("empty query  (usage: gorp <QUERY> [PATH], see --help)");
+            }
             search::run(&cli, &query)
         }
     }

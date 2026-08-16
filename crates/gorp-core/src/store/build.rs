@@ -39,6 +39,64 @@ pub fn staging_path(dir: &Path) -> PathBuf {
     sibling(dir, STAGING_SUFFIX)
 }
 
+/// Remove transient siblings of `dir` (`<dir>.building-<pid>`,
+/// `<dir>.trash-<pid>`) whose owning process is gone. Returns how many were
+/// removed.
+///
+/// This is the reclamation path the *repo-local* index never had: the cache's
+/// budget enforcer sweeps abandoned staging dirs under `~/.cache/gorp`, but a
+/// Ctrl-C during `gorp index` left a multi-GB `.gorp.building-<pid>/` in the
+/// user's tree forever — excluded from the walk, so invisible, and never
+/// revisited because the next build stages under its own pid. Called at the
+/// start of an explicit build.
+///
+/// The pid liveness check is what makes this safe beside a *concurrent*
+/// build: a staging dir whose pid is still running is someone else's work in
+/// flight, and it is skipped. A recycled pid makes the check conservative
+/// (skip), never destructive.
+pub fn sweep_transients(dir: &Path) -> usize {
+    let Some(parent) = dir.parent() else { return 0 };
+    let Some(stem) = dir.file_name().and_then(|n| n.to_str()) else { return 0 };
+    let Ok(entries) = std::fs::read_dir(parent) else { return 0 };
+    let mut removed = 0;
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else { continue };
+        let Some(rest) = name.strip_prefix(stem) else { continue };
+        let Some(pid) =
+            [STAGING_SUFFIX, TRASH_SUFFIX].iter().find_map(|s| rest.strip_prefix(s))
+        else {
+            continue;
+        };
+        let Ok(pid) = pid.parse::<i32>() else { continue };
+        if pid_alive(pid) {
+            continue;
+        }
+        if std::fs::remove_dir_all(entry.path()).is_ok() {
+            removed += 1;
+        }
+    }
+    removed
+}
+
+/// Whether `pid` names a running process. `kill(pid, 0)` delivers nothing and
+/// answers only reachability: 0 or EPERM mean alive (EPERM is someone else's
+/// live process), ESRCH means gone. Anything ambiguous counts as alive, so the
+/// sweep above can only under-delete.
+#[cfg(unix)]
+fn pid_alive(pid: i32) -> bool {
+    if pid <= 0 {
+        return true; // never signal process groups; treat a weird name as live
+    }
+    let reachable = unsafe { libc::kill(pid, 0) } == 0;
+    reachable || std::io::Error::last_os_error().raw_os_error() != Some(libc::ESRCH)
+}
+
+#[cfg(not(unix))]
+fn pid_alive(_pid: i32) -> bool {
+    true
+}
+
 /// True for a directory that is mid-swap rather than an index in its own right.
 pub fn is_transient(dir: &Path) -> bool {
     let Some(name) = dir.file_name().and_then(|n| n.to_str()) else { return false };

@@ -1,8 +1,10 @@
 [package]
 name = "gorp-core"
-version = "0.1.0"
-edition = "2024"
-license = "Apache-2.0 OR MIT"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
 description = "Core engine for gorp: keyword, BM25, and semantic search over file trees"
 
 [features]
@@ -29,6 +31,7 @@ func-chunk = [
 anny = { workspace = true }
 ese = { workspace = true }
 anyhow = { workspace = true }
+libc = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 postcard = { workspace = true }

@@ -56,6 +56,12 @@ jobs:
         working-directory: gorp
         run: cargo clippy --workspace --all-targets
 
+      # The func-chunk feature is a supported degradation mode; keep the
+      # featureless build compiling (it broke once — a misplaced cfg gate).
+      - name: check no-default-features
+        working-directory: gorp
+        run: cargo check --workspace --no-default-features
+
       - name: test
         working-directory: gorp
         run: cargo test --workspace

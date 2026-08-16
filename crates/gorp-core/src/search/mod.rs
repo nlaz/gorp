@@ -309,6 +309,21 @@ pub struct SearchReport {
     /// over a readable scope cannot return zero, so a zero needs an explanation
     /// that "rephrase the query" does not give.
     pub files_walked: usize,
+    /// Directory entries the corpus or keyword walk could not read
+    /// (permissions, races). Zero on the warm path, which never walks. A
+    /// nonzero count turns "no results" from a claim about the code into a
+    /// claim about *the readable part of* the code, and the footer says so —
+    /// silence that looks like a real answer is the §16.11 spiral trigger.
+    #[serde(default)]
+    pub walk_errors: usize,
+    /// Exact mode's true totals: every match found and every file with one,
+    /// even when retention ([`crate::keyword::KeywordOptions::retain`])
+    /// dropped hit text past the print cap. The footer reads these, never
+    /// `hits.len()`, so `-e` stays a trustworthy answer to "how many".
+    #[serde(default)]
+    pub keyword_total: usize,
+    #[serde(default)]
+    pub keyword_files: usize,
     /// Why the warm path did or did not repair. A duration cannot distinguish
     /// a throttled check from a clean tree from a failed walk.
     pub repair: RepairOutcome,
@@ -601,9 +616,11 @@ fn keyword_search(
     t0: Instant,
 ) -> Result<SearchResult> {
     let mut trace = Trace::new(SCHEDULE_KEYWORD);
-    let raw = trace.time(Stage::KeywordScan, || keyword::scan(root, query, &opts.keyword))?;
+    let scan = trace.time(Stage::KeywordScan, || keyword::scan(root, query, &opts.keyword))?;
+    let (total, files, walk_errors) = (scan.total, scan.files, scan.walk_errors);
     let hits = trace.time(Stage::FinalizeMaterialize, || {
-        raw.into_iter()
+        scan.hits
+            .into_iter()
             .map(|h| SearchHit {
                 path: h.path,
                 start_line: h.line as u32,
@@ -628,6 +645,9 @@ fn keyword_search(
     Ok(SearchResult {
         hits,
         report: SearchReport {
+            keyword_total: total,
+            keyword_files: files,
+            walk_errors,
             stages: trace.finish(),
             total_ms: elapsed_ms(t0),
             ..Default::default()

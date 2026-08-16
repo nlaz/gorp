@@ -30,9 +30,18 @@ pub fn run(cli: &Cli, query: &str) -> Result<i32> {
     }
     let scope = Scope::resolve(&paths);
     let (mode, mode_reason) = resolve_mode(cli)?;
-    let opts = options(cli, mode)?;
+    let mut opts = options(cli, mode)?;
     let filter = Filter::new(cli, &scope)?;
     let root = scope.root.clone();
+
+    // Exact mode caps what it *prints* at EXACT_PRINT_CAP; bound what it
+    // *retains* to match, so a broad pattern over a large corpus counts every
+    // match without holding every match's text. Only when nothing downstream
+    // needs the full list: `--all` and `--json` print everything, and an
+    // active filter selects from the full list before its own truncation.
+    if mode == Mode::Keyword && !cli.all && !cli.json && !filter.active() {
+        opts.keyword.retain = out::EXACT_PRINT_CAP;
+    }
 
     // Over-fetch only when something will be filtered away, so the single-path
     // case — every snapshot case, and the overwhelming majority of real calls —
@@ -43,6 +52,18 @@ pub fn run(cli: &Cli, query: &str) -> Result<i32> {
     };
     let mut result = search(&root, query, &search_opts)?;
     let dropped = filter.apply(&mut result.hits, opts.k);
+    // The filter selects from the complete hit list (retention was off), so
+    // the post-filter list IS the answer — restate the totals the footer
+    // reads, or it would report matches the filter just dropped.
+    if mode == Mode::Keyword && filter.active() {
+        result.report.keyword_total = result.hits.len();
+        result.report.keyword_files = result
+            .hits
+            .iter()
+            .map(|h| h.path.as_str())
+            .collect::<std::collections::HashSet<_>>()
+            .len();
+    }
     let exit = if result.hits.is_empty() { crate::EXIT_NONE } else { crate::EXIT_FOUND };
 
     // Emitted here, not at the end of the function: an exact miss runs a second
@@ -372,6 +393,8 @@ fn options(cli: &Cli, mode: Mode) -> Result<SearchOptions> {
             case_insensitive: cli.ignore_case,
             fixed_string: cli.fixed_string,
             max_hits: 0,
+            // Set by `run` once it knows whether a filter needs the full list.
+            retain: 0,
         },
         embed_preproc,
         path_render,

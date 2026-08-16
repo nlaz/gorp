@@ -1,8 +1,11 @@
 [package]
 name = "gorp"
-version = "0.1.0"
-edition = "2024"
-license = "Apache-2.0 OR MIT"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+readme = "../../README.md"
 description = "gorp: a semantic grep for agents"
 
 # One name. `sg` and `semgrep` both shipped through §35 — the first collides

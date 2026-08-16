@@ -17,22 +17,41 @@ gorp --json -k 20 "auth middleware" .             # JSONL for harnesses
 
 ## Install
 
-gorp builds against two sibling repos —
-[`ese`](https://github.com/flowercomputers/ese) (static 256-dim embeddings,
-compiled into the binary, CPU-only) and
-[`anny`](https://github.com/flowercomputers/anny) (HNSW) — checked out next
-to it:
+Prebuilt binaries (macOS arm64/x86_64, Linux x86_64/arm64):
 
 ```sh
-git clone https://github.com/flowercomputers/ese
-git clone https://github.com/flowercomputers/anny
+curl -fsSL https://raw.githubusercontent.com/nlaz/gorp/main/install.sh | sh
+```
+
+The script detects your platform, verifies the checksum, and installs to
+`~/.local/bin` (override with `GORP_INSTALL_DIR`; pin a version with
+`GORP_VERSION=v0.1.0`). Or grab a tarball by hand from the
+[releases page](https://github.com/nlaz/gorp/releases):
+`gorp-aarch64-apple-darwin`, `gorp-x86_64-apple-darwin`,
+`gorp-x86_64-unknown-linux-gnu`, or `gorp-aarch64-unknown-linux-gnu`.
+
+Either way the result is one ~48 MB self-contained binary — the embedding
+table and nine tree-sitter grammars are compiled in. No daemon, no GPU, no
+runtime downloads.
+
+### Building from source
+
+gorp builds against two sibling repos — `ese` (static 256-dim embeddings,
+compiled into the binary, CPU-only) and `anny` (HNSW), both currently
+private under the `flowercomputers` org — checked out next to it, with
+Rust ≥ 1.88:
+
+```sh
+git clone https://github.com/flowercomputers/ese     # needs access
+git clone https://github.com/flowercomputers/anny    # needs access
 git clone https://github.com/nlaz/gorp
 cd gorp
 cargo build --release    # first build downloads the embedding weights (network, once)
 ```
 
-The result is `target/release/gorp`: one ~39 MB binary with the embedding
-table compiled in. No daemon, no GPU, no runtime downloads.
+Without access to those repos, use the prebuilt binaries above — they are
+built by [the release workflow](.github/workflows/release.yml) from the same
+sources and embed everything.
 
 ## Usage
 
@@ -332,3 +351,10 @@ mean that on code it behaves as a fuzzy lexical matcher, not a semantic
 model (RESEARCH.md §9.9). The fix is a code-distilled static table, same
 dimensions and drop-in for the index format, queued behind the agent-eval
 gate.
+
+## License
+
+MIT (see [LICENSE](LICENSE)). The binary embeds an embedding table derived
+from [static-retrieval-mrl-en-v1](https://huggingface.co/sentence-transformers/static-retrieval-mrl-en-v1)
+by the Sentence Transformers project, licensed Apache-2.0 — see
+[NOTICE](NOTICE).

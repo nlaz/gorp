@@ -1,0 +1,9 @@
+gorp — a semantic grep for agents
+Copyright (c) 2026 Niko Lazaris. Licensed under the MIT License (see LICENSE).
+
+The gorp binary embeds a static embedding table derived from the model
+"static-retrieval-mrl-en-v1" published by the Sentence Transformers project
+(https://huggingface.co/sentence-transformers/static-retrieval-mrl-en-v1),
+which is licensed under the Apache License, Version 2.0
+(https://www.apache.org/licenses/LICENSE-2.0). The table is compiled into the
+binary at build time; no model files are downloaded or installed at runtime.

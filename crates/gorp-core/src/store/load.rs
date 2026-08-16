@@ -83,6 +83,20 @@ impl LoadedIndex {
         let t0 = std::time::Instant::now();
         let chunks: Vec<Chunk> = postcard::from_bytes(&std::fs::read(dir.join("chunks.bin"))?)?;
         t.chunks_ms = ms(t0);
+        // The one cross-artifact invariant [`LoadedIndex::file`] indexes by
+        // without checking: every chunk's file_id must resolve in meta.json's
+        // file table. A mixed-generation restore (valid meta.json from one
+        // build, chunks.bin from another) is the realistic way they diverge,
+        // and an error here is a disposable-entry miss; a panic later is not.
+        if let Some(max_id) = chunks.iter().map(|c| c.file_id).max()
+            && max_id as usize >= meta.files.len()
+        {
+            bail!(
+                "chunks.bin references file_id {max_id} but meta.json lists {} files; \
+                 index is corrupt — re-run `gorp index`",
+                meta.files.len()
+            );
+        }
         let bm25 = if needs.bm25 {
             let t0 = std::time::Instant::now();
             let b = FlatBm25::open(&dir.join("bm25.flat"))?;

@@ -365,7 +365,11 @@ pub fn footer(mode: Mode, result: &SearchResult, shown: usize, suggested: bool) 
     }
     let n = result.hits.len();
     if mode == Mode::Keyword {
-        let n_files = result.hits.iter().map(|h| h.path.as_str()).collect::<HashSet<_>>().len();
+        // True totals from the scan, not `hits.len()`: retention may hold only
+        // the printable head of a huge match set, and the count is the part of
+        // `-e`'s answer that must never shrink with it.
+        let n = result.report.keyword_total;
+        let n_files = result.report.keyword_files;
         let files = if n_files == 1 { "file" } else { "files" };
         if n == 0 {
             if !suggested {
@@ -376,6 +380,7 @@ pub fn footer(mode: Mode, result: &SearchResult, shown: usize, suggested: bool) 
                      concept? drop -e and ask in plain language"
                 );
             }
+            walk_errors_note(result);
         } else if shown < n {
             eprintln!(
                 "{PROG}: showing {shown} of {n} matches in {n_files} {files} \
@@ -411,10 +416,25 @@ pub fn footer(mode: Mode, result: &SearchResult, shown: usize, suggested: bool) 
         } else {
             eprintln!("{PROG}: no results · try broader phrasing or a nearby concept");
         }
+        walk_errors_note(result);
     } else {
         eprintln!(
             "{PROG}: ranked top {n} of {} candidates · not it? rephrase the query",
             result.report.n_chunks_considered.max(n)
+        );
+    }
+}
+
+/// On a zero-hit search whose walk skipped entries it could not read, say so:
+/// without this a permission-denied subtree is simply invisible, and "no
+/// results" reads as a claim about the code rather than about the readable
+/// part of it — the §16.11 shape, silence that looks like a real answer.
+fn walk_errors_note(result: &SearchResult) {
+    let n = result.report.walk_errors;
+    if n > 0 {
+        let paths = if n == 1 { "path" } else { "paths" };
+        eprintln!(
+            "{PROG}: note: {n} {paths} could not be read (permissions?) and were skipped"
         );
     }
 }

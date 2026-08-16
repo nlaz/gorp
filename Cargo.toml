@@ -2,6 +2,14 @@
 resolver = "2"
 members = ["crates/gorp-core", "crates/gorp"]
 
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/nlaz/gorp"
+# The edition alone would say 1.85; let-chains (out.rs) raise the floor.
+rust-version = "1.88"
+
 [workspace.dependencies]
 anny = { path = "../anny" }
 # dim-256, not ese's default dim-512: the model is MRL-trained, so a prefix of
@@ -38,6 +46,10 @@ tree-sitter-php = "0.24"
 [profile.release]
 lto = "thin"
 codegen-units = 4
+# Post-codegen, so it cannot perturb float summation order — the one profile
+# lever that shrinks the binary (~49 -> ~39 MB) with zero snapshot risk.
+# opt-level and lto stay put: tools/snapshot.sh byte-compares ranked output.
+strip = "symbols"
 
 # keep hot crates fast in dev so tests on real corpora are usable
 [profile.dev.package.ese]
