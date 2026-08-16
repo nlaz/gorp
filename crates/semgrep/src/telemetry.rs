@@ -279,6 +279,10 @@ pub fn search_envelope(
                 "phrase_signals": r.phrase_signals,
                 "floored_mask": r.floored_mask,
                 "bridge_terms": r.bridge_terms,
+                // §35.3's fired-rate: how many neighbor chunks expansion
+                // actually injected. Same stratification role bridge_terms
+                // plays for §33.
+                "graph_injected": r.graph_injected,
                 "exit_code": exit_code,
             },
             // getrusage(RUSAGE_SELF) never resets, so this is a high-water mark
