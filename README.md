@@ -1,8 +1,10 @@
 # semgrep
 
-**Semantic grep for coding agents.** Same shape as `grep` — one command, one
-line of output per hit, `path:line:text` — but it ranks by relevance instead
-of matching by regex. Ask it a question, get the k most likely places.
+**Semantic grep for coding agents.** One command, grep's shape on input, and
+it ranks by relevance instead of matching by regex. Ask it a question, get
+the k most likely places — each printed as a unit view (`path:start-end`
+header, numbered lines, the enclosing declaration above the match). Exact
+mode (`-e`) keeps grep's `path:line:text` per match, byte for byte.
 
 Named for its lineage with grep/ripgrep, the incumbent agent search tools it
 benchmarks against. (No relation to r2c/Semgrep, the static-analysis tool.)
@@ -144,15 +146,17 @@ incompatibility is a miss that refills, not an error you have to act on.
 One verb, one escape hatch — the whole surface is designed so an agent never
 has to make a configuration decision.
 
-- **Grep-shaped contract.** `path:line:text` on stdout, exit 0 on hits and 1
-  on none. Agents adopt it without new habits or new prompt scaffolding.
-  The *input* is grep-shaped too: several paths at once, `-i`, `-A`/`-B`/`-C`,
-  `-l`, `-g`/`--include`, and the flags semgrep already satisfies by
-  construction (`-n`, `-r`, `-R`, `-H` — its output is permanently grep's
-  `-rn` form). This was earned rather than assumed: measured against real
-  agent transcripts, `-n` alone accounted for 88% of the flags typed at a
-  grep-shaped tool, and semgrep used to reject every one of them
-  (RESEARCH.md §17).
+- **Grep-shaped contract, unit-view results.** Exit 0 on hits and 1 on none;
+  exact mode prints grep's `path:line:text` per match. Ranked mode prints a
+  *unit view* per hit (RESEARCH.md §34): the path once as a
+  `path:start-end` header, then `line:` numbered rows dedented as a block,
+  with the enclosing declaration above the matched lines and `⋮` where rows
+  were elided — hits separated by a blank line. The *input* is grep-shaped
+  everywhere: several paths at once, `-i`, `-A`/`-B`/`-C`, `-l`,
+  `-g`/`--include`, and `-n`/`-r`/`-R`/`-H` accepted by construction. This
+  was earned rather than assumed: measured against real agent transcripts,
+  `-n` alone accounted for 88% of the flags typed at a grep-shaped tool, and
+  semgrep used to reject every one of them (RESEARCH.md §17).
 - **Ranked, not exhaustive.** The default returns the k best locations. `-e`
   switches to exact regex with grep semantics when you need every occurrence
   or proof of absence.
@@ -168,9 +172,12 @@ has to make a configuration decision.
 - **Every reply teaches the next move**, on stderr so stdout stays pipeable:
 
   ```
-  stdout — grep-shaped, pipeable
-    net/backoff.c:41:u32 delay = base << attempt;
-    client/retry.c:88:if (retries < max_retries) {
+  stdout — data only, pipeable
+    net/backoff.c:38-41
+    38:	static u32 next_delay(struct conn *c)
+    39:	{
+    40:		u32 attempt = c->retries;
+    41:		u32 delay = base << attempt;
 
   stderr — guidance, never in the way of a pipe
     semgrep: ranked top 10 of 1,514 candidates · not it? rephrase the query
@@ -206,6 +213,13 @@ somewhere. Example: sg "retry_backoff backoff_delay compute_delay" →
 src/net/retry.rs:142:fn backoff_delay(attempt: u32). Ranked, not
 exhaustive — if the answer isn't there, rephrase.
 ```
+
+This block predates §34 — it says `path:line:text` while ranked output is now
+the unit view — and it stays verbatim anyway, because it is the *measured*
+description (desc-v10) and an edited description is an unmeasured one
+(RESEARCH.md §20.1; §26.3 set the precedent when desc-v9 said "top 10" over a
+top-5 default). Re-measuring a description that names the unit view is §34.3's
+standing follow-up.
 
 **Why the example is names and not a question.** semgrep embeds with a static
 table — one vector per token, rarity-pooled, word order discarded — so a
@@ -270,7 +284,7 @@ chunk table, then fuses.
                         │
             MMR  (spread across files)
                         ▼
-               path:line:text, top-k
+              unit view, top-k (§34)
 ```
 
 - **One chunk table for everything.** BM25 and embeddings score the same

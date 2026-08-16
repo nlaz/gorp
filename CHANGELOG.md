@@ -4,6 +4,30 @@ Findings and performance improvements, newest first. Measured numbers are
 medians on an M-series Mac; "kernel" = Linux 6.9 source (1.15 GB, 1.51M
 chunks). Full data: `RESULTS.md`, `bench/results/`, `eval/data/`.
 
+## 2026-08-15 — ranked hits print as a unit view
+
+Ranked output stops repeating `path:line:` on every passage line and prints a
+*unit view* per hit (RESEARCH.md §34): the path once as a `path:start-end`
+header, `line:`-numbered rows dedented as a block, the matched window snapped
+off bare closers/openers and framed by its enclosing declaration, `⋮` where
+rows were elided, hits separated by a blank line. Calibrated by a noise audit
+of 30 real searches across ten languages: ~1.5 added rows per hit, ~1.15× the
+bytes of the old form (whose `path:line:` prefixes were ~half of all output
+bytes, §26.4).
+
+- **Exact mode is untouched** — `-e` stays grep's `path:line:text`, and so do
+  exit codes.
+- `--no-unit` restores the previous ranked display byte for byte (the A/B
+  control); explicit passage shapes (`--passage-chars`, `--passage-lines`,
+  `--full`) and `--no-fine` still win over the unit view, so every measured
+  display arm reproduces.
+- `--json` gains an optional `unit_rows` field on ranked hits; absent under
+  `--no-unit` and in exact mode, so existing consumers see the schema they
+  always saw.
+- Standing follow-up (§34.3): a disp-unit/disp-nounit campaign on
+  reads-after-search and line-precision — the §28.2 deficit this format could
+  plausibly touch, since body rows no longer carry a copyable `path:line:`.
+
 ## 2026-08-03 — the tool now accepts what agents actually type
 
 semgrep promised a "grep-shaped contract" and delivered it on output only. On

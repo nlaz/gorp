@@ -94,9 +94,12 @@ semgrep index [PATH]                # build/refresh .semgrep/
 semgrep index --status              # index freshness report
 ```
 
-Grep-compatible output for all modes: `path:line:text` (ranked modes print the
-best-matching line of each hit chunk, ranked order, with `score` only in
-`--json`). Exit code 0 if hits, 1 if none — same contract as grep.
+Exact mode prints grep-compatible `path:line:text`. Ranked modes print a unit
+view per hit (RESEARCH.md §34): a `path:start-end` header, then `line:`
+numbered rows dedented as a block — the fine window plus its enclosing
+declaration, `⋮` where rows were elided — in ranked order, hits separated by
+a blank line (`--no-unit` restores the bare `path:line:text` passage; `score`
+only in `--json`). Exit code 0 if hits, 1 if none — same contract as grep.
 
 `semgrep-core` is a library crate; the CLI is a thin wrapper, so the-library and
 other Flower Computer apps can embed the engine directly.
