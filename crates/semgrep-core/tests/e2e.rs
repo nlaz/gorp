@@ -1103,6 +1103,57 @@ fn cold_and_warm_agree_with_graph_expansion() {
     assert!(injected_any, "graph expansion injected nothing — the test is vacuous");
 }
 
+/// cold == warm must hold with the learned checklist on (RESEARCH.md §35.2).
+///
+/// The checklist runs inside `finalize` — the shared tail — so parity holds
+/// by construction *provided* every feature is candidate-local; this is the
+/// tripwire for anyone adding a feature that reads index state. Diversify is
+/// pinned off so MMR cannot mask (or manufacture) the reorder the vacuity
+/// guard demands.
+#[test]
+fn cold_and_warm_agree_with_the_learned_reranker() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+
+    let queries = [
+        "compute the backoff delay",
+        "validate a session token",
+        "retry compute backoff",
+        "telescope starlight",
+    ];
+
+    let mut moved = false;
+    for mode in [Mode::Bm25, Mode::Semantic, Mode::Hybrid] {
+        for query in queries {
+            let lb = |o: SearchOptions| {
+                SearchOptions { learned_blend: 1.0, diversify: false, ..o }
+            };
+            let cold = search(dir.path(), query, &lb(stream_opts(mode))).unwrap();
+            assert!(!cold.report.used_index);
+            let warm = search(dir.path(), query, &lb(opts(mode))).unwrap();
+            assert!(warm.report.used_index);
+
+            let shape = |r: &semgrep_core::search::SearchResult| -> Vec<(String, u32)> {
+                r.hits.iter().map(|h| (h.path.clone(), h.start_line)).collect()
+            };
+            assert_eq!(
+                shape(&cold),
+                shape(&warm),
+                "cold != warm for {mode:?} {query:?} with the learned blend on"
+            );
+            let plain = search(
+                dir.path(),
+                query,
+                &SearchOptions { diversify: false, ..opts(mode) },
+            )
+            .unwrap();
+            moved |= shape(&plain) != shape(&warm);
+        }
+    }
+    assert!(moved, "the learned blend changed no result on this fixture — the test is vacuous");
+}
+
 /// An index built without a graph still loads and serves every default query;
 /// only an armed `--graph-expand` is refused, with a hard error rather than a
 /// silent warm no-op that would split from the cold path.
