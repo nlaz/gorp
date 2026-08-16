@@ -128,6 +128,19 @@ behaviors), `e2e_publish.rs` (publication is a swap), over a shared
   Report all three. `levers.sh` runs the §9 lever campaign and `diff.py`
   compares any two conditions. `pytest eval/tests` covers the scorers, which
   decide every published number.
+- `eval/traces.py` + `eval/queries/traces-*.jsonl` — **real agent searches,
+  tiered.** Harvested from campaign shim logs by gorp-bench, joined to
+  benchmark gold, and sorted into `blind` (shares no gold vocabulary, 72% of
+  traffic) / `guess` (names the gold's path, 7%) / `golden` (names a gold
+  identifier, 21%). The tier is *computed* from (query, gold) and
+  `eval/validate_queries.py --traces` recomputes every one — that recompute
+  is the guard on the cross-repo seam, since gorp-bench writes these files
+  and this repo scores them. `eval/replay_traces.py` replays them against
+  checked-out trees and reports the three strata **separately, never pooled**
+  (§19.2b: a blind description finds the gold 13% of the time against a blind
+  name's 50%, so a pooled number moves when the mix moves). This is the free
+  gate an engine change should move; the expensive one — full arm matrix,
+  both function metrics — is gorp-bench's `guessplay.py`.
 - `eval/sim/` — simulation testing: behavior over a *sequence* of steps against
   evolving cache state, which neither of the above can see. A session is
   `mutate` / `invoke` / `check` steps under one isolated `GORP_CACHE_DIR`;

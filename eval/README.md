@@ -15,6 +15,34 @@ caveats. This file is the operator's guide; REPORT.md is the findings.
 > real gold files and functions, costs nothing, and is the instrument §14.5 and
 > §22 both decided on.
 
+## Tiered agent traces
+
+`eval/queries/traces-*.jsonl` are real agent searches — harvested from
+campaign shim logs, joined to the benchmark's gold, and sorted into three
+tiers by how much of the answer the query already carried:
+
+    golden   names a gold identifier          21% of harvested traffic
+    guess    names only the gold's path        7%
+    blind    shares neither                   72%
+
+    python3 eval/validate_queries.py eval/queries/traces-v1.jsonl --traces
+    python3 eval/replay_traces.py --trees ../gorp-bench/data/locbench/repos/trees
+
+**The tier is computed, not authored** (`eval/traces.py`), and
+`validate_queries --traces` recomputes every one. That is the guard on the
+cross-repo seam: gorp-bench writes these files and this repo scores them, so
+a tier rule that drifted would silently re-label history.
+
+**Report per tier, never pooled.** They are different retrieval problems —
+§19.2b measured a blind description finding the gold 13% of the time against
+a blind name's 50% — so a pooled number moves when the *mix* moves and a
+corpus refresh reads as an engine change. `replay_traces.py` prints the three
+strata and never a total.
+
+This is the cheap gate an engine change should move: real agent queries, real
+gold, no API budget. The expensive one — the full arm matrix, both function
+metrics — is gorp-bench's `guessplay.py`.
+
 What is here, and what is not:
 
 - **Retrieval evals** (`generate.py`, `run_eval.py`) — LLM-generated query

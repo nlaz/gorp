@@ -157,9 +157,33 @@ def main():
 
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("queries", type=Path)
-    ap.add_argument("corpus", type=Path)
+    ap.add_argument("corpus", type=Path, nargs="?",
+                    help="corpus root (not used with --traces, whose gold is "
+                         "carried on the row)")
     ap.add_argument("--no-sha", action="store_true", help="skip the content check")
+    ap.add_argument("--traces", action="store_true",
+                    help="validate a tiered trace set (eval/traces.py) instead "
+                         "of a span-gold query set: schema, unique ids, and "
+                         "every tier recomputed from its gold")
     a = ap.parse_args()
+
+    if a.traces:
+        import traces
+        try:
+            rows = traces.load(a.queries)
+        except ValueError as e:
+            print(f"ERROR: {e}")
+            sys.exit(1)
+        c = traces.counts(rows)
+        total = sum(c.values()) or 1
+        print(f"{a.queries.name}: {len(rows)} rows, every tier recomputed and "
+              f"agreeing")
+        print("  " + "  ".join(f"{t}={c[t]} ({c[t] / total:.0%})"
+                               for t in traces.TIERS))
+        return
+
+    if a.corpus is None:
+        ap.error("corpus is required unless --traces is given")
 
     rows = [json.loads(l) for l in a.queries.read_text().splitlines() if l.strip()]
     if not rows:
