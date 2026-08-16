@@ -463,7 +463,7 @@ pub fn footer(mode: Mode, result: &SearchResult, shown: usize, suggested: bool) 
         walk_errors_note(result);
     } else {
         eprintln!(
-            "{PROG}: top {n} of {} · not it? rephrase",
+            "{PROG}: top {n} of {}",
             result.report.n_chunks_considered.max(n)
         );
     }
