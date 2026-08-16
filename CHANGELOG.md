@@ -6,6 +6,22 @@ chunks). Full data: `docs/RESEARCH.md` and `eval/REPORT.md`; the query sets
 are checked in under `eval/queries/`, while `eval/data/` is gitignored scratch
 and will not be in a fresh clone.
 
+## 2026-08-16 — the display indents with two spaces
+
+Display only; `--json` still carries the file's own bytes, and the snapshot
+records `--json`, so `tools/snapshot.sh --check` is byte-identical.
+
+- Block rows re-indent to two-space levels after the shared dedent: each
+  leading tab is one level, and a space-indented block's unit is the GCD of
+  its rows' post-dedent leading widths — 4-space and 8-space files rescale,
+  2-space files pass through byte-identical, and an irregular block (a GCD
+  of 1) is left alone rather than guessed at. Alignment past a level
+  survives as the spaces it was, so the nesting *shape* the dedent preserved
+  never moves, only its width.
+- Applies to both block displays — the ranked unit view and exact mode's
+  per-file blocks. The `--no-unit` passage already strips indentation
+  per-line and is unchanged.
+
 ## 2026-08-16 — exact mode joins the unit view
 
 Display only; matching, ordering, counts, and the keyword JSON schema are

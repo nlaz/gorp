@@ -359,6 +359,49 @@ fn indent_within(line: &str, limit: usize) -> usize {
         .unwrap_or(0)
 }
 
+/// The block's indent unit, so [`two_space`] can rescale nesting to two-space
+/// levels: the GCD of the rows' post-dedent leading-space widths. A 4-space
+/// or 8-space file rescales; a 2-space file passes through as the identity;
+/// anything irregular (a GCD of 1, or no indented row at all) returns 0,
+/// which `two_space` reads as "leave the spaces alone" — when the block's
+/// structure is not legible, guessing at one would misdraw it. Tabs need no
+/// unit: one tab is one level wherever it appears.
+fn indent_unit<'a>(texts: impl Iterator<Item = &'a str>) -> usize {
+    fn gcd(a: usize, b: usize) -> usize {
+        if b == 0 { a } else { gcd(b, a % b) }
+    }
+    let mut unit = 0;
+    for t in texts {
+        if t.trim().is_empty() {
+            continue;
+        }
+        let spaces =
+            t.chars().take_while(|c| matches!(c, ' ' | '\t')).filter(|c| *c == ' ').count();
+        if spaces > 0 {
+            unit = gcd(unit, spaces);
+        }
+    }
+    if unit >= 2 { unit } else { 0 }
+}
+
+/// `text` re-indented to two-space levels: each leading tab is one level,
+/// each `unit` leading spaces is one level, and a remainder that fits no
+/// level (alignment past the indent) survives as the spaces it was. The
+/// nesting *shape* the dedent preserved is untouched — only its width moves.
+/// Identity (borrowing, not allocating) when the text already reads that
+/// way, which covers 2-space files and every row at the margin.
+fn two_space(text: &str, unit: usize) -> Cow<'_, str> {
+    let prefix = text.len() - text.trim_start_matches([' ', '\t']).len();
+    let tabs = text[..prefix].matches('\t').count();
+    let spaces = prefix - tabs;
+    let (levels, keep) = if unit > 0 { (spaces / unit, spaces % unit) } else { (0, spaces) };
+    let width = (tabs + levels) * 2 + keep;
+    if tabs == 0 && width == spaces {
+        return Cow::Borrowed(text);
+    }
+    Cow::Owned(format!("{:width$}{}", "", &text[prefix..]))
+}
+
 /// A path as it can safely appear in the `path:line:text` contract.
 ///
 /// Returned untouched unless the name would break that contract, which two
@@ -415,8 +458,9 @@ pub fn human(bytes: u64) -> String {
 /// a hit's text is shaped, so ranked mode, exact mode and `--json` cannot drift
 /// into three different ideas of how wide a line may be.
 ///
-/// Two shapings, both applied to `text` and neither to `path` or `line`:
-/// indentation is stripped, and the rest is clipped to `opts.max_columns`. The
+/// Three shapings, all applied to `text` and none to `path` or `line`: shared
+/// indentation is stripped, what nesting remains is rescaled to two-space
+/// levels ([`two_space`]), and the rest is clipped to `opts.max_columns`. The
 /// text field stops being the file's bytes as a result. That is a real loss and
 /// it is the intended trade — `line` still says where to Read for the original,
 /// while indentation is the one part of a line that is pure position, already
@@ -500,6 +544,10 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
                 .map(|r| r.text.len() - r.text.trim_start().len())
                 .min()
                 .unwrap_or(0);
+            // What nesting the dedent kept is rescaled to two-space levels
+            // (`two_space`): the shape survives, the width is the display's.
+            let unit =
+                indent_unit(rows.iter().map(|r| &r.text[indent_within(&r.text, dedent)..]));
             let mut prev: Option<u32> = None;
             for row in rows {
                 if prev.is_some_and(|p| row.line > p + 1) {
@@ -516,7 +564,8 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
                     n if n < hit.start_line || n > hit.end_line => palette::LINE_CTX,
                     _ => palette::LINE,
                 };
-                let text = clip(&row.text[cut..], opts.max_columns);
+                let text = two_space(&row.text[cut..], unit);
+                let text = clip(&text, opts.max_columns);
                 println!(
                     "{}:{GUTTER}{}",
                     paint(opts.color, gutter, row.line),
@@ -1012,14 +1061,16 @@ fn keyword_blocks(root: &Path, hits: &[SearchHit], opts: &Print) {
             opts.path(&file[0].path),
             paint(opts.color, palette::LINE, format_args!("{first}-{last}")),
         );
-        // Block dedent, elision, and clipping: the same rules as the ranked
-        // unit branch, so the two displays cannot drift into two grammars.
+        // Block dedent, elision, re-indent, and clipping: the same rules as
+        // the ranked unit branch, so the two displays cannot drift into two
+        // grammars.
         let dedent = rows
             .iter()
             .filter(|r| !r.text.trim().is_empty())
             .map(|r| r.text.len() - r.text.trim_start().len())
             .min()
             .unwrap_or(0);
+        let unit = indent_unit(rows.iter().map(|r| &r.text[indent_within(&r.text, dedent)..]));
         let mut prev: Option<u32> = None;
         for row in &rows {
             if prev.is_some_and(|p| row.line > p + 1) {
@@ -1031,7 +1082,8 @@ fn keyword_blocks(root: &Path, hits: &[SearchHit], opts: &Print) {
             } else {
                 palette::LINE_CTX
             };
-            let text = clip(&row.text[cut..], opts.max_columns);
+            let text = two_space(&row.text[cut..], unit);
+            let text = clip(&text, opts.max_columns);
             println!(
                 "{}:{GUTTER}{}",
                 paint(opts.color, gutter, row.line),

@@ -114,8 +114,9 @@ gorp index --status              # index freshness report
 ```
 
 Both modes print the unit view (RESEARCH.md §34): a `path:start-end` header,
-then `line:` numbered rows dedented as a block, `⋮` where rows were elided,
-blocks separated by a blank line. Ranked modes print one block per hit — the
+then `line:` numbered rows dedented as a block and re-indented to two-space
+levels (tabs and 4/8-space files render alike; `--json` keeps the file's own
+bytes), `⋮` where rows were elided, blocks separated by a blank line. Ranked modes print one block per hit — the
 fine window plus its enclosing declaration, in ranked order (`--no-unit`
 restores the bare `path:line:text` passage; `score` only in `--json`). Exact
 mode prints one block per file, all of that file's matches as bold rows

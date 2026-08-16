@@ -612,7 +612,9 @@ fn context_flag_frames_the_hit() {
     assert!(gutter_rows(&r.stdout).len() >= 3, "context rows frame the hit: {}", r.stdout);
 }
 
-/// The block is dedented by what its lines *share*, not by the hit's own indent.
+/// The block is dedented by what its lines *share*, not by the hit's own
+/// indent — and what nesting survives is rescaled to two-space levels, so a
+/// 4-space file and a tab file read at the same width.
 ///
 /// Written because the first attempt dedented by the hit's indentation, and the
 /// matched line is usually the deepest one in its block — so every context line
@@ -630,8 +632,9 @@ fn context_dedents_the_block_without_flattening_it() {
     let sg = Sg::new();
     let r = sg.run_in(&["-e", "return self.registry", "-C", "2"], dir.path());
     assert_eq!(r.code, 0, "stderr: {}", r.stderr);
-    // `class Handler:` is outside the window, so the four framed lines share the
-    // `def`'s four spaces and only those come off. What nests deeper stays deeper.
+    // `class Handler:` is outside the window, so the four framed lines share
+    // the `def`'s four spaces and only those come off; the file's 4-space
+    // levels then render as 2. What nests deeper stays deeper.
     assert!(
         r.stdout.contains("nest.py:2-5"),
         "the header spans the widened block: {:?}",
@@ -643,12 +646,12 @@ fn context_dedents_the_block_without_flattening_it() {
         r.stdout
     );
     assert!(
-        r.stdout.contains("3:      if payload:"),
-        "one level in stays one level in: {:?}",
+        r.stdout.contains("3:    if payload:"),
+        "one level in renders as one two-space level: {:?}",
         r.stdout
     );
     assert!(
-        r.stdout.contains("4:          return self.registry.add_code(payload)"),
+        r.stdout.contains("4:      return self.registry.add_code(payload)"),
         "the hit keeps its offset from the block too: {:?}",
         r.stdout
     );

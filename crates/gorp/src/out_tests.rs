@@ -101,6 +101,36 @@ fn a_base_style_is_reopened_after_each_emphasis() {
     assert_eq!(e.apply("retry the backoff now", "\x1b[2m", false), "retry the backoff now");
 }
 
+/// The display re-indent: tabs and 4/8-space files rescale to two-space
+/// levels, a 2-space file passes through byte-identical, and an irregular
+/// block (a GCD of 1) is left alone rather than guessed at.
+#[test]
+fn re_indent_rescales_levels_and_leaves_the_illegible_alone() {
+    use super::{indent_unit, two_space};
+
+    // 4-space code: unit 4, one level renders as one two-space level, and
+    // alignment past a level survives as the spaces it was.
+    let four = ["def f():", "    if x:", "        g()"];
+    let unit = indent_unit(four.iter().copied());
+    assert_eq!(unit, 4);
+    assert_eq!(two_space("    if x:", unit), "  if x:");
+    assert_eq!(two_space("        g()", unit), "    g()");
+    assert_eq!(two_space("      y)", unit), "    y)", "4+2 is a level plus alignment");
+
+    // Tabs need no unit: one tab is one level wherever it appears.
+    let tabs = ["suite() {", "\ttest() {", "\t\tgo();"];
+    assert_eq!(indent_unit(tabs.iter().copied()), 0, "no leading spaces, no unit");
+    assert_eq!(two_space("\t\tgo();", 0), "    go();");
+
+    // Already two-space: the identity, without allocating.
+    assert!(matches!(two_space("  b", 2), std::borrow::Cow::Borrowed("  b")));
+
+    // Irregular (gcd 1): rescaling would misdraw it, so nothing moves.
+    let odd = ["   a", "     b"];
+    assert_eq!(indent_unit(odd.iter().copied()), 0);
+    assert_eq!(two_space("     b", 0), "     b");
+}
+
 /// A keyword hit as the engine emits one: a single line, nothing optional.
 fn khit(path: &str, line: u32, text: &str) -> gorp_core::search::SearchHit {
     gorp_core::search::SearchHit {
