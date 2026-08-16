@@ -230,7 +230,13 @@ fn stages_account_for_nearly_all_of_the_measured_total() {
         ("keyword", SearchOptions { mode: Mode::Keyword, ..Default::default() }),
     ] {
         let r = search(dir.path(), "compute backoff attempt", &opts).unwrap();
-        let budget = 2.0_f64.max(0.10 * r.report.total_ms);
+        // The absolute floor is scheduler noise, and shared CI VMs have more
+        // of it than a dev machine: a mac runner showed multi-ms gaps between
+        // stages of a sub-ms query, which is preemption, not a missing stage.
+        // The 10% relative bound — the part that catches real gaps at real
+        // corpus sizes — stays the same everywhere.
+        let floor: f64 = if std::env::var_os("CI").is_some() { 25.0 } else { 2.0 };
+        let budget = floor.max(0.10 * r.report.total_ms);
         assert!(
             r.report.unattributed_ms() <= budget,
             "{label}: {:.2}ms of {:.2}ms is unattributed (budget {budget:.2}ms) — \
