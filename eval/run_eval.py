@@ -22,6 +22,7 @@ import json
 import math
 import random
 import re
+import shutil
 import subprocess
 import time
 from collections import defaultdict
@@ -32,7 +33,10 @@ import sys
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))
 GORP = Path(os.environ.get("GORP_BIN", HERE.parent / "target/release/gorp"))
-RG = "/opt/homebrew/bin/rg"
+# PATH first (CI, linux), then the homebrew path this was developed against —
+# a literal fallback rather than none so a mac with rg installed but a bare
+# subprocess PATH (some harnesses) keeps working.
+RG = os.environ.get("RG_BIN") or shutil.which("rg") or "/opt/homebrew/bin/rg"
 
 # The identifier predicate and the stopword list are shared with leakage.py on
 # purpose: the leakage percentage printed above every results table must be

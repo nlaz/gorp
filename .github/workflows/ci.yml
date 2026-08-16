@@ -89,8 +89,11 @@ jobs:
       - name: compile
         run: python -m compileall -q eval/*.py eval/sim/*.py eval/tests/*.py
 
-      # The scorers decide every published number in RESEARCH.md.
+      # The scorers decide every published number in RESEARCH.md. The rg
+      # baseline tests shell out to ripgrep, so make sure it exists rather
+      # than trusting the runner image's tool list.
       - name: test
         run: |
+          command -v rg >/dev/null || sudo apt-get install -y ripgrep
           python -m pip install --quiet pytest
           python -m pytest eval/tests -q
