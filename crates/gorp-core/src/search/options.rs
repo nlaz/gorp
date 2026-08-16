@@ -24,6 +24,18 @@ pub struct SearchOptions {
     pub k: usize,
     /// Force the streaming path even when a .gorp index exists.
     pub no_index: bool,
+    /// Build and persist an index (a cache entry) when this scope has none —
+    /// the pre-2026-08-16 default. **Off by default: caching is opt-in.**
+    ///
+    /// Off means a cold search streams and leaves nothing on disk. An index
+    /// that already exists is still read, and a warm entry is still repaired
+    /// or (past the drift bound) rebuilt — upkeep of a cache someone opted
+    /// into is not a new opt-in. The flip is footprint, not ranking: gorp
+    /// runs in many short-lived environments, and every one of them used to
+    /// keep a `~/.cache/gorp` it would never read again. The CLI maps
+    /// `--index` and `GORP_AUTO_INDEX=1` here; `gorp index` prewarms
+    /// explicitly.
+    pub write_through: bool,
     /// Use the HNSW graph when present (else exact brute force).
     pub use_hnsw: bool,
     /// Re-walk the corpus after an indexed search to count stale files.
@@ -211,10 +223,11 @@ pub struct SearchOptions {
     /// scores from the file text alone and the parity invariant holds with
     /// no index state involved.
     pub fine_rerank: bool,
-    /// Sub-window height for the fine rerank, in lines. 4 by default: the
+    /// Sub-window height for the fine rerank, in lines. 6 by default: the
     /// median gold region agents hunt is a handful of lines, and a window
-    /// this size shows the matched construct with one line of context on
-    /// each side without re-importing the dilution the rerank exists to fix.
+    /// this size shows the matched construct with a couple of lines of
+    /// context on each side without re-importing the dilution the rerank
+    /// exists to fix.
     pub fine_lines: u32,
     /// Blend of fine-window score vs coarse chunk score when ordering the
     /// final list: 1.0 = pure fine (default), 0.0 = coarse order with fine
@@ -333,6 +346,7 @@ impl Default for SearchOptions {
             mode: Mode::Semantic,
             k: 5,
             no_index: false,
+            write_through: false,
             use_hnsw: true,
             check_stale: false,
             sem_weight: 0.2,
@@ -348,7 +362,7 @@ impl Default for SearchOptions {
             passage_chars: 800,
             defines: false,
             fine_rerank: true,
-            fine_lines: 4,
+            fine_lines: 6,
             fine_blend: 1.0,
             passage_override: false,
             unit_view: true,

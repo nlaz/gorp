@@ -71,9 +71,13 @@ semantic score. Cheap, robust, no tuning of score scales.
 
 The index is a cache (RESEARCH.md §8): entries live under `~/.cache/gorp`
 (`GORP_CACHE_DIR` to override), keyed by canonical root plus chunk
-parameters, and a plain ranked search writes one through on a cold miss. A
-local `.gorp/` at the corpus root is still honored by discovery when
-present. `meta.json` is written last — writing it is what publishes an
+parameters. Writing one is opt-in since 2026-08-16 — a plain ranked search
+streams a cold miss and leaves nothing on disk; `--index` or
+`GORP_AUTO_INDEX=1` restores the write-through on a cold miss, and
+`gorp index` prewarms explicitly. Discovery (and the repair/rebuild upkeep
+of an entry that exists) is unconditional: opting in is about creating
+state, never about reading it. A local `.gorp/` at the corpus root is
+still honored by discovery when present. `meta.json` is written last — writing it is what publishes an
 entry. Each entry holds:
 
 | File | Contents |
@@ -96,15 +100,16 @@ falls back to exact brute-force over `emb.bin`.
 ## CLI
 
 ```
-gorp <QUERY> [PATHS…]            # search (default: ranked semantic; auto-discovers a cache entry for the scope)
+gorp <QUERY> [PATHS…]            # search (default: ranked semantic; discovers an existing index, never writes one)
   -e, --exact                   # exact regex, grep semantics: every match, exit 1 on none
   -i / -F / -w / -c / --all     # exact mode: case / literal / whole words / counts / uncapped
   -k, --top N                   # ranked results, default 5 (bare -k means 20)
   -C, --context N               # context lines around each hit, both modes
   --json                        # JSONL: {path, start_line, end_line, line, text, score, …}
   --stats                       # print timing/memory footprint to stderr
+  --index                       # opt in: cache this scope on a cold search (GORP_AUTO_INDEX=1 for an environment)
   --mode …, --no-index, …       # hidden harness knobs (see cli.rs `Tuning`)
-gorp index [PATH]                # build/refresh .gorp/ (hidden; prewarming only)
+gorp index [PATH]                # build/refresh .gorp/ (hidden; the explicit opt-in / prewarm)
 gorp index --status              # index freshness report
 ```
 

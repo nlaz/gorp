@@ -52,6 +52,10 @@ def gorp_search(query, corpus, mode, k, no_index, extra=()):
     cmd = [str(GORP), "--mode", mode, "--json", "-k", str(k)]
     if no_index:
         cmd.append("--no-index")
+    else:
+        # Caching is opt-in (2026-08-16): the harness wants the first query of
+        # a corpus to build the entry the next few hundred read.
+        cmd.append("--index")
     cmd += list(extra) + [query, str(corpus)]
     # errors="replace" for the same reason as rg_run: hit lines carry corpus
     # bytes, and one accented character must not end the run.

@@ -106,7 +106,10 @@ def run_one(binary, tree, query, mode, k, cache_dir):
     try:
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=120,
                            env={"GORP_CACHE_DIR": str(cache_dir), "HOME": str(Path.home()),
-                                "PATH": "/usr/bin:/bin", "GORP_NO_HINTS": "1"})
+                                "PATH": "/usr/bin:/bin", "GORP_NO_HINTS": "1",
+                                # Caching is opt-in (2026-08-16); the replay
+                                # wants query 2..n of a tree served warm.
+                                "GORP_AUTO_INDEX": "1"})
     except subprocess.TimeoutExpired:
         return None
     if p.returncode not in (0, 1):

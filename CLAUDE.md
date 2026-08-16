@@ -185,17 +185,22 @@ plus its overlay answers as a fresh build would), over a shared
   (`corpus::pass`, the single implementation of that guarantee) with a serial
   in-order fold that preserves it; `store::build_at` `debug_assert`s the three
   agree — so the check runs in tests, not in the release binary.
-- The index is a cache (RESEARCH.md §8): cold ranked searches write-through
-  to `~/.cache/gorp` (override `GORP_CACHE_DIR`; tests and the eval
-  harness isolate it). `cache::discover` resolves local/.gorp, ancestor
-  dirs (git-style walk-up), then cache entries by longest prefix. **Entries are
-  keyed by chunk parameters as well as root**, so a `--window` sweep cannot
-  poison ordinary searches — it could, and did (FIXES.md #10).
+- The index is a cache (RESEARCH.md §8), and **writing it is opt-in since
+  2026-08-16**: a plain ranked search streams a cold miss and leaves nothing
+  on disk; the hidden `--index` flag or `GORP_AUTO_INDEX=1` restores the
+  write-through to `~/.cache/gorp` (override `GORP_CACHE_DIR`; tests and
+  the eval harness isolate it and opt themselves in), and `gorp index`
+  prewarms explicitly. Reading is unconditional: `cache::discover` resolves
+  local/.gorp, ancestor dirs (git-style walk-up), then cache entries by
+  longest prefix, and an existing entry's repair/rebuild upkeep still runs.
+  **Entries are keyed by chunk parameters as well as root**, so a `--window`
+  sweep cannot poison ordinary searches — it could, and did (FIXES.md #10).
   `meta.json` is written last: writing it is what publishes an index.
   Read-repair validation is throttled by `GORP_CACHE_TTL_SECS`
   (default 60; 0 = always validate). `--no-index` never reads or writes.
-- Smoke tests in sibling repos: set `GORP_CACHE_DIR` to a temp dir (a
-  plain ranked search now writes a cache entry for that scope).
+- Smoke tests in sibling repos: set `GORP_CACHE_DIR` to a temp dir, and
+  `GORP_AUTO_INDEX=1` if the test wants warm searches (a plain ranked
+  search no longer writes a cache entry).
 - The benchmark corpora live in `../gorp-bench/bench/corpora/` (~5 GB with the
   linux index; refetch with that repo's fetch-corpora script). Seven:
   linux (C, 84k files),

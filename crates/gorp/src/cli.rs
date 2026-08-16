@@ -293,6 +293,14 @@ pub struct Tuning {
     #[arg(long, hide = true, default_value_t = default_max_drift())]
     pub repair_max_drift: f32,
 
+    /// Build and cache an index for this scope on a cold search — the
+    /// pre-2026-08-16 default; caching is opt-in now. `GORP_AUTO_INDEX=1`
+    /// opts a whole environment in; the `index` verb prewarms once. Hidden
+    /// for the same reason the verb is: an agent that sees it opts every
+    /// scope back in, which recreates the footprint the flip removed.
+    #[arg(long, hide = true)]
+    pub index: bool,
+
     /// Weight of the semantic list in hybrid fusion (BM25 = 1.0)
     #[arg(long, hide = true, default_value_t = SearchOptions::default().sem_weight)]
     pub sem_weight: f32,
@@ -529,14 +537,15 @@ mod tests {
 pub enum Cmd {
     /// Build or refresh the .gorp index for a directory
     ///
-    /// Hidden, deliberately. The index is a cache and builds itself on the
-    /// first ranked search of a scope, so this verb is for prewarming only —
-    /// README.md says "no `gorp index` in normal use" and "not something an
-    /// agent needs to know about". Listing it in `--help` contradicted that:
-    /// agents read `--help` only when stuck (27 of 27 probes followed three or
-    /// more empty searches), found a verb described as "build the index", and
-    /// concluded searching requires a build step. One did exactly that mid-run
-    /// (RESEARCH.md §17). Hidden, not removed — the harnesses still call it.
+    /// Hidden, deliberately. Searching never requires it — a cold search
+    /// streams and answers on its own. Since 2026-08-16 caching is opt-in
+    /// (it used to build itself on the first ranked search of a scope), and
+    /// this verb is the explicit opt-in: prewarm a scope once, or set
+    /// `GORP_AUTO_INDEX=1` for a whole environment. Still hidden from
+    /// `--help`: agents read `--help` only when stuck (27 of 27 probes
+    /// followed three or more empty searches), found a verb described as
+    /// "build the index", and concluded searching requires a build step. One
+    /// did exactly that mid-run (RESEARCH.md §17).
     #[command(hide = true)]
     Index {
         /// Directory to index (default: current directory)

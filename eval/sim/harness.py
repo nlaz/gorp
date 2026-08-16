@@ -231,6 +231,10 @@ class Session:
         e["GORP_CACHE_DIR"] = str(self.cache)
         e["GORP_TRACE_FILE"] = str(trace_path)
         e["GORP_SESSION_ID"] = self.name
+        # Caching is opt-in (2026-08-16), and cache behavior over a session is
+        # the thing this harness audits — so sessions opt in. A scenario about
+        # the default's restraint overrides this via its own step env.
+        e["GORP_AUTO_INDEX"] = "1"
         e.update(self.env)
         e.update(env or {})
 

@@ -182,8 +182,13 @@ fn the_write_through_build_is_attributed_to_the_query_that_paid_for_it() {
     let dir = tempfile::tempdir().unwrap();
     corpus(dir.path());
 
-    let r = search(dir.path(), "retry backoff", &SearchOptions::default()).unwrap();
-    assert!(r.report.wrote_cache, "the first ranked search of a scope writes through");
+    let r = search(
+        dir.path(),
+        "retry backoff",
+        &SearchOptions { write_through: true, ..Default::default() },
+    )
+    .unwrap();
+    assert!(r.report.wrote_cache, "the first opted-in ranked search of a scope writes through");
     assert!(r.report.build_ms() > 0.0, "and the build it paid for must be visible");
     assert!(
         r.report.build_ms() > r.report.rank_ms(),
@@ -222,7 +227,7 @@ fn stages_account_for_nearly_all_of_the_measured_total() {
     let mut checked = 0;
     for (label, opts) in [
         ("cold", SearchOptions { no_index: true, ..Default::default() }),
-        ("write-through", SearchOptions::default()),
+        ("write-through", SearchOptions { write_through: true, ..Default::default() }),
         ("warm", SearchOptions::default()),
         (
             "warm+prf+maxsim",

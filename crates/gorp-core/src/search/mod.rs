@@ -474,8 +474,10 @@ pub fn search(root: &Path, query: &str, opts: &SearchOptions) -> Result<SearchRe
     };
 
     // The index is a cache (RESEARCH.md §8): resolve one for this scope —
-    // local, ancestor, or central — and on a full miss, write-through: the
-    // cold pass is the same work as a build, so persist it and answer warm.
+    // local, ancestor, or central — and on a full miss, write-through *when
+    // the caller opted in* (`write_through`): the cold pass is the same work
+    // as a build, so persist it and answer warm. Without the opt-in a miss
+    // streams and leaves nothing on disk.
     let mut prelude: Prelude = Vec::new();
     let mut wrote_cache = false;
     let mut discover_calls = 0u32;
@@ -494,7 +496,7 @@ pub fn search(root: &Path, query: &str, opts: &SearchOptions) -> Result<SearchRe
     } else {
         match discover(&mut discover_ms, &mut discover_calls) {
             Some(d) => Some(d),
-            None => build_through(root, opts, &mut prelude)
+            None => (opts.write_through && build_through(root, opts, &mut prelude))
                 .then(|| {
                     wrote_cache = true;
                     discover(&mut discover_ms, &mut discover_calls)
@@ -518,6 +520,11 @@ pub fn search(root: &Path, query: &str, opts: &SearchOptions) -> Result<SearchRe
             // case for the threshold — at 5% drift a rebuild pays for itself in
             // about five queries, and repairing charges full price forever
             // (SIMULATION.md §1.3).
+            //
+            // `write_through` is deliberately not consulted here: it gates
+            // *creating* an entry, and this entry exists — someone opted this
+            // scope in, and replacing a stale entry is the upkeep that keeps
+            // that cache honest rather than a new opt-in.
             Err(e) if e.is::<DriftTooLarge>() => {
                 let why = *e.downcast_ref::<DriftTooLarge>().expect("just matched");
                 let mut rebuilt = None;
@@ -568,7 +575,9 @@ pub fn search(root: &Path, query: &str, opts: &SearchOptions) -> Result<SearchRe
     Ok(result)
 }
 
-/// Write-through on a miss. Returns whether an entry was written; the build's
+/// Write-through on a miss — reached only by a caller that opted in
+/// ([`SearchOptions::write_through`]) or on the drift rebuild of an entry
+/// that already exists. Returns whether an entry was written; the build's
 /// own stage report is folded into `prelude` either way, because a build that
 /// failed partway still spent the time.
 fn build_through(root: &Path, opts: &SearchOptions, prelude: &mut Prelude) -> bool {
@@ -591,9 +600,9 @@ fn build_through(root: &Path, opts: &SearchOptions, prelude: &mut Prelude) -> bo
     }
     // Here and not at the call site: this is the first point at which a build is
     // certain, so the notice cannot fire for a scope that turns out to be
-    // unresolvable. Keyword mode returns before any of this and `no_index` never
-    // reaches it, which is the same pair of exemptions the CLI used to apply for
-    // itself with a second `cache::discover`.
+    // unresolvable. Keyword mode returns before any of this, and neither
+    // `no_index` nor a default (un-opted-in) search reaches it — the notice
+    // announces a build the caller asked for, never one it declined.
     if let Some(notify) = opts.on_first_search {
         notify();
     }

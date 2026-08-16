@@ -228,6 +228,7 @@ fn repair_serves_a_small_drift_and_rebuilds_a_large_one() {
     }
     let base = SearchOptions {
         k: 5,
+        write_through: true,
         params: ChunkParams { window: 8, overlap: 2, ..Default::default() },
         ..Default::default()
     };
@@ -309,6 +310,7 @@ fn a_repo_local_index_is_repaired_however_far_it_has_drifted() {
 
     let o = SearchOptions {
         k: 5,
+        write_through: true,
         params: ChunkParams { window: 8, overlap: 2, ..Default::default() },
         ..Default::default()
     };
@@ -357,6 +359,7 @@ fn a_narrow_scope_returns_hits_even_when_the_corpus_head_excludes_it() {
 
     let o = SearchOptions {
         k: 5,
+        write_through: true,
         params: ChunkParams { window: 8, overlap: 2, ..Default::default() },
         ..Default::default()
     };
@@ -431,7 +434,7 @@ fn a_hidden_subtree_is_absent_from_its_parents_index_but_searchable_on_its_own()
         from_itself.iter().map(|f| &f.path).collect::<Vec<_>>()
     );
 
-    let o = SearchOptions { k: 5, params, ..Default::default() };
+    let o = SearchOptions { k: 5, write_through: true, params, ..Default::default() };
     search(dir.path(), "retry backoff", &o).unwrap();
 
     // First ask: the parent entry covers the path but holds nothing under it, so

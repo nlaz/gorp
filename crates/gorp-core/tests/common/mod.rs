@@ -102,6 +102,10 @@ pub fn opts(mode: Mode) -> SearchOptions {
     SearchOptions {
         mode,
         k: 3,
+        // Caching is opt-in (`write_through` defaults to false); these
+        // binaries exist to exercise cache behavior, so they opt in. A test
+        // about the default's restraint sets it back to false explicitly.
+        write_through: true,
         // small windows so each file yields at least one chunk quickly
         params: ChunkParams { window: 8, overlap: 2, ..Default::default() },
         ..Default::default()

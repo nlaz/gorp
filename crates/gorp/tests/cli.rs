@@ -39,7 +39,7 @@ impl Run {
 /// A `gorp` invocation with its own cache.
 ///
 /// Per-test rather than per-process on purpose: these tests run real processes
-/// in parallel, and a cold ranked search writes through to the cache. One
+/// in parallel, and an opted-in (`--index`) ranked search writes through to the cache. One
 /// shared directory meant several processes building an entry for the same
 /// scope simultaneously — a race the engine only partly defends against, which
 /// showed up here as an occasional zero-hit run. Isolating the tests keeps that
@@ -204,9 +204,11 @@ fn the_default_result_is_a_unit_view() {
             prev = n;
         }
         assert_eq!(prev, hi, "the last row is the header span's end");
-        // The §34.2 calibration bound: a ≤4-line window plus at most two
-        // heads, a doc line, a close, and short gap fills.
-        assert!(b.len() <= 20, "a unit view stays small, got {}", b.len());
+        // The §34.2 calibration bound: a fine-window-sized core plus at most
+        // two heads, a doc line, a close, and short gap fills (16 lines of
+        // furniture on top of the window).
+        let fine = gorp_core::search::SearchOptions::default().fine_lines as usize;
+        assert!(b.len() <= fine + 16, "a unit view stays small, got {}", b.len());
     }
     assert!(!r.stdout.contains("gorp:"), "stdout stays data-only");
 }
@@ -229,7 +231,8 @@ fn no_unit_restores_the_fine_window_passage() {
         .collect();
     assert_eq!(blocks.len(), 2, "one block per result, blank-line separated");
     for b in &blocks {
-        assert!(b.len() <= 4, "a bare passage is at most the fine window, got {}", b.len());
+        let fine = gorp_core::search::SearchOptions::default().fine_lines as usize;
+        assert!(b.len() <= fine, "a bare passage is at most the fine window, got {}", b.len());
         let nums: Vec<u32> =
             b.iter().map(|l| l.split(':').nth(1).unwrap_or("x").parse().unwrap_or(0)).collect();
         assert!(nums.iter().all(|&n| n > 0), "every line carries a real number: {b:?}");
@@ -422,9 +425,9 @@ fn a_dead_phrase_is_named_on_stderr() {
 fn an_exact_alternation_miss_suggests_across_both_phrases() {
     let sg = Sg::new();
     // The suggestion only fires when an index already covers the scope, so
-    // warm it first — the same precondition a real session meets by its
-    // second search.
-    sg.run(&["retry", "-k", "1"]);
+    // warm it first (caching is opt-in, hence `--index`) — the same
+    // precondition a real session meets by prewarming.
+    sg.run(&["retry", "-k", "1", "--index"]);
     // Neither name exists literally (case mismatch), so -e misses; the ranked
     // suggestion should still reach both concepts' homes.
     let r = sg.run(&["-e", r"Compute_Backoff_Delay\|Validate_Session_Token"]);
@@ -820,8 +823,9 @@ fn the_trace_file_records_every_engine_invocation_including_the_hidden_one() {
     let trace = sg.cache.join("trace.jsonl");
     let trace_s = trace.to_string_lossy().into_owned();
 
-    // Warm an index for this scope, or the suggestion path declines to run.
-    sg.run(&["retry backoff jitter", "-k", "3"]);
+    // Warm an index for this scope (caching is opt-in), or the suggestion
+    // path declines to run.
+    sg.run(&["retry backoff jitter", "-k", "3", "--index"]);
     let r = sg.run_in_env(
         &["-e", "zzz_no_such_symbol_anywhere"],
         &corpus(),
@@ -873,7 +877,7 @@ fn a_warm_ranked_query_resolves_the_index_once() {
     let trace = sg.cache.join("warm-trace.jsonl");
     let trace_s = trace.to_string_lossy().into_owned();
 
-    sg.run(&["retry backoff jitter", "-k", "3"]); // build the entry
+    sg.run(&["retry backoff jitter", "-k", "3", "--index"]); // build the entry (opt-in)
     let r = sg.run_in_env(
         &["retry backoff jitter", "-k", "3"],
         &corpus(),
@@ -932,9 +936,54 @@ fn indexing_reports_its_own_stage_schedule() {
 // ---------------------------------------------------------------------------
 
 #[test]
+fn caching_is_opt_in() {
+    // The default leaves nothing behind: a plain ranked search streams,
+    // writes no cache entry, and announces no build. `--index` or
+    // `GORP_AUTO_INDEX=1` is the opt-in that restores write-through.
+    // A published entry is exactly one `meta.json`, so count those.
+    fn entries(dir: &Path) -> usize {
+        fn walk(dir: &Path, n: &mut usize) {
+            let Ok(rd) = std::fs::read_dir(dir) else { return };
+            for e in rd.flatten() {
+                let p = e.path();
+                if p.is_dir() {
+                    walk(&p, n);
+                } else if p.file_name().is_some_and(|f| f == "meta.json") {
+                    *n += 1;
+                }
+            }
+        }
+        let mut n = 0;
+        walk(dir, &mut n);
+        n
+    }
+
+    let sg = Sg::new();
+    // GORP_AUTO_INDEX pinned to "0" so a developer's own opt-in cannot
+    // leak into the child and turn the restraint half of this test warm.
+    let r = sg.run_in_env(
+        &["retry backoff jitter", "-k", "3"],
+        &corpus(),
+        &[("GORP_AUTO_INDEX", "0")],
+    );
+    assert_eq!(r.code, 0, "stderr: {}", r.stderr);
+    assert!(!r.stderr.contains("caching it"), "no build was asked for, none may be announced");
+    assert_eq!(entries(&sg.cache), 0, "a default search must leave the cache empty");
+
+    let opted = sg.run_in_env(
+        &["retry backoff jitter", "-k", "3"],
+        &corpus(),
+        &[("GORP_AUTO_INDEX", "1")],
+    );
+    assert_eq!(opted.code, 0, "stderr: {}", opted.stderr);
+    assert!(opted.stderr.contains("caching it"), "the opt-in announces the build it pays for");
+    assert_eq!(entries(&sg.cache), 1, "GORP_AUTO_INDEX=1 writes the entry the default withheld");
+}
+
+#[test]
 fn cache_status_reports_the_generation_and_budget() {
     let sg = Sg::new();
-    sg.run(&["retry backoff jitter", "-k", "3"]); // warm an entry
+    sg.run(&["retry backoff jitter", "-k", "3", "--index"]); // warm an entry (opt-in)
     let r = sg.run_bare(&["cache"]);
     assert_eq!(r.code, 0);
     assert!(r.stdout.contains("generation "), "status names the compat generation");

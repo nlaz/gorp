@@ -396,6 +396,9 @@ fn options(cli: &Cli, mode: Mode) -> Result<SearchOptions> {
         use_hnsw: !t.brute_force,
         check_stale: cli.check_stale,
         sem_weight: t.sem_weight,
+        // Env as well as a flag: opting a whole environment back into
+        // automatic caching is a machine-setup decision, not a per-query one.
+        write_through: t.index || std::env::var("GORP_AUTO_INDEX").is_ok_and(|v| v == "1"),
         diversify: !t.no_diversify,
         mmr_lambda: t.mmr_lambda,
         dedupe_overlap: t.dedupe_overlap,

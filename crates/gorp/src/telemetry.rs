@@ -127,6 +127,7 @@ fn opts_block(opts: &SearchOptions) -> Value {
     json!({
         "k": opts.k,
         "no_index": opts.no_index,
+        "write_through": opts.write_through,
         "use_hnsw": opts.use_hnsw,
         "check_stale": opts.check_stale,
         "sem_weight": opts.sem_weight,

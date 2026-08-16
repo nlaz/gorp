@@ -58,6 +58,9 @@ record() {
   trap 'rm -rf "$cache"' RETURN
   export GORP_CACHE_DIR="$cache"
   export GORP_CACHE_TTL_SECS=0
+  # Caching is opt-in (2026-08-16); the warm cases rely on the first ranked
+  # search of the fixture writing the entry the later ones read.
+  export GORP_AUTO_INDEX=1
 
   for mode in bm25 semantic hybrid; do
     for path in cold warm; do

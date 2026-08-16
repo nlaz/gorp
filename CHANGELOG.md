@@ -6,6 +6,27 @@ chunks). Full data: `docs/RESEARCH.md` and `eval/REPORT.md`; the query sets
 are checked in under `eval/queries/`, while `eval/data/` is gitignored scratch
 and will not be in a fresh clone.
 
+## 2026-08-16 — caching is opt-in
+
+A plain ranked search no longer writes anything to disk: a cold miss streams
+and leaves nothing behind, where it used to write a `~/.cache/gorp` entry
+through on the first ranked search of every scope. gorp runs in many
+short-lived environments, and each one kept a cache it would never read
+again. Ranking is untouched (`tools/snapshot.sh --check` is byte-identical;
+cold == warm still holds).
+
+- **Opting in**: `gorp index [DIR]` prewarms a scope once; `GORP_AUTO_INDEX=1`
+  restores the old first-search write-through for a whole environment; the
+  hidden `--index` flag does it for one invocation (hidden for the same
+  reason the verb is — an agent that sees it opts every scope back in).
+- **Reading is unchanged**: an existing entry — local `.gorp/`, ancestor, or
+  cache — still answers warm, and its repair/rebuild upkeep still runs.
+  Opting in gates *creating* state, never reading it.
+- The harnesses that exist to exercise warm behavior opt themselves in:
+  `run_eval.py` passes `--index`, the sim harness and `replay_traces.py` set
+  `GORP_AUTO_INDEX=1`, and so does `tools/snapshot.sh`. Engine option:
+  `SearchOptions::write_through`, recorded in the trace envelope.
+
 ## 2026-08-16 — the flag surface says what it does, and does what it says
 
 Four changes, no default behavior moved (`tools/snapshot.sh --check` is

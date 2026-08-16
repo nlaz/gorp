@@ -1,6 +1,7 @@
-//! End-to-end: cache behaviors (RESEARCH.md §8/8.1) — write-through,
-//! ancestor discovery, scope promotion, and the read-repair overlay that
-//! keeps a warm answer indistinguishable from a cold one.
+//! End-to-end: cache behaviors (RESEARCH.md §8/8.1) — write-through (opt-in
+//! since 2026-08-16; `common::opts` opts in), ancestor discovery, scope
+//! promotion, and the read-repair overlay that keeps a warm answer
+//! indistinguishable from a cold one.
 
 mod common;
 use gorp_core::ChunkParams;
@@ -57,6 +58,35 @@ fn write_through_is_transparent() {
         assert_eq!(cold.hits[0].path, other.hits[0].path);
         assert_eq!(cold.hits[0].start_line, other.hits[0].start_line);
     }
+}
+
+#[test]
+fn a_default_search_reads_the_cache_but_never_writes_it() {
+    // The opt-in contract itself. A search that has not opted in
+    // (`write_through: false`, the default) must leave nothing on disk —
+    // that is the whole point of the flip: gorp runs in short-lived
+    // environments, and every one of them used to keep a `~/.cache/gorp`
+    // it would never read again. Reading stays free: an entry someone did
+    // opt in still answers warm.
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    let q = "exponential backoff for retries";
+    let default_opts = SearchOptions { write_through: false, ..opts(Mode::Hybrid) };
+
+    let first = search(dir.path(), q, &default_opts).unwrap();
+    assert!(!first.report.wrote_cache, "a default search must not write an entry");
+    assert!(!first.report.used_index, "nothing to read yet — it streams");
+    let second = search(dir.path(), q, &default_opts).unwrap();
+    assert!(!second.report.used_index, "and it stays cold rather than caching quietly");
+
+    // Opt the scope in once; the default search then answers from that entry.
+    let opted = search(dir.path(), q, &opts(Mode::Hybrid)).unwrap();
+    assert!(opted.report.wrote_cache);
+    let warm = search(dir.path(), q, &default_opts).unwrap();
+    assert!(warm.report.used_index && !warm.report.wrote_cache);
+    assert_eq!(first.hits[0].path, warm.hits[0].path, "cold and warm still agree");
+    assert_eq!(first.hits[0].start_line, warm.hits[0].start_line);
 }
 
 #[test]
@@ -146,7 +176,10 @@ fn unreadable_cache_entry_degrades_to_a_miss() {
     std::fs::write(dir.path().join("a.py"), "def hello_world():\n    return 1\n").unwrap();
 
     // Warm the cache, then corrupt the entry's dims the way an upgrade would.
-    let opts = gorp_core::search::SearchOptions::default();
+    let opts = gorp_core::search::SearchOptions {
+        write_through: true,
+        ..Default::default()
+    };
     gorp_core::search::search(dir.path(), "greeting", &opts).unwrap();
     // Only this test's own entry — the cache dir is shared with other tests
     // running in parallel, so corrupting all of them clobbers their state.
@@ -182,7 +215,10 @@ fn cache_entries_are_namespaced_by_compat_generation() {
     let _cache = isolate_cache();
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("a.py"), "def parse_config():\n    return {}\n").unwrap();
-    let opts = gorp_core::search::SearchOptions::default();
+    let opts = gorp_core::search::SearchOptions {
+        write_through: true,
+        ..Default::default()
+    };
     gorp_core::search::search(dir.path(), "configuration parsing", &opts).unwrap();
 
     let gen_dir = gorp_core::cache::cache_generation();
@@ -226,7 +262,10 @@ fn corrupt_cache_entry_degrades_to_a_miss() {
     let _cache = isolate_cache();
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("a.py"), "def retry_backoff():\n    return 2\n").unwrap();
-    let opts = gorp_core::search::SearchOptions::default();
+    let opts = gorp_core::search::SearchOptions {
+        write_through: true,
+        ..Default::default()
+    };
     gorp_core::search::search(dir.path(), "backoff", &opts).unwrap();
 
     let mine = std::fs::canonicalize(dir.path()).unwrap();
@@ -247,7 +286,10 @@ fn corrupt_cache_entry_degrades_to_a_miss() {
 #[test]
 fn cache_prunes_dead_entries_and_enforces_a_budget() {
     let _cache = isolate_cache();
-    let opts = gorp_core::search::SearchOptions::default();
+    let opts = gorp_core::search::SearchOptions {
+        write_through: true,
+        ..Default::default()
+    };
 
     // Two scopes; one of them we then delete off disk.
     let keep = tempfile::tempdir().unwrap();
@@ -424,6 +466,7 @@ fn chunk_params_are_part_of_a_cache_entry_identity() {
     let narrow = SearchOptions {
         mode: Mode::Hybrid,
         k: 3,
+        write_through: true,
         fine_rerank: false,
         params: ChunkParams { window: 8, overlap: 2, ..Default::default() },
         ..Default::default()
@@ -431,6 +474,7 @@ fn chunk_params_are_part_of_a_cache_entry_identity() {
     let wide = SearchOptions {
         mode: Mode::Hybrid,
         k: 3,
+        write_through: true,
         fine_rerank: false,
         params: ChunkParams { window: 32, overlap: 8, ..Default::default() },
         ..Default::default()
@@ -471,6 +515,7 @@ fn scope_promotion_spares_entries_built_with_other_params() {
     let opts_for = |window: u32| SearchOptions {
         mode: Mode::Hybrid,
         k: 3,
+        write_through: true,
         params: ChunkParams { window, overlap: 2, ..Default::default() },
         ..Default::default()
     };

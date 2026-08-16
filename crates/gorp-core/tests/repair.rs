@@ -49,7 +49,16 @@ const PARAMS: ChunkParams = ChunkParams {
 /// `repair_serves_a_small_drift_and_rebuilds_a_large_one` in `e2e.rs`, on a
 /// corpus big enough for the ratio to mean something.
 fn opts(mode: Mode) -> SearchOptions {
-    SearchOptions { mode, k: 5, params: PARAMS, repair_max_drift: 0.0, ..Default::default() }
+    SearchOptions {
+        mode,
+        k: 5,
+        // Caching is opt-in; this binary tests the overlay a cache entry
+        // carries, so every search opts its scope in.
+        write_through: true,
+        params: PARAMS,
+        repair_max_drift: 0.0,
+        ..Default::default()
+    }
 }
 
 /// A corpus with enough distinct topics that a ranking has something to be wrong
