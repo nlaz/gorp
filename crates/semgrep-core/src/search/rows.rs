@@ -198,7 +198,9 @@ mod tests {
         std::fs::write(dir.path().join("b.rs"), "fn gamma() {}\nfn delta() {}\n").unwrap();
         let params = ChunkParams { window: 8, overlap: 2, ..Default::default() };
         build(dir.path(), &BuildOptions { params, ..Default::default() }, |_, _| {}).unwrap();
-        let idx = LoadedIndex::load(dir.path(), LoadNeeds { bm25: true, hnsw: false }).unwrap();
+        let idx =
+            LoadedIndex::load(dir.path(), LoadNeeds { bm25: true, hnsw: false, graph: false })
+                .unwrap();
         (dir, idx)
     }
 

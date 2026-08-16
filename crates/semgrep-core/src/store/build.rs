@@ -17,8 +17,8 @@ use embed::EmbedWriter;
 
 /// Every file the index format is made of. `meta.json` is last on purpose — see
 /// `publish`.
-const ARTIFACTS: [&str; 6] =
-    ["meta.json", "chunks.bin", "bm25.flat", "emb.bin", "hnsw.bin", "sif.bin"];
+const ARTIFACTS: [&str; 7] =
+    ["meta.json", "chunks.bin", "bm25.flat", "emb.bin", "hnsw.bin", "sif.bin", "graph.bin"];
 
 /// Suffixes for the two directories that exist only during a swap. Both are
 /// siblings of the entry they belong to, so the renames stay on one filesystem,
@@ -160,6 +160,17 @@ fn build_unswapped(
     debug_assert_eq!(chunks.len(), emb_rows, "chunk table and emb.bin disagree");
     debug_assert_eq!(chunks.len(), bm25.n_docs(), "chunk table and BM25 disagree");
 
+    // The file graph (§35.3): its own read pass, not a hook inside
+    // `corpus::pass` — that pass carries the chunk-id lockstep guarantee and
+    // stays untouched; the second read is warm in the page cache and the
+    // parse dominates anyway. Grammarless builds cannot extract.
+    #[cfg(feature = "func-chunk")]
+    let graph = trace.time(Stage::BuildGraph, || {
+        opts.graph.then(|| super::graph::build(root, &files))
+    });
+    #[cfg(not(feature = "func-chunk"))]
+    let graph: Option<super::graph::FileGraph> = None;
+
     let meta = IndexMeta {
         version: FORMAT_VERSION,
         dims: EMBED_DIM,
@@ -169,9 +180,12 @@ fn build_unswapped(
         sif: sif.is_some(),
         embed_preproc: opts.embed_preproc,
         path_render: opts.path_render,
+        has_graph: graph.is_some(),
         files,
     };
-    trace.time(Stage::BuildWrite, || publish(dir, &meta, &chunks, &bm25, sif.as_ref()))?;
+    trace.time(Stage::BuildWrite, || {
+        publish(dir, &meta, &chunks, &bm25, sif.as_ref(), graph.as_ref())
+    })?;
 
     stats.n_chunks = chunks.len();
     stats.index_bytes = ARTIFACTS
@@ -272,10 +286,12 @@ fn publish(
     chunks: &[Chunk],
     bm25: &Bm25Index,
     sif: Option<&SifStats>,
+    graph: Option<&super::graph::FileGraph>,
 ) -> Result<()> {
     std::fs::write(dir.join("chunks.bin"), postcard::to_allocvec(chunks)?)?;
     std::fs::write(dir.join("bm25.flat"), super::bm25::to_flat_bytes(bm25))?;
     write_or_remove(&dir.join("sif.bin"), sif.map(postcard::to_allocvec).transpose()?)?;
+    write_or_remove(&dir.join("graph.bin"), graph.map(|g| g.to_bytes()))?;
     std::fs::write(dir.join("meta.json"), serde_json::to_vec_pretty(meta)?)?;
     Ok(())
 }

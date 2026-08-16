@@ -277,6 +277,15 @@ pub struct Tuning {
     #[arg(long, hide = true, default_value_t = SearchOptions::default().path_boost)]
     pub path_boost: f32,
 
+    /// Pull 1-hop import neighbors of the top-N candidates into the pool
+    /// (0 = off, experimental RESEARCH.md §35.3)
+    #[arg(long, hide = true, default_value_t = SearchOptions::default().graph_expand)]
+    pub graph_expand: usize,
+
+    /// Score multiplier for graph-injected candidates
+    #[arg(long, hide = true, default_value_t = SearchOptions::default().graph_weight)]
+    pub graph_weight: f32,
+
     /// Characters shown per result, grown around the match (0 = the matched
     /// line alone; default 800). A budget in characters rather than lines
     /// because a line of prose is not a line of code — RESEARCH.md §26.4.

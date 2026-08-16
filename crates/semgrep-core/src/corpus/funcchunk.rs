@@ -49,14 +49,16 @@ const MIN_LINES: usize = 5;
 const COMMENT_MAX: usize = 20;
 const COMMENT_PREFIXES: &[&str] = &["///", "//!", "//", "/*", "*/", "*", "#", "@"];
 
-struct Lang {
-    ts: fn() -> Language,
+pub(crate) struct Lang {
+    pub(crate) ts: fn() -> Language,
     leaf_defs: &'static [&'static str],
 }
 
 /// Extension → grammar. `.h` parses as C — a v1 limitation shared with the
 /// §11.3 implementation; C++ headers fall back on parse errors anyway.
-fn lang_for_path(rel_path: &str) -> Option<Lang> {
+/// `pub(crate)` for `corpus::imports`, which shares the dispatch rather than
+/// growing a second copy of it.
+pub(crate) fn lang_for_path(rel_path: &str) -> Option<Lang> {
     let ext = rel_path.rsplit('.').next()?;
     let lang = match ext {
         "py" => Lang {

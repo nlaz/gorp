@@ -89,8 +89,20 @@ pub fn run(
     }
     let mut nearest = pass.nearest.take();
 
+    // The cold half of graph expansion (§35.3): no index, so the graph is
+    // built in memory — a second read+parse pass over the corpus, paid only
+    // when the flag is armed. Grammarless builds cannot extract; the CLI
+    // rejects the flag there, so this cfg is unreachable-dead rather than a
+    // silent cold≠warm split.
+    #[cfg(feature = "func-chunk")]
+    let cold_graph = (opts.graph_expand > 0)
+        .then(|| trace.time(Stage::RankGraph, || crate::store::graph::build(root, &files)));
+    #[cfg(not(feature = "func-chunk"))]
+    let cold_graph: Option<crate::store::graph::FileGraph> = None;
+
     let mut per_phrase: Vec<Vec<hit::Candidate>> = Vec::with_capacity(q.phrases.len());
     let mut bridge_terms_used: Vec<String> = Vec::new();
+    let mut graph_injected = 0usize;
     for (p, query) in q.phrases.iter().enumerate() {
         let query = query.as_str();
         let lexical = trace.time(Stage::RankBm25, || match pass.bm25.as_ref() {
@@ -141,11 +153,36 @@ pub fn run(
         let sem_query = expanded_phrases[p].as_str();
         // Mirrors `indexed`: the lexical head survives fusion so the
         // `bm25_pin` guarantee acts identically on both paths (§32.4a).
+        // Snapshotted before graph expansion for the same reason as warm.
         let bm25_head: Vec<u32> = lexical.iter().take(16).map(|r| r.0).collect();
+        // Graph expansion, both channels, mirroring `indexed` point for
+        // point: lexical only in the fused modes, semantic pre-MaxSim so
+        // injected rows share the head's score space.
+        let lex_seeds: Vec<u32> = lexical.iter().take(opts.graph_expand).map(|r| r.0).collect();
+        let lexical = match (&cold_graph, pass.bm25.as_ref()) {
+            (Some(g), Some(b)) if matches!(opts.mode, Mode::Bm25 | Mode::Hybrid) => {
+                trace.time(Stage::RankGraph, || {
+                    let (l, n) = cold_graph_expand_lexical(g, &pass.chunks, b, query, lexical, opts);
+                    graph_injected += n;
+                    l
+                })
+            }
+            _ => lexical,
+        };
         let semantic = nearest
             .as_mut()
             .map(|heaps| std::mem::replace(&mut heaps[p], TopK::new(0)).into_sorted())
             .unwrap_or_default();
+        let semantic = match &cold_graph {
+            Some(g) if !semantic.is_empty() => trace.time(Stage::RankGraph, || {
+                let (s, n) = cold_graph_expand_semantic(
+                    root, &files, &pass.chunks, g, semantic, &lex_seeds, sem_query, opts,
+                );
+                graph_injected += n;
+                s
+            }),
+            _ => semantic,
+        };
         // The MaxSim rerank has to happen on this path too, and before fusion,
         // or cold and warm answer the same question differently — the
         // invariant `cold_and_warm_return_identical_results` exists for.
@@ -233,6 +270,7 @@ pub fn run(
             phrases: q.is_multi().then(|| q.phrases.clone()),
             floored_mask: fin.floored_mask,
             bridge_terms: (!bridge_terms_used.is_empty()).then_some(bridge_terms_used),
+            graph_injected: (opts.graph_expand > 0).then_some(graph_injected),
             stages: trace.finish(),
             ..Default::default()
         },
@@ -395,6 +433,94 @@ impl Embedder {
         self.embed_ms += elapsed_ms(start);
         self.pending.clear();
     }
+}
+
+/// The cold twin of `indexed::graph_expand_lexical`. Same seed rule, same
+/// deny-by-absence, same `graph_weight` scaling; the postings are the pass's
+/// in-memory index instead of `bm25.flat`, through the same `Postings` trait.
+#[cfg(feature = "func-chunk")]
+fn cold_graph_expand_lexical(
+    g: &crate::store::graph::FileGraph,
+    chunks: &[Chunk],
+    b: &Bm25Index,
+    query: &str,
+    lexical: Vec<(u32, f32)>,
+    opts: &SearchOptions,
+) -> (Vec<(u32, f32)>, usize) {
+    let seeds: Vec<u32> = lexical.iter().take(opts.graph_expand).map(|r| r.0).collect();
+    let present: std::collections::HashSet<u32> = lexical.iter().map(|r| r.0).collect();
+    let allow: std::collections::HashSet<u32> = g
+        .neighbor_chunks(chunks, seeds, super::fused_width(super::FUSION_POOL))
+        .into_iter()
+        .filter(|id| !present.contains(id))
+        .collect();
+    if allow.is_empty() {
+        return (lexical, 0);
+    }
+    let pred = |id: u32| allow.contains(&id);
+    let extra = rank::bm25::top_k_scoped(b, query, allow.len(), None, Some(&pred));
+    let injected = extra.len();
+    let mut out = lexical;
+    out.extend(extra.into_iter().map(|(id, s)| (id, s * opts.graph_weight)));
+    out.sort_by(|a, b| b.1.total_cmp(&a.1));
+    (out, injected)
+}
+
+/// The cold twin of `indexed::graph_expand_semantic`. Injected rows go through
+/// exactly the `Embedder` recipe — render, embed, normalize, quantize, score
+/// with the quantized query — so a cold injected neighbor carries the same
+/// number a warm one reads out of `emb.bin` (the FIXES #11 lesson).
+#[cfg(feature = "func-chunk")]
+#[allow(clippy::too_many_arguments)]
+fn cold_graph_expand_semantic(
+    root: &Path,
+    files: &[FileMeta],
+    chunks: &[Chunk],
+    g: &crate::store::graph::FileGraph,
+    semantic: Vec<(u32, f32)>,
+    lex_seeds: &[u32],
+    sem_query: &str,
+    opts: &SearchOptions,
+) -> (Vec<(u32, f32)>, usize) {
+    let seeds: Vec<u32> = semantic
+        .iter()
+        .take(opts.graph_expand)
+        .map(|r| r.0)
+        .chain(lex_seeds.iter().copied())
+        .collect();
+    let present: std::collections::HashSet<u32> = semantic.iter().map(|r| r.0).collect();
+    let nbrs: Vec<u32> = g
+        .neighbor_chunks(chunks, seeds, super::fused_width(super::FUSION_POOL))
+        .into_iter()
+        .filter(|id| !present.contains(id))
+        .collect();
+    if nbrs.is_empty() {
+        return (semantic, 0);
+    }
+    let mut q = text::embed_query(&text::prose_render_query(sem_query, opts.embed_preproc));
+    rank::normalize(&mut q);
+    let quantized = rank::quantize_i8(&q);
+    let docs: Vec<(u32, String)> = nbrs
+        .iter()
+        .filter_map(|&id| {
+            let chunk = chunks[id as usize];
+            let path = &files[chunk.file_id as usize].path;
+            let text = corpus::lines(root, path, &chunk)?;
+            let raw = corpus::doc_text(path, &text);
+            Some((id, text::prose_render_doc(&raw, opts.embed_preproc, opts.path_render).into_owned()))
+        })
+        .collect();
+    let mut vecs = ese::encode(docs.iter().map(|(_, t)| t.as_str()));
+    let mut out = semantic;
+    let injected = docs.len();
+    for ((id, _), v) in docs.iter().zip(vecs.iter_mut()) {
+        rank::normalize(v);
+        let v_i8 = rank::quantize_i8(v);
+        let d = rank::dot_distance_i8(&quantized, &v_i8);
+        out.push((*id, 1.0 - opts.graph_weight * (1.0 - d)));
+    }
+    out.sort_by(|a, b| a.1.total_cmp(&b.1));
+    (out, injected)
 }
 
 /// Fused ids into candidates. No scope filter: the cold path walks exactly the

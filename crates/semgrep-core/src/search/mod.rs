@@ -280,6 +280,16 @@ pub struct SearchOptions {
     /// the CLI sets it from `SEMGREP_DUMP_FEATURES=1`, keeping the flag
     /// surface clean; the only consumer is the checklist training dump.
     pub debug_features: bool,
+    /// Graph expansion (RESEARCH.md §35.3): pull the 1-hop import neighbors
+    /// of the top-N seed candidates into the scoring pool before fusion.
+    /// **Default 0 — off**, pending the §35.3 gates. The one lever aimed at
+    /// the vocabulary-gap bucket: the answer shares no words with the query,
+    /// but it is wired to a file that does.
+    pub graph_expand: usize,
+    /// Score multiplier for graph-injected candidates, so wiring cannot
+    /// swamp what the query's own words earned. §33's bridge learned this as
+    /// `bridge_weight`; same posture here.
+    pub graph_weight: f32,
     /// How many lines of each hit to show, centred on the best-matching line
     /// and clamped to the chunk. **Default 18** (RESEARCH.md §26.3).
     ///
@@ -502,6 +512,8 @@ impl Default for SearchOptions {
             decl_boost: 0.5,
             path_boost: 0.0,
             debug_features: false,
+            graph_expand: 0,
+            graph_weight: 1.0,
             passage_lines: 0,
             passage_chars: 800,
             defines: false,
@@ -689,6 +701,13 @@ pub struct SearchReport {
     /// not the options envelope.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bridge_terms: Option<Vec<String>>,
+    /// How many neighbor chunks graph expansion injected into the scoring
+    /// pool, summed over phrases and channels (RESEARCH.md §35.3). `Some(0)`
+    /// means the flag was armed and nothing fired — the fired-rate
+    /// stratification reads this, and the parity twin's vacuity guard needs
+    /// it because a tiny corpus pools everything and injection is a no-op.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub graph_injected: Option<usize>,
     /// Performance provenance: every stage on this path's schedule, in order,
     /// zero-filled where a stage did not run. Fixed shape, so two runs are
     /// comparable without special-casing which optional stages fired.

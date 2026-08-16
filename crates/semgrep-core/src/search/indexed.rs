@@ -26,6 +26,14 @@ pub fn run(
     trace.replay(prelude);
 
     let idx = LoadedIndex::load_dir(&d.index_dir, &d.root, load_needs(d, opts, pool))?;
+    // An armed graph flag against a graph-less index must be an error, not a
+    // silent no-op: the cold path builds its graph in memory, so a warm no-op
+    // here is a cold≠warm split. For a cache entry the caller answers this
+    // error by discarding the entry and streaming — which rebuilds it with a
+    // graph on the write-through — so the miss self-heals.
+    if opts.graph_expand > 0 && idx.graph.is_none() {
+        anyhow::bail!("index has no file graph; re-run `semgrep index`");
+    }
     for (stage, ms) in [
         (Stage::LoadMeta, idx.timings.meta_ms),
         (Stage::LoadChunks, idx.timings.chunks_ms),
@@ -54,6 +62,7 @@ pub fn run(
     let mut per_phrase: Vec<Vec<hit::Candidate>> = Vec::with_capacity(q.phrases.len());
     let mut used_hnsw = false;
     let mut bridge_terms_used: Vec<String> = Vec::new();
+    let mut graph_injected = 0usize;
     for query in &q.phrases {
         let query = query.as_str();
         let lexical =
@@ -83,10 +92,26 @@ pub fn run(
             }
         }
         // The lexical head, remembered past fusion: `bm25_pin` provenance
-        // (§32.4a). Sixteen covers any sane pin depth.
+        // (§32.4a). Sixteen covers any sane pin depth. Snapshotted BEFORE
+        // graph expansion so the pins stay a bm25-provenance guarantee —
+        // wiring must not dilute them.
         let bm25_head: Vec<u32> = lexical.iter().take(16).map(|r| r.0).collect();
-        let (semantic, hnsw) =
-            rank_semantic(&idx, &rows, &sem_query, opts, d, pool, &mut trace);
+        // Graph expansion, lexical side (§35.3) — only in the modes where the
+        // lexical list is fused; in semantic mode it feeds nothing but pins.
+        let lex_seeds: Vec<u32> = lexical.iter().take(opts.graph_expand).map(|r| r.0).collect();
+        let lexical = if opts.graph_expand > 0 && matches!(opts.mode, Mode::Bm25 | Mode::Hybrid)
+        {
+            trace.time(Stage::RankGraph, || {
+                let (l, n) = graph_expand_lexical(&idx, &rows, query, lexical, opts);
+                graph_injected += n;
+                l
+            })
+        } else {
+            lexical
+        };
+        let (semantic, hnsw) = rank_semantic(
+            &idx, &rows, &sem_query, opts, d, pool, &lex_seeds, &mut graph_injected, &mut trace,
+        );
         used_hnsw |= hnsw;
         let ranked = trace.time(Stage::RankFuse, || {
             rank::fuse(opts.mode, lexical, semantic, super::fused_width(pool), opts.sem_weight)
@@ -145,6 +170,7 @@ pub fn run(
             phrases: q.is_multi().then(|| q.phrases.clone()),
             floored_mask: fin.floored_mask,
             bridge_terms: (!bridge_terms_used.is_empty()).then_some(bridge_terms_used),
+            graph_injected: (opts.graph_expand > 0).then_some(graph_injected),
             stages: trace.finish(),
             ..Default::default()
         },
@@ -177,6 +203,9 @@ fn load_needs(d: &cache::Discovered, opts: &SearchOptions, pool: usize) -> LoadN
             && opts.use_hnsw
             && pool <= 128
             && graph_is_small,
+        // On the flag, not the mode — the §32.4b lesson above applies: a
+        // mode-gated load silently no-ops the feature warm.
+        graph: opts.graph_expand > 0,
     }
 }
 
@@ -327,6 +356,7 @@ fn bridge_expand(
 }
 
 /// Returns the semantic list and whether the graph answered it.
+#[allow(clippy::too_many_arguments)]
 fn rank_semantic(
     idx: &LoadedIndex,
     rows: &Rows,
@@ -334,6 +364,8 @@ fn rank_semantic(
     opts: &SearchOptions,
     d: &cache::Discovered,
     pool: usize,
+    lex_seeds: &[u32],
+    graph_injected: &mut usize,
     trace: &mut Trace,
 ) -> (Vec<(u32, f32)>, bool) {
     if !matches!(opts.mode, Mode::Semantic | Mode::Hybrid) {
@@ -388,8 +420,94 @@ fn rank_semantic(
     // report has the same keys whether or not the graph answered.
     trace.record(if use_graph { Stage::RankAnn } else { Stage::RankBrute }, elapsed_ms(start));
 
+    // Graph expansion (§35.3), pre-MaxSim on purpose: injected rows are
+    // scored with the same kernel and the same quantized query as the rest of
+    // this list, and MaxSim downstream rescores them like any other head
+    // member — appended after MaxSim they would carry raw distances into a
+    // head of blended pseudo-distances, which is a scale no fusion survives.
+    let ranked = if opts.graph_expand > 0 {
+        trace.time(Stage::RankGraph, || {
+            let (r, n) = graph_expand_semantic(idx, rows, ranked, &quantized, lex_seeds, opts);
+            *graph_injected += n;
+            r
+        })
+    } else {
+        ranked
+    };
+
     let ranked = rerank_maxsim(rows, query, ranked, opts, d, idx, trace);
     (ranked, use_graph)
+}
+
+/// Pull the 1-hop import neighbors of the seed candidates into the semantic
+/// list (RESEARCH.md §35.3). Seeds are the heads of both tier-1 lists.
+/// `graph_weight` scales the injected rows' similarity — `1 - w·(1 - d)` is
+/// the identity at 1.0 — so wiring cannot outrank what the query's own words
+/// earned.
+fn graph_expand_semantic(
+    idx: &LoadedIndex,
+    rows: &Rows,
+    ranked: Vec<(u32, f32)>,
+    quantized: &[i8],
+    lex_seeds: &[u32],
+    opts: &SearchOptions,
+) -> (Vec<(u32, f32)>, usize) {
+    let Some(g) = idx.graph.as_ref() else { return (ranked, 0) };
+    let seeds: Vec<u32> = ranked
+        .iter()
+        .take(opts.graph_expand)
+        .map(|r| r.0)
+        .chain(lex_seeds.iter().copied())
+        .collect();
+    let present: std::collections::HashSet<u32> = ranked.iter().map(|r| r.0).collect();
+    let nbrs = g.neighbor_chunks(&idx.chunks, seeds, super::fused_width(super::FUSION_POOL));
+    let emb = idx.emb_matrix_i8();
+    let mut out = ranked;
+    let mut injected = 0usize;
+    for id in nbrs {
+        if present.contains(&id) || !rows.serves(id) {
+            continue;
+        }
+        let row = &emb[id as usize * crate::EMBED_DIM..(id as usize + 1) * crate::EMBED_DIM];
+        let d = rank::dot_distance_i8(quantized, row);
+        out.push((id, 1.0 - opts.graph_weight * (1.0 - d)));
+        injected += 1;
+    }
+    out.sort_by(|a, b| a.1.total_cmp(&b.1));
+    (out, injected)
+}
+
+/// The lexical twin of [`graph_expand_semantic`]: neighbor chunks earn a real
+/// BM25 score of their own (scoped to exactly the injected set), scaled by
+/// `graph_weight`, and the merged list re-sorts. Base postings only — the
+/// same posture `bridge` takes toward the repair overlay.
+fn graph_expand_lexical(
+    idx: &LoadedIndex,
+    rows: &Rows,
+    query: &str,
+    lexical: Vec<(u32, f32)>,
+    opts: &SearchOptions,
+) -> (Vec<(u32, f32)>, usize) {
+    let (Some(g), Some(b)) = (idx.graph.as_ref(), idx.bm25.as_ref()) else {
+        return (lexical, 0);
+    };
+    let seeds: Vec<u32> = lexical.iter().take(opts.graph_expand).map(|r| r.0).collect();
+    let present: std::collections::HashSet<u32> = lexical.iter().map(|r| r.0).collect();
+    let allow: std::collections::HashSet<u32> = g
+        .neighbor_chunks(&idx.chunks, seeds, super::fused_width(super::FUSION_POOL))
+        .into_iter()
+        .filter(|id| !present.contains(id) && rows.serves(*id))
+        .collect();
+    if allow.is_empty() {
+        return (lexical, 0);
+    }
+    let pred = |id: u32| allow.contains(&id);
+    let extra = rank::bm25::top_k_scoped(b, query, allow.len(), None, Some(&pred));
+    let injected = extra.len();
+    let mut out = lexical;
+    out.extend(extra.into_iter().map(|(id, s)| (id, s * opts.graph_weight)));
+    out.sort_by(|a, b| b.1.total_cmp(&a.1));
+    (out, injected)
 }
 
 /// MaxSim rerank over the head of the semantic list. Passes through when

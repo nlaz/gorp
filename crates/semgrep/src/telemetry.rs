@@ -138,6 +138,8 @@ fn opts_block(opts: &SearchOptions) -> Value {
         "min_score": opts.min_score,
         "decl_boost": opts.decl_boost,
         "path_boost": opts.path_boost,
+        "graph_expand": opts.graph_expand,
+        "graph_weight": opts.graph_weight,
         "bm25_pin": opts.bm25_pin,
         "dedupe_overlap": opts.dedupe_overlap,
         "keep_coarse_top": opts.keep_coarse_top,

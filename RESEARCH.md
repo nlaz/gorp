@@ -8888,3 +8888,52 @@ more often than feature gaps); any win is small and lives in the same
 scale: MMR renormalizes, but `mmr_lambda` mixes the learned score
 against raw cosine similarity, so the sigmoid squash is part of the
 registered design, not a tuning knob.
+
+### 35.3 Pre-registration: graph expansion
+
+The one lever aimed at the 46% vocabulary-gap bucket (§35.0): the answer
+shares no words with the query, but it is wired to a file that does.
+§32.4b measured the reach — 48% of vocabulary-gap golds one import hop
+from a top-10 hit, 58% adding same-directory — and called it a ceiling,
+"generously matched". This builds the graph and spends that reach.
+
+Mechanism, fixed before any run. At build, one tree-sitter parse per
+supported file extracts import statements (ERROR nodes tolerated —
+imports are local, so whatever parsed still yields true edges; `cut`'s
+bail-on-error rule deliberately does not apply). Specifiers resolve
+against the corpus file table by longest path-suffix, ambiguity above 4
+files a deny not a guess — the §33 locale-ballast lesson in resolver
+form. Edges are undirected, stored as `graph.bin` (CSR, postcard),
+`has_graph` in the meta; an old index answers `--graph-expand` with a
+hard error that self-heals cache entries through the discard-and-stream
+path. At query time, seeds are the heads of both tier-1 lists
+(`--graph-expand N` each); their 1-hop neighbor files' chunks join the
+*scoring pool* — the lexical side earns a real scoped BM25 score, the
+semantic side is scored with the same quantized query over the same
+stored rows, pre-MaxSim so injected rows share the head's score space.
+`--graph-weight` scales what wiring earned (identity at 1.0); this is
+candidate-pool expansion, not embed-text injection — §33/C3 priced that
+and it stayed dominated. The cold path builds the graph in memory and
+mirrors point for point; grammarless builds refuse the flag.
+
+Gates in order, each with its kill:
+
+1. **Pool-recall probe** on `eval/queries/vocabgap-s32.jsonl` — a
+   legitimate offline use, §21.2 notwithstanding, because pool
+   *membership* is recall, not ranking. Kill: fewer than **10%** of the
+   138 regions gain gold-in-top-30 at `--graph-expand 8`.
+2. **guessplay**, arms 4/8/16: adopt only on a rank_func CI excluding
+   zero with rank_func_ovl not regressed; `rank:graph` p50 under ~10%
+   of total via the trace.
+3. Only then a live campaign arm via `run.py` `SG_ENGINE_CONDITIONS`.
+
+Predictions: gate-1 conversion lands well under the 48–58% reach —
+the resolver is exact where the census was generous, and reaching the
+pool is not surviving fusion. §33.2's dilution arithmetic carries: an
+offline +0.018 became +0.0025 live, so even a clean gate-2 pass is a
+hypothesis about agents, not a result — that is what gate 3 is for.
+The failure worth watching is hub files: a config imported by
+everything injects its neighbors into every query, which is why the
+ambiguity deny and the weight exist. If gate 1 fails, the residual
+diagnosis is resolver reach vs. fusion drown, and the two prescribe
+different follow-ups (better resolution vs. seed-quality gating).

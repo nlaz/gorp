@@ -14,11 +14,14 @@ use std::path::{Path, PathBuf};
 pub struct LoadNeeds {
     pub bm25: bool,
     pub hnsw: bool,
+    /// The file graph (`graph.bin`), needed only when graph expansion is
+    /// armed (`SearchOptions::graph_expand > 0`).
+    pub graph: bool,
 }
 
 impl LoadNeeds {
     pub fn all() -> Self {
-        Self { bm25: true, hnsw: true }
+        Self { bm25: true, hnsw: true, graph: true }
     }
 }
 
@@ -32,6 +35,7 @@ pub struct LoadTimings {
     pub mmap_ms: f64,
     pub hnsw_ms: f64,
     pub sif_ms: f64,
+    pub graph_ms: f64,
 }
 
 /// A loaded index. The embedding matrix stays mmap'd — resident memory grows
@@ -47,6 +51,8 @@ pub struct LoadedIndex {
     /// Corpus token stats when the index is SIF-weighted — queries must be
     /// pooled with the same weights or the spaces don't match.
     pub sif: Option<text::SifStats>,
+    /// The file graph, when the index carries one and the query asked.
+    pub graph: Option<super::graph::FileGraph>,
     pub timings: LoadTimings,
 }
 
@@ -116,7 +122,16 @@ impl LoadedIndex {
         } else {
             None
         };
-        Ok(Self { root: root.to_path_buf(), meta, chunks, bm25, emb, hnsw, sif, timings: t })
+        let graph = if meta.has_graph && needs.graph {
+            let t0 = std::time::Instant::now();
+            let g = super::graph::FileGraph::from_bytes(&std::fs::read(dir.join("graph.bin"))?)
+                .context("graph.bin corrupt; re-run `semgrep index`")?;
+            t.graph_ms = ms(t0);
+            Some(g)
+        } else {
+            None
+        };
+        Ok(Self { root: root.to_path_buf(), meta, chunks, bm25, emb, hnsw, sif, graph, timings: t })
     }
 
     /// The embedding matrix: `n_chunks × EMBED_DIM` i8, one unit-normalized
