@@ -9008,3 +9008,39 @@ shipped fine blend** — including, retroactively, part of why §24.3's
 decl weight sweep was flat. A future boost of this shape must either
 act on the fine-blended order (the checklist's slot) or argue for a
 `fine_blend < 1` regime first.
+
+#### 34.5 The polish pass: three shapes out of 309 hits (2026-08-15)
+
+A second live audit — 103 queries, 33 scopes, 309 hits — found zero
+misinforming defects (§34.4's classes stayed extinct at 4× the sample) and
+13 polish cases in three shapes, all fixed in `search::unit`:
+
+- **A: the dangling `*/`** (4/309). The fine window opens on the closing
+  line of the doc block above the declaration it matched. Fixed by
+  definition rather than by rule: `*/` closes something the window does
+  not show, so it *is* a closer-only line, and the existing snap peels it.
+- **B: mid-block, opener locked out** (7/309). A window starting
+  mid-javadoc usually contains the col-0 declaration it documents, so the
+  anchor is 0 and no head walk can reach the `/**` a few lines up. Fixed
+  by a walk-back: scan up through the comment block (≤12 lines) for the
+  opener and prepend the block's top — where a doc comment front-loads
+  its summary — under two caps, 3 rows and 240 characters, opener exempt
+  from the character cap. The block's middle elides like any gap; the `⋮`
+  between block top and window is the truncation. Gap-fill learned the
+  same character bound, both because a line longer than the budget costs
+  more than the marker it replaces and because the fill would otherwise
+  undo the cap one line later. Python docstring middles carry no per-line
+  marker and stay out of scope by design.
+- **C: namespace as innermost head** (2/309, the one rule bug). A window
+  directly at module scope made `module Fluent` the *innermost* head,
+  which shipped unconditionally — the §34.2 path-redundancy rule only ran
+  for outer heads, and this was the door it left open. Namespace-keyword
+  lines (`module`/`namespace`/`package`) now take the informative check
+  at any position; redundant ones walk past, usually ending bare, which
+  is accurate — the header's path already carries the name.
+
+Also measured by the same sweep, for the record: median 1 added row per
+hit, a quarter of hits correctly bare, bytes at 1.11× the grep form, and
+10 of the 21 hits the detector first flagged as "mid-comment-open" turned
+out to already render their opener via the §34.4 own-block rule — the
+detector was not looking above the window.

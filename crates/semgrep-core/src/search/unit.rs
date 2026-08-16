@@ -28,6 +28,22 @@ use super::UnitRow;
 use crate::text;
 use std::collections::BTreeSet;
 
+/// How far above a mid-block window the §34.5 walk looks for the comment
+/// opener before giving up. Every field case sat 1–4 lines up; 12 covers a
+/// long javadoc preamble without letting a stray `*` at the top of a huge
+/// license block drag in a screenful.
+const BLOCK_WALK_CAP: usize = 12;
+
+/// At most this many rows of the comment block's top get prepended — the
+/// opener plus the summary sentence, which is where a doc block front-loads
+/// its meaning. The middle elides.
+const BLOCK_LINES_CAP: usize = 3;
+
+/// And at most this many characters of them, so three maximal `-M`-width
+/// rows cannot triple a hit's cost. The opener is exempt (see the call
+/// site); the cap binds the lines after it.
+const BLOCK_CHARS_CAP: usize = 240;
+
 /// The unit-view rows for a hit whose (already fine-chosen) window spans
 /// `start..=end`, 1-based. Returned in file order; a jump between
 /// consecutive rows' line numbers is an elision the renderer marks.
@@ -86,18 +102,58 @@ pub(crate) fn compute(lines: &[&str], path: &str, start: u32, end: u32) -> Vec<U
 
     let mut chosen: BTreeSet<usize> = (ws..=we).collect();
 
+    // Walk back to the comment block's opener (§34.5): a window that starts
+    // mid-javadoc (`* Enqueue a rerender...`) often contains the col-0
+    // declaration it documents, so the anchor is 0 and the head walk can
+    // never reach the `/**` sitting a few lines up. The opener and the top
+    // of the block — where the summary sentence lives — are prepended under
+    // two caps, and the block's middle elides like any other gap: the `⋮`
+    // between block top and window IS the truncation. Python docstring
+    // middles carry no per-line marker and stay undetectable by design.
+    if lines[ws].trim_start().starts_with('*') && !lines[ws].trim_start().starts_with("*/") {
+        let mut opener = None;
+        let mut i = ws;
+        while i > 0 && ws - i <= BLOCK_WALK_CAP {
+            i -= 1;
+            if !is_comment(lines[i]) {
+                break;
+            }
+            if lines[i].trim_start().starts_with("/*") {
+                opener = Some(i);
+                break;
+            }
+        }
+        if let Some(o) = opener {
+            let (mut rows, mut chars) = (0usize, 0usize);
+            for j in o..ws {
+                if rows >= BLOCK_LINES_CAP {
+                    break;
+                }
+                chars += lines[j].trim().chars().count();
+                // The opener itself is exempt from the character cap, the
+                // same rule `grow_to_budget` applies to the matched line: a
+                // trigger that shows nothing is worse than one long line.
+                if j > o && chars > BLOCK_CHARS_CAP {
+                    break;
+                }
+                chosen.insert(j);
+                rows += 1;
+            }
+        }
+    }
+
     // Heads (§34 rules 2-4). The innermost is unconditional — it is the one
     // row the audit found doing nearly all the work. The outer must pay for
     // itself with a name the path prefix does not already carry, which is
     // the rule that keeps `class BaseModelForm` above a hit in models.py
     // and drops `module Cop` above a hit in cop/layout/foo.rb.
-    let inner = find_head(lines, ws, anchor);
+    let inner = find_head(lines, path, ws, anchor);
     if let Some(h) = inner {
         chosen.insert(h);
         if let Some(d) = doc_line_under(lines, h, ws) {
             chosen.insert(d);
         }
-        if let Some(o) = find_head(lines, h, indent_of(lines[h]))
+        if let Some(o) = find_head(lines, path, h, indent_of(lines[h]))
             && outer_head_is_informative(path, lines[o])
         {
             chosen.insert(o);
@@ -117,12 +173,17 @@ pub(crate) fn compute(lines: &[&str], path: &str, start: u32, end: u32) -> Vec<U
 
     // Gap fill (§34 rule 6): a gap of up to three lines costs less to show
     // than to mark — an elision row is a row too — so short gaps arrive
-    // whole and only real distance becomes a jump.
+    // whole and only real distance becomes a jump. A line longer than the
+    // block budget breaks that premise (it costs more than the marker it
+    // replaces) and stays elided; this is also what keeps the fill from
+    // undoing the §34.5 walk-back's character cap one line later.
     let picked: Vec<usize> = chosen.iter().copied().collect();
     for pair in picked.windows(2) {
         let (a, b) = (pair[0], pair[1]);
         if b - a > 1 && b - a - 1 <= 3 {
-            chosen.extend(a + 1..b);
+            chosen.extend(
+                (a + 1..b).filter(|&j| lines[j].trim().chars().count() <= BLOCK_CHARS_CAP),
+            );
         }
     }
 
@@ -154,13 +215,15 @@ fn indent_of(line: &str) -> usize {
 }
 
 /// Non-blank, and nothing on it but closing punctuation — `}`, `),`, `];` —
-/// or a bare `end`. The kind of line the §34 screenshots opened windows on.
+/// or a bare `end`, or a bare `*/` (§34.5): a comment's closing line closes
+/// something the window does not show, which is this predicate's whole
+/// definition, and 4 of the 309 audited hits opened on one.
 fn is_closer_only(line: &str) -> bool {
     let t = line.trim();
     if t.is_empty() {
         return false;
     }
-    if matches!(t, "end" | "end;" | "end,") {
+    if matches!(t, "end" | "end;" | "end," | "*/") {
         return true;
     }
     t.chars().all(|c| matches!(c, ')' | ']' | '}' | '>' | ',' | ';') || c.is_whitespace())
@@ -256,7 +319,7 @@ fn is_declaration(line: &str) -> bool {
 /// string from electing `END:VCALENDAR` as its head. A shallower line that
 /// is the tail of a multi-line signature (`) {`) resolves to the
 /// signature's first line instead of being taken at face value.
-fn find_head(lines: &[&str], below: usize, max_indent: usize) -> Option<usize> {
+fn find_head(lines: &[&str], path: &str, below: usize, max_indent: usize) -> Option<usize> {
     if max_indent == 0 {
         return None; // nothing can sit shallower than the margin
     }
@@ -287,10 +350,29 @@ fn find_head(lines: &[&str], below: usize, max_indent: usize) -> Option<usize> {
             continue;
         }
         if is_declaration(l) {
+            // A namespace line takes the path-redundancy check at ANY
+            // position (§34.5), not only as an outer head: a window sitting
+            // directly at module scope makes `module Fluent` the innermost
+            // head, and the innermost-unconditional rule was the one door
+            // the §34.2 calibration left open for the path to be restated
+            // vertically. Redundant → keep walking; ending bare is
+            // accurate, since the header's path already carries the name.
+            if is_namespace(l) && !outer_head_is_informative(path, l) {
+                continue;
+            }
             return Some(i);
         }
     }
     None
+}
+
+/// Is this a namespace-keyword line — a container, not a unit? These are the
+/// only heads whose name is routinely the path restated (`module Fluent`
+/// above `fluent/...`), which is why they alone lose the
+/// innermost-unconditional privilege.
+fn is_namespace(line: &str) -> bool {
+    let t = line.trim_start();
+    ["module ", "namespace ", "package "].iter().any(|k| t.starts_with(k))
 }
 
 /// First line of the multi-line statement whose tail sits at `at`: the
@@ -549,6 +631,103 @@ mod tests {
         ];
         let rows = compute(&f, "src/aof.c", 3, 4);
         assert_eq!(rows[0].line, 1, "the block's own opener heads the window: {:?}", nums(&rows));
+    }
+
+    #[test]
+    fn a_dangling_comment_close_peels_like_any_closer() {
+        // The preact renderComponent shape (§34.5 A): the fine window opens
+        // on the `*/` of the doc block above the declaration it matched.
+        let f = [
+            "/**",                                        // 1
+            " * Trigger in-place re-rendering.",          // 2
+            " */",                                        // 3
+            "function renderComponent(component) {",      // 4
+            "    let vnode = component._vnode;",          // 5
+        ];
+        let rows = compute(&f, "src/component.js", 3, 5);
+        assert_eq!(rows[0].line, 4, "the `*/` peels; the block opens on the declaration");
+    }
+
+    #[test]
+    fn a_mid_block_window_walks_back_to_its_opener() {
+        // The preact enqueueRender shape (§34.5 B): the window starts
+        // mid-javadoc and contains the col-0 declaration, so anchor = 0 and
+        // no head walk can reach the opener — the walk-back does.
+        let f = [
+            "/**",                                                // 1
+            " * Enqueue a rerender of a component",               // 2
+            " * @param c The component to rerender",              // 3
+            " */",                                                // 4
+            "export function enqueueRender(c) {",                 // 5
+        ];
+        let rows = compute(&f, "src/component.js", 2, 5);
+        assert_eq!(rows[0].line, 1, "the block's opener joins the window: {:?}", nums(&rows));
+    }
+
+    #[test]
+    fn the_walk_back_is_capped_and_elides_the_middle() {
+        // A long javadoc with the window at its tail: at most
+        // BLOCK_LINES_CAP rows of the block's top arrive, the middle is a
+        // jump the renderer marks, and one oversized line trips the
+        // character cap.
+        let long = "x".repeat(300);
+        let long_row = format!(" * {long}");
+        let f = [
+            "/**",                       // 1
+            " * Summary sentence.",      // 2
+            " * Second sentence.",       // 3
+            " * Detail one.",            // 4
+            " * Detail two.",            // 5
+            " * Detail three.",          // 6
+            " * Detail four.",           // 7
+            " * @param a first",         // 8
+            " */",                       // 9
+            "fn documented(a: u32) {",   // 10
+        ];
+        let rows = compute(&f, "src/lib.rs", 8, 10);
+        let n = nums(&rows);
+        let prepended: Vec<u32> = n.iter().copied().filter(|&x| x < 8).collect();
+        assert!(prepended.len() <= 3, "block top is capped: {n:?}");
+        assert_eq!(prepended.first(), Some(&1), "the opener always arrives");
+        assert!(!n.contains(&7), "the middle elides: {n:?}");
+
+        // The char cap: an oversized second line stops the prepend after
+        // the (exempt) opener.
+        let g = [
+            "/**",                    // 1
+            long_row.as_str(),        // 2
+            " * @param a first",      // 3
+            " */",                    // 4
+            "fn documented() {",      // 5
+        ];
+        let rows = compute(&g, "src/lib.rs", 3, 5);
+        let n = nums(&rows);
+        assert!(n.contains(&1), "the opener is exempt from the char cap");
+        assert!(!n.contains(&2), "an oversized block line is not dragged in: {n:?}");
+    }
+
+    #[test]
+    fn a_redundant_namespace_never_heads_even_innermost() {
+        // The fluentd shape (§34.5 C): a window directly at module scope
+        // makes the namespace the innermost head, where the path-redundancy
+        // check used not to run.
+        let f = [
+            "module Fluent",                                   // 1
+            "  NULL_CHAIN = NullOutputChain.instance",         // 2
+            "  LIMIT = ::Fluent::Buffer::OverflowError",       // 3
+        ];
+        let redundant = compute(&f, "fluent/event_router.rb", 2, 3);
+        assert!(
+            !nums(&redundant).contains(&1),
+            "the path already says fluent: {:?}",
+            nums(&redundant)
+        );
+        let informative = compute(&f, "lib/pipeline.rb", 2, 3);
+        assert!(
+            nums(&informative).contains(&1),
+            "a namespace the path does not carry still heads: {:?}",
+            nums(&informative)
+        );
     }
 
     #[test]
