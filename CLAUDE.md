@@ -26,18 +26,25 @@ ranks, `cache` never scores, `search` orchestrates rather than computes.
   nothing is timing". `crates/semgrep-core/tests/trace.rs` bounds that residual.
 - `corpus/` — directory into files into chunks. `mod` walks, `chunk` cuts and
   re-reads, `pass` drives the parallel read, `diff` compares a tree against an
-  index.
+  index, `funcchunk` cuts on function boundaries (tree-sitter, `func-chunk`).
 - `text/` — text into representations. `token` (code-aware tokenizer), `embed`,
-  `sif` (rarity-weighted pooling, §9.1).
+  `sif` (rarity-weighted pooling, §9.1), `prose` (how text is rendered before
+  embedding, §14.2/§20) over `prose_vocab` (the frozen keyword tables — data
+  with a provenance: each was measured against a published arm, so editing one
+  silently re-defines that arm).
 - `rank/` — query plus representations into ordered ids. `bm25` (one scorer over
   a `Postings` trait), `vec` (kernels and quantization), `topk`, `fuse`, `mmr`,
-  `prf`, `maxsim`.
+  `prf`, `maxsim`, `bridge` (vocabulary-gap expansion, §33).
 - `store/` — representations on disk. `build` (+ `build/embed`, `build/sif`),
   `load`, `bm25` (the flat mmap layout).
 - `cache/` — which index answers, and keeping it honest. `mod` (discovery,
   fill), `compat` (generations), `budget`, `repair` (the read-repair overlay).
-- `search/` — orchestration and materialization. `indexed` (warm), `stream`
-  (cold), `rows` (the union id space), `hit`.
+- `search/` — orchestration, and the tail that turns ids into hits. `indexed`
+  (warm), `stream` (cold), `rows` (the union id space), `options`
+  (`SearchOptions`, the type the CLI mirrors flag for flag), `query` (phrase
+  splitting, §31), `hit` (candidate sequencing) over `rerank` (the fine
+  rerank, §29.1) and `materialize` (span overlap, budget, best-line re-read),
+  `unit` (the unit view's rows, §34), `checklist` (the learned blend, §35.2).
 - `keyword.rs` — the exact-match escape hatch, independent of all of it.
 
 `crates/semgrep` is the CLI, built as **two binaries over one source**: `sg`
@@ -47,8 +54,15 @@ harness resolve it by name). Only the name differs — env vars,
 unchanged, so `sg` prints `semgrep:`. Deliberate: that is the expensive half
 of a rename and it invalidates every built index (RESEARCH.md §19.9).
 Its modules: `cli` (flags), `cmd/` (one file per verb), `out`
-(every write to stdout or stderr). **stdout is data, stderr is commentary** —
+(every write to stdout or stderr), `telemetry` (the `SEMGREP_TRACE_FILE`
+envelope — schema `semgrep.trace/1`, and the contract the eval harnesses
+read). **stdout is data, stderr is commentary** —
 `crates/semgrep/tests/cli.rs` enforces it.
+
+Engine integration tests split by concern under `crates/semgrep-core/tests/`:
+`e2e_general.rs` (the four modes and cold==warm), `e2e_cache.rs` (§8 cache
+behaviors), `e2e_publish.rs` (publication is a swap), over a shared
+`common/mod.rs`. Each is its own process and therefore its own cache dir.
 
 ### Harnesses
 
