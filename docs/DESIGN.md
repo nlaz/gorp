@@ -1,8 +1,9 @@
 # gorp — a semantic grep for agents
 
-**Status:** v1 design, 2026-07-27, kept current on structure — the shape below
-is what shipped. Measured numbers here are the v1 round; CLAUDE.md's "Known
-costs" is the live table, and RESEARCH.md records what changed and why.
+**Status:** v1 design, 2026-07-27, kept current on structure (last checked
+2026-08-16) — the shape below is what shipped. Measured numbers here are the
+v1 round; CLAUDE.md's "Known costs" is the live table, and RESEARCH.md
+records what changed and why.
 **Name:** `gorp` — semantic grep. Chosen for direct lineage with grep/ripgrep,
 which is the incumbent agent search tool this project benchmarks against.
 (Distinct from r2c Semgrep, the static-analysis tool.)
@@ -36,7 +37,7 @@ Both are consumed as path dependencies (`../anny`, `../ese`) for now.
 | `keyword`  | Regex/literal match, grep semantics | Parallel scan via ripgrep's own crates (`grep-regex`, `grep-searcher`, `ignore`) | Same scan (no keyword index in v1 — rg is already near-optimal here; this keeps our keyword numbers honest) |
 | `bm25`     | Ranked lexical search over chunks | One-pass in-memory index build, then query | Serialized postings |
 | `semantic` | Embedding similarity over chunks (default mode — semantic-first, RESEARCH.md §14) | Stream files → chunk → `ese::encode` → brute-force top-k (bounded memory: only a k-heap retained) | Default: exact rayon brute-force over the mmap'd embedding matrix (memory-light; ~1.5 GB of f32 vectors would otherwise sit resident in HNSW for a kernel-sized corpus). `gorp index --hnsw` opts into the `anny` graph for ~ms queries; benchmarks compare both. |
-| `hybrid`   | Reciprocal-rank fusion of `bm25` + `semantic` (off by default until semantic carries its weight, RESEARCH.md §14) | Both cold paths share one corpus pass | Both warm paths |
+| `hybrid`   | Weighted reciprocal-rank fusion of `bm25` + `semantic`, opt-in via `--mode hybrid`. The shipped default instead pins the top BM25 hits into the semantic candidate set (`--bm25-pin`, RESEARCH.md §32.4b), so an identifier query still gets its exact match | Both cold paths share one corpus pass | Both warm paths |
 
 **Why chunks for both BM25 and semantic:** one document table, one granularity,
 so fusion and eval scoring are apples-to-apples, and every result maps back to
@@ -61,11 +62,19 @@ BM25 params: k1 = 1.2, b = 0.75.
 
 ### Hybrid fusion
 
-RRF: `score(d) = Σ 1/(60 + rank_i(d))` over the BM25 and semantic lists
-(top-128 each), ties broken by semantic score. Cheap, robust, no tuning of
-score scales. Exact keyword hits can optionally boost (v1.1).
+Weighted RRF over the BM25 and semantic lists (top-128 each): BM25
+contributes `1/(60 + rank)` at weight 1.0, semantic the same at
+`sem_weight` (shipped default 0.2 — tuned, not guessed), ties broken by
+semantic score. Cheap, robust, no tuning of score scales.
 
-## Index format (`.gorp/` at corpus root)
+## Index format
+
+The index is a cache (RESEARCH.md §8): entries live under `~/.cache/gorp`
+(`GORP_CACHE_DIR` to override), keyed by canonical root plus chunk
+parameters, and a plain ranked search writes one through on a cold miss. A
+local `.gorp/` at the corpus root is still honored by discovery when
+present. `meta.json` is written last — writing it is what publishes an
+entry. Each entry holds:
 
 | File | Contents |
 | ---- | -------- |
@@ -87,7 +96,7 @@ falls back to exact brute-force over `emb.bin`.
 ## CLI
 
 ```
-gorp <QUERY> [PATHS…]            # search (default: ranked semantic; auto-uses .gorp/ if present & fresh)
+gorp <QUERY> [PATHS…]            # search (default: ranked semantic; auto-discovers a cache entry for the scope)
   -e, --exact                   # exact regex, grep semantics: every match, exit 1 on none
   -i / -F / -w / -c / --all     # exact mode: case / literal / whole words / counts / uncapped
   -k, --top N                   # ranked results, default 5 (bare -k means 20)
@@ -176,13 +185,7 @@ Harness in `eval/`: `generate.py` (query gen via claude CLI), `run_eval.py`
 
 ## Milestones
 
-M1–M4 have all shipped; only v2 remains.
-
-- ~~**M1** — core engine + CLI + tests (this repo builds, fixture-corpus
-  integration tests pass).~~
-- ~~**M2** — bench harness runs on all three corpora; first speed/RSS/CPU
-  tables.~~ (the harness now lives in the sibling `gorp-bench` repo)
-- ~~**M3** — retrieval evals generated + scored; quality tables.~~
-- ~~**M4** — agent-task evals; tune (chunking, fusion, EF) on findings.~~
-- **v2** — fold-based incremental/watch indexing (see `FOLD.md`); MCP server
-  mode.
+M1–M4 (engine, bench harness, retrieval evals, agent-task evals) have all
+shipped; the bench harness now lives in the sibling `gorp-bench` repo. What
+remains is v2: fold-based incremental/watch indexing (see `FOLD.md`, and its
+§9 blocker) and an MCP server mode.
