@@ -188,7 +188,7 @@ fn the_default_result_is_a_unit_view() {
         let (lo, hi) = span.split_once('-').expect("header span is start-end");
         let (lo, hi): (u32, u32) =
             (lo.parse().expect("span start"), hi.parse().expect("span end"));
-        // Body rows: `line:<tab>text` or a bare elision. Numbers strictly
+        // Body rows: `line:<gutter>text` or a bare elision. Numbers strictly
         // increase and stay inside the span the header promised, and the
         // first and last rows ARE the span — the header states the display,
         // not some wider region the caller cannot see.
@@ -197,7 +197,7 @@ fn the_default_result_is_a_unit_view() {
             if *l == "⋮" {
                 continue;
             }
-            let (n, _) = l.split_once(":\t").unwrap_or_else(|| panic!("not a unit row: {l:?}"));
+            let (n, _) = l.split_once(":  ").unwrap_or_else(|| panic!("not a unit row: {l:?}"));
             let n: u32 = n.parse().unwrap_or_else(|_| panic!("gutter is a number: {l:?}"));
             assert!(n > prev, "row numbers must increase: {b:?}");
             assert!((lo..=hi).contains(&n), "row {n} outside header span {lo}-{hi}");
@@ -211,6 +211,56 @@ fn the_default_result_is_a_unit_view() {
         assert!(b.len() <= fine + 16, "a unit view stays small, got {}", b.len());
     }
     assert!(!r.stdout.contains("gorp:"), "stdout stays data-only");
+}
+
+/// Colour is a terminal-only overlay, and stripping it gives back the exact
+/// bytes a pipe gets. Both halves matter: the default must stay uncoloured
+/// here — every one of these tests, and every harness, reads gorp through a
+/// pipe — and `--color always` must add escapes without moving a single
+/// character of the data underneath them.
+#[test]
+fn color_is_off_under_a_pipe_and_purely_additive_when_forced() {
+    let sg = Sg::new();
+    let plain = sg.run(&["how is the retry delay computed", "-k", "3"]);
+    let painted = sg.run(&["how is the retry delay computed", "-k", "3", "--color", "always"]);
+    assert_eq!(plain.code, 0, "stderr: {}", plain.stderr);
+    assert_eq!(painted.code, 0, "stderr: {}", painted.stderr);
+
+    assert!(
+        !plain.stdout.contains('\x1b'),
+        "a piped search must not colour: {:?}",
+        plain.stdout
+    );
+    assert!(painted.stdout.contains("\x1b[35m"), "--color always paints the path magenta");
+    assert!(painted.stdout.contains("\x1b[32m"), "--color always paints line numbers green");
+
+    let stripped =
+        painted.stdout.replace("\x1b[35m", "").replace("\x1b[32m", "").replace("\x1b[0m", "");
+    assert_eq!(stripped, plain.stdout, "colour must not change the data under it");
+
+    // `--json` owns its own escaping, and an ANSI escape inside a string
+    // field is corrupt data rather than a colour.
+    let json = sg.run(&["retry delay", "-k", "2", "--json", "--color", "always"]);
+    assert!(!json.stdout.contains('\x1b'), "--json is never coloured: {:?}", json.stdout);
+}
+
+/// The gutter between a row's line number and its text is two spaces, not a
+/// tab: a tab is 8 columns in one terminal and 4 in another, and any tab in
+/// the row's own text then re-aligns everything after it. Asserted on the
+/// bytes because it is a contract — `eval/` and gorp-bench's scorer both
+/// recognise a no-path hit line by this shape.
+#[test]
+fn a_unit_row_gutter_is_two_spaces() {
+    let sg = Sg::new();
+    let r = sg.run(&["how is the retry delay computed", "-k", "2"]);
+    assert_eq!(r.code, 0, "stderr: {}", r.stderr);
+    assert!(!r.stdout.contains('\t'), "no tabs in the gutter: {:?}", r.stdout);
+    let rows: Vec<&str> = r
+        .lines()
+        .into_iter()
+        .filter(|l| l.split_once(":  ").is_some_and(|(n, _)| n.parse::<u32>().is_ok()))
+        .collect();
+    assert!(!rows.is_empty(), "the unit view prints `line:  text` rows: {:?}", r.stdout);
 }
 
 /// `--no-unit` is the display control arm (RESEARCH.md §34.3): the bare
@@ -375,7 +425,7 @@ fn multi_phrase_queries_keep_the_output_contract() {
         if line == "⋮" {
             continue;
         }
-        if let Some((n, _)) = line.split_once(":\t") {
+        if let Some((n, _)) = line.split_once(":  ") {
             assert!(n.parse::<u32>().is_ok(), "a unit row's gutter is a number: {line:?}");
             continue;
         }
@@ -747,8 +797,8 @@ fn one_named_file_drops_the_path_and_leads_with_the_line() {
     assert_eq!(one.code, 0, "stderr: {}", one.stderr);
     assert_eq!(
         one.lines()[0],
-        "1:\tdef target(): pass",
-        "one named file: line, tab, text — no path"
+        "1:  def target(): pass",
+        "one named file: line, gutter, text — no path"
     );
 
     // -H asks for it back, which is what a caller splitting on `:` wants.
@@ -1193,7 +1243,7 @@ fn multiple_paths_search_all_of_them_and_nothing_else() {
     for line in stdout.lines().filter(|l| !l.trim().is_empty()) {
         // Since §34 the path lives on each hit's header line; body rows and
         // elision markers carry none.
-        if line == "⋮" || line.split_once(":\t").is_some_and(|(n, _)| n.parse::<u32>().is_ok())
+        if line == "⋮" || line.split_once(":  ").is_some_and(|(n, _)| n.parse::<u32>().is_ok())
         {
             continue;
         }
@@ -1557,7 +1607,7 @@ fn context_widens_the_unit_view_in_ranked_mode() {
     for line in ctx.lines().iter().skip(1).filter(|l| !l.trim().is_empty()) {
         assert!(
             *line == "⋮"
-                || line.split_once(":\t").is_some_and(|(n, _)| n.parse::<u32>().is_ok())
+                || line.split_once(":  ").is_some_and(|(n, _)| n.parse::<u32>().is_ok())
                 || line.rsplit_once(':').is_some_and(|(_, s)| s.contains('-')),
             "row grammar broken by -C: {line:?}"
         );

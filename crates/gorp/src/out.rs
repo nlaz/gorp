@@ -3,9 +3,14 @@
 //! One rule, and the CLI tests enforce it: **stdout is data, stderr is
 //! commentary.** Exact mode prints `path:line:text`, parseable by anything
 //! that parses grep; ranked mode prints the unit view (RESEARCH.md §34) — a
-//! `path:start-end` header, then `line:\ttext` rows, blank-line separated per
+//! `path:start-end` header, then `line:␣␣text` rows, blank-line separated per
 //! hit. Footers, warnings, stats, and suggestions go to stderr, so a pipeline
 //! gets clean data and a human still gets told what happened.
+//!
+//! Colour is a second, strictly optional layer over that same grammar: the
+//! escapes wrap the path and the line number and nothing else, so removing
+//! them gives back the bytes a parser sees. It is off unless stdout is a
+//! terminal, which is what keeps the contract intact under a pipe.
 //!
 //! Printing lives here rather than beside the commands so the commands are about
 //! deciding what to show, not how.
@@ -51,6 +56,53 @@ const OMITTED: &str = " [… +";
 /// there. Bare — no count, no gutter — because the numbers on either side
 /// already say exactly how many, and a marker must not parse as a hit line.
 const ELISION: &str = "⋮";
+
+/// What separates a row's line number from its text when the path is not on
+/// the line. Two spaces rather than a tab: a tab renders at whatever the
+/// consumer's tab stop happens to be, so the same output was 8 columns of
+/// gutter in one terminal and 4 in another, and a line whose own text
+/// contains tabs re-aligned everything after it. Two spaces are two columns
+/// everywhere, which is the whole requirement — the gutter exists to keep
+/// `264:code` from running the number into the code, not to build a table.
+const GUTTER: &str = "  ";
+
+/// ripgrep's default palette, so output from the two tools reads the same in
+/// the same terminal: paths magenta, line numbers green. Nothing else is
+/// coloured — gorp's ranked hits have no match offsets to paint red, because
+/// a semantic hit does not match a substring in the first place.
+const PATH_STYLE: &str = "\x1b[35m";
+const LINE_STYLE: &str = "\x1b[32m";
+const RESET: &str = "\x1b[0m";
+
+/// `text` wrapped in an ANSI escape when `on`, untouched when not.
+///
+/// The un-coloured branch returns the same string, so a caller need not
+/// duplicate its `println!` per colour state — which is what keeps colour
+/// from forking the output grammar into two.
+fn paint(on: bool, style: &str, text: impl std::fmt::Display) -> String {
+    if on { format!("{style}{text}{RESET}") } else { text.to_string() }
+}
+
+/// Whether to colour, from `--color`'s three values.
+///
+/// `auto` is the default and means *a human is watching*: stdout is a
+/// terminal, `NO_COLOR` is unset (the informal standard every colouring tool
+/// honours), and `TERM` is not `dumb`. Under a pipe, a harness, or `--json`
+/// this is false and stdout is the same bytes it has always been — the
+/// `path:line:text` contract is not something a display preference gets to
+/// change.
+pub fn color_enabled(when: &str) -> bool {
+    match when {
+        "always" => true,
+        "never" => false,
+        _ => {
+            use std::io::IsTerminal;
+            std::io::stdout().is_terminal()
+                && std::env::var_os("NO_COLOR").is_none()
+                && std::env::var_os("TERM").is_none_or(|t| t != "dumb")
+        }
+    }
+}
 
 /// A line as it gets printed: at most `max` characters, marked when anything was
 /// dropped. `max == 0` is no limit.
@@ -153,7 +205,7 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
         let mut seen = HashSet::new();
         for hit in &hits[..shown] {
             if seen.insert(hit.path.as_str()) {
-                println!("{}", quote_path(&hit.path));
+                println!("{}", paint(opts.color, PATH_STYLE, quote_path(&hit.path)));
             }
         }
         return;
@@ -175,16 +227,16 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
         // skip it, and printed only when the caller asked for `defines` —
         // stdout is still data, just data with a comment in it.
         if let Some(defs) = hit.defines.as_ref().filter(|d| !d.is_empty()) {
+            let span = format!("{}-{}", hit.start_line, hit.end_line);
             println!(
-                "# {}:{}-{}  defines: {}",
-                quote_path(&hit.path),
-                hit.start_line,
-                hit.end_line,
+                "# {}:{}  defines: {}",
+                paint(opts.color, PATH_STYLE, quote_path(&hit.path)),
+                paint(opts.color, LINE_STYLE, span),
                 defs.join(", ")
             );
         }
         // The unit view (RESEARCH.md §34), the ranked default: the path once
-        // as a `path:start-end` header, then `line:\ttext` rows dedented as a
+        // as a `path:start-end` header, then `line:␣␣text` rows dedented as a
         // BLOCK — the shallowest row reaches the margin and every other row
         // keeps its offset from it, the same rule `frame` applies to `-C`
         // context and for the same reason: per-line trimming flattens nesting
@@ -198,7 +250,7 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
         if let Some(rows) = hit.unit_rows.as_ref().filter(|r| !r.is_empty()) {
             // `-C/-A/-B` join the unit view as ordinary rows, not a second
             // grammar: a separator or `-`-gutter line would break every
-            // consumer that parses `split_once(":\t")`. The header span
+            // consumer that parses the `line:␣␣text` row shape. The header span
             // widens with them, so first/last row == header span stays true,
             // and the added rows join the block dedent below — the same rule
             // `frame` applies to exact-mode context, for the same reason.
@@ -207,7 +259,11 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
                 .flatten();
             let rows = widened.as_deref().unwrap_or(rows);
             let (first, last) = (rows[0].line, rows[rows.len() - 1].line);
-            println!("{}:{}-{}", quote_path(&hit.path), first, last);
+            println!(
+                "{}:{}",
+                paint(opts.color, PATH_STYLE, quote_path(&hit.path)),
+                paint(opts.color, LINE_STYLE, format_args!("{first}-{last}")),
+            );
             let dedent = rows
                 .iter()
                 .filter(|r| !r.text.trim().is_empty())
@@ -220,7 +276,11 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
                     println!("{ELISION}");
                 }
                 let cut = indent_within(&row.text, dedent);
-                println!("{}:\t{}", row.line, clip(&row.text[cut..], opts.max_columns));
+                println!(
+                    "{}:{GUTTER}{}",
+                    paint(opts.color, LINE_STYLE, row.line),
+                    clip(&row.text[cut..], opts.max_columns),
+                );
                 prev = Some(row.line);
             }
             println!();
@@ -254,9 +314,13 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
                 let n = from + i as u32;
                 let text = clip(line.trim_start(), opts.max_columns);
                 if opts.with_path {
-                    println!("{}:{}:{}", quote_path(&hit.path), n, text);
+                    println!(
+                        "{}:{}:{text}",
+                        paint(opts.color, PATH_STYLE, quote_path(&hit.path)),
+                        paint(opts.color, LINE_STYLE, n),
+                    );
                 } else {
-                    println!("{n}:\t{text}");
+                    println!("{}:{GUTTER}{text}", paint(opts.color, LINE_STYLE, n));
                 }
             }
             println!();
@@ -273,23 +337,32 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
             .map_or_else(|| hit.text.len() - hit.text.trim_start().len(), |f| f.dedent);
         let cut = indent_within(&hit.text, dedent);
         let text = clip(&hit.text[cut..], opts.max_columns);
-        // A tab after the line number when the path is suppressed: without a
-        // path in front, `264:code` runs the number into the code and the eye
-        // has nothing to anchor on. With a path, the compact `p:l:t` form is
-        // what every grep consumer already parses, so it is left alone.
+        // A `GUTTER` after the line number when the path is suppressed:
+        // without a path in front, `264:code` runs the number into the code
+        // and the eye has nothing to anchor on. With a path, the compact
+        // `p:l:t` form is what every grep consumer already parses, so it is
+        // left alone.
         if opts.with_path {
-            println!("{}:{}:{}", quote_path(&hit.path), hit.line, text);
+            println!(
+                "{}:{}:{text}",
+                paint(opts.color, PATH_STYLE, quote_path(&hit.path)),
+                paint(opts.color, LINE_STYLE, hit.line),
+            );
         } else {
-            println!("{}:\t{}", hit.line, text);
+            println!("{}:{GUTTER}{text}", paint(opts.color, LINE_STYLE, hit.line));
         }
         if let Some(f) = framed {
             for (i, line) in &f.lines {
                 let cut = indent_within(line, dedent);
                 let text = clip(&line[cut..], opts.max_columns);
                 if opts.with_path {
-                    println!("{}-{}-{}", quote_path(&hit.path), i, text);
+                    println!(
+                        "{}-{}-{text}",
+                        paint(opts.color, PATH_STYLE, quote_path(&hit.path)),
+                        paint(opts.color, LINE_STYLE, i),
+                    );
                 } else {
-                    println!("{}-\t{}", i, text);
+                    println!("{}-{GUTTER}{text}", paint(opts.color, LINE_STYLE, i));
                 }
             }
             println!("--");
@@ -307,7 +380,7 @@ pub fn counts(per_file: &[(String, usize)], opts: &Print) {
         if opts.json {
             println!("{}", serde_json::json!({ "path": path, "count": n }));
         } else if opts.with_path {
-            println!("{}:{}", quote_path(path), n);
+            println!("{}:{n}", paint(opts.color, PATH_STYLE, quote_path(path)));
         } else {
             println!("{n}");
         }
@@ -333,6 +406,12 @@ pub struct Print {
     /// the reader nothing they did not just type. `-H` forces it back on, which
     /// is what a caller piping into something that splits on `:` wants.
     pub with_path: bool,
+    /// Wrap paths and line numbers in ANSI colour ([`color_enabled`]).
+    ///
+    /// Decided once by the caller rather than re-probed per line: a search
+    /// whose first hit is coloured and whose last is not would be a stranger
+    /// bug than no colour at all.
+    pub color: bool,
 }
 
 /// Hand-written rather than derived so that the default width is `MAX_COLUMNS`
@@ -348,6 +427,9 @@ impl Default for Print {
             after: 0,
             max_columns: MAX_COLUMNS,
             with_path: true,
+            // Off, matching every non-terminal consumer: a `Print` built by
+            // `..Default::default()` is one in a test or a harness.
+            color: false,
         }
     }
 }

@@ -362,6 +362,9 @@ fn print_opts(cli: &Cli, given: &[PathBuf]) -> out::Print {
             || cli.json
             || cli.files_with_matches
             || !(given.len() == 1 && given[0].is_file()),
+        // Never under `--json`: an escape inside a JSON string field is not a
+        // colour, it is corrupt data in a schema someone parses.
+        color: !cli.json && out::color_enabled(&cli.color),
     }
 }
 

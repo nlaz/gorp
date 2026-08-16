@@ -6,6 +6,24 @@ chunks). Full data: `docs/RESEARCH.md` and `eval/REPORT.md`; the query sets
 are checked in under `eval/queries/`, while `eval/data/` is gitignored scratch
 and will not be in a fresh clone.
 
+## 2026-08-16 — colour on a terminal, and a gutter that is two spaces
+
+Display only; ranking is untouched (`tools/snapshot.sh --check` is
+byte-identical, and it records `--json` besides).
+
+- **Colour, ripgrep's flag and ripgrep's palette**: `--color auto|always|never`
+  (default `auto`), paths magenta and line numbers green, so gorp and rg read
+  the same in the same terminal. `auto` means stdout is a terminal, `NO_COLOR`
+  is unset, and `TERM` is not `dumb` — under a pipe, a harness, or `--json`
+  the bytes are exactly what they were. Nothing else is painted: a semantic
+  hit has no matched substring to paint red.
+- **The no-path gutter is two spaces, not a tab.** `264:  text` where it used
+  to be `264:<TAB>text`. A tab renders at whatever tab stop the consumer
+  happens to use, and a tab inside the row's own text re-aligned everything
+  after it. **Consumers that recognise a path-less hit row by `^\d+:\t` must
+  be updated** — in-tree ones were; gorp-bench's `scoring.py`
+  (`_HIT_LINE_NOPATH`) is the one outside this repo.
+
 ## 2026-08-16 — caching is opt-in
 
 A plain ranked search no longer writes anything to disk: a cold miss streams

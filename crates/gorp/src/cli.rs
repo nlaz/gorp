@@ -202,6 +202,17 @@ pub struct Cli {
     #[arg(long = "lines", value_name = "A-B", allow_hyphen_values = true)]
     pub lines: Option<String>,
 
+    /// Colorize paths and line numbers: auto (a terminal), always, never
+    ///
+    /// ripgrep's flag, ripgrep's values, and ripgrep's default palette, so
+    /// the two tools' output reads the same in the same terminal. `auto`
+    /// also honors `NO_COLOR`. Under a pipe this is off and stdout is the
+    /// same bytes it always was — the `path:line:text` contract does not
+    /// bend for a display preference.
+    #[arg(long, value_name = "WHEN", default_value = "auto",
+          value_parser = ["auto", "always", "never"])]
+    pub color: String,
+
     /// Emit JSONL ({path, start_line, end_line, line, text, score})
     #[arg(long)]
     pub json: bool,
