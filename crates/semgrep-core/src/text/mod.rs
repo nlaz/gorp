@@ -6,6 +6,7 @@
 
 mod embed;
 pub mod prose;
+mod prose_vocab;
 mod sif;
 pub mod token;
 
