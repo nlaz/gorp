@@ -122,7 +122,6 @@ stages! {
     BuildRead           => "build:read+tokenize",   Build;
     BuildEmbed          => "build:embed",           Build;
     BuildHnsw           => "build:hnsw",            Build;
-    BuildGraph          => "build:graph",           Build;
     BuildWrite          => "build:write",           Build;
 
     // Reading an index back. `load:sif` was the one component with no timer.
@@ -132,7 +131,6 @@ stages! {
     LoadMmap            => "load:mmap",             Load;
     LoadHnsw            => "load:hnsw",             Load;
     LoadSif             => "load:sif",              Load;
-    LoadGraph           => "load:graph",            Load;
 
     // Read-repair. Both always emitted now; the categorical outcome that says
     // *why* they are zero lives in `RepairOutcome`, because a duration cannot
@@ -153,7 +151,6 @@ stages! {
     RankEmbedQuery      => "rank:embed-query",      Rank;
     RankAnn             => "rank:ann",              Rank;
     RankBrute           => "rank:brute",            Rank;
-    RankGraph           => "rank:graph",            Rank;
     RankMaxsim          => "rank:maxsim",           Rank;
     RankDeclBoost       => "rank:decl-boost",       Rank;
     RankFuse            => "rank:fuse",             Rank;
@@ -189,7 +186,6 @@ pub const SCHEDULE_WARM: &[Stage] = &[
     Stage::BuildRead,
     Stage::BuildEmbed,
     Stage::BuildHnsw,
-    Stage::BuildGraph,
     Stage::BuildWrite,
     Stage::LoadMeta,
     Stage::LoadChunks,
@@ -197,7 +193,6 @@ pub const SCHEDULE_WARM: &[Stage] = &[
     Stage::LoadMmap,
     Stage::LoadHnsw,
     Stage::LoadSif,
-    Stage::LoadGraph,
     Stage::RepairWalk,
     Stage::RepairDelta,
     Stage::RankBm25,
@@ -206,7 +201,6 @@ pub const SCHEDULE_WARM: &[Stage] = &[
     Stage::RankEmbedQuery,
     Stage::RankAnn,
     Stage::RankBrute,
-    Stage::RankGraph,
     Stage::RankMaxsim,
     Stage::RankFuse,
     Stage::RankDeclBoost,
@@ -229,7 +223,6 @@ pub const SCHEDULE_COLD: &[Stage] = &[
     Stage::BuildRead,
     Stage::BuildEmbed,
     Stage::BuildHnsw,
-    Stage::BuildGraph,
     Stage::BuildWrite,
     Stage::Walk,
     Stage::RankEmbedQuery,
@@ -238,7 +231,6 @@ pub const SCHEDULE_COLD: &[Stage] = &[
     Stage::RankBm25,
     Stage::RankPrf,
     Stage::RankBridge,
-    Stage::RankGraph,
     Stage::RankMaxsim,
     Stage::RankFuse,
     Stage::RankDeclBoost,
@@ -263,7 +255,6 @@ pub const SCHEDULE_BUILD: &[Stage] = &[
     Stage::BuildRead,
     Stage::BuildEmbed,
     Stage::BuildHnsw,
-    Stage::BuildGraph,
     Stage::BuildWrite,
 ];
 

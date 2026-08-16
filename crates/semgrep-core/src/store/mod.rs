@@ -7,7 +7,6 @@
 //! emb.bin     n_chunks × EMBED_DIM i8, unit-normalized then quantized
 //! hnsw.bin    optional anny HNSW graph
 //! sif.bin     optional corpus token statistics (SIF-weighted indexes)
-//! graph.bin   optional file graph — import edges (RESEARCH.md §35.3)
 //! ```
 //!
 //! This layer persists and loads representations. Deciding *which* index answers
@@ -18,7 +17,6 @@
 
 pub mod bm25;
 mod build;
-pub mod graph;
 mod load;
 
 pub use build::{build, build_at, build_staged, is_transient, staging_path};
@@ -54,11 +52,6 @@ pub struct IndexMeta {
     /// exact, because `full` is what every index before §20 did.
     #[serde(default)]
     pub path_render: crate::text::PathRender,
-    /// The index carries a file graph (`graph.bin`, RESEARCH.md §35.3).
-    /// Absent in old metas = `false`: the index still loads and searches,
-    /// and only `--graph-expand` asks it for what it doesn't have.
-    #[serde(default)]
-    pub has_graph: bool,
 }
 
 #[derive(Debug, Default)]
@@ -92,11 +85,6 @@ pub struct BuildOptions {
     pub embed_preproc: crate::text::EmbedPreproc,
     /// How the path line of `doc_text` is rendered (RESEARCH.md §20).
     pub path_render: crate::text::PathRender,
-    /// Extract the file graph (RESEARCH.md §35.3). Defaults on when the
-    /// grammars are compiled in: an index that cannot serve `--graph-expand`
-    /// warm would silently diverge from the cold path, which builds the graph
-    /// in memory. Grammarless builds cannot extract and default off.
-    pub graph: bool,
 }
 
 impl Default for BuildOptions {
@@ -110,7 +98,6 @@ impl Default for BuildOptions {
             sif_idf: false,
             embed_preproc: crate::text::EmbedPreproc::None,
             path_render: crate::text::PathRender::Full,
-            graph: cfg!(feature = "func-chunk"),
         }
     }
 }

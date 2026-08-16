@@ -277,15 +277,6 @@ pub struct Tuning {
     #[arg(long, hide = true, default_value_t = SearchOptions::default().path_boost)]
     pub path_boost: f32,
 
-    /// Pull 1-hop import neighbors of the top-N candidates into the pool
-    /// (0 = off, experimental RESEARCH.md §35.3)
-    #[arg(long, hide = true, default_value_t = SearchOptions::default().graph_expand)]
-    pub graph_expand: usize,
-
-    /// Score multiplier for graph-injected candidates
-    #[arg(long, hide = true, default_value_t = SearchOptions::default().graph_weight)]
-    pub graph_weight: f32,
-
     /// Learned checklist's share of the final relevance
     /// (0 = off, experimental RESEARCH.md §35.2)
     #[arg(long, hide = true, default_value_t = SearchOptions::default().learned_blend)]

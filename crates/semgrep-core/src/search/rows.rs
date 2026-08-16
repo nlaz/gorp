@@ -199,7 +199,7 @@ mod tests {
         let params = ChunkParams { window: 8, overlap: 2, ..Default::default() };
         build(dir.path(), &BuildOptions { params, ..Default::default() }, |_, _| {}).unwrap();
         let idx =
-            LoadedIndex::load(dir.path(), LoadNeeds { bm25: true, hnsw: false, graph: false })
+            LoadedIndex::load(dir.path(), LoadNeeds { bm25: true, hnsw: false })
                 .unwrap();
         (dir, idx)
     }

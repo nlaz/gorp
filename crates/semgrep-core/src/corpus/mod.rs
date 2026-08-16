@@ -12,7 +12,6 @@ mod diff;
 #[cfg(feature = "func-chunk")]
 mod funcchunk;
 #[cfg(feature = "func-chunk")]
-pub(crate) mod imports;
 mod pass;
 
 pub use chunk::{chunk_lines, lines};

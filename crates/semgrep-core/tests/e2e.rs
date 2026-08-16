@@ -1043,66 +1043,6 @@ fn cold_and_warm_agree_with_the_path_boost() {
     assert!(moved, "path_boost changed no result on this fixture — the test is vacuous");
 }
 
-/// cold == warm must hold with graph expansion on (RESEARCH.md §35.3), and the
-/// expansion must actually inject — `graph_injected` is the vacuity guard,
-/// because on a corpus smaller than the fusion pool every chunk is already a
-/// candidate and expansion is structurally a no-op.
-///
-/// The fixture is sized past the 128-row pool on purpose: 140 filler files sit
-/// semantically near the query, so the alien `hidden.rs` — reachable only
-/// through `seeds.rs`'s import — falls outside the pool until the graph pulls
-/// it in.
-#[test]
-fn cold_and_warm_agree_with_graph_expansion() {
-    let _cache = isolate_cache();
-    let dir = tempfile::tempdir().unwrap();
-    fs::create_dir_all(dir.path().join("src")).unwrap();
-    for i in 0..140 {
-        fs::write(
-            dir.path().join(format!("src/f{i}.rs")),
-            format!("// retry backoff attempt delay helper {i}\npub fn retry_helper_{i}() {{}}\n"),
-        )
-        .unwrap();
-    }
-    fs::write(
-        dir.path().join("src/seeds.rs"),
-        "use crate::hidden;\n\npub fn compute_backoff_delay(attempt: u32) -> u64 {\n    hidden::zal() + attempt as u64\n}\n",
-    )
-    .unwrap();
-    fs::write(
-        dir.path().join("src/hidden.rs"),
-        "pub fn zal() -> u64 {\n    // zorp quux flibber wombat xyzzy\n    9999\n}\n",
-    )
-    .unwrap();
-
-    let mut injected_any = false;
-    for mode in [Mode::Bm25, Mode::Semantic, Mode::Hybrid] {
-        let gx = |o: SearchOptions| {
-            SearchOptions { graph_expand: 8, fine_rerank: false, ..o }
-        };
-        let query = "compute backoff delay";
-        let cold = search(dir.path(), query, &gx(stream_opts(mode))).unwrap();
-        assert!(!cold.report.used_index);
-        let warm = search(dir.path(), query, &gx(opts(mode))).unwrap();
-        assert!(warm.report.used_index);
-
-        let shape = |r: &semgrep_core::search::SearchResult| -> Vec<(String, u32)> {
-            r.hits.iter().map(|h| (h.path.clone(), h.start_line)).collect()
-        };
-        assert_eq!(
-            shape(&cold),
-            shape(&warm),
-            "cold != warm for {mode:?} with graph expansion on"
-        );
-        assert_eq!(
-            cold.report.graph_injected, warm.report.graph_injected,
-            "the two paths injected different amounts for {mode:?}"
-        );
-        injected_any |= warm.report.graph_injected.unwrap_or(0) > 0;
-    }
-    assert!(injected_any, "graph expansion injected nothing — the test is vacuous");
-}
-
 /// cold == warm must hold with the learned checklist on (RESEARCH.md §35.2).
 ///
 /// The checklist runs inside `finalize` — the shared tail — so parity holds
@@ -1152,59 +1092,6 @@ fn cold_and_warm_agree_with_the_learned_reranker() {
         }
     }
     assert!(moved, "the learned blend changed no result on this fixture — the test is vacuous");
-}
-
-/// An index built without a graph still loads and serves every default query;
-/// only an armed `--graph-expand` is refused, with a hard error rather than a
-/// silent warm no-op that would split from the cold path.
-#[test]
-fn an_index_built_before_graphs_still_loads_and_searches() {
-    let _cache = isolate_cache();
-    let dir = tempfile::tempdir().unwrap();
-    fixture(dir.path());
-    let build = BuildOptions {
-        params: opts(Mode::Semantic).params,
-        graph: false,
-        ..Default::default()
-    };
-    store::build(dir.path(), &build, |_, _| {}).unwrap();
-
-    let ok = search(dir.path(), "compute the backoff delay", &opts(Mode::Semantic)).unwrap();
-    assert!(ok.report.used_index && !ok.hits.is_empty());
-
-    let err = match search(
-        dir.path(),
-        "compute the backoff delay",
-        &SearchOptions { graph_expand: 8, ..opts(Mode::Semantic) },
-    ) {
-        Err(e) => e,
-        Ok(_) => panic!("a graph-less repo-local index must refuse --graph-expand"),
-    };
-    assert!(
-        err.to_string().contains("no file graph"),
-        "expected the graph-less refusal, got: {err}"
-    );
-}
-
-/// `write_or_remove` semantics: a rebuild that disclaims the graph must also
-/// clear the stale `graph.bin` a previous build left behind.
-#[test]
-fn graph_bin_is_removed_when_the_build_disables_graphs() {
-    let dir = tempfile::tempdir().unwrap();
-    fixture(dir.path());
-    let params = opts(Mode::Semantic).params;
-
-    store::build(dir.path(), &BuildOptions { params, ..Default::default() }, |_, _| {}).unwrap();
-    let bin = dir.path().join(".semgrep/graph.bin");
-    assert!(bin.is_file(), "the default build under func-chunk carries a graph");
-
-    store::build(dir.path(), &BuildOptions { params, graph: false, ..Default::default() }, |_, _| {})
-        .unwrap();
-    assert!(!bin.exists(), "a graph-less rebuild must clear the stale artifact");
-    let meta: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(dir.path().join(".semgrep/meta.json")).unwrap())
-            .unwrap();
-    assert_eq!(meta["has_graph"], serde_json::Value::Bool(false));
 }
 
 /// cold == warm must survive prose rendering (RESEARCH.md §14.2): the cold

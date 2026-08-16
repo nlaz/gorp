@@ -334,16 +334,6 @@ fn options(cli: &Cli, mode: Mode) -> Result<SearchOptions> {
         // Env rather than a flag: the only consumer is the §35.2 training
         // dump, which must not widen the CLI surface agents see.
         debug_features: std::env::var("SEMGREP_DUMP_FEATURES").is_ok_and(|v| v == "1"),
-        graph_expand: {
-            // A grammarless build cannot extract imports on the cold path, so
-            // honoring the flag would split cold from warm; refusing it keeps
-            // the invariant explicit.
-            if t.graph_expand > 0 && !cfg!(feature = "func-chunk") {
-                anyhow::bail!("--graph-expand needs a build with the func-chunk feature");
-            }
-            t.graph_expand
-        },
-        graph_weight: t.graph_weight,
         learned_blend: t.learned_blend,
         // `--full` wins over both: it is the coarsest request, and it is a
         // line budget so it bypasses the character one.

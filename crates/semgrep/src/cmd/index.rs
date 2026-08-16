@@ -134,7 +134,7 @@ fn status(root: &Path) -> Result<i32> {
     }
     let idx = store::LoadedIndex::load(
         root,
-        store::LoadNeeds { bm25: false, hnsw: false, graph: false },
+        store::LoadNeeds { bm25: false, hnsw: false },
     )?;
     let stale = idx.stale_files()?;
     println!(
