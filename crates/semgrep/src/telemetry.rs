@@ -136,6 +136,12 @@ fn opts_block(opts: &SearchOptions) -> Value {
         "fine_blend": opts.fine_blend,
         "passage_override": opts.passage_override,
         "min_score": opts.min_score,
+        "decl_boost": opts.decl_boost,
+        "bm25_pin": opts.bm25_pin,
+        "dedupe_overlap": opts.dedupe_overlap,
+        "keep_coarse_top": opts.keep_coarse_top,
+        "embed_preproc": opts.embed_preproc,
+        "path_render": opts.path_render,
         "params": {
             "window": opts.params.window,
             "overlap": opts.params.overlap,

@@ -8787,3 +8787,70 @@ the head-walk anchor from the window's content lines, closers excluded.
 Plus the comment rule above. The fine-window election itself is
 deliberately untouched: its boundary appetite is scoring-side behavior
 with §28.2 calibration behind it, and the renderer absorbs the symptom.
+
+## 35 Structural signals: path boost, learned checklist, graph expansion (2026-08-15)
+
+The §32.4 census said the loss splits into a 54% vocabulary-gap bucket no
+reranker can reach, a 23% ordering bucket, and a tail of self-inflicted
+wounds. This campaign works both sides in ladder order, cheapest first:
+a filename/path boost and a learned linear combination of the signals we
+already compute (ordering side), then import-graph pool expansion (the
+one lever with measured reach into the vocabulary gap, §32.4b's 48–58%).
+The §9.9 code-table re-distill is explicitly out of scope for this
+campaign by decision, not by evidence.
+
+### 35.0 The probe set, regenerated before it shrank further
+
+The §32.4a/b decomposition sets were never committed — they lived in
+caller-supplied paths under the gitignored `eval/data/`, and the repo
+checkouts they replay against are LRU'd. Regenerated today from the
+surviving `s32` artifacts: `misswhy.py` wrote 2,453 region rows;
+`rankwhy.py` replayed **302** never-surfaced regions (up from §32.4a's
+158 — the §34 stdout parser fixes taught the replay to read the unit
+view, so regions the old parser dropped now count). Decomposition of the
+302, same classification as §32.4a:
+
+    vocab-gap        138   46%
+    ordering          99   33%
+    fusion-drowned    23    8%
+    too-generic       23    8%
+    fine-killed       15    5%
+    not-searchable     4    1%
+
+Shares consistent with §32.4a's 54/23/15 within the resolution these
+n's allow; the ordering bucket grew, which is the direction a parser
+that previously dropped *parsed-as-empty ranked output* would move it.
+The 138 vocabulary-gap regions are checked in at
+`eval/queries/vocabgap-s32.jsonl` (instance, region, the session's own
+wide queries, top-5 under the campaign config, provenance line) — the
+graph-expansion pool-recall probe runs against this set.
+
+### 35.1 Pre-registration: the path boost
+
+Mechanism: the decl-boost loop generalizes to one structural pass over
+the same k*6 head — zero added I/O, the path is already materialized and
+discarded at both call sites. `path_share` = |qtokens ∩ path tokens| /
+|qtokens|, path tokens from the tail segments plus filename-stem
+subtokens; multiplicative alongside the decl term, same three-score-space
+rationale; `--path-boost`, default 0.0.
+
+Predictions, written before the first run:
+
+- **Small positive on rank_func, concentrated in the ordering bucket.**
+  Path tokens already reach both channels via `path_render: Full`, so
+  this measures the *increment* of an explicit rank-time boost over
+  path-as-content — not the value of path signal in general.
+- **Below the bm25_pin bar.** §32.4b measured that only 8% of what
+  outranks gold shares gold's directory; the headroom for a path signal
+  on the miss mass is thin. Predicted effect +0.005..+0.015 on
+  rank_func at the best weight; we will take the flag only if the CI
+  excludes zero.
+- **Both function metrics move together.** The boost reorders existing
+  candidates and cannot change chunk geometry; rank_func and
+  rank_func_ovl diverging is a bug signature (§24.1), not a finding.
+
+Gate: `guessplay.py` on `guesses-v1-desc-all.jsonl`, arms `--path-boost
+0.25 / 0.5 / 1.0` in one pass, cluster bootstrap over instances, both
+function metrics. Kill: no arm's rank_func CI excludes zero, or any arm
+regresses rank_func_ovl — the flag stays 0.0 and the refactor stays as
+plumbing (the learned checklist consumes the shares regardless).
