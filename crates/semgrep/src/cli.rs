@@ -336,6 +336,12 @@ pub struct Tuning {
     #[arg(long, hide = true)]
     pub headers: bool,
 
+    /// Disable the unit view and restore the bare fine-window passage in
+    /// `path:line:text` form — the pre-§34 display, byte for byte. The A/B
+    /// control for display arms (RESEARCH.md §34.3).
+    #[arg(long, hide = true)]
+    pub no_unit: bool,
+
     /// Chunk window in lines (streaming path; indexed uses index params)
     #[arg(long, hide = true, default_value_t = ChunkParams::default().window)]
     pub window: u32,

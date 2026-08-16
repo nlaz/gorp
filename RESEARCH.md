@@ -8675,3 +8675,82 @@ another one: the offline instrument saw a real effect that the in-situ one
 cannot, and the arithmetic of why is now measured rather than guessed — a
 0.62 dilution from non-invocation, and an agent-side conversion step that
 §32.4 already showed ignores rank-1 hits.
+
+## 34 The unit view: what a ranked hit looks like (2026-08-15)
+
+Ranked hits have printed grep's `path:line:text` per passage line since the
+beginning, with each line's indentation stripped individually. Screenshots
+from real agent sessions showed what that renders to at its worst: the path
+repeated four times to show four lines (§26.4 already measured the prefix
+tax at roughly half of all output bytes), interior blank lines each costing
+a full prefix, relative nesting destroyed by the per-line trim, and fine
+windows opening on `},` / `)` / a bare `"""` — lines that close or open
+things the window does not show.
+
+### 34.1 The pilot: 30 real searches, 10 languages
+
+Thirty queries were run with the real binary against SWE-Explore repos —
+three per language across Python, Go, JavaScript, TypeScript, Rust, Java,
+PHP, C, Ruby, C++ — and every hit re-rendered through a prototype of a
+"unit view": path once as a `path:start-end` header, a `line:`-numbered
+gutter, block dedent (the `-C` frame's rule, not the per-line trim), the
+window's edges snapped off bare closers/openers, and the window framed by
+its enclosing declaration with the middle elided. The format worked
+everywhere the naive rendering failed — redis's 221-line
+`activeExpireCycle` collapsed to signature + match + close; django's
+orphaned `for field, messages in error_dict.items()` gained
+`class BaseModelForm` / `def _update_errors` above it — and it failed two
+known ways: a window inside a backtick template literal anchors at column 0
+and elects string content as its head, and a multi-line signature's `) {`
+tail gets elected instead of the signature's first line.
+
+### 34.2 The noise audit: 57% of rows were renderer-added
+
+Counting every rendered row across the 90 pilot hits: 738 rows, 320
+matched, 418 (57%) added by the renderer — the naive prototype roughly
+doubled every hit, and at 1.51× the bytes of the grep-form output it gave
+back everything the path dedup saved. The audit split the added rows into
+species and judged each by whether it stated something already on screen:
+
+- **The innermost head is the entire concept.** One line per hit, nearly
+  all of the de-orphaning value. Unconditional.
+- **8 of 138 head rows restated the path** (`module Cop` above a hit in
+  `cop/layout/…`) — the §26.4 disease reintroduced vertically. An outer
+  head must add a name the path does not carry.
+- **6 head rows were flow, not identity** (`) {`, `} else {`, bare `else`),
+  and 4 were their hit's *only* head — actively misinforming. Flow lines
+  are never heads; a `) {` resolves to its statement start.
+- **~40 of 56 close lines arrived after an elision**, restating the header
+  span. A close prints only when it touches the window.
+- **131 elision rows** duplicated what the gutter numbers already encode; a
+  jump in line numbers is the elision, and the marker shrinks to a bare
+  `⋮` row.
+
+Calibrated, added rows drop from ~4 to ~1.5 per hit and the byte cost to
+~1.15× the grep form. The rules shipped in `search::unit`, each pinned by a
+unit test carrying its audit case, including the two pilot failures.
+
+### 34.3 What shipped, and what still gates it
+
+The unit view is the ranked-mode default (`SearchOptions::unit_view`,
+computed in `materialize` — the one-reader rule — and rendered in `out`).
+Three surfaces stay byte-identical by construction: `--no-unit` restores
+the bare fine-window passage as the A/B control; an explicit passage shape
+(`--passage-chars`, `--passage-lines`, `--full`) wins over the unit view,
+which is also what pins `tools/snapshot.sh`'s `--passage-lines 1`
+recording; and `--no-fine` still reproduces pre-§28.2 output byte for byte,
+because a hit with no fine window grows no unit rows. Exact mode is
+untouched — `path:line:text` is grep's contract and keyword hits never
+carry unit rows.
+
+The honest ledger for the default-first decision: §25 measured the
+closest prior treatment — a `# path:span defines:` header above unchanged
+passages — as a behavioral null at 1.9× bytes, while §26 measured passage
+*content* with a clean dose-response on reads-after-search; the unit view
+is content, not annotation, but that is an argument, not a measurement.
+And §28.2 located sg's one deficit in line precision — agents copy the
+`path:line` they act on from what the tool prints — and the unit view
+moves the path out of the body rows. A `disp-unit` vs `disp-nounit`
+campaign on those two endpoints (reads-after-search, right-file-wrong-lines)
+is the standing follow-up; if line precision regresses, the revert is one
+default flip, not a format rip-out.

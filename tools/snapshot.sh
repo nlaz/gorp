@@ -66,7 +66,7 @@ record() {
       # tripwire. Since §26 the default is an 18-line passage, and recording
       # that would (a) bloat every case 18x and (b) make the file move whenever
       # the fixture's text changes, even with ranking identical. The §26 display
-      # shape is pinned instead by `the_default_result_is_an_eighteen_line_passage`
+      # shape is pinned instead by `the_default_result_is_a_unit_view`
       # in crates/semgrep/tests/cli.rs. Keeping this flag also means the file
       # stays byte-comparable with every recording since §20.
       local flags=(--mode "$mode" -k 10 --json --passage-lines 1)

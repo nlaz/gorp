@@ -158,21 +158,67 @@ fn stdout_is_parseable_and_advice_goes_to_stderr() {
     assert!(!r.stdout.contains("semgrep:"), "stdout must carry only results");
 }
 
-/// The default: each result is a whole-chunk passage, results are separated by
-/// a blank line, and every non-blank line is still `path:line:text`.
-///
-/// 18 lines shipped first and §26.2's campaign took it back — 18 gives up
-/// +0.243 [+0.121, +0.364] of the file-reopening reduction the whole passage
-/// buys, and the cost saving it was meant to pay for turned out not to exist.
+/// The default: each ranked result is a unit view (RESEARCH.md §34) — a
+/// `path:start-end` header, then `line:<tab>text` rows dedented as a block,
+/// `⋮` where row numbers jump — and results are separated by a blank line.
+/// Blank source lines print as `N:` rows, never as bare blank lines, so the
+/// separator stays unambiguous.
 ///
 /// Pinned because three tests in this file counted stdout lines to count
 /// results, and all three broke when the default changed — which is exactly
 /// what a downstream consumer doing the same thing will experience. The shape
 /// is now asserted somewhere rather than only implied by whatever else fails.
 #[test]
-fn the_default_result_is_a_fine_window_passage() {
+fn the_default_result_is_a_unit_view() {
     let sg = Sg::new();
     let r = sg.run(&["how is the retry delay computed", "-k", "2"]);
+    assert_eq!(r.code, 0, "stderr: {}", r.stderr);
+
+    let blocks: Vec<Vec<&str>> = r
+        .stdout
+        .split("\n\n")
+        .map(|b| b.lines().collect::<Vec<_>>())
+        .filter(|b: &Vec<&str>| !b.is_empty())
+        .collect();
+    assert_eq!(blocks.len(), 2, "one block per result, blank-line separated");
+    for b in &blocks {
+        let header = b[0];
+        let (path, span) = header.rsplit_once(':').expect("first line is path:start-end");
+        assert!(!path.is_empty(), "header carries the path: {header:?}");
+        let (lo, hi) = span.split_once('-').expect("header span is start-end");
+        let (lo, hi): (u32, u32) =
+            (lo.parse().expect("span start"), hi.parse().expect("span end"));
+        // Body rows: `line:<tab>text` or a bare elision. Numbers strictly
+        // increase and stay inside the span the header promised, and the
+        // first and last rows ARE the span — the header states the display,
+        // not some wider region the caller cannot see.
+        let mut prev = 0u32;
+        for l in &b[1..] {
+            if *l == "⋮" {
+                continue;
+            }
+            let (n, _) = l.split_once(":\t").unwrap_or_else(|| panic!("not a unit row: {l:?}"));
+            let n: u32 = n.parse().unwrap_or_else(|_| panic!("gutter is a number: {l:?}"));
+            assert!(n > prev, "row numbers must increase: {b:?}");
+            assert!((lo..=hi).contains(&n), "row {n} outside header span {lo}-{hi}");
+            prev = n;
+        }
+        assert_eq!(prev, hi, "the last row is the header span's end");
+        // The §34.2 calibration bound: a ≤4-line window plus at most two
+        // heads, a doc line, a close, and short gap fills.
+        assert!(b.len() <= 20, "a unit view stays small, got {}", b.len());
+    }
+    assert!(!r.stdout.contains("semgrep:"), "stdout stays data-only");
+}
+
+/// `--no-unit` is the display control arm (RESEARCH.md §34.3): the bare
+/// fine-window passage in `path:line:text` form — the pre-§34 default, byte
+/// for byte, which is what makes a disp-unit / disp-nounit A/B a clean
+/// comparison. This is the old default-shape test verbatim under the flag.
+#[test]
+fn no_unit_restores_the_fine_window_passage() {
+    let sg = Sg::new();
+    let r = sg.run(&["how is the retry delay computed", "-k", "2", "--no-unit"]);
     assert_eq!(r.code, 0, "stderr: {}", r.stderr);
 
     let blocks: Vec<Vec<&str>> = r
@@ -183,11 +229,7 @@ fn the_default_result_is_a_fine_window_passage() {
         .collect();
     assert_eq!(blocks.len(), 2, "one block per result, blank-line separated");
     for b in &blocks {
-        // Since §28.2 the default passage is the fine window: the few lines
-        // that actually match, not the chunk around them.
-        assert!(b.len() <= 4, "a default passage is at most the fine window, got {}", b.len());
-        // Line numbers inside a passage must be consecutive and real, which is
-        // what `lines_from` exists to get right.
+        assert!(b.len() <= 4, "a bare passage is at most the fine window, got {}", b.len());
         let nums: Vec<u32> = b
             .iter()
             .map(|l| l.split(':').nth(1).unwrap_or("x").parse().unwrap_or(0))
@@ -199,6 +241,43 @@ fn the_default_result_is_a_fine_window_passage() {
         );
     }
     assert!(!r.stdout.contains("semgrep:"), "stdout stays data-only");
+}
+
+/// §34: the JSON grows `unit_rows` alongside the default display and drops it
+/// under `--no-unit` — the same absent-by-default contract as every optional
+/// field, so a consumer of the old shape sees the schema it always saw.
+#[test]
+fn unit_rows_ride_json_and_the_stable_fields_stand() {
+    let sg = Sg::new();
+    let j = sg.run(&["how is the retry delay computed", "--json", "-k", "2"]);
+    assert_eq!(j.code, 0, "stderr: {}", j.stderr);
+    for line in j.lines() {
+        let v: serde_json::Value = serde_json::from_str(line).expect("each line is JSON");
+        for k in ["path", "start_line", "end_line", "line", "text", "score"] {
+            assert!(v.get(k).is_some(), "stable field {k} missing from {line:?}");
+        }
+    }
+    assert!(j.stdout.contains("\"unit_rows\""), "default JSON carries the unit rows");
+    let bare = sg.run(&["how is the retry delay computed", "--json", "-k", "2", "--no-unit"]);
+    assert!(!bare.stdout.contains("\"unit_rows\""), "--no-unit JSON is the old schema");
+}
+
+/// Exact mode stays out of §34 entirely: keyword hits never grow unit rows,
+/// so `-e` output is grep's `path:line:text` per line, one line per match.
+#[test]
+fn exact_mode_never_grows_a_unit_view() {
+    let sg = Sg::new();
+    let r = sg.run(&["-e", "compute_backoff_delay"]);
+    assert_eq!(r.code, 0, "stderr: {}", r.stderr);
+    for line in r.lines().into_iter().filter(|l| !l.trim().is_empty()) {
+        let mut parts = line.splitn(3, ':');
+        parts.next();
+        assert!(
+            parts.next().map(|n| n.parse::<u32>().is_ok()).unwrap_or(false),
+            "exact mode is still path:line:text: {line:?}"
+        );
+    }
+    assert!(!r.stdout.contains('⋮'), "no elision markers in exact mode");
 }
 
 /// A floored search is a refusal, not a miss: empty stdout, exit 1, and a
@@ -279,21 +358,30 @@ fn ranked_search_also_keeps_stdout_clean() {
     assert!(r.stderr.contains("semgrep:"));
 }
 
-/// §31: a multi-phrase query keeps the stdout contract — every line is still
-/// `path:line:text` — and the JSON grows a `phrase` field ONLY at K>1, so a
-/// single-phrase consumer sees the schema it always saw.
+/// §31: a multi-phrase query keeps the stdout contract — every line is a unit
+/// header, a unit row, or an elision (§34) — and the JSON grows a `phrase`
+/// field ONLY at K>1, so a single-phrase consumer sees the schema it always
+/// saw.
 #[test]
 fn multi_phrase_queries_keep_the_output_contract() {
     let sg = Sg::new();
     let r = sg.run(&["compute the backoff delay | validate a session token", "-k", "4"]);
     assert_eq!(r.code, 0, "stderr: {}", r.stderr);
     for line in r.lines().into_iter().filter(|l| !l.trim().is_empty()) {
-        let mut parts = line.splitn(3, ':');
-        parts.next();
-        assert!(
-            parts.next().map(|n| n.parse::<u32>().is_ok()).unwrap_or(false),
-            "still path:line:text: {line:?}"
-        );
+        if line == "⋮" {
+            continue;
+        }
+        if let Some((n, _)) = line.split_once(":\t") {
+            assert!(n.parse::<u32>().is_ok(), "a unit row's gutter is a number: {line:?}");
+            continue;
+        }
+        let span_ok = line.rsplit_once(':').is_some_and(|(path, span)| {
+            !path.is_empty()
+                && span.split_once('-').is_some_and(|(a, z)| {
+                    a.parse::<u32>().is_ok() && z.parse::<u32>().is_ok()
+                })
+        });
+        assert!(span_ok, "header, unit row, or elision: {line:?}");
     }
     let j = sg.run(&["compute the backoff delay | validate a session token", "--json", "-k", "4"]);
     assert!(j.stdout.contains("\"phrase\":"), "multi-phrase JSON carries the phrase index");
@@ -1022,14 +1110,21 @@ fn multiple_paths_search_all_of_them_and_nothing_else() {
     assert_eq!(out.status.code(), Some(0), "stderr: {}", String::from_utf8_lossy(&out.stderr));
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(!stdout.is_empty(), "multi-path search returned nothing");
+    let mut headers = 0;
     for line in stdout.lines().filter(|l| !l.trim().is_empty()) {
-        // Blank lines separate passages since §26 and carry no path.
+        // Since §34 the path lives on each hit's header line; body rows and
+        // elision markers carry none.
+        if line == "⋮" || line.split_once(":\t").is_some_and(|(n, _)| n.parse::<u32>().is_ok()) {
+            continue;
+        }
+        headers += 1;
         let path = line.split(':').next().unwrap_or("");
         assert!(
             path.starts_with("src/") || path.starts_with("docs/"),
             "hit outside the requested paths: {line:?}"
         );
     }
+    assert!(headers > 0, "at least one hit header names its path");
 }
 
 /// A scope with files in it that none of which can be read must say so.

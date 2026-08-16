@@ -346,6 +346,7 @@ fn options(cli: &Cli, mode: Mode) -> Result<SearchOptions> {
         // Any explicit passage request switches display back to a chunk cut;
         // the fine window keeps choosing the anchor and the order either way.
         passage_override: t.passage_chars.is_some() || t.passage_lines > 0 || t.full,
+        unit_view: !t.no_unit,
         prf_terms: t.prf,
         // MaxSim reranks the semantic candidate list before fusion, so it can
         // only pay off where that list decides the answer. In `--mode semantic`

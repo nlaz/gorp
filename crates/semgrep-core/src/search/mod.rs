@@ -9,6 +9,7 @@ mod hit;
 mod indexed;
 mod rows;
 mod stream;
+mod unit;
 
 use crate::cache::repair::RepairOutcome;
 use crate::keyword::KeywordOptions;
@@ -341,6 +342,16 @@ pub struct SearchOptions {
     /// hit's anchor and rank but the *displayed* cut follows the request.
     /// False by default: the fine window is the passage.
     pub passage_override: bool,
+    /// Ship each ranked hit's unit-view rows ([`SearchHit::unit_rows`],
+    /// RESEARCH.md §34): the fine window snapped off bare closers/openers
+    /// and framed by its enclosing declaration, computed by
+    /// `search::unit`. On by default — this is the shipped display — and
+    /// yielding to [`passage_override`](Self::passage_override): a caller
+    /// who asked for a passage shape gets exactly that shape, which is
+    /// also what keeps the §26 arms and the snapshot's `--passage-lines 1`
+    /// pin byte-identical. `--no-unit` restores the bare fine-window
+    /// passage as the A/B control.
+    pub unit_view: bool,
     /// Refuse to answer below this score: when the *best* candidate's signal
     /// falls under the floor, the search returns zero hits, exit 1, and the
     /// footer says why (RESEARCH.md §28.2). 0 = off, which is the default
@@ -452,6 +463,7 @@ impl Default for SearchOptions {
             fine_lines: 4,
             fine_blend: 1.0,
             passage_override: false,
+            unit_view: true,
             min_score: 0.0,
             keep_coarse_top: false,
             bridge_expand: 0,
@@ -476,6 +488,17 @@ impl Default for SearchOptions {
             path_render: text::PathRender::Full,
         }
     }
+}
+
+/// One row of the unit view: a real file line, raw — undedented and
+/// unclipped, because dedent is a property of the displayed *block* and
+/// width is the renderer's concern ([`out`]'s, in the CLI). Plain data with
+/// no map keys, so [`SearchHit`]'s "cannot fail to serialize" contract
+/// stands.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct UnitRow {
+    pub line: u32,
+    pub text: String,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -524,6 +547,15 @@ pub struct SearchHit {
     /// ([`SearchOptions::defines`]). Same absent-by-default contract.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub defines: Option<Vec<String>>,
+    /// The unit-view rows for this hit (RESEARCH.md §34): the snapped fine
+    /// window plus the rows that de-orphan it (enclosing declaration, doc
+    /// line, contiguous close), in file order with gaps ≤ 3 already
+    /// filled. A jump between consecutive rows' line numbers is an elision
+    /// the renderer marks. `None` when the unit view is off or the caller
+    /// asked for an explicit passage shape, and skipped in JSON then —
+    /// same absent-by-default contract as every optional field above.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unit_rows: Option<Vec<UnitRow>>,
 }
 
 #[derive(Debug, Default, Clone, serde::Serialize)]
@@ -957,6 +989,7 @@ fn keyword_search(
                 lines: None,
                 lines_from: None,
                 defines: None,
+                unit_rows: None,
             })
             .collect()
     });

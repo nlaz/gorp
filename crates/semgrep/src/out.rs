@@ -1,9 +1,11 @@
 //! Everything that writes to stdout or stderr.
 //!
 //! One rule, and the CLI tests enforce it: **stdout is data, stderr is
-//! commentary.** Results go to stdout in `path:line:text`, parseable by anything
-//! that parses grep. Footers, warnings, stats, and suggestions go to stderr, so
-//! a pipeline gets clean data and a human still gets told what happened.
+//! commentary.** Exact mode prints `path:line:text`, parseable by anything
+//! that parses grep; ranked mode prints the unit view (RESEARCH.md §34) — a
+//! `path:start-end` header, then `line:\ttext` rows, blank-line separated per
+//! hit. Footers, warnings, stats, and suggestions go to stderr, so a pipeline
+//! gets clean data and a human still gets told what happened.
 //!
 //! Printing lives here rather than beside the commands so the commands are about
 //! deciding what to show, not how.
@@ -37,6 +39,11 @@ pub const MAX_COLUMNS: usize = 200;
 /// Appended to a line that `MAX_COLUMNS` cut. ripgrep's own wording for its
 /// `-M/--max-columns`, so a caller that has read one has read both.
 const OMITTED: &str = " [... omitted end of long line]";
+
+/// A unit-view row printed where the row numbers jump: lines were elided
+/// there. Bare — no count, no gutter — because the numbers on either side
+/// already say exactly how many, and a marker must not parse as a hit line.
+const ELISION: &str = "⋮";
 
 /// A line as it gets printed: at most `max` characters, marked when anything was
 /// dropped. `max == 0` is no limit.
@@ -165,6 +172,39 @@ pub fn hits(root: &Path, hits: &[SearchHit], shown: usize, opts: &Print) {
                 hit.end_line,
                 defs.join(", ")
             );
+        }
+        // The unit view (RESEARCH.md §34), the ranked default: the path once
+        // as a `path:start-end` header, then `line:\ttext` rows dedented as a
+        // BLOCK — the shallowest row reaches the margin and every other row
+        // keeps its offset from it, the same rule `frame` applies to `-C`
+        // context and for the same reason: per-line trimming flattens nesting
+        // into noise. A jump in row numbers prints as a bare `⋮` row rather
+        // than a counted marker, because the gutter numbers already state the
+        // gap precisely and a marker row that repeats them is a row spent on
+        // arithmetic the reader can do. `clip` still applies per row, and a
+        // blank source row prints as `N:` with nothing after it — never as a
+        // bare blank line, which would end the hit's block early for every
+        // consumer that splits records on blank lines.
+        if let Some(rows) = hit.unit_rows.as_ref().filter(|r| !r.is_empty()) {
+            let (first, last) = (rows[0].line, rows[rows.len() - 1].line);
+            println!("{}:{}-{}", quote_path(&hit.path), first, last);
+            let dedent = rows
+                .iter()
+                .filter(|r| !r.text.trim().is_empty())
+                .map(|r| r.text.len() - r.text.trim_start().len())
+                .min()
+                .unwrap_or(0);
+            let mut prev: Option<u32> = None;
+            for row in rows {
+                if prev.is_some_and(|p| row.line > p + 1) {
+                    println!("{ELISION}");
+                }
+                let cut = indent_within(&row.text, dedent);
+                println!("{}:\t{}", row.line, clip(&row.text[cut..], opts.max_columns));
+                prev = Some(row.line);
+            }
+            println!();
+            continue;
         }
         // The passage: each line in the same `path:line:text` shape, so the
         // block is still parseable line by line rather than being a second

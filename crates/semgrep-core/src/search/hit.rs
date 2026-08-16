@@ -761,6 +761,17 @@ fn materialize(
         Some(f) => (f.start_line, f.end_line),
         None => (chunk.start_line, chunk.end_line),
     };
+    // The unit view (RESEARCH.md §34), computed here and not in the CLI for
+    // the same one-reader reason as `lines`/`defines` above: the whole file
+    // is already in hand. Three gates, each keeping a measured surface
+    // byte-identical: `passage_override` (an asked-for passage shape wins,
+    // which also pins the snapshot's `--passage-lines 1` recording),
+    // `fine.is_some()` (`--no-fine` documents itself as pre-§28.2 output
+    // byte for byte), and the option itself (`--no-unit`, the A/B control).
+    let unit_rows = (opts.unit_view && !opts.passage_override && c.fine.is_some()).then(|| {
+        let all: Vec<&str> = text.lines().collect();
+        super::unit::compute(&all, &c.path, start_line, end_line)
+    });
     Some(SearchHit {
         path: c.path.clone(),
         start_line,
@@ -783,5 +794,6 @@ fn materialize(
             v.retain(|n| seen.insert(n.clone()));
             v
         }),
+        unit_rows,
     })
 }
