@@ -100,7 +100,7 @@ def test_a_nul_byte_in_the_first_8k_makes_a_file_unindexable(tmp_path):
 
 def test_a_nul_byte_past_the_sniff_window_does_not(tmp_path):
     # corpus/mod.rs sniffs only the first 8192 bytes. Scanning the whole file
-    # would call files unindexable that semgrep indexes perfectly well.
+    # would call files unindexable that gorp indexes perfectly well.
     p = tmp_path / "a.java"
     p.write_bytes(b"x" * (corpus_text.SNIFF_BYTES + 10) + b"\x00")
     assert corpus_text.is_indexable(p)

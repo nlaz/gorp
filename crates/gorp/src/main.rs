@@ -1,0 +1,116 @@
+//! gorp — a semantic grep for agents.
+//!
+//! ```text
+//! gorp "where is the retry backoff computed" src/   # ranked (default)
+//! gorp -e 'fn \w+_config' .                         # exact regex, grep semantics
+//! gorp index .                                      # build .gorp/
+//! ```
+//!
+//! The ranked path serves the *locate* contract (the best few places, bounded
+//! output); `-e` serves *enumerate* and *verify* (every match, grep exit codes).
+//!
+//! This file is only the entry point: `cli` defines the surface, `cmd` implements
+//! the verbs, `out` does every write to stdout and stderr. Keeping printing in one
+//! place is what lets the command modules be about deciding rather than
+//! formatting.
+
+mod cli;
+mod cmd;
+mod out;
+mod telemetry;
+
+use crate::out::PROG;
+use clap::Parser;
+
+/// Parse argv, adding one line of recovery advice to the failure clap cannot
+/// explain on its own.
+///
+/// A query that begins with a dash — `gorp "-v --variable option deploy"` —
+/// is read as flags, and clap says `unexpected argument '-v' found`, which
+/// tells a caller nothing about how to proceed. It happened twice in 143 real
+/// agent invocations (RESEARCH.md §18 tier 1). `--` is the answer and nobody
+/// types it unprompted.
+///
+/// Only the advice is ours: clap still owns the error text, the exit code, and
+/// `--help`/`--version`, which it reports through the same error type.
+fn parse_args() -> cli::Cli {
+    match cli::Cli::try_parse() {
+        Ok(cli) => cli,
+        Err(e) => {
+            let _ = e.print();
+            if matches!(e.kind(), clap::error::ErrorKind::UnknownArgument) {
+                eprintln!(
+                    "{PROG}: if that was your query and not a flag, put it after `--`:\n\
+                     gorp -- \"-v your query here\" [path]"
+                );
+            }
+            std::process::exit(if e.use_stderr() { EXIT_ERROR } else { 0 });
+        }
+    }
+}
+
+/// Die on a closed pipe the way every other Unix filter does.
+///
+/// Rust sets `SIGPIPE` to `SIG_IGN` before `main`, so a write to a pipe whose
+/// reader has gone returns `EPIPE` and `println!` *panics*:
+///
+/// ```text
+/// thread 'main' panicked at library/std/src/io/stdio.rs:
+/// failed printing to stdout: Broken pipe (os error 32)
+/// ```
+///
+/// `sg -e "def " big/ --all | head -1` printed that, where `rg` on the same
+/// pipeline exits quietly. It only fires once output passes the ~64 KB pipe
+/// buffer, which is why `-M 200` hides it in ranked mode and `--all` still
+/// finds it — and `| head` is the single most common thing an agent does to
+/// this tool: 237 of the 300 pipes in the §19.7 campaign.
+///
+/// Restoring the default disposition is ripgrep's own fix and the honest one:
+/// the process dies of SIGPIPE, upstream sees a normal broken-pipe death, and
+/// no error text lands on a stderr the caller is probably still reading. The
+/// alternative — catching `ErrorKind::BrokenPipe` at every write site — would
+/// mean touching every printing path in `out.rs`, where the risk is a silent
+/// change to output the snapshot then blesses.
+///
+/// Safe in the sense that matters here: called before any thread is spawned
+/// and before anything is written.
+fn restore_sigpipe() {
+    // SAFETY: single-threaded at this point; `signal` with SIG_DFL is
+    // async-signal-safe and cannot fail for a valid signal number.
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+    }
+}
+
+fn main() {
+    restore_sigpipe();
+    let code = match cmd::dispatch(parse_args()) {
+        Ok(code) => code,
+        Err(e) => {
+            // `{:#}` so the anyhow context chain shows, not just the outermost
+            // message — "no .gorp index here" alone would not say where.
+            eprintln!("{PROG}: {e:#}");
+            // An error should say what to do next (RESEARCH.md §6). The common
+            // way to reach an invalid pattern is typing a call — `-e 'foo('` —
+            // where the paren is regex syntax and the caller meant a literal.
+            // The parse error alone is a wall of regex internals with no exit;
+            // one of the ten argv vectors that still failed after the grep-compat
+            // work was exactly this, and `-F` answers it.
+            let msg = format!("{e:#}");
+            if msg.contains("invalid pattern") {
+                eprintln!(
+                    "{PROG}: searching for a literal? -F takes the pattern as \
+                     plain text · or drop -e and ask in plain language"
+                );
+            }
+            EXIT_ERROR
+        }
+    };
+    std::process::exit(code);
+}
+
+/// Grep's convention, which agents and shell scripts both rely on: 0 found,
+/// 1 nothing found, 2 something went wrong.
+pub const EXIT_FOUND: i32 = 0;
+pub const EXIT_NONE: i32 = 1;
+pub const EXIT_ERROR: i32 = 2;

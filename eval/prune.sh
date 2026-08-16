@@ -29,12 +29,12 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-SG=target/release/semgrep
+SG=target/release/gorp
 CORPORA="${*:-tokio etcd vscode cosqa linux}"
 
 # Isolated, like levers.sh and preproc.sh: the harness must never poison
 # ordinary use. The prune variants are not part of the cache entry key.
-export SEMGREP_CACHE_DIR="${TMPDIR:-/tmp}/semgrep-prune-cache"
+export GORP_CACHE_DIR="${TMPDIR:-/tmp}/semgrep-prune-cache"
 
 # tag|index flags|queryset|modes|where
 CONDITIONS=$(cat <<'EOF'

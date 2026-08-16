@@ -12,10 +12,10 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-SG=target/release/semgrep
+SG=target/release/gorp
 CORPORA="${*:-tokio etcd commons-lang jekyll vscode linux}"
 
-export SEMGREP_CACHE_DIR="${TMPDIR:-/tmp}/semgrep-blind-cache"
+export GORP_CACHE_DIR="${TMPDIR:-/tmp}/semgrep-blind-cache"
 
 # tag|index flags|modes|where|compare
 CONDITIONS=$(cat <<'EOF'

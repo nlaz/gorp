@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read a corpus file the way semgrep does.
+"""Read a corpus file the way gorp does.
 
 Ground truth is a line span. A line span only means something if the harness
 and the engine agree on what a line is and on which files exist — and they did
@@ -33,12 +33,12 @@ from pathlib import Path
 
 # corpus/mod.rs:84 — only the first 8 KiB are sniffed, so a NUL later in the
 # file does not disqualify it. Matching the window matters: a whole-file scan
-# would call files unindexable that semgrep indexes perfectly well.
+# would call files unindexable that gorp indexes perfectly well.
 SNIFF_BYTES = 8192
 
 
 def is_indexable(path):
-    """True if semgrep's walker would read this file as text."""
+    """True if gorp's walker would read this file as text."""
     try:
         with open(path, "rb") as f:
             return 0 not in f.read(SNIFF_BYTES)
@@ -47,7 +47,7 @@ def is_indexable(path):
 
 
 def read_text(path):
-    """The file's text, or None if semgrep would skip it.
+    """The file's text, or None if gorp would skip it.
 
     Mirrors `corpus::read_text`: NUL in the first 8 KiB means binary, and
     invalid UTF-8 is replaced lossily rather than bailing.
@@ -74,7 +74,7 @@ def split_lines(text):
 
 
 def read_lines(path):
-    """(lines, ok). `ok` is False when semgrep would skip the file — callers
+    """(lines, ok). `ok` is False when gorp would skip the file — callers
     must distinguish "no lines" from "this file is not in the index"."""
     text = read_text(path)
     if text is None:

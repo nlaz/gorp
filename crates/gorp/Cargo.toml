@@ -1,0 +1,32 @@
+[package]
+name = "gorp"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0 OR MIT"
+description = "gorp: a semantic grep for agents"
+
+# One name. `sg` and `semgrep` both shipped through §35 — the first collides
+# with ast-grep and the setgroups(1) builtin, the second with the SAST tool
+# this is not. `gorp` is four characters, unclaimed, and says what the engine
+# does: a bag of words, grepped.
+[[bin]]
+name = "gorp"
+path = "src/main.rs"
+
+[features]
+default = ["func-chunk"]
+func-chunk = ["gorp-core/func-chunk"]
+
+[dependencies]
+gorp-core = { path = "../gorp-core", default-features = false }
+anyhow = { workspace = true }
+clap = { workspace = true }
+serde_json = { workspace = true }
+libc = { workspace = true }
+# For `-g`/`--include`: the same glob semantics ripgrep uses, so a caller's
+# muscle memory transfers. Already in the tree via gorp-core's walk.
+ignore = { workspace = true }
+
+[dev-dependencies]
+serde_json.workspace = true
+tempfile = "3.27.0"

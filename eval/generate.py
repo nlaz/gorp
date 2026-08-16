@@ -93,7 +93,7 @@ def sample_symbols(root: Path, n: int, seed: int, min_lines: int = 4):
     files = [
         p for p in root.rglob("*")
         if p.is_file() and p.suffix in symmod.EXT_LANG
-        and 0 < p.stat().st_size < 2_000_000 and ".semgrep" not in p.parts
+        and 0 < p.stat().st_size < 2_000_000 and ".gorp" not in p.parts
     ]
     rng = random.Random(seed)
     rng.shuffle(files)
@@ -134,7 +134,7 @@ def sample_chunks(root: Path, n: int, seed: int):
     files = [
         p for p in root.rglob("*")
         if p.is_file() and eligible(p) and 0 < p.stat().st_size < 2_000_000
-        and ".semgrep" not in p.parts
+        and ".gorp" not in p.parts
     ]
     rng = random.Random(seed)
     rng.shuffle(files)

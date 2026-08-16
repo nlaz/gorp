@@ -204,19 +204,20 @@ anything in the engine. One clause once moved ranked usage from 7% to 98%
 into your agent's system prompt:
 
 ```
-The only code search tool available is `sg`, a ranked code search you run
-with Bash. Give it anything — an identifier, a phrase, or a question: `sg
+The only code search tool available is `gorp`, a ranked code search you run
+with Bash. Give it anything — an identifier, a phrase, or a question: `gorp
 "query"` searches the whole repository and returns the most relevant
 locations as path:line:text (top 5; `-k N` for more). Start wide: add a
 path argument only to narrow further after a wide search has pointed
-somewhere. Example: sg "retry_backoff backoff_delay compute_delay" →
+somewhere. Example: gorp "retry_backoff backoff_delay compute_delay" →
 src/net/retry.rs:142:fn backoff_delay(attempt: u32). Ranked, not
 exhaustive — if the answer isn't there, rephrase.
 ```
 
 This block predates §34 — it says `path:line:text` while ranked output is now
 the unit view — and it stays verbatim anyway, because it is the *measured*
-description (desc-v10) and an edited description is an unmeasured one
+description (desc-v12 — desc-v10 with the renamed tool and nothing else
+changed) and an edited description is an unmeasured one
 (RESEARCH.md §20.1; §26.3 set the precedent when desc-v9 said "top 10" over a
 top-5 default). Re-measuring a description that names the unit view is §34.3's
 standing follow-up.

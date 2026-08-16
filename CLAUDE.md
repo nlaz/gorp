@@ -1,4 +1,4 @@
-# semgrep (repo dir: semgrep/)
+# gorp (repo dir: gorp/)
 
 Semantic grep for agents built on the Bog stack: `../ese` (static embeddings,
 256-dim, compiled-in weights) + `../anny` (HNSW). See DESIGN.md for the full
@@ -14,7 +14,7 @@ RCA-FJALL-LOCK.md is the one blocker, drafted for upstream.
 
 ### Layers
 
-`crates/semgrep-core` is organized in layers, bottom up. **A layer may call
+`crates/gorp-core` is organized in layers, bottom up. **A layer may call
 downward and not upward.** That is the rule to check a change against, and it is
 what keeps the tree navigable: `rank` never touches the filesystem, `store` never
 ranks, `cache` never scores, `search` orchestrates rather than computes.
@@ -23,7 +23,7 @@ ranks, `cache` never scores, `search` orchestrates rather than computes.
   outside the stack: `Stage` is a closed enum, each path declares a
   `SCHEDULE_*`, and every stage belongs to exactly one `Bucket` so
   `walk`/`load`/`rank` are *derived* sums and `unattributed_ms` means "work
-  nothing is timing". `crates/semgrep-core/tests/trace.rs` bounds that residual.
+  nothing is timing". `crates/gorp-core/tests/trace.rs` bounds that residual.
 - `corpus/` — directory into files into chunks. `mod` walks, `chunk` cuts and
   re-reads, `pass` drives the parallel read, `diff` compares a tree against an
   index, `funcchunk` cuts on function boundaries (tree-sitter, `func-chunk`).
@@ -47,19 +47,20 @@ ranks, `cache` never scores, `search` orchestrates rather than computes.
   `unit` (the unit view's rows, §34), `checklist` (the learned blend, §35.2).
 - `keyword.rs` — the exact-match escape hatch, independent of all of it.
 
-`crates/semgrep` is the CLI, built as **two binaries over one source**: `sg`
-(the name to type) and `semgrep` (kept because nine scripts and the test
-harness resolve it by name). Only the name differs — env vars,
-`~/.cache/semgrep`, `.semgrep/` and the `semgrep: ` stderr prefix are all
-unchanged, so `sg` prints `semgrep:`. Deliberate: that is the expensive half
-of a rename and it invalidates every built index (RESEARCH.md §19.9).
+`crates/gorp` is the CLI, one binary named `gorp`. The 2026-08 rename went
+all the way through — `GORP_*` env vars, `~/.cache/gorp`, `.gorp/` index
+dirs, and a `gorp: ` stderr prefix that lives in one constant
+(`out::PROG`) rather than the ~26 literals it used to. That is the
+expensive half of a rename and it invalidated every index built before it
+(RESEARCH.md §19.9); they rebuild on first search. The old `sg` and
+`semgrep` binary names are gone.
 Its modules: `cli` (flags), `cmd/` (one file per verb), `out`
-(every write to stdout or stderr), `telemetry` (the `SEMGREP_TRACE_FILE`
-envelope — schema `semgrep.trace/1`, and the contract the eval harnesses
+(every write to stdout or stderr), `telemetry` (the `GORP_TRACE_FILE`
+envelope — schema `gorp.trace/1`, and the contract the eval harnesses
 read). **stdout is data, stderr is commentary** —
-`crates/semgrep/tests/cli.rs` enforces it.
+`crates/gorp/tests/cli.rs` enforces it.
 
-Engine integration tests split by concern under `crates/semgrep-core/tests/`:
+Engine integration tests split by concern under `crates/gorp-core/tests/`:
 `e2e_general.rs` (the four modes and cold==warm), `e2e_cache.rs` (§8 cache
 behaviors), `e2e_publish.rs` (publication is a swap), over a shared
 `common/mod.rs`. Each is its own process and therefore its own cache dir.
@@ -111,7 +112,7 @@ behaviors), `e2e_publish.rs` (publication is a swap), over a shared
   didn't write — prefer it for quality claims, RESEARCH.md §12);
   `locbench/replay.py` replays real agent queries offline (§13.2).
   `locbench/triage.py` is the **gate between campaign tiers** (§18): it reads
-  the per-invocation trace envelopes (`SEMGREP_TRACE_FILE`, set by `run.py`)
+  the per-invocation trace envelopes (`GORP_TRACE_FILE`, set by `run.py`)
   beside the shim logs and exits nonzero on tool failures, agent distress
   (help probes, consecutive empty searches, a query repeated fruitlessly),
   or harness trouble. `locbench/capture.py` → `locbench/viewer.py` turn a
@@ -142,7 +143,7 @@ behaviors), `e2e_publish.rs` (publication is a swap), over a shared
   decide every published number.
 - `eval/sim/` — simulation testing: behavior over a *sequence* of steps against
   evolving cache state, which neither of the above can see. A session is
-  `mutate` / `invoke` / `check` steps under one isolated `SEMGREP_CACHE_DIR`;
+  `mutate` / `invoke` / `check` steps under one isolated `GORP_CACHE_DIR`;
   `eval/sim/scenarios.py` holds the catalog with machine-readable expectations
   and `eval/sim/PREREGISTER.md` the prose, **committed before the first run** so
   a contradicted prediction is a finding rather than a rewrite.
@@ -177,17 +178,17 @@ behaviors), `e2e_publish.rs` (publication is a swap), over a shared
   (`corpus::pass`, the single implementation of that guarantee) with a serial
   in-order fold that preserves it; `store::build_at` asserts the three agree.
 - The index is a cache (RESEARCH.md §8): cold ranked searches write-through
-  to `~/.cache/semgrep` (override `SEMGREP_CACHE_DIR`; tests and the eval
-  harness isolate it). `cache::discover` resolves local/.semgrep, ancestor
+  to `~/.cache/gorp` (override `GORP_CACHE_DIR`; tests and the eval
+  harness isolate it). `cache::discover` resolves local/.gorp, ancestor
   dirs (git-style walk-up), then cache entries by longest prefix. **Entries are
   keyed by chunk parameters as well as root**, so a `--window` sweep cannot
   poison ordinary searches — it could, and did (FIXES.md #10).
   `meta.json` is written last: writing it is what publishes an index.
-  Read-repair validation is throttled by `SEMGREP_CACHE_TTL_SECS`
+  Read-repair validation is throttled by `GORP_CACHE_TTL_SECS`
   (default 60; 0 = always validate). `--no-index` never reads or writes.
 - `bench/run.py` invokes competitors by absolute path (`/usr/bin/grep`,
   `/opt/homebrew/bin/*`) because dev shells wrap `grep`.
-- Smoke tests in sibling repos: set `SEMGREP_CACHE_DIR` to a temp dir (a
+- Smoke tests in sibling repos: set `GORP_CACHE_DIR` to a temp dir (a
   plain ranked search now writes a cache entry for that scope).
 - The benchmark corpora live in `bench/corpora/` (~5 GB with the linux index;
   refetch with `bench/fetch-corpora.sh`). Seven of them: linux (C, 84k files),

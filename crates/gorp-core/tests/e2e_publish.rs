@@ -1,0 +1,995 @@
+//! End-to-end: publication is a swap, not a rewrite (SIMULATION.md §1.2,
+//! FIXES.md #6) — a rebuild must never truncate a file a reader has mapped.
+
+mod common;
+use gorp_core::ChunkParams;
+use gorp_core::cache;
+use gorp_core::cache::repair::RepairOutcome;
+use gorp_core::search::{Mode, SearchOptions, search};
+use std::fs;
+
+use common::*;
+
+/// The SIGBUS, reduced to its mechanism.
+///
+/// A rebuild used to write `emb.bin` straight into the live entry, truncating a
+/// file another process had already mapped — and a mapping whose backing file is
+/// truncated faults on access. Measured at 5-8 bad trials in 20 on a small
+/// corpus, and it is a signal, not an error, so nothing could catch it.
+///
+/// A mapping is an inode, and the swap only ever replaces a *name*. So a reader
+/// that mapped the old `emb.bin` must still be able to read every byte of it
+/// after a full rebuild has published a different one.
+#[test]
+fn a_rebuild_does_not_disturb_an_already_mapped_index() {
+    let _cache = isolate_cache();
+    let repo = tempfile::tempdir().unwrap();
+    fixture(repo.path());
+    let dir = gorp_core::store::index_dir(repo.path());
+
+    let build = |opts: &gorp_core::store::BuildOptions| {
+        gorp_core::store::build(repo.path(), opts, |_, _| {}).expect("build")
+    };
+    let opts = gorp_core::store::BuildOptions::default();
+    build(&opts);
+
+    let emb = dir.join("emb.bin");
+    let file = fs::File::open(&emb).expect("emb.bin exists");
+    let before: u64 = file.metadata().unwrap().len();
+    assert!(before > 0, "a built index has embeddings");
+    let map = unsafe { memmap2::Mmap::map(&file) }.expect("map emb.bin");
+    let first_bytes = map[..map.len().min(64)].to_vec();
+
+    // Grow the corpus so the rebuild genuinely produces a different, larger
+    // emb.bin — an identical rewrite would not prove anything.
+    for i in 0..12 {
+        fs::write(
+            repo.path().join(format!("src/extra{i}.rs")),
+            format!("fn generated_symbol_{i}() {{ /* padding to move the row count */ }}\n"),
+        )
+        .unwrap();
+    }
+    build(&opts);
+
+    assert!(
+        fs::metadata(&emb).unwrap().len() > before,
+        "the rebuild should have produced a larger emb.bin"
+    );
+    // The load-bearing assertion: touching every page of the old mapping. If
+    // publication truncated the file this reader had open, this is where the
+    // process would die of SIGBUS rather than fail an assertion.
+    let checksum: u64 = map.iter().map(|&b| b as u64).sum();
+    assert_eq!(map.len() as u64, before, "the old mapping changed size underneath us");
+    assert_eq!(&map[..map.len().min(64)], &first_bytes[..], "the old mapping's bytes changed");
+    let _ = checksum;
+}
+
+/// The staging directory must not be visible as an index while it is being
+/// filled — including at the moment it is complete but not yet swapped, when it
+/// holds a perfectly valid `meta.json`.
+#[test]
+fn a_staging_directory_is_never_discoverable_but_is_always_reclaimable() {
+    let _cache = isolate_cache();
+    let repo = tempfile::tempdir().unwrap();
+    fixture(repo.path());
+    let root = fs::canonicalize(repo.path()).unwrap();
+
+    let entry = cache::cache_generation().join("pretend-entry");
+    let staging = gorp_core::store::staging_path(&entry);
+    fs::create_dir_all(&staging).unwrap();
+    fs::write(staging.join("root.txt"), root.to_string_lossy().as_bytes()).unwrap();
+    fs::write(staging.join("params.txt"), "w40o10").unwrap();
+    // A *complete* build, awaiting only its rename.
+    fs::write(staging.join("meta.json"), "{}").unwrap();
+    fs::write(staging.join("emb.bin"), vec![0u8; 8192]).unwrap();
+
+    assert!(
+        !cache::cache_entries().iter().any(|(d, _)| *d == staging),
+        "a directory mid-swap must never be discoverable, even when complete"
+    );
+
+    let seen = cache::cache_status();
+    let mine = seen.iter().find(|e| e.dir == staging).expect("still counted against the budget");
+    assert!(mine.incomplete, "a meta.json inside a staging dir does not make it an entry");
+    assert!(mine.bytes >= 8192, "its bytes must count");
+
+    let r = cache::enforce_budget_with_cap(cache::cache_max_bytes(), 0);
+    assert!(r.removed >= 1, "an abandoned staging dir must be reclaimable");
+    assert!(!staging.exists(), "staging dir survived the prune");
+}
+
+/// Reclamation runs after registration so the enforcer can see what triggered
+/// it (FIXES.md #5). Seeing it, it evicted it: the query had just paid for a
+/// complete index build, missed on re-discovery, and streamed the corpus as
+/// well — paying twice and keeping nothing, on 5 of 8 queries under budget
+/// pressure (SIMULATION.md §1.4).
+#[test]
+fn a_write_does_not_evict_the_entry_it_just_wrote() {
+    let _cache = isolate_cache();
+    let repo = tempfile::tempdir().unwrap();
+    fixture(repo.path());
+    let root = fs::canonicalize(repo.path()).unwrap();
+
+    let opts = gorp_core::store::BuildOptions::default();
+    let (dir, stats) = cache::write_cache_entry(&root, &opts, |_, _| {}).expect("write entry");
+    assert!(dir.exists(), "the entry was written");
+
+    // A cap below one entry: every candidate is over budget, so an unprotected
+    // enforcer evicts the only thing there is — the entry just built.
+    let cap = (stats.index_bytes / 2).max(1);
+    let r = cache::enforce_budget_protecting(&dir);
+    assert!(dir.exists(), "the freshly written entry must survive its own enforcement");
+    assert!(r.stuck.is_empty(), "nothing resisted deletion: {:?}", r.stuck);
+
+    // And it is still discoverable, which is the property that actually matters:
+    // the query that paid for it can now be answered warm.
+    let params = gorp_core::ChunkParams::default();
+    assert!(
+        cache::discover(&root, &params).is_some(),
+        "the entry it built must serve the query that built it"
+    );
+
+    // Unprotected, the same cap does evict it — the protection is doing the work,
+    // not a budget that happened to be large enough.
+    cache::enforce_budget_with_cap(cap, 600);
+    assert!(!dir.exists(), "without protection an over-cap entry is evicted as before");
+}
+
+/// One undeletable directory used to take the whole cache with it: the victim
+/// was popped whether or not it went and the running total only fell on success,
+/// so the loop chewed through every healthy entry behind it and stopped with the
+/// undeletable one as the sole survivor, at exit 0 with no warning.
+#[cfg(unix)]
+#[test]
+fn an_undeletable_entry_does_not_take_the_healthy_ones_with_it() {
+    use std::os::unix::fs::PermissionsExt;
+    let _cache = isolate_cache();
+
+    // Four entries, all live, oldest last in eviction order.
+    let mut repos = Vec::new();
+    let mut dirs = Vec::new();
+    for i in 0..4 {
+        let repo = tempfile::tempdir().unwrap();
+        fs::write(repo.path().join("a.rs"), format!("fn symbol_{i}() {{}}\n")).unwrap();
+        let d = cache::cache_generation().join(format!("entry-{i}"));
+        fs::create_dir_all(&d).unwrap();
+        fs::write(d.join("root.txt"), repo.path().to_string_lossy().as_bytes()).unwrap();
+        fs::write(d.join("meta.json"), "{}").unwrap();
+        fs::write(d.join("emb.bin"), vec![0u8; 4096]).unwrap();
+        dirs.push(d);
+        repos.push(repo);
+    }
+
+    // Make the least-recently-used one refuse to be removed. `remove_dir_all`
+    // needs write+execute on the directory to unlink what is inside it.
+    let stuck = &dirs[0];
+    let original = fs::metadata(stuck).unwrap().permissions();
+    fs::set_permissions(stuck, fs::Permissions::from_mode(0o500)).unwrap();
+
+    // Count only the four this test made. Every test in this binary shares one
+    // cache directory, so a global count is whatever else has run.
+    let mine = |v: &[cache::CacheEntryInfo]| {
+        v.iter().filter(|e| dirs.contains(&e.dir)).count()
+    };
+    let before = mine(&cache::cache_status());
+    let r = cache::enforce_budget_with_cap(0, 600);
+    let after = mine(&cache::cache_status());
+
+    // Restore before asserting, or a failure leaves an undeletable tempdir.
+    fs::set_permissions(stuck, original).unwrap();
+
+    assert_eq!(before, 4, "four entries to begin with");
+    assert_eq!(r.stuck.len(), 1, "the undeletable entry must be reported, not silently skipped");
+    assert!(
+        after >= 2,
+        "one stuck entry must not cascade into the healthy ones: {after} of {before} survived"
+    );
+    assert!(stuck.exists(), "the undeletable entry is still there — that is the point");
+}
+
+/// The drift bound (FIXES.md #7, RESEARCH.md §8 mechanism 2).
+///
+/// A small drift is patched in memory — cheap, and it keeps the entry. A large
+/// one replaces the entry instead, because repairing charges the same price on
+/// every query past the TTL and never amortizes: on tokio a 50%-drifted scope
+/// cost 131 ms a query against a 127 ms cold pass, forever (SIMULATION.md §1.3).
+/// Both branches must answer with the *current* tree; only the cost differs.
+#[test]
+fn repair_serves_a_small_drift_and_rebuilds_a_large_one() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("src")).unwrap();
+    // 40 files, so one file is 2.5% — under the 5% default — and twenty is 50%.
+    for i in 0..40 {
+        fs::write(
+            dir.path().join(format!("src/mod{i}.rs")),
+            format!("//! Module {i}.\npub fn stable_symbol_{i}() -> u32 {{ {i} }}\n"),
+        )
+        .unwrap();
+    }
+    let base = SearchOptions { k: 5, params: ChunkParams { window: 8, overlap: 2, ..Default::default() }, ..Default::default() };
+    search(dir.path(), "stable symbol", &base).unwrap();
+
+    // One file of forty: under the bound, so the overlay handles it and the
+    // entry is kept rather than rewritten.
+    fs::write(
+        dir.path().join("src/mod0.rs"),
+        "//! Rewritten.\npub fn exponential_backoff_with_jitter(n: u32) -> u32 { 1 << n }\n",
+    )
+    .unwrap();
+    let r = search(dir.path(), "exponential backoff jitter", &base).unwrap();
+    assert!(r.report.used_index, "a small drift stays on the warm path");
+    assert!(!r.report.wrote_cache, "a small drift must not trigger a rebuild");
+    assert_eq!(r.hits[0].path, "src/mod0.rs", "the overlay serves the new text");
+    assert!(
+        matches!(r.report.repair, RepairOutcome::Repaired { .. }),
+        "expected an overlay, got {:?}",
+        r.report.repair
+    );
+
+    // Twenty of forty: over the bound, so the entry is replaced. The answer must
+    // still be the current tree — that is not negotiable, only the route is.
+    for i in 10..30 {
+        fs::write(
+            dir.path().join(format!("src/mod{i}.rs")),
+            format!("//! Rewritten {i}.\npub fn circuit_breaker_trips_{i}() -> bool {{ true }}\n"),
+        )
+        .unwrap();
+    }
+    let r = search(dir.path(), "circuit breaker trips", &base).unwrap();
+    assert!(r.report.wrote_cache, "a large drift must rebuild the entry");
+    assert!(r.report.used_index, "and must answer warm from the rebuilt entry");
+    assert!(
+        r.hits[0].path.starts_with("src/mod1") || r.hits[0].path.starts_with("src/mod2"),
+        "the rebuild must serve the rewritten files, got {}",
+        r.hits[0].path
+    );
+
+    // The rebuilt entry is clean, so the next identical query is an ordinary
+    // warm hit. This is the point of rebuilding rather than streaming: repairing
+    // would have charged the same price again here.
+    let r = search(dir.path(), "circuit breaker trips", &base).unwrap();
+    assert!(r.report.used_index && !r.report.wrote_cache, "the rebuilt entry is reused");
+    assert_eq!(r.report.repair, RepairOutcome::NoDrift, "a fresh entry has nothing to repair");
+}
+
+/// The bound is off for a repo-local `.gorp/`. It is the user's artifact, and
+/// silently replacing it — or serving around it — is not the engine's call, so
+/// it repairs however far it has drifted and reports the staleness.
+#[test]
+fn a_repo_local_index_is_repaired_however_far_it_has_drifted() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    gorp_core::store::build(
+        dir.path(),
+        &gorp_core::store::BuildOptions { params: ChunkParams { window: 8, overlap: 2, ..Default::default() }, ..Default::default() },
+        |_, _| {},
+    )
+    .unwrap();
+
+    // Rewrite most of the corpus — far past any threshold.
+    for name in ["src/auth.rs", "src/retry.rs", "docs/ops.md"] {
+        if dir.path().join(name).exists() {
+            fs::write(
+                dir.path().join(name),
+                "//! Rewritten.\npub fn circuit_breaker_trip(n: u32) -> bool { n > 3 }\n",
+            )
+            .unwrap();
+        }
+    }
+
+    let o = SearchOptions { k: 5, params: ChunkParams { window: 8, overlap: 2, ..Default::default() }, ..Default::default() };
+    let r = search(dir.path(), "circuit breaker tripping", &o).unwrap();
+    assert!(r.report.used_index, "a repo-local index still answers");
+    assert!(!r.report.wrote_cache, "and is never rebuilt behind the user's back");
+    assert!(
+        matches!(r.report.repair, RepairOutcome::Repaired { .. }),
+        "a repo-local index repairs at any drift, got {:?}",
+        r.report.repair
+    );
+    assert!(r.report.stale_files > 0, "the staleness is reported rather than hidden");
+}
+
+/// A narrow scope must not starve (FIXES.md #13, SIMULATION.md §1.7).
+///
+/// The fused list is `FUSION_POOL * 2` = 256 rows wide. The scope filter used to
+/// run *after* that truncation, so a subtree holding none of the corpus-wide top
+/// 256 got nothing — on tokio, `docs/` returned zero hits from a fully indexed
+/// 8,042-chunk corpus. The condition is built here rather than hoped for: 400
+/// noise files that all answer the query better than the one file in the scope.
+#[test]
+fn a_narrow_scope_returns_hits_even_when_the_corpus_head_excludes_it() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("noise")).unwrap();
+    fs::create_dir_all(dir.path().join("target")).unwrap();
+
+    // Enough noise to fill the fused window several times over, all of it a
+    // stronger lexical match than the target.
+    for i in 0..400 {
+        fs::write(
+            dir.path().join(format!("noise/n{i}.rs")),
+            "//! exponential backoff retry policy\n\
+             pub fn exponential_backoff_retry_policy_{i}() {{ /* backoff retry policy */ }}\n"
+                .replace("{i}", &i.to_string()),
+        )
+        .unwrap();
+    }
+    // One weak match, in its own subtree.
+    fs::write(
+        dir.path().join("target/only.rs"),
+        "//! Scheduling.\npub fn retry_after(delay: u64) -> u64 { delay }\n",
+    )
+    .unwrap();
+
+    let o = SearchOptions {
+        k: 5,
+        params: ChunkParams { window: 8, overlap: 2, ..Default::default() },
+        ..Default::default()
+    };
+
+    // Warm an index covering the whole tree, then query only the subtree.
+    let all = search(dir.path(), "exponential backoff retry policy", &o).unwrap();
+    assert!(all.hits.iter().all(|h| h.path.starts_with("noise/")),
+            "the corpus head should be all noise, or this proves nothing");
+
+    let scoped =
+        search(&dir.path().join("target"), "exponential backoff retry policy", &o).unwrap();
+    assert!(scoped.report.used_index, "the subtree query is served warm");
+    assert!(
+        !scoped.hits.is_empty(),
+        "a scope outside the corpus-wide head must still return its own rows"
+    );
+    assert!(
+        scoped.hits.iter().all(|h| h.path.starts_with("target/") || !h.path.contains('/')),
+        "out-of-scope rows leaked in: {:?}",
+        scoped.hits.iter().map(|h| &h.path).collect::<Vec<_>>()
+    );
+
+    // And the whole-corpus answer is untouched by the mask existing.
+    let again = search(dir.path(), "exponential backoff retry policy", &o).unwrap();
+    assert_eq!(
+        again.hits.iter().map(|h| h.path.clone()).collect::<Vec<_>>(),
+        all.hits.iter().map(|h| h.path.clone()).collect::<Vec<_>>(),
+        "an unscoped query must rank exactly as it did before"
+    );
+}
+
+/// A hidden subtree is absent from its parent's index, and that is a different
+/// finding from the starvation above with a different cause and a different fix.
+///
+/// SIMULATION.md §1.7 reported `.github` and `docs` on tokio together, as one
+/// finding: two scopes returning zero hits from a fully indexed corpus. Only
+/// `docs` was that finding. `corpus::walk` runs `ignore::WalkBuilder` at its
+/// default `hidden(true)`, so tokio's index holds **no** dot-prefixed path at
+/// all — there was never anything under `.github` to starve. The scope mask
+/// cannot fix that and should not pretend to.
+///
+/// What happens instead is worth pinning, because it is not obvious and it is
+/// the reason the drift bound needs its retry escape (see `search::search`):
+/// asking for the hidden scope by name builds it an index of its own, because a
+/// walk rooted *at* `.github` does not consider its contents hidden.
+#[test]
+fn a_hidden_subtree_is_absent_from_its_parents_index_but_searchable_on_its_own() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    fs::create_dir_all(dir.path().join(".github")).unwrap();
+    fs::write(
+        dir.path().join(".github/workflow.yml"),
+        "name: exponential backoff retry policy\njobs:\n  retry:\n    backoff: exponential\n",
+    )
+    .unwrap();
+
+    let params = ChunkParams { window: 8, overlap: 2, ..Default::default() };
+    let from_root = gorp_core::corpus::walk(dir.path(), &params).unwrap();
+    assert!(
+        !from_root.iter().any(|f| f.path.starts_with(".github")),
+        "a walk from the parent skips hidden directories: {:?}",
+        from_root.iter().map(|f| &f.path).collect::<Vec<_>>()
+    );
+    let from_itself = gorp_core::corpus::walk(&dir.path().join(".github"), &params).unwrap();
+    assert_eq!(
+        from_itself.len(),
+        1,
+        "but a walk rooted at it does not: {:?}",
+        from_itself.iter().map(|f| &f.path).collect::<Vec<_>>()
+    );
+
+    let o = SearchOptions { k: 5, params, ..Default::default() };
+    search(dir.path(), "retry backoff", &o).unwrap();
+
+    // First ask: the parent entry covers the path but holds nothing under it, so
+    // the scope gets an index of its own.
+    let first = search(&dir.path().join(".github"), "exponential backoff", &o).unwrap();
+    assert!(first.report.wrote_cache, "the hidden scope is indexed on demand");
+    assert!(!first.hits.is_empty(), "and then answers");
+
+    // Second ask: warm, and — the part that matters — *not* another rebuild.
+    // Re-raising the drift bound here would charge a build and a stream on every
+    // query for as long as the scope stayed hidden from its parent's walk.
+    let second = search(&dir.path().join(".github"), "exponential backoff", &o).unwrap();
+    assert!(second.report.used_index, "served from the entry just built");
+    assert!(!second.report.wrote_cache, "a hidden scope must not rebuild on every query");
+}
+
+/// A search scope that IS a file must work in every mode.
+///
+/// RESEARCH.md §16.11: it did not. `walk` stripped the root off itself,
+/// yielding an empty relative path, and four separate `root.join(rel)` sites
+/// then looked for `<file>/<file>`. Ranked search over a single file returned
+/// nothing — 100% of the time, for 47% of one campaign's agent searches —
+/// while reporting success. Exact mode "worked" but printed `:9:text` with no
+/// filename. Nothing in the suite covered a file-as-root, which is exactly
+/// the scope an agent uses for a follow-up query.
+#[test]
+fn a_single_file_scope_returns_hits_in_every_mode() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    let file = dir.path().join("src/retry.rs");
+
+    for mode in [Mode::Bm25, Mode::Semantic, Mode::Hybrid] {
+        for no_index in [true, false] {
+            let o = SearchOptions { mode, no_index, k: 3, ..opts(mode) };
+            let r = search(&file, "compute the backoff delay", &o).unwrap();
+            assert!(!r.hits.is_empty(),
+                    "{mode:?} (no_index={no_index}) found nothing in a file scope");
+            assert!(!r.hits[0].path.is_empty(),
+                    "{mode:?} (no_index={no_index}) produced an empty path");
+        }
+    }
+
+    let o = SearchOptions { mode: Mode::Keyword, k: 5, ..opts(Mode::Keyword) };
+    let r = search(&file, "compute_backoff_delay", &o).unwrap();
+    assert!(!r.hits.is_empty(), "keyword found nothing in a file scope");
+    assert!(!r.hits[0].path.is_empty(), "keyword produced an empty path");
+}
+
+/// A file scope must not build a cache entry it can never read back.
+///
+/// `cache::discover` refuses a non-directory root, so an entry keyed at a file
+/// has no possible reader. Before this was guarded, every file-scoped search
+/// built a complete index, wrote it, failed to re-discover it, streamed anyway,
+/// and then had the entry deleted by the budget sweep — which judges a root
+/// dead by `is_dir` and so classified a live file as a dead repo. `--stats`
+/// named the round trip `built_but_missed`. Agents scope to a file constantly
+/// (47% of searches in the §16.10 campaign), and the tier-1 trace caught it on
+/// the first smoke run.
+#[test]
+fn a_file_scope_does_not_write_a_cache_entry() {
+    let _guard = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    let file = dir.path().join("src/retry.rs");
+
+    for _ in 0..3 {
+        let r = search(&file, "compute the backoff delay", &opts(Mode::Semantic)).unwrap();
+        assert!(!r.hits.is_empty(), "a file scope must still answer");
+        assert!(!r.report.wrote_cache, "a file scope must not write a cache entry");
+        assert!(!r.report.used_index, "and cannot be served from one");
+    }
+    let entries = gorp_core::cache::cache_status();
+    assert!(
+        !entries.iter().any(|e| e.root == std::fs::canonicalize(&file).unwrap()),
+        "a cache entry was written for a file root: {:?}",
+        entries.iter().map(|e| &e.root).collect::<Vec<_>>()
+    );
+
+    // The control: a directory scope still caches, so the guard above is not
+    // simply switching write-through off.
+    let r = search(dir.path(), "compute the backoff delay", &opts(Mode::Semantic)).unwrap();
+    assert!(r.report.wrote_cache, "a directory scope must still write through");
+}
+
+
+/// cold == warm must survive path rendering too (RESEARCH.md §20.1). Separate
+/// from the tier loop because `PathRender` is the orthogonal axis: a bug that
+/// only shows up when the path is rewritten would hide inside a tier sweep.
+#[test]
+fn cold_and_warm_agree_under_path_render() {
+    use gorp_core::text::{EmbedPreproc, PathRender};
+    let _cache = isolate_cache();
+
+    for pr in [PathRender::Dedupe, PathRender::Tail, PathRender::Scaled] {
+        let dir = tempfile::tempdir().unwrap();
+        fixture(dir.path());
+        for query in ["compute the backoff delay", "check whether a session token is valid"] {
+            let with = |o: SearchOptions| SearchOptions {
+                embed_preproc: EmbedPreproc::PruneLex,
+                path_render: pr,
+                rerank_maxsim: true,
+                ..o
+            };
+            let cold = search(dir.path(), query, &with(stream_opts(Mode::Semantic))).unwrap();
+            assert!(!cold.report.used_index);
+            let warm = search(dir.path(), query, &with(opts(Mode::Semantic))).unwrap();
+            assert!(warm.report.used_index);
+
+            let c: Vec<_> = cold.hits.iter().map(|h| (&h.path, h.start_line)).collect();
+            let w: Vec<_> = warm.hits.iter().map(|h| (&h.path, h.start_line)).collect();
+            assert_eq!(c, w, "cold != warm for {pr:?} {query:?}");
+        }
+    }
+}
+
+/// A character budget and a line window cut the same tree differently, so they
+/// must not share a cache entry — that is FIXES.md #10 one parameter later.
+#[test]
+fn a_budgeted_entry_never_answers_a_line_windowed_query() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+
+    // Pin off (§32.4b): pinned hits take their span from the fine window,
+    // which re-reads the file and is chunking-independent — with the pin on,
+    // both configs can display identical spans and this test's instrument
+    // (hit starts differing across chunkings) goes blind. The cache-key
+    // separation under test is unaffected by the pin.
+    let lines = SearchOptions {
+        bm25_pin: 0,
+        params: ChunkParams { window: 8, overlap: 2, ..Default::default() },
+        ..opts(Mode::Semantic)
+    };
+    let budgeted = SearchOptions {
+        bm25_pin: 0,
+        params: ChunkParams {
+            window: 8,
+            overlap: 2,
+            budget: Some(200),
+            ..Default::default()
+        },
+        ..opts(Mode::Semantic)
+    };
+    // Warm both, in that order. If they shared an entry the second would be
+    // served from the first's chunking and report a hit against the wrong ids.
+    search(dir.path(), "compute the backoff delay", &lines).unwrap();
+    let b = search(dir.path(), "compute the backoff delay", &budgeted).unwrap();
+    assert!(b.report.used_index);
+
+    // Chunk boundaries differ, so at least one hit must start on a different
+    // line — otherwise the two entries are indistinguishable and the guard is
+    // untested rather than passing.
+    let a = search(dir.path(), "compute the backoff delay", &lines).unwrap();
+    let starts = |r: &gorp_core::search::SearchResult| -> Vec<(String, u32)> {
+        r.hits.iter().map(|h| (h.path.clone(), h.start_line)).collect()
+    };
+    assert_ne!(starts(&a), starts(&b), "budgeted and line-windowed chunking coincided");
+}
+
+/// A budgeted build must be reproducible cold, like every other chunking.
+#[test]
+fn cold_and_warm_agree_under_a_character_budget() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    let params = ChunkParams { window: 8, overlap: 2, budget: Some(200), ..Default::default() };
+    for query in ["compute the backoff delay", "check whether a session token is valid"] {
+        let cold =
+            search(dir.path(), query, &SearchOptions { params, ..stream_opts(Mode::Semantic) })
+                .unwrap();
+        let warm =
+            search(dir.path(), query, &SearchOptions { params, ..opts(Mode::Semantic) }).unwrap();
+        assert!(!cold.report.used_index && warm.report.used_index);
+        let c: Vec<_> = cold.hits.iter().map(|h| (&h.path, h.start_line)).collect();
+        let w: Vec<_> = warm.hits.iter().map(|h| (&h.path, h.start_line)).collect();
+        assert_eq!(c, w, "cold != warm under a budget for {query:?}");
+    }
+}
+
+/// Function-mode entries live under their own `f` tag (§29.3): the template
+/// is `a_budgeted_entry_never_answers_a_line_windowed_query`, one mode later.
+/// Fine rerank off — these tests read hit spans as chunk geometry, and the
+/// fine window would narrow every span to a few lines regardless of cutter.
+#[cfg(feature = "func-chunk")]
+#[test]
+fn a_function_entry_never_answers_a_window_query() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+
+    let lines = SearchOptions {
+        fine_rerank: false,
+        params: ChunkParams { window: 8, overlap: 2, ..Default::default() },
+        ..opts(Mode::Semantic)
+    };
+    let function = SearchOptions {
+        fine_rerank: false,
+        params: ChunkParams {
+            window: 8,
+            overlap: 2,
+            function: Some(gorp_core::FUNC_CAP_DEFAULT),
+            ..Default::default()
+        },
+        ..opts(Mode::Semantic)
+    };
+    search(dir.path(), "compute the backoff delay", &lines).unwrap();
+    let f = search(dir.path(), "compute the backoff delay", &function).unwrap();
+    assert!(f.report.used_index);
+
+    let a = search(dir.path(), "compute the backoff delay", &lines).unwrap();
+    // Full spans, not just starts: a function chunk and an 8-line window can
+    // begin at the same line (a def at the top of a file does), but a cutter
+    // that ends at the function's brace and one that ends 8 lines in cannot
+    // agree everywhere unless the entries were shared.
+    let spans = |r: &gorp_core::search::SearchResult| -> Vec<(String, u32, u32)> {
+        r.hits.iter().map(|h| (h.path.clone(), h.start_line, h.end_line)).collect()
+    };
+    assert_ne!(spans(&a), spans(&f), "function and window chunking coincided");
+}
+
+/// Function chunking must be reproducible cold, like every other chunking —
+/// the parse is a pure function of the file bytes, and both paths cut through
+/// the same `corpus::chunk_lines`.
+#[cfg(feature = "func-chunk")]
+#[test]
+fn cold_and_warm_agree_under_function_chunking() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    let params = ChunkParams {
+        window: 8,
+        overlap: 2,
+        function: Some(gorp_core::FUNC_CAP_DEFAULT),
+        ..Default::default()
+    };
+    for query in ["compute the backoff delay", "check whether a session token is valid"] {
+        let cold = search(
+            dir.path(),
+            query,
+            &SearchOptions { params, ..stream_opts(Mode::Semantic) },
+        )
+        .unwrap();
+        assert!(!cold.report.used_index);
+        let warm =
+            search(dir.path(), query, &SearchOptions { params, ..opts(Mode::Semantic) }).unwrap();
+        assert!(warm.report.used_index);
+        let shape = |r: &gorp_core::search::SearchResult| -> Vec<(String, u32, u32)> {
+            r.hits.iter().map(|h| (h.path.clone(), h.start_line, h.end_line)).collect()
+        };
+        assert_eq!(shape(&cold), shape(&warm), "cold != warm under function chunking: {query}");
+    }
+}
+
+/// Read-repair re-cuts a drifted file from `meta.params` alone (§29.3): under
+/// function mode the repaired chunks must equal what a fresh build would cut,
+/// or a warm entry answers with different spans than a rebuild — the exact
+/// drift the params tag exists to prevent, one layer down.
+#[cfg(feature = "func-chunk")]
+#[test]
+fn repair_recuts_a_drifted_file_the_way_a_build_would() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    let params = ChunkParams {
+        window: 8,
+        overlap: 2,
+        function: Some(gorp_core::FUNC_CAP_DEFAULT),
+        ..Default::default()
+    };
+    let o = SearchOptions { fine_rerank: false, params, ..opts(Mode::Semantic) };
+    let query = "compute the backoff delay";
+    search(dir.path(), query, &o).unwrap();
+
+    // Drift the gold file: a new function above the old one moves every span.
+    let target = dir.path().join("src/retry.rs");
+    let old = std::fs::read_to_string(&target).unwrap();
+    std::fs::write(
+        &target,
+        format!("/// Added later.\nfn added_later(x: u32) -> u32 {{\n    x + 1\n}}\n\n{old}"),
+    )
+    .unwrap();
+
+    // TTL 0 in tests, so the next warm query repairs around the drift.
+    let repaired = search(dir.path(), query, &o).unwrap();
+    assert!(repaired.report.used_index, "the entry should be patched, not discarded");
+    let fresh = search(
+        dir.path(),
+        query,
+        &SearchOptions { no_index: true, ..o.clone() },
+    )
+    .unwrap();
+    let shape = |r: &gorp_core::search::SearchResult| -> Vec<(String, u32, u32)> {
+        r.hits.iter().map(|h| (h.path.clone(), h.start_line, h.end_line)).collect()
+    };
+    assert_eq!(shape(&repaired), shape(&fresh), "repair cut differently than a build");
+}
+
+/// Multi-phrase queries (§31) must hold the parity invariant like everything
+/// else: each phrase runs the single-query pipeline per path, and the merge
+/// and finalize are shared, so cold == warm per phrase by construction — this
+/// is the tripwire that keeps it true.
+#[test]
+fn cold_and_warm_agree_on_multi_phrase_queries() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    let queries = [
+        "compute the backoff delay | validate a session token",
+        r"compute_backoff_delay\|validate_session_token",
+        "backoff | session token | idle connections",
+    ];
+    for mode in [Mode::Bm25, Mode::Semantic, Mode::Hybrid] {
+        for query in queries {
+            let cold = search(dir.path(), query, &stream_opts(mode)).unwrap();
+            assert!(!cold.report.used_index);
+            let warm = search(dir.path(), query, &opts(mode)).unwrap();
+            assert!(warm.report.used_index);
+            let shape = |r: &gorp_core::search::SearchResult| -> Vec<(String, u32, u32)> {
+                r.hits.iter().map(|h| (h.path.clone(), h.start_line, h.end_line)).collect()
+            };
+            assert_eq!(shape(&cold), shape(&warm), "cold != warm for {mode:?} {query:?}");
+            assert_eq!(cold.report.n_phrases, warm.report.n_phrases);
+        }
+    }
+}
+
+/// Every phrase that retrieved anything gets representation in the top-k
+/// (§31): the interleave builds the pool and the representation pass
+/// guarantees the display — otherwise one hot phrase eats all five slots an
+/// agent submits from.
+#[test]
+fn each_phrase_is_represented_in_the_top_k() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    let r = search(
+        dir.path(),
+        "compute the backoff delay | validate a session token",
+        &opts(Mode::Semantic),
+    )
+    .unwrap();
+    let phrases: std::collections::HashSet<_> =
+        r.hits.iter().filter_map(|h| h.phrase).collect();
+    assert!(phrases.contains(&0) && phrases.contains(&1),
+            "both phrases must be represented: {:?}",
+            r.hits.iter().map(|h| (&h.path, h.phrase)).collect::<Vec<_>>());
+    let homes: std::collections::HashSet<_> =
+        r.hits.iter().map(|h| h.path.as_str()).collect();
+    assert!(homes.contains("src/retry.rs"), "backoff's home surfaced");
+    assert!(homes.contains("src/auth.rs"), "the token phrase's home surfaced");
+}
+
+/// The per-phrase floor (§31): a dead phrase is refused BY NAME while the
+/// live one still answers — and only all-phrases-floored refuses outright.
+#[test]
+fn a_floored_phrase_is_named_and_the_rest_still_answer() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    let o = SearchOptions { min_score: 0.42, ..opts(Mode::Semantic) };
+    let r = search(
+        dir.path(),
+        "compute the backoff delay | quantum chromodynamics lattice gauge",
+        &o,
+    )
+    .unwrap();
+    assert!(!r.hits.is_empty(), "the live phrase answers");
+    assert!(!r.report.floored, "a partial floor is not a refusal");
+    assert_eq!(r.report.floored_mask, 0b10, "the nonsense phrase is the floored one");
+    let signals = r.report.phrase_signals.as_ref().expect("multi + floor => signals");
+    assert!(signals[0] >= 0.42 && signals[1] < 0.42, "signals: {signals:?}");
+    assert!(r.hits.iter().all(|h| h.phrase == Some(0)), "no hit from the dead phrase");
+
+    // Both dead: the refusal shape of §29.2, with per-phrase detail.
+    let r2 = search(
+        dir.path(),
+        "quantum chromodynamics | lattice gauge boson",
+        &o,
+    )
+    .unwrap();
+    assert!(r2.hits.is_empty() && r2.report.floored);
+    assert_eq!(r2.report.floored_mask, 0b11);
+}
+
+/// §32.4a's `bm25_pin`: a chunk only the lexical channel ranks must hold a
+/// display slot in semantic mode, on BOTH paths. This is the regression test
+/// for the silent no-op shape: `load_needs` once gated the BM25 postings on
+/// mode alone, so the warm path had nothing to pin while the cold path built
+/// postings and pinned — a cold≠warm split that only shows when a pin
+/// decides the top-k.
+#[test]
+fn bm25_pin_is_honored_and_cold_warm_agree() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    // Lexically unmistakable, semantically buried: the rare token gives BM25
+    // a huge idf win, while the embedding — char-grams over the whole chunk —
+    // sees mostly hex noise and ranks the real astronomy prose far above it.
+    let mut noise = String::new();
+    for i in 0..30 {
+        noise.push_str(&format!("0x{i:02x} a9f3 7bc1 e00d 55aa 9c4e b7f2 0d13 c8a6 4f90\n"));
+    }
+    noise.push_str("zzqx_pin_target\n");
+    fs::write(dir.path().join("docs/notes.md"), noise).unwrap();
+    // Inflected prose words: no exact-token match anywhere (the tokenizer
+    // does not stem), so BM25 sees only the rare token and ranks notes.md
+    // first — while char-gram embeddings still pull astronomy.md to the
+    // semantic top.
+    let q = "telescopes mirrored starlights zzqx_pin_target";
+
+    // Pin explicitly off: the default is 5 since §32.4b, and this premise is
+    // about what the semantic ordering does on its own.
+    let plain = SearchOptions { k: 1, bm25_pin: 0, ..opts(Mode::Semantic) };
+    let r = search(dir.path(), q, &plain).unwrap();
+    assert!(
+        r.hits.iter().all(|h| h.path != "docs/notes.md"),
+        "premise: without the pin, semantic k=1 ignores the token-only file",
+    );
+
+    let pinned = SearchOptions { k: 1, bm25_pin: 1, ..opts(Mode::Semantic) };
+    let warm = search(dir.path(), q, &pinned).unwrap();
+    assert!(warm.report.used_index, "warm premise: the write-through index answers");
+    assert!(
+        warm.hits.iter().any(|h| h.path == "docs/notes.md"),
+        "bm25 #1 must hold a display slot in semantic mode (warm)",
+    );
+
+    let cold = search(dir.path(), q, &SearchOptions { no_index: true, ..pinned }).unwrap();
+    assert!(!cold.report.used_index);
+    let warm_paths: Vec<_> = warm.hits.iter().map(|h| (&h.path, h.start_line, h.end_line)).collect();
+    let cold_paths: Vec<_> = cold.hits.iter().map(|h| (&h.path, h.start_line, h.end_line)).collect();
+    assert_eq!(warm_paths, cold_paths, "the pin must not split cold from warm");
+}
+
+/// §33 bridge expansion: a gold file sharing no words with the query becomes
+/// findable because two bridge files wire the query's rare tokens to the
+/// gold's identifier — and cold and warm must mine the same bridges and
+/// answer identically, which is the parity shape that caught `bm25_pin`'s
+/// silent warm no-op.
+#[test]
+fn bridge_expansion_finds_the_wired_file_and_cold_warm_agree() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    // Two bridges wire "frobwidget klaxonate" to `hidden_impl_fn`; the gold
+    // contains only the identifier. Repeated lines so each file has substance.
+    fs::write(
+        dir.path().join("src/routes_a.rs"),
+        "// frobwidget klaxonate wiring\npub use crate::hidden_impl_fn;\n".repeat(6),
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("src/routes_b.rs"),
+        "// frobwidget klaxonate registry\npub fn route() { hidden_impl_fn() }\n".repeat(6),
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("src/deep_impl.rs"),
+        "pub fn hidden_impl_fn() { /* the actual work */ }\n".repeat(8),
+    )
+    .unwrap();
+    let q = "frobwidget klaxonate";
+
+    let plain = SearchOptions { k: 5, ..opts(Mode::Semantic) };
+    let r = search(dir.path(), q, &plain).unwrap();
+    assert!(
+        r.hits.iter().all(|h| h.path != "src/deep_impl.rs"),
+        "premise: without expansion the gold shares no words with the query",
+    );
+    assert!(r.report.bridge_terms.is_none(), "no expansion requested, none reported");
+
+    let exp = SearchOptions { k: 5, bridge_expand: 8, ..opts(Mode::Semantic) };
+    let warm = search(dir.path(), q, &exp).unwrap();
+    assert!(warm.report.used_index);
+    let terms = warm.report.bridge_terms.as_ref().expect("expansion fired");
+    assert!(
+        terms.iter().any(|t| t.contains("hidden") || t.contains("impl")),
+        "the bridges' shared identifier must be mined (got {terms:?})",
+    );
+    assert!(
+        warm.hits.iter().any(|h| h.path == "src/deep_impl.rs"),
+        "the wired gold must reach the display (warm)",
+    );
+
+    let cold = search(dir.path(), q, &SearchOptions { no_index: true, ..exp }).unwrap();
+    assert!(!cold.report.used_index);
+    assert_eq!(warm.report.bridge_terms, cold.report.bridge_terms,
+               "both paths must mine identical terms");
+    let wp: Vec<_> = warm.hits.iter().map(|h| (&h.path, h.start_line, h.end_line)).collect();
+    let cp: Vec<_> = cold.hits.iter().map(|h| (&h.path, h.start_line, h.end_line)).collect();
+    assert_eq!(wp, cp, "bridge expansion must not split cold from warm");
+}
+
+/// PRF must obey the parity invariant like every other ranking stage.
+/// It did not: `expand_query` lived only on the indexed path, and
+/// `Stage::RankPrf` was absent from `SCHEDULE_COLD`, so `--prf N` made a
+/// cached scope answer differently from an uncached one — the exact thing
+/// `cold_and_warm_return_identical_results` exists to forbid, hidden only by
+/// the shipped default of `prf_terms: 0` (found while wiring §33).
+#[test]
+fn prf_expansion_is_cold_warm_identical() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fixture(dir.path());
+    // Extra bodies so the feedback head has something to mine that the
+    // query itself does not contain.
+    fs::write(
+        dir.path().join("src/jitter.rs"),
+        "//! Jitter helpers.\npub fn add_jitter(delay: u64, spread: u64) -> u64 {\n    delay + spread % 7\n}\n".repeat(4),
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("src/stampede.rs"),
+        "//! Stampede control.\npub fn spread_retries(delay: u64) -> u64 { delay * 2 }\n".repeat(4),
+    )
+    .unwrap();
+
+    for query in ["compute the backoff delay", "retry after a failure"] {
+        for mode in [Mode::Bm25, Mode::Hybrid] {
+            let o = SearchOptions { prf_terms: 4, ..opts(mode) };
+            let warm = search(dir.path(), query, &o).unwrap();
+            assert!(warm.report.used_index, "warm premise for {query:?}");
+            let cold =
+                search(dir.path(), query, &SearchOptions { no_index: true, ..o }).unwrap();
+            assert!(!cold.report.used_index);
+            let w: Vec<_> =
+                warm.hits.iter().map(|h| (&h.path, h.start_line, h.end_line)).collect();
+            let c: Vec<_> =
+                cold.hits.iter().map(|h| (&h.path, h.start_line, h.end_line)).collect();
+            assert_eq!(w, c, "PRF split cold from warm for {query:?} in {mode:?}");
+        }
+    }
+}
+
+/// §33 quality guard: the bridge committee must mine *wiring code*, not
+/// translation tables. Locale packs, changelogs and docs are the ballast
+/// §32.4a measured outranking gold — they contain the query's words (that is
+/// what user-facing strings ARE) and thousands of unrelated ones, so an
+/// unfiltered committee returns vocabulary like "cloudflare" and "mouse"
+/// instead of the identifier that wires the query to the implementation.
+/// Observed live in the s33 telemetry before this filter existed.
+#[test]
+fn bridge_mining_ignores_locale_and_doc_ballast() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("src")).unwrap();
+    fs::create_dir_all(dir.path().join("locale")).unwrap();
+    // Filler so the corpus is big enough for the df ceiling to mean
+    // something — on a handful of chunks every token looks common.
+    for i in 0..40 {
+        fs::write(
+            dir.path().join(format!("src/filler{i}.rs")),
+            format!("pub fn unrelated{i}() {{ let x = {i}; }}\n").repeat(4),
+        )
+        .unwrap();
+    }
+    // Two source bridges wire the query's words to `acquire_mutex`.
+    for name in ["src/routes.rs", "src/wiring.rs"] {
+        fs::write(
+            dir.path().join(name),
+            "// redlock mutex helper wiring\npub fn setup() { acquire_mutex(); }\n",
+        )
+        .unwrap();
+    }
+    fs::write(
+        dir.path().join("src/impl_lock.rs"),
+        "pub fn acquire_mutex() { /* the real work */ }\n",
+    )
+    .unwrap();
+    // Two locale files carrying the same query words plus junk vocabulary.
+    for name in ["locale/en.json", "locale/de.json"] {
+        fs::write(
+            dir.path().join(name),
+            "{\n \"redlock\": \"mutex helper\",\n \"a\": \"cloudflare\",\n \
+             \"b\": \"mouse\",\n \"c\": \"scrolled\"\n}\n",
+        )
+        .unwrap();
+    }
+
+    let o = SearchOptions { k: 5, bridge_expand: 8, ..opts(Mode::Semantic) };
+    let r = search(dir.path(), "redlock mutex helper", &o).unwrap();
+    let terms = r.report.bridge_terms.clone().unwrap_or_default();
+    assert!(!terms.is_empty(), "premise: the committee must form at all");
+    for junk in ["cloudflare", "mouse", "scrolled"] {
+        assert!(
+            !terms.iter().any(|t| t == junk),
+            "locale ballast leaked into the expansion: {terms:?}",
+        );
+    }
+    assert!(
+        terms.iter().any(|t| t.contains("acquire")),
+        "the source bridges' shared identifier should be mined instead: {terms:?}",
+    );
+}

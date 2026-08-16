@@ -66,8 +66,8 @@ printf '  %-42s %6s   %s\n' "path" "size" "how to get it back"
 # behind, but named explicitly so nobody deletes it by reflex.
 offer caches  "$HOME/.cache/huggingface"        "eval/fetch-*.sh"          "SHARED, not just ours — re-download"
 offer caches  "$HOME/.cache/semgrep"            "any cold ranked search"   "one pass per scope"
-for d in bench/corpora/*/.semgrep eval/data/*/.semgrep; do
-  offer caches "$ROOT/$d" "semgrep index <corpus>" "3.5-66 s"
+for d in bench/corpora/*/.gorp eval/data/*/.gorp; do
+  offer caches "$ROOT/$d" "gorp index <corpus>" "3.5-66 s"
 done
 
 offer corpora "$ROOT/bench/corpora/linux"      "bench/fetch-corpora.sh"   "1.5 GB download"

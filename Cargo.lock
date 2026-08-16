@@ -336,6 +336,47 @@ dependencies = [
 ]
 
 [[package]]
+name = "gorp"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "gorp-core",
+ "ignore",
+ "libc",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "gorp-core"
+version = "0.1.0"
+dependencies = [
+ "anny",
+ "anyhow",
+ "ese",
+ "grep-regex",
+ "grep-searcher",
+ "ignore",
+ "memmap2",
+ "postcard",
+ "rayon",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tree-sitter",
+ "tree-sitter-c",
+ "tree-sitter-go",
+ "tree-sitter-java",
+ "tree-sitter-javascript",
+ "tree-sitter-php",
+ "tree-sitter-python",
+ "tree-sitter-ruby",
+ "tree-sitter-rust",
+ "tree-sitter-typescript",
+]
+
+[[package]]
 name = "grep-matcher"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -727,47 +768,6 @@ checksum = "6ce2691df843ecc5d231c0b14ece2acc3efb62c0a398c7e1d875f3983ce020e3"
 dependencies = [
  "core-foundation-sys",
  "libc",
-]
-
-[[package]]
-name = "semgrep"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "ignore",
- "libc",
- "semgrep-core",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
-name = "semgrep-core"
-version = "0.1.0"
-dependencies = [
- "anny",
- "anyhow",
- "ese",
- "grep-regex",
- "grep-searcher",
- "ignore",
- "memmap2",
- "postcard",
- "rayon",
- "serde",
- "serde_json",
- "tempfile",
- "tree-sitter",
- "tree-sitter-c",
- "tree-sitter-go",
- "tree-sitter-java",
- "tree-sitter-javascript",
- "tree-sitter-php",
- "tree-sitter-python",
- "tree-sitter-ruby",
- "tree-sitter-rust",
- "tree-sitter-typescript",
 ]
 
 [[package]]

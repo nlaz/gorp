@@ -12,7 +12,7 @@
 # measuring our own baseline.
 set -uo pipefail
 cd "$(dirname "$0")/.."
-export SEMGREP_CACHE_DIR="${TMPDIR:-/tmp}/semgrep-adversarial-cache"
+export GORP_CACHE_DIR="${TMPDIR:-/tmp}/semgrep-adversarial-cache"
 
 for corpus in vscode linux wikipedia; do
   d=bench/corpora/$corpus; q=eval/queries/$corpus.jsonl

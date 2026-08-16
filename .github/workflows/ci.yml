@@ -24,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          path: semgrep
+          path: gorp
       - uses: actions/checkout@v4
         with:
           repository: flowercomputers/ese
@@ -44,27 +44,27 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            semgrep/target
-          key: cargo-${{ runner.os }}-${{ hashFiles('semgrep/Cargo.lock') }}
+            gorp/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('gorp/Cargo.lock') }}
           restore-keys: cargo-${{ runner.os }}-
 
       - name: format
-        working-directory: semgrep
+        working-directory: gorp
         run: cargo fmt --check
 
       - name: clippy
-        working-directory: semgrep
+        working-directory: gorp
         run: cargo clippy --workspace --all-targets
 
       - name: test
-        working-directory: semgrep
+        working-directory: gorp
         run: cargo test --workspace
 
       # The behavior tripwire (PLAN.md Pass 5): ranked output over the frozen
       # fixture corpus must be byte-identical. A commit that changes ranking
       # has to re-record it deliberately.
       - name: snapshot
-        working-directory: semgrep
+        working-directory: gorp
         run: |
           cargo build --release
           tools/snapshot.sh --check

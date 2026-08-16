@@ -15,11 +15,11 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-SG=target/release/semgrep
+SG=target/release/gorp
 CORPORA="${*:-tokio etcd vscode cosqa linux}"
 
 # Isolated, like levers.sh: the harness must never poison ordinary use.
-export SEMGREP_CACHE_DIR="${TMPDIR:-/tmp}/semgrep-preproc-cache"
+export GORP_CACHE_DIR="${TMPDIR:-/tmp}/semgrep-preproc-cache"
 
 # tag|index flags|modes
 CONDITIONS=$(cat <<'EOF'

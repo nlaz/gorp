@@ -7,7 +7,7 @@ behavior that only exists across a sequence: the index is a cache (RESEARCH.md
 disposal all need step N to change what step N+1 sees.
 
 A **session** is an ordered sequence of steps against one corpus root under one
-isolated `SEMGREP_CACHE_DIR`. A **step** is one of:
+isolated `GORP_CACHE_DIR`. A **step** is one of:
 
   mutate   the world changes (edit files, corrupt an artifact, shrink a budget)
   invoke   one semgrep process runs
@@ -35,7 +35,7 @@ ROOT = HERE.parents[1]
 sys.path.insert(0, str(ROOT / "eval"))
 sys.path.insert(0, str(ROOT / "bench"))
 
-SEMGREP = Path(os.environ.get("SEMGREP_BIN", ROOT / "target/release/semgrep"))
+GORP = Path(os.environ.get("GORP_BIN", ROOT / "target/release/gorp"))
 
 # Cap on captured output per step. Sessions are checked into git, and a keyword
 # scan of a large corpus can emit megabytes; the shape of the output is what
@@ -203,7 +203,7 @@ class Session:
         return Step(rec)
 
     # Sentinel for "this verb takes no path at all", distinct from "no path
-    # given, use the corpus root". `semgrep cache` is the case: passing it a path
+    # given, use the corpus root". `gorp cache` is the case: passing it a path
     # is a clap usage error, so a scenario that meant to inspect the cache got
     # exit 2 and an empty stdout — and then *passed*, because its check was
     # looking for something to be absent from that stdout. Silently testing
@@ -217,7 +217,7 @@ class Session:
         `path=None` searches the session's corpus root; `path=Session.NO_PATH`
         appends no path argument at all, for verbs that do not take one.
 
-        The trace file is per-step: the driver sets `SEMGREP_TRACE_FILE`, the
+        The trace file is per-step: the driver sets `GORP_TRACE_FILE`, the
         binary appends one object per *engine* invocation, and this reads it
         back. That is how the second full search an exact-mode miss runs shows
         up at all — no flag on the outer command can reach it.
@@ -228,13 +228,13 @@ class Session:
             Path(path) if path is not None else self.corpus_root)
 
         e = dict(os.environ)
-        e["SEMGREP_CACHE_DIR"] = str(self.cache)
-        e["SEMGREP_TRACE_FILE"] = str(trace_path)
-        e["SEMGREP_SESSION_ID"] = self.name
+        e["GORP_CACHE_DIR"] = str(self.cache)
+        e["GORP_TRACE_FILE"] = str(trace_path)
+        e["GORP_SESSION_ID"] = self.name
         e.update(self.env)
         e.update(env or {})
 
-        argv = [str(SEMGREP), *args]
+        argv = [str(GORP), *args]
         if target is not None:
             argv.append(str(target))
         t0 = time.monotonic()

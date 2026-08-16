@@ -1,0 +1,38 @@
+{
+  "version": 2,
+  "dims": 256,
+  "params": {
+    "window": 32,
+    "overlap": 8,
+    "max_file_bytes": 4194304,
+    "budget": null,
+    "function": null
+  },
+  "files": [
+    {
+      "path": "architecture.md",
+      "size": 2142,
+      "mtime": 1785418223
+    },
+    {
+      "path": "operations.md",
+      "size": 1829,
+      "mtime": 1785418223
+    },
+    {
+      "path": "sourdough.md",
+      "size": 1684,
+      "mtime": 1785418223
+    },
+    {
+      "path": "telescopes.md",
+      "size": 1881,
+      "mtime": 1785418223
+    }
+  ],
+  "n_chunks": 8,
+  "has_hnsw": false,
+  "sif": false,
+  "embed_preproc": "none",
+  "path_render": "full"
+}

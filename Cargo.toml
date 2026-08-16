@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/semgrep-core", "crates/semgrep"]
+members = ["crates/gorp-core", "crates/gorp"]
 
 [workspace.dependencies]
 anny = { path = "../anny" }
@@ -44,5 +44,5 @@ codegen-units = 4
 opt-level = 2
 [profile.dev.package.anny]
 opt-level = 2
-[profile.dev.package.semgrep-core]
+[profile.dev.package.gorp-core]
 opt-level = 2

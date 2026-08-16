@@ -5,7 +5,7 @@ Each scenario is a function `(sess, ctx) -> None` plus an `EXPECT` block copied
 into the session header. The prose version, with the reasoning behind each
 prediction, is `eval/sim/PREREGISTER.md`, committed before any of this ran.
 
-Every scenario pins `SEMGREP_CACHE_TTL_SECS` explicitly. Left at the 60s
+Every scenario pins `GORP_CACHE_TTL_SECS` explicitly. Left at the 60s
 default, half of these would be measuring the clock.
 """
 
@@ -40,7 +40,7 @@ def pick_file(root):
     """
     cands = []
     for p in sorted(Path(root).rglob("*")):
-        if not p.is_file() or p.is_symlink() or ".semgrep" in p.parts:
+        if not p.is_file() or p.is_symlink() or ".gorp" in p.parts:
             continue
         try:
             n = p.stat().st_size
@@ -58,7 +58,7 @@ def subdirs(root, limit=4):
     """Directories that actually hold files, for scope-narrowing scenarios."""
     out = []
     for p in sorted(Path(root).iterdir()):
-        if p.is_dir() and not p.is_symlink() and p.name not in (".semgrep", ".git"):
+        if p.is_dir() and not p.is_symlink() and p.name not in (".gorp", ".git"):
             if any(q.is_file() for q in p.rglob("*")):
                 out.append(p)
     return out[:limit]
@@ -78,7 +78,7 @@ def subdirs(root, limit=4):
          "whether to print the cold-start notice (FIXES.md #12); the remaining two "
          "are the engine's own miss and its post-build re-discovery.")
 def s1_cold_start(sess, ctx):
-    step = sess.run(["--json", "-k", "10", Q], env={"SEMGREP_CACHE_TTL_SECS": "0"})
+    step = sess.run(["--json", "-k", "10", Q], env={"GORP_CACHE_TTL_SECS": "0"})
     t = step.trace or {}
     res = t.get("resolution", {})
     timing = t.get("timing", {})
@@ -115,12 +115,12 @@ def s2_warm(sess, ctx):
         "cache eviction weight", "heartbeat deadline", "shard rebalance",
         "write ahead flush", "retry jitter computation",
     ]
-    sess.run(["--json", "-k", "10", Q], env={"SEMGREP_CACHE_TTL_SECS": "3600"},
+    sess.run(["--json", "-k", "10", Q], env={"GORP_CACHE_TTL_SECS": "3600"},
              label="prime")
     warm = []
     for i, q in enumerate(queries):
         s = sess.run(["--json", "-k", "10", q],
-                     env={"SEMGREP_CACHE_TTL_SECS": "3600"}, label=f"warm{i}")
+                     env={"GORP_CACHE_TTL_SECS": "3600"}, label=f"warm{i}")
         warm.append(s)
 
     totals = sorted(s.trace["timing"]["total_ms"] for s in warm if s.trace)
@@ -155,7 +155,7 @@ def s2_warm(sess, ctx):
 }, notes="Correct by design, but a user sees a function that no longer exists.")
 def s3a(sess, ctx):
     sess.run(["--json", "-k", "10", "unique_marker_alpha"],
-             env={"SEMGREP_CACHE_TTL_SECS": "3600"}, label="prime")
+             env={"GORP_CACHE_TTL_SECS": "3600"}, label="prime")
     target = pick_file(ctx["root"])
     sess.mutate("insert-unique-symbol", fn=lambda: {
         "wrote": str(target),
@@ -163,7 +163,7 @@ def s3a(sess, ctx):
             target.read_text() + "\n\ndef unique_marker_alpha():\n    return 1\n"),
     })
     s = sess.run(["--json", "-k", "10", "unique_marker_alpha"],
-                 env={"SEMGREP_CACHE_TTL_SECS": "3600"}, label="after-edit")
+                 env={"GORP_CACHE_TTL_SECS": "3600"}, label="after-edit")
     sess.check("repair was throttled", "ttl_fresh", s.trace["repair"]["outcome"])
     sess.check("no staleness is reported", 0,
                s.trace["results"]["stale_files"])
@@ -176,9 +176,9 @@ def s3a(sess, ctx):
     "repair": "no_drift", "repair_walk_ms": "> 0", "repair_delta_ms": 0,
 })
 def s3b(sess, ctx):
-    sess.run(["--json", "-k", "10", Q], env={"SEMGREP_CACHE_TTL_SECS": "0"},
+    sess.run(["--json", "-k", "10", Q], env={"GORP_CACHE_TTL_SECS": "0"},
              label="prime")
-    s = sess.run(["--json", "-k", "10", Q], env={"SEMGREP_CACHE_TTL_SECS": "0"})
+    s = sess.run(["--json", "-k", "10", Q], env={"GORP_CACHE_TTL_SECS": "0"})
     sess.check("clean tree reports no drift", "no_drift", s.trace["repair"]["outcome"])
     sess.check("the drift walk ran", True, s.stage_ms("repair:walk"),
                ok=s.stage_ms("repair:walk") > 0)
@@ -190,7 +190,7 @@ def s3b(sess, ctx):
     "entry_digest_unchanged": True,
 }, notes="The overlay is rebuilt from scratch on every query past the TTL.")
 def s3c(sess, ctx):
-    sess.run(["--json", "-k", "10", Q], env={"SEMGREP_CACHE_TTL_SECS": "0"},
+    sess.run(["--json", "-k", "10", Q], env={"GORP_CACHE_TTL_SECS": "0"},
              label="prime")
     entries = corpora.index_dirs(sess.cache)
     before = corpora.digest(entries[0]) if entries else None
@@ -201,7 +201,7 @@ def s3c(sess, ctx):
             target.read_text() + "\n\ndef unique_marker_beta():\n    return 2\n")})
 
     s1 = sess.run(["--json", "-k", "10", "unique_marker_beta"],
-                  env={"SEMGREP_CACHE_TTL_SECS": "0"}, label="repair-1")
+                  env={"GORP_CACHE_TTL_SECS": "0"}, label="repair-1")
     sess.check("drift is repaired", "repaired", s1.trace["repair"]["outcome"])
     sess.check("the new text is served", True,
                any(target.name in h["path"] for h in s1.hits))
@@ -211,7 +211,7 @@ def s3c(sess, ctx):
                note="repair never writes back, so the work is redone every query")
 
     s2 = sess.run(["--json", "-k", "10", "unique_marker_beta"],
-                  env={"SEMGREP_CACHE_TTL_SECS": "0"}, label="repair-2")
+                  env={"GORP_CACHE_TTL_SECS": "0"}, label="repair-2")
     d1, d2 = s1.stage_ms("repair:delta"), s2.stage_ms("repair:delta")
     sess.check("the second query pays the same repair cost", True,
                {"first_ms": round(d1, 2), "second_ms": round(d2, 2)},
@@ -228,7 +228,7 @@ def s3d(sess, ctx):
     target.write_text("def marker_aaa():\n    return 'aaa'\n")
     time.sleep(1.1)          # let the index's mtime settle before building
     sess.run(["--json", "-k", "10", "marker_aaa"],
-             env={"SEMGREP_CACHE_TTL_SECS": "0"}, label="prime")
+             env={"GORP_CACHE_TTL_SECS": "0"}, label="prime")
 
     mut = sess.mutate("same-size-same-mtime-edit",
                       fn=lambda: corpora.same_second_same_size_edit(target))
@@ -240,7 +240,7 @@ def s3d(sess, ctx):
                note="if this fails, the scenario below proves nothing")
 
     s = sess.run(["--json", "-k", "10", "marker_aaa"],
-                 env={"SEMGREP_CACHE_TTL_SECS": "0"}, label="after-invisible-edit")
+                 env={"GORP_CACHE_TTL_SECS": "0"}, label="after-invisible-edit")
     sess.check("the edit is invisible to drift detection", "no_drift",
                s.trace["repair"]["outcome"],
                note="PREDICTED FAILURE: a length-preserving edit sharing a second "
@@ -271,11 +271,11 @@ def s4_cliff(sess, ctx):
     fractions = [0.0, 0.01, 0.05, 0.10, 0.25, 0.50, 1.00]
     measured = []
 
-    sess.run(["--json", "-k", "10", Q], env={"SEMGREP_CACHE_TTL_SECS": "0"},
+    sess.run(["--json", "-k", "10", Q], env={"GORP_CACHE_TTL_SECS": "0"},
              label="build-entry")
     # A clean rebuild of the same corpus, for the crossover comparison.
     rb = sess.run(["--json", "-k", "10", Q, "--no-index"],
-                  env={"SEMGREP_CACHE_TTL_SECS": "0"}, label="cold-reference")
+                  env={"GORP_CACHE_TTL_SECS": "0"}, label="cold-reference")
     cold_ms = rb.trace["timing"]["total_ms"] if rb.trace else 0.0
 
     cumulative = 0.0
@@ -292,7 +292,7 @@ def s4_cliff(sess, ctx):
         reps = []
         for i in range(10):
             s = sess.run(["--json", "-k", "10", Q],
-                         env={"SEMGREP_CACHE_TTL_SECS": "0"},
+                         env={"GORP_CACHE_TTL_SECS": "0"},
                          label=f"drift{int(frac*100)}-q{i}")
             reps.append(s)
         totals = [r.trace["timing"]["total_ms"] for r in reps if r.trace]
@@ -386,7 +386,7 @@ def s5a(sess, ctx):
     roots = ctx["multi_roots"]
     # Build one entry to learn its size, then cap the budget just above it.
     first = sess.run(["--json", "-k", "5", Q], path=roots[0],
-                     env={"SEMGREP_CACHE_TTL_SECS": "0"}, label="size-probe")
+                     env={"GORP_CACHE_TTL_SECS": "0"}, label="size-probe")
     entries = corpora.index_dirs(sess.cache)
     size = sum(p.stat().st_size for p in entries[0].rglob("*") if p.is_file()) if entries else 0
     cap = int(size * 1.5) or 1_000_000
@@ -396,8 +396,8 @@ def s5a(sess, ctx):
     for rnd in range(2):
         for i, r in enumerate(roots):
             s = sess.run(["--json", "-k", "5", Q], path=r,
-                         env={"SEMGREP_CACHE_TTL_SECS": "0",
-                              "SEMGREP_CACHE_MAX_BYTES": str(cap)},
+                         env={"GORP_CACHE_TTL_SECS": "0",
+                              "GORP_CACHE_MAX_BYTES": str(cap)},
                          label=f"r{rnd}-c{i}")
             paths.append(s.trace["resolution"]["path_taken"] if s.trace else None)
     sess.mutate("record-paths", fn=lambda: {"paths": paths})
@@ -420,7 +420,7 @@ def s5b(sess, ctx):
     roots = ctx["multi_roots"]
     for i, r in enumerate(roots):
         sess.run(["--json", "-k", "5", Q], path=r,
-                 env={"SEMGREP_CACHE_TTL_SECS": "0"}, label=f"build{i}")
+                 env={"GORP_CACHE_TTL_SECS": "0"}, label=f"build{i}")
     entries = corpora.index_dirs(sess.cache)
     sess.mutate("built-entries", fn=lambda: {"n": len(entries),
                                              "dirs": [e.name for e in entries]})
@@ -438,8 +438,8 @@ def s5b(sess, ctx):
     # that has never been indexed is what forces the write path.
     fresh = ctx["fresh_root"]
     r = sess.run(["--json", "-k", "5", Q], path=fresh,
-                 env={"SEMGREP_CACHE_TTL_SECS": "0",
-                      "SEMGREP_CACHE_MAX_BYTES": "1"},
+                 env={"GORP_CACHE_TTL_SECS": "0",
+                      "GORP_CACHE_MAX_BYTES": "1"},
                  label="force-eviction-via-cold-write")
     os.chmod(victim, 0o755)
 
@@ -470,12 +470,12 @@ def s5b(sess, ctx):
     "subdirectory_bytes_counted": True,
 }, notes="Pre-registered as False: dir_bytes summed one level, correct only because "
          "entries happen to be flat. It recurses now (FIXES.md #19). This scenario "
-         "ALSO never ran: it invoked `semgrep cache <path>`, which is a usage error, "
+         "ALSO never ran: it invoked `gorp cache <path>`, which is a usage error, "
          "and then checked that a size was absent from the empty stdout it got back "
          "— green, and measuring nothing, for its whole life. The harness now "
          "distinguishes 'no path given' from 'this verb takes no path'.")
 def s5c(sess, ctx):
-    sess.run(["--json", "-k", "5", Q], env={"SEMGREP_CACHE_TTL_SECS": "0"},
+    sess.run(["--json", "-k", "5", Q], env={"GORP_CACHE_TTL_SECS": "0"},
              label="build")
     entries = corpora.index_dirs(sess.cache)
     if not entries:
@@ -500,7 +500,7 @@ def s5c(sess, ctx):
     # The precondition, asserted rather than assumed — this check spent its whole
     # life reading an empty string because the invocation was a usage error.
     sess.check("cache status actually ran", 0, st["exit"],
-               note="`semgrep cache` takes no path argument")
+               note="`gorp cache` takes no path argument")
     size_after = _reported_bytes(reported)
     # Growth, not a literal "5.0 MB": the reported figure is the whole entry, so
     # on a real corpus it is the index plus the planted bytes and matching a
@@ -572,7 +572,7 @@ def s7(sess, ctx):
 
 
 def _reported_bytes(status_stdout):
-    """Total bytes `semgrep cache` reports, from its `(N entries, X of Y budget)`
+    """Total bytes `gorp cache` reports, from its `(N entries, X of Y budget)`
     header. Parsed rather than string-matched so the check works on any corpus."""
     import re
     m = re.search(r"\(\d+ entries, ([\d.]+) (B|KB|MB|GB|TB) of ", status_stdout)
@@ -630,7 +630,7 @@ def s8(sess, ctx):
         # the next fault's measurement.
         sess.mutate(f"clear-cache-before-{fault_name}",
                     fn=lambda: _clear(sess.cache))
-        sess.run(["--json", "-k", "5", Q], env={"SEMGREP_CACHE_TTL_SECS": "0"},
+        sess.run(["--json", "-k", "5", Q], env={"GORP_CACHE_TTL_SECS": "0"},
                  label=f"{fault_name}:build")
         entries = corpora.index_dirs(sess.cache)
         if not entries:
@@ -649,7 +649,7 @@ def s8(sess, ctx):
         runs = []
         for i in range(3):
             s = sess.run(["--json", "-k", "5", "--mode", "hybrid", Q],
-                         env={"SEMGREP_CACHE_TTL_SECS": "0"}, timeout=120,
+                         env={"GORP_CACHE_TTL_SECS": "0"}, timeout=120,
                          label=f"{fault_name}:hybrid-{i}")
             runs.append(s)
         codes = [r["exit"] for r in runs]
@@ -666,7 +666,7 @@ def s8(sess, ctx):
         # Semantic mode does not load bm25, so a bm25-only fault should not
         # reach it. This separates "the artifact is broken" from "the reader is".
         sem = sess.run(["--json", "-k", "5", "--mode", "semantic", Q],
-                       env={"SEMGREP_CACHE_TTL_SECS": "0"}, timeout=120,
+                       env={"GORP_CACHE_TTL_SECS": "0"}, timeout=120,
                        label=f"{fault_name}:semantic")
         sess.check(f"{fault_name}: semantic mode answers", True,
                    {"exit": sem["exit"], "hits": sem["n_hits"]},
@@ -683,11 +683,11 @@ def _clear(cache):
 @scenario("s8h-repo-local-index-faults", tier=1, expect={
     "errors_propagate_exit_2": True,
     "except_the_panic_which_does_not_care": True,
-}, notes="A repo-local .semgrep is an explicit artifact; its failures should surface.")
+}, notes="A repo-local .gorp is an explicit artifact; its failures should surface.")
 def s8h(sess, ctx):
     root = ctx["root"]
     for fault_name in ["bm25_truncated_to_header", "emb_deleted", "chunks_truncated"]:
-        idx = root / ".semgrep"
+        idx = root / ".gorp"
         sess.mutate(f"rebuild-local-index-for-{fault_name}", fn=lambda: (
             __import__("shutil").rmtree(idx, ignore_errors=True) or {"removed": True}))
         sess.run(["index"], label=f"{fault_name}:index")
@@ -701,7 +701,7 @@ def s8h(sess, ctx):
         sess.check(f"{fault_name}: a repo-local failure is reported, not swallowed",
                    2, s["exit"],
                    note="exit 2 = 'something went wrong', which is the contract")
-    __import__("shutil").rmtree(root / ".semgrep", ignore_errors=True)
+    __import__("shutil").rmtree(root / ".gorp", ignore_errors=True)
 
 
 # ---------------------------------------------------------------------------
@@ -718,8 +718,8 @@ def s9(sess, ctx):
     for t in range(trials):
         _clear(sess.cache)
         env = dict(os.environ)
-        env["SEMGREP_CACHE_DIR"] = str(sess.cache)
-        env["SEMGREP_CACHE_TTL_SECS"] = "0"
+        env["GORP_CACHE_DIR"] = str(sess.cache)
+        env["GORP_CACHE_TTL_SECS"] = "0"
         procs = [subprocess.Popen(
             [str(ctx["bin"]), "--json", "-k", "5", Q, str(ctx["root"])],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, text=True,
@@ -760,7 +760,7 @@ def s9(sess, ctx):
     "k500_disables_hnsw_silently": True,
 }, notes="expand_query exists only in indexed.rs; stream.rs has no counterpart.")
 def s10(sess, ctx):
-    sess.run(["--json", "-k", "10", Q], env={"SEMGREP_CACHE_TTL_SECS": "0"},
+    sess.run(["--json", "-k", "10", Q], env={"GORP_CACHE_TTL_SECS": "0"},
              label="prime")
     variants = [
         ("plain", []),
@@ -776,10 +776,10 @@ def s10(sess, ctx):
             base = ["--mode", mode, "--json", *extra]
             if "-k" not in extra:
                 base += ["-k", "10"]
-            warm = sess.run([*base, Q], env={"SEMGREP_CACHE_TTL_SECS": "0"},
+            warm = sess.run([*base, Q], env={"GORP_CACHE_TTL_SECS": "0"},
                             label=f"warm-{mode}-{label}")
             cold = sess.run([*base, "--no-index", Q],
-                            env={"SEMGREP_CACHE_TTL_SECS": "0"},
+                            env={"GORP_CACHE_TTL_SECS": "0"},
                             label=f"cold-{mode}-{label}")
             w = [(h["path"], h["line"]) for h in warm.hits]
             c = [(h["path"], h["line"]) for h in cold.hits]
@@ -797,7 +797,7 @@ def s10(sess, ctx):
                note="PRF is implemented only on the warm path")
 
     big = sess.run(["--mode", "semantic", "--json", "-k", "500", Q],
-                   env={"SEMGREP_CACHE_TTL_SECS": "0"}, label="k500")
+                   env={"GORP_CACHE_TTL_SECS": "0"}, label="k500")
     sess.check("-k 500 silently disables HNSW", False,
                big.trace["resolution"]["used_hnsw"] if big.trace else None,
                note="pool > 128 forces brute force even when --hnsw was asked for")
@@ -819,13 +819,13 @@ def s10(sess, ctx):
          "rather than against k.")
 def s11(sess, ctx):
     root = ctx["root"]
-    sess.run(["--json", "-k", "10", Q], env={"SEMGREP_CACHE_TTL_SECS": "0"},
+    sess.run(["--json", "-k", "10", Q], env={"GORP_CACHE_TTL_SECS": "0"},
              label="prime-whole-corpus")
     results = []
     for p in subdirs(root):
         sub = p.name
         s = sess.run(["--json", "-k", "10", Q], path=p,
-                     env={"SEMGREP_CACHE_TTL_SECS": "0"}, label=f"scope-{sub}")
+                     env={"GORP_CACHE_TTL_SECS": "0"}, label=f"scope-{sub}")
         results.append({"scope": sub, "n_hits": s["n_hits"],
                         "n_considered": s.trace["results"]["n_chunks_considered"]
                         if s.trace else None})
@@ -861,10 +861,10 @@ def s11(sess, ctx):
          "in keyword mode, so it was always 2. Unchanged by FIXES.md #12 for the same "
          "reason — this pair is the suggestion path's own.")
 def s12(sess, ctx):
-    sess.run(["--json", "-k", "10", Q], env={"SEMGREP_CACHE_TTL_SECS": "0"},
+    sess.run(["--json", "-k", "10", Q], env={"GORP_CACHE_TTL_SECS": "0"},
              label="prime")
     s = sess.run(["-e", "zzz_no_such_symbol_anywhere"],
-                 env={"SEMGREP_CACHE_TTL_SECS": "0"}, label="exact-miss")
+                 env={"GORP_CACHE_TTL_SECS": "0"}, label="exact-miss")
     phases = [t.get("phase") for t in s.traces]
     sess.check("one command, two engine invocations", 2, len(s.traces))
     sess.check("phases are primary then suggest", ["primary", "suggest"], phases)

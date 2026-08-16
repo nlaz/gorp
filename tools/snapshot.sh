@@ -14,7 +14,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-SG=target/release/semgrep
+SG=target/release/gorp
 OUT=tools/snapshot.txt
 CORPUS=tests/corpus
 
@@ -57,8 +57,8 @@ record() {
   local cache
   cache=$(mktemp -d)
   trap 'rm -rf "$cache"' RETURN
-  export SEMGREP_CACHE_DIR="$cache"
-  export SEMGREP_CACHE_TTL_SECS=0
+  export GORP_CACHE_DIR="$cache"
+  export GORP_CACHE_TTL_SECS=0
 
   for mode in bm25 semantic hybrid; do
     for path in cold warm; do
@@ -67,7 +67,7 @@ record() {
       # that would (a) bloat every case 18x and (b) make the file move whenever
       # the fixture's text changes, even with ranking identical. The §26 display
       # shape is pinned instead by `the_default_result_is_a_unit_view`
-      # in crates/semgrep/tests/cli.rs. Keeping this flag also means the file
+      # in crates/gorp/tests/cli.rs. Keeping this flag also means the file
       # stays byte-comparable with every recording since §20.
       local flags=(--mode "$mode" -k 10 --json --passage-lines 1)
       [ "$path" = cold ] && flags+=(--no-index)

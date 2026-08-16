@@ -5,7 +5,7 @@ A hit is correct if it lands in the ground-truth file with a line span
 overlapping the truth window (± --slack lines).
 
 Conditions:
-  semgrep:bm25 / semgrep:semantic / semgrep:hybrid  — `semgrep --json -k 10` (uses .semgrep if present)
+  gorp:bm25 / gorp:semantic / gorp:hybrid  — `gorp --json -k 10` (uses .gorp if present)
   rg:agent-style                        — how an agent uses ripgrep for an NL
       intent: try the exact phrase, then AND the two rarest content words,
       then OR them; first 10 file:line hits count. This fallback is the
@@ -31,7 +31,7 @@ import os
 import sys
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))
-SEMGREP = Path(os.environ.get("SEMGREP_BIN", HERE.parent / "target/release/semgrep"))
+GORP = Path(os.environ.get("GORP_BIN", HERE.parent / "target/release/gorp"))
 RG = "/opt/homebrew/bin/rg"
 
 # The identifier predicate and the stopword list are shared with leakage.py on
@@ -44,8 +44,8 @@ from leakage import STOPWORDS, content_tokens, identifiers  # noqa: E402
 from validate_queries import format_problems, validate  # noqa: E402
 
 
-def semgrep_search(query, corpus, mode, k, no_index, extra=()):
-    cmd = [str(SEMGREP), "--mode", mode, "--json", "-k", str(k)]
+def gorp_search(query, corpus, mode, k, no_index, extra=()):
+    cmd = [str(GORP), "--mode", mode, "--json", "-k", str(k)]
     if no_index:
         cmd.append("--no-index")
     cmd += list(extra) + [query, str(corpus)]
@@ -59,7 +59,7 @@ def semgrep_search(query, corpus, mode, k, no_index, extra=()):
     # width did not match the index, and the result looked like a measurement.
     if proc.returncode not in (0, 1):
         raise RuntimeError(
-            f"semgrep failed (exit {proc.returncode}) on {mode!r} query {query!r}\n"
+            f"gorp failed (exit {proc.returncode}) on {mode!r} query {query!r}\n"
             f"  cmd: {' '.join(cmd)}\n"
             f"  stderr: {proc.stderr.strip()[:400]}"
         )
@@ -286,7 +286,7 @@ def rg_oracle(query, corpus, k, truth, slack):
     This answers it by removing the planning entirely: try EVERY content token
     as its own pattern and keep the best rank any of them achieves. No agent
     could run this — choosing the winning token requires already knowing the
-    answer — so it is a ceiling, and it must be reported as one. If semgrep's
+    answer — so it is a ceiling, and it must be reported as one. If gorp's
     margin survives it, the margin is the engine. If it does not, §12.2's
     correction did not go far enough and the claim is baseline-shaped.
 
@@ -434,9 +434,9 @@ def binary_provenance():
         except (OSError, subprocess.SubprocessError):
             return None
 
-    binst = SEMGREP.stat() if SEMGREP.exists() else None
+    binst = GORP.stat() if GORP.exists() else None
     return {
-        "binary": str(SEMGREP),
+        "binary": str(GORP),
         "binary_mtime": time.strftime("%Y-%m-%dT%H:%M:%SZ",
                                       time.gmtime(binst.st_mtime)) if binst else None,
         "binary_bytes": binst.st_size if binst else None,
@@ -445,7 +445,7 @@ def binary_provenance():
 
 
 def check_index_freshness(corpus, modes, no_index, allow_stale):
-    """Refuse to score semgrep modes against an index older than the binary.
+    """Refuse to score gorp modes against an index older than the binary.
 
     `eval/locbench/run.py:220` has had this guard for a while — "a rebuilt
     binary may embed different dims (e.g. a swapped embedding table), and
@@ -463,7 +463,7 @@ def check_index_freshness(corpus, modes, no_index, allow_stale):
     another cause (see §13.7). The guard stays because the hazard it covers is
     real and locbench documents it, not because it explained that measurement.
 
-    Only semgrep modes read the index — rg conditions are unaffected, which is
+    Only gorp modes read the index — rg conditions are unaffected, which is
     why a run that is invalid for one column can be perfectly valid for
     another.
     """
@@ -472,16 +472,16 @@ def check_index_freshness(corpus, modes, no_index, allow_stale):
     sem_modes = [m for m in modes.split(",") if not m.startswith("rg")]
     if not sem_modes:
         return
-    meta = Path(corpus) / ".semgrep" / "meta.json"
+    meta = Path(corpus) / ".gorp" / "meta.json"
     if not meta.exists():
         return                      # no local index: the cache path decides
-    if meta.stat().st_mtime >= SEMGREP.stat().st_mtime:
+    if meta.stat().st_mtime >= GORP.stat().st_mtime:
         return
-    msg = (f"index at {meta.parent} is OLDER than {SEMGREP}\n"
+    msg = (f"index at {meta.parent} is OLDER than {GORP}\n"
            f"  index:  {time.ctime(meta.stat().st_mtime)}\n"
-           f"  binary: {time.ctime(SEMGREP.stat().st_mtime)}\n"
+           f"  binary: {time.ctime(GORP.stat().st_mtime)}\n"
            f"  modes reading it: {', '.join(sem_modes)}\n"
-           f"Rebuild with `{SEMGREP} index {corpus}` — a binary built since the "
+           f"Rebuild with `{GORP} index {corpus}` — a binary built since the "
            f"index may embed different dims, and the mismatch reads as an "
            f"accuracy result rather than the mechanical problem it is.")
     if not allow_stale:
@@ -576,7 +576,7 @@ def main():
     ap.add_argument("--slack", type=int, default=10)
     ap.add_argument("--no-index", action="store_true")
     ap.add_argument("--extra", default="",
-                    help="extra semgrep CLI args, e.g. '--sem-weight 0.3 --no-diversify'")
+                    help="extra gorp CLI args, e.g. '--sem-weight 0.3 --no-diversify'")
     ap.add_argument("--out", type=Path, default=None)
     ap.add_argument("--baseline", type=Path, default=None,
                     help="a previous --out file; report PAIRED deltas with "
@@ -678,7 +678,7 @@ def main():
                 # makes it a ceiling rather than a baseline.
                 hits = rg_oracle(truth["query"], args.corpus, args.k, truth, args.slack)
             else:
-                hits = semgrep_search(truth["query"], args.corpus, mode, args.k, args.no_index, extra)
+                hits = gorp_search(truth["query"], args.corpus, mode, args.k, args.no_index, extra)
             rank = next((r + 1 for r, h in enumerate(hits) if correct(h, truth, args.slack)), None)
             ckpt.put(i, mode, rank)
             ranks[(mode, cell)].append(rank)

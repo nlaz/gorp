@@ -10,7 +10,7 @@ Sessions land in `eval/sim/results/<run_id>/<scenario>/session.jsonl` and are
 checked in; the scratch corpora and cache directories they build are not.
 
 Nothing here touches the developer's real cache: every session gets its own
-`SEMGREP_CACHE_DIR` under its own output directory, and the path is printed.
+`GORP_CACHE_DIR` under its own output directory, and the path is printed.
 """
 
 import argparse
@@ -28,7 +28,7 @@ sys.path.insert(0, str(HERE))
 
 import corpora                                                   # noqa: E402
 import scenarios                                                 # noqa: E402
-from harness import SEMGREP, Session                             # noqa: E402
+from harness import GORP, Session                             # noqa: E402
 
 
 def build_context(work, corpus_arg):
@@ -37,7 +37,7 @@ def build_context(work, corpus_arg):
     A scenario that mutates its corpus gets a private copy (see `run_one`);
     this is the pristine one.
     """
-    ctx = {"bin": SEMGREP}
+    ctx = {"bin": GORP}
     if corpus_arg:
         ctx["source_root"] = Path(corpus_arg).resolve()
         ctx["source_kind"] = "external"
@@ -83,13 +83,13 @@ def run_one(spec, out_root, ctx, work, timeout_note):
     root.parent.mkdir(parents=True, exist_ok=True)
     if root.exists():
         shutil.rmtree(root)
-    # `.semgrep` is excluded deliberately. A bench corpus usually has one left
+    # `.gorp` is excluded deliberately. A bench corpus usually has one left
     # over from a previous run, and copying it makes every "first search of this
     # scope" resolve warm against a repo-local index — which silently turned the
     # cold-start and fault-injection scenarios into no-ops that still reported
     # numbers. `.git` is excluded because it is large and never searched.
     shutil.copytree(ctx["source_root"], root,
-                    ignore=shutil.ignore_patterns(".semgrep", ".git"),
+                    ignore=shutil.ignore_patterns(".gorp", ".git"),
                     symlinks=True)
 
     local = dict(ctx)
@@ -129,8 +129,8 @@ def main():
     ap.add_argument("--run-id", default="")
     args = ap.parse_args()
 
-    if not SEMGREP.exists():
-        raise SystemExit(f"no binary at {SEMGREP} — run `cargo build --release`")
+    if not GORP.exists():
+        raise SystemExit(f"no binary at {GORP} — run `cargo build --release`")
 
     run_id = args.run_id or time.strftime("%Y%m%d-%H%M%S")
     out_root = Path(args.out) / run_id
@@ -151,7 +151,7 @@ def main():
         raise SystemExit("no scenarios selected")
 
     print(f"run {run_id}: {len(picked)} scenario(s), tier<={args.tier}")
-    print(f"  binary   {SEMGREP}")
+    print(f"  binary   {GORP}")
     print(f"  scratch  {work}   (gitignored)")
     print(f"  sessions {out_root}")
     ctx = build_context(work, args.corpus)

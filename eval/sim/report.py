@@ -248,46 +248,46 @@ def section_inefficiencies(runs, out):
 HARDENING = [
     ("P0", "`FlatBm25::open` accepts any file ≥64 bytes with the right magic, "
            "then uses five header offsets as unchecked slice indices.",
-     "`crates/semgrep-core/src/store/bm25.rs:82`",
+     "`crates/gorp-core/src/store/bm25.rs:82`",
      "Panic, not `Err` — so the disposability path in `search/mod.rs:173` never "
      "runs, the entry is never evicted, and every later invocation panics too. "
      "Validate the offsets against `map.len()` and return `Err`."),
     ("P1", "Concurrent first-searches of one scope race.",
-     "`crates/semgrep-core/src/cache/mod.rs:153` (FIXES.md #3)",
+     "`crates/gorp-core/src/cache/mod.rs:153` (FIXES.md #3)",
      "Build into a staging directory and rename, so a reader never sees a "
      "half-written entry."),
     ("P1", "Read-repair has no delta-size bound.",
-     "`crates/semgrep-core/src/cache/repair.rs:99`",
+     "`crates/gorp-core/src/cache/repair.rs:99`",
      "RESEARCH.md §8 mechanism 2 specifies treating drift above ~5% of files as "
      "a full miss. Unimplemented, so a branch switch makes every query past the "
      "TTL re-embed the whole delta, forever."),
     ("P2", "LRU eviction pops a victim before deleting it and only decrements "
            "the running total on success.",
-     "`crates/semgrep-core/src/cache/budget.rs:115-122`",
+     "`crates/gorp-core/src/cache/budget.rs:115-122`",
      "An undeletable entry survives while healthy entries are destroyed and the "
      "cache stays over budget, silently. Decrement only what was freed, and "
      "stop when no progress is possible."),
     ("P2", "`out::hits` writes `println!(\"{}:{}:{}\")` with no escaping.",
-     "`crates/semgrep/src/out.rs:42`",
+     "`crates/gorp/src/out.rs:42`",
      "A filename containing a newline splits one hit across two stdout lines, "
      "breaking the documented `path:line:text` contract that 'stdout is data' "
      "rests on. `--json` is unaffected."),
     ("P2", "A nonexistent search path exits 1 (\"no results\") rather than 2.",
-     "`crates/semgrep-core/src/corpus/mod.rs` walk / `cmd/search.rs`",
+     "`crates/gorp-core/src/corpus/mod.rs` walk / `cmd/search.rs`",
      "An agent reads \"no results\" as \"the code is not there\" and stops "
      "looking, when the path was simply wrong."),
     ("P3", "A same-second, length-preserving edit is invisible to drift "
            "detection.",
-     "`crates/semgrep-core/src/corpus/diff.rs:53`",
+     "`crates/gorp-core/src/corpus/diff.rs:53`",
      "`(size, mtime)` with whole-second mtime cannot see it. Documented as a "
      "known limit; worth a content hash for files whose mtime equals the "
      "index's own."),
     ("P3", "`budget::dir_bytes` is not recursive.",
-     "`crates/semgrep-core/src/cache/budget.rs:40`",
+     "`crates/gorp-core/src/cache/budget.rs:40`",
      "Correct only because entries happen to be flat. A nested artifact would "
      "be sized as zero and never reclaimed."),
     ("P3", "`warn_if_first_search` resolves the index on every ranked query.",
-     "`crates/semgrep/src/cmd/search.rs:90`",
+     "`crates/gorp/src/cmd/search.rs:90`",
      "One extra canonicalize plus generation-directory scan per query, to "
      "decide whether to print one line the engine could report itself."),
 ]

@@ -1,0 +1,52 @@
+[package]
+name = "gorp-core"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0 OR MIT"
+description = "Core engine for gorp: keyword, BM25, and semantic search over file trees"
+
+[features]
+default = ["func-chunk"]
+# Function-boundary chunking (RESEARCH.md §11, §29): tree-sitter plus nine
+# grammars, ~7 MiB of release binary. A build without it still parses every
+# index and every meta.json — it just treats function-mode cache entries as
+# unreadable and reclaims them, the same degradation a pre-budget binary has
+# on `c` tags.
+func-chunk = [
+    "dep:tree-sitter",
+    "dep:tree-sitter-python",
+    "dep:tree-sitter-javascript",
+    "dep:tree-sitter-typescript",
+    "dep:tree-sitter-rust",
+    "dep:tree-sitter-go",
+    "dep:tree-sitter-c",
+    "dep:tree-sitter-java",
+    "dep:tree-sitter-ruby",
+    "dep:tree-sitter-php",
+]
+
+[dependencies]
+anny = { workspace = true }
+ese = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+postcard = { workspace = true }
+rayon = { workspace = true }
+ignore = { workspace = true }
+grep-regex = { workspace = true }
+grep-searcher = { workspace = true }
+memmap2 = { workspace = true }
+tree-sitter = { workspace = true, optional = true }
+tree-sitter-python = { workspace = true, optional = true }
+tree-sitter-javascript = { workspace = true, optional = true }
+tree-sitter-typescript = { workspace = true, optional = true }
+tree-sitter-rust = { workspace = true, optional = true }
+tree-sitter-go = { workspace = true, optional = true }
+tree-sitter-c = { workspace = true, optional = true }
+tree-sitter-java = { workspace = true, optional = true }
+tree-sitter-ruby = { workspace = true, optional = true }
+tree-sitter-php = { workspace = true, optional = true }
+
+[dev-dependencies]
+tempfile = "3"

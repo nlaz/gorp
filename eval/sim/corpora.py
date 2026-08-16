@@ -223,7 +223,7 @@ def adversarial(dest):
 
     def _fake_index():
         # A directory named like the engine's own artifact, containing junk.
-        d = dest / "nested" / ".semgrep"
+        d = dest / "nested" / ".gorp"
         d.mkdir(parents=True, exist_ok=True)
         (d / "meta.json").write_text("not json at all {{{")
     attempt("fake_semgrep_dir", _fake_index)
@@ -255,7 +255,7 @@ def drift_files(root, fraction, seed=7, marker="DRIFTED"):
     root = Path(root)
     files = sorted(p for p in root.rglob("*")
                    if p.is_file() and not p.is_symlink()
-                   and ".semgrep" not in p.parts)
+                   and ".gorp" not in p.parts)
     rng = random.Random(seed)
     rng.shuffle(files)
     n = int(round(len(files) * fraction))
