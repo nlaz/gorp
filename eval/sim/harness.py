@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Running semgrep as a *session*, and recording what happened.
+"""Running gorp as a *session*, and recording what happened.
 
 `eval/` scores single queries and `bench/` times single queries. Neither can see
 behavior that only exists across a sequence: the index is a cache (RESEARCH.md
@@ -10,7 +10,7 @@ A **session** is an ordered sequence of steps against one corpus root under one
 isolated `GORP_CACHE_DIR`. A **step** is one of:
 
   mutate   the world changes (edit files, corrupt an artifact, shrink a budget)
-  invoke   one semgrep process runs
+  invoke   one gorp process runs
   check    a pre-registered expectation is evaluated against everything so far
 
 Sessions are written as JSONL: line 0 is a header pinning the scenario, its
@@ -120,7 +120,7 @@ class Step:
         Captured stdout is capped at `MAX_CAPTURE`, so when a step overflows it
         the final line is torn *by this harness*. A check that parses output
         must not see that: the first version of the adversarial scenario
-        reported "semgrep emits invalid JSON" when what it had actually found
+        reported "gorp emits invalid JSON" when what it had actually found
         was its own 64 KB cut. Any assertion about output format has to run on
         whole lines or it is measuring the recorder.
         """
@@ -212,7 +212,7 @@ class Session:
     NO_PATH = object()
 
     def run(self, args, path=None, timeout=300, env=None, label=""):
-        """One semgrep invocation, with its trace envelopes attached.
+        """One gorp invocation, with its trace envelopes attached.
 
         `path=None` searches the session's corpus root; `path=Session.NO_PATH`
         appends no path argument at all, for verbs that do not take one.

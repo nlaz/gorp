@@ -34,7 +34,7 @@ CORPORA="${*:-tokio etcd vscode cosqa linux}"
 
 # Isolated, like levers.sh and preproc.sh: the harness must never poison
 # ordinary use. The prune variants are not part of the cache entry key.
-export GORP_CACHE_DIR="${TMPDIR:-/tmp}/semgrep-prune-cache"
+export GORP_CACHE_DIR="${TMPDIR:-/tmp}/gorp-prune-cache"
 
 # tag|index flags|queryset|modes|where
 CONDITIONS=$(cat <<'EOF'

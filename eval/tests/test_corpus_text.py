@@ -1,4 +1,4 @@
-"""Tests for reading a corpus file the way semgrep does.
+"""Tests for reading a corpus file the way gorp does.
 
 Ground truth is a line span, so the harness and the engine have to agree on
 what a line is and on which files exist. They did not, and both disagreements

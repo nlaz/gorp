@@ -1,4 +1,4 @@
-# semgrep
+# gorp
 
 **Semantic grep for coding agents.** One command, grep's shape on input, and
 it ranks by relevance instead of matching by regex. Ask it a question, get
@@ -10,9 +10,9 @@ Named for its lineage with grep/ripgrep, the incumbent agent search tools it
 benchmarks against. (No relation to r2c/Semgrep, the static-analysis tool.)
 
 ```sh
-semgrep "where is the retry backoff computed" src/   # ranked — no setup, no index step
-semgrep -e 'fn \w+_config' .                         # exact regex, grep semantics
-semgrep --json -k 20 "auth middleware" .             # JSONL for harnesses
+gorp "where is the retry backoff computed" src/   # ranked — no setup, no index step
+gorp -e 'fn \w+_config' .                         # exact regex, grep semantics
+gorp --json -k 20 "auth middleware" .             # JSONL for harnesses
 ```
 
 ## The problem it solves
@@ -39,7 +39,7 @@ guess, another tool call, more tokens, more latency.
 
 Measured on 1,200 **real** search queries (CoSQA — human-written Bing queries
 labelled against 20,604 Python functions), ripgrep finds the target in the top
-5 **3%** of the time; semgrep finds it **21%** of the time. Both numbers are
+5 **3%** of the time; gorp finds it **21%** of the time. Both numbers are
 low because scoring credits one gold function out of 20,604.
 
 That 7× is the wrong number to quote, and we know because we tried to break it.
@@ -53,7 +53,7 @@ The bet: for an agent, the quality of the *first* result matters more than the
 speed of the scan, because every miss is a full round-trip that never needed
 to happen. And a miss is not cheap — an agent that falls back through phrase,
 AND, then OR patterns pays ~8 full kernel scans (~25 s) to fail, against
-semgrep's single ~100 ms warm query.
+gorp's single ~100 ms warm query.
 
 ## Performance
 
@@ -62,7 +62,7 @@ incumbent. Median wall / peak RSS, Linux kernel 6.9 (1.15 GB, 84k files):
 
 | exact regex, kernel | wall | RSS |
 |---|---|---|
-| **semgrep -e** | **1.72 s** | 12 MB |
+| **gorp -e** | **1.72 s** | 12 MB |
 | ripgrep | 1.86 s | 11 MB |
 | ugrep | 3.43 s | 12 MB |
 | GNU grep | 13.1 s | 3 MB |
@@ -83,9 +83,9 @@ Full tables and methodology in [RESULTS.md](RESULTS.md).
 
 ## No index to manage: the index is a cache
 
-There is no setup step and no `semgrep index` in normal use. The insight that
+There is no setup step and no `gorp index` in normal use. The insight that
 removes it: **a cold search and an index build are the same computation** — one
-streaming pass — and one of them throws the work away. So semgrep writes it
+streaming pass — and one of them throws the work away. So gorp writes it
 down instead.
 
 ```
@@ -95,7 +95,7 @@ down instead.
     rank → answer                    diff it against the live tree
     write down what it computed      rank → answer
           │                                   ▲
-          └──►  ~/.cache/semgrep/<root-hash>  ─┘
+          └──►  ~/.cache/gorp/<root-hash>  ─┘
         2.5 s  (VS Code repo)                10 ms
 ```
 
@@ -116,7 +116,7 @@ Three properties follow, and they're what make a stateful tool safe to hand an
 agent:
 
 - **Results are always true of the tree as it is right now.** Before serving
-  from cache, semgrep diffs the live scope against it. Edited and deleted
+  from cache, gorp diffs the live scope against it. Edited and deleted
   files have their chunks tombstoned out of the ranking; new and never-seen
   files are streamed in memory for that query. Repair and lazy-fill are one
   code path. (The diff is throttled to once per ~60 s per scope, so query
@@ -124,16 +124,16 @@ agent:
 - **Warm and cold return the same answer.** Same top-k set, same top hit —
   enforced by e2e tests. A cache that changes only latency is memoization, and
   memoization doesn't need to be disclosed to the caller.
-- **Nothing lands in your repo.** The cache lives in `~/.cache/semgrep`
+- **Nothing lands in your repo.** The cache lives in `~/.cache/gorp`
   (override with `SEMGREP_CACHE_DIR`), keyed by canonical root — so there's no
-  `.semgrep/` to gitignore and no stale directory left behind in a sibling
+  `.gorp/` to gitignore and no stale directory left behind in a sibling
   checkout. Deleting it at any time costs nothing but the next first search.
 
-`semgrep index .` still exists for deliberate prewarming (CI, or a human about
+`gorp index .` still exists for deliberate prewarming (CI, or a human about
 to work in a huge tree), and a hidden `--no-index` forces the pure streaming
 path for harnesses. Neither is something an agent needs to know about.
 
-The cache is bounded and inspectable. `semgrep cache` shows what it holds
+The cache is bounded and inspectable. `gorp cache` shows what it holds
 and what it costs; `--prune` reclaims, `--clear` empties it. Entries are
 evicted when the repo they index no longer exists, and least-recently-used
 past a 2 GB budget (`SEMGREP_CACHE_MAX_BYTES`). Entries are namespaced by a
@@ -156,7 +156,7 @@ has to make a configuration decision.
   `-g`/`--include`, and `-n`/`-r`/`-R`/`-H` accepted by construction. This
   was earned rather than assumed: measured against real agent transcripts,
   `-n` alone accounted for 88% of the flags typed at a grep-shaped tool, and
-  semgrep used to reject every one of them (RESEARCH.md §17).
+  gorp used to reject every one of them (RESEARCH.md §17).
 - **Ranked, not exhaustive.** The default returns the k best locations. `-e`
   switches to exact regex with grep semantics when you need every occurrence
   or proof of absence.
@@ -180,7 +180,7 @@ has to make a configuration decision.
     41:		u32 delay = base << attempt;
 
   stderr — guidance, never in the way of a pipe
-    semgrep: ranked top 10 of 1,514 candidates · not it? rephrase the query
+    gorp: ranked top 10 of 1,514 candidates · not it? rephrase the query
   ```
 
   The ranked footer points back at rephrasing and **does not advertise `-e`**.
@@ -222,7 +222,7 @@ changed) and an edited description is an unmeasured one
 top-5 default). Re-measuring a description that names the unit view is §34.3's
 standing follow-up.
 
-**Why the example is names and not a question.** semgrep embeds with a static
+**Why the example is names and not a question.** gorp embeds with a static
 table — one vector per token, rarity-pooled, word order discarded — so a
 description reduces at the engine to its rare tokens. Measured across 413 real
 agent queries (§19.2b): when a query shares *no* vocabulary with the answer, a
@@ -244,17 +244,17 @@ What is **not** true, and was claimed here for one day: that this buys better
 answers. A 40-instance frame suggested +0.05 over ripgrep; a 203-pair frame
 enriched for exactly the cases the mechanism predicted then returned **+0.000
 on that stratum** and −0.034 pooled (§19.7). The description reliably changes
-how an agent searches without changing what it finds. semgrep against ripgrep
+how an agent searches without changing what it finds. gorp against ripgrep
 remains what §18 measured: **parity**.
 
 Recommend this description for the round-trips it saves, not for accuracy it
 does not deliver.
 
-The binary is `sg` (and `semgrep`, still, so nothing that resolves it by name
-breaks). `--help` still describes the tool the older way, and still prints
-`semgrep:` on stderr — deliberate: renaming the message prefix, the env vars,
-`~/.cache/semgrep` and `.semgrep/` is the expensive half of a rename, and it
-invalidates every built index to fix a cosmetic mismatch.
+The binary is `gorp`. It was `semgrep`, then `semgrep` and `sg` together;
+2026-08 finished the job and paid the expensive half — the `GORP_*` env
+vars, `~/.cache/gorp`, `.gorp/` index directories and the `gorp:` stderr
+prefix all moved with it, which orphaned every index built before then.
+They rebuild on first search.
 
 ## How it works
 
@@ -309,13 +309,13 @@ CLI-surface collapse, cache design, reranker post-mortems — in
 
 ## What the evaluation shows
 
-**In one line: ripgrep can only find code you can already name. semgrep does
+**In one line: ripgrep can only find code you can already name. gorp does
 not need the name.**
 
 That is the whole product thesis, and it is measurable. Searching a codebase
 splits into two situations:
 
-| you are looking for… | example query | ripgrep | semgrep |
+| you are looking for… | example query | ripgrep | gorp |
 |---|---|---|---|
 | something you can **name** | `blkg_rwstat_add inline function percpu counter` | 0.34 | **0.92** |
 | something you can only **describe** | `helper that increments the right per-cpu statistic by operation type` | **0.00** | 0.04 |
@@ -329,7 +329,7 @@ finds it **zero times out of 199**. Not rarely. Zero.
 
 That is not a quirk of one benchmark. It is what regex search *is*: it matches
 strings you supply. If you know the function is called `blkg_rwstat_add`, grep
-is excellent and semgrep is a modest improvement. If you only know it
+is excellent and gorp is a modest improvement. If you only know it
 "increments a per-CPU counter somewhere in the block layer," grep has nothing
 to match on, and no amount of skill with grep changes that.
 
@@ -359,7 +359,7 @@ heuristic.
 1,200 questions typed by people into a search engine, matched against 20,604
 Python functions (CoSQA). Nobody who wrote these had seen the code:
 
-| | ripgrep (realistic) | ripgrep (**perfect**) | semgrep |
+| | ripgrep (realistic) | ripgrep (**perfect**) | gorp |
 |---|---|---|---|
 | recall@5 | 0.03 | **0.10** | **0.22** |
 
@@ -376,7 +376,7 @@ claim is wrong and we retract it" and committed it *before* the run. It reached
 
 Being clear about this matters more than the wins:
 
-- **4% is still 4%.** On describe-it queries semgrep finds the target 4% of the
+- **4% is still 4%.** On describe-it queries gorp finds the target 4% of the
   time against ripgrep's 0%. That is the difference between possible and
   impossible, not between good and great.
 - **The semantic half barely earns its keep on code.** Plain lexical ranking
@@ -416,7 +416,7 @@ the functions the real fix modified). Headless Claude agents localize each
 issue with one search-tool condition; every invocation is intercepted and
 instrumented. 50 instances × condition, paired on the same issues and model:
 
-| paired agent runs | rg | semgrep | both |
+| paired agent runs | rg | gorp | both |
 |---|---|---|---|
 | file-level Acc@5 | 75% | 75% | 75% |
 | **function-level Acc@10** | 58% | **69%** | 62% |
@@ -429,7 +429,7 @@ Read honestly:
   strong agent localizes in ~2 searches either way, so there's no retry loop
   left for ranked search to remove (replicating Augment's finding at
   SWE-bench scale).
-- **semgrep's real edge is function-level precision** (+11pp, +17pp on bug
+- **gorp's real edge is function-level precision** (+11pp, +17pp on bug
   reports): ranked chunk spans land inside the responsible function, grep hits
   land on call sites.
 - **rg's edge is first-guess exactness** when the issue text hands the agent

@@ -10,7 +10,7 @@ prints these numbers above every results table, so a recall figure cannot be
 quoted without its leakage beside it.
 
 It also measures a leak §12 did not: **path leakage**. `generate.py` used to
-pass the file path into the generator prompt, and semgrep's tokenizer does
+pass the file path into the generator prompt, and gorp's tokenizer does
 path augmentation, so the generator saw the document identifier and the
 scorer indexes the document identifier. Measured on the sets on disk before
 that prompt was fixed:

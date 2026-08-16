@@ -585,7 +585,7 @@ def main():
                     help="bootstrap resamples for the delta CI")
     ap.add_argument("--compare-modes", default="",
                     help="paired stats between two modes in THIS run, "
-                         "e.g. 'hybrid,rg' — the semgrep-vs-ripgrep claim")
+                         "e.g. 'hybrid,rg' — the gorp-vs-ripgrep claim")
     ap.add_argument("--stratify", default="",
                     help="break the table down by row fields or computed "
                          "leakage fields, e.g. 'has_identifier' or 'lang,has_doc'")
@@ -717,7 +717,7 @@ def main():
               "  token as its own pattern and keeps whichever scored best, which\n"
               "  requires already knowing the answer. No agent can run it. Read it\n"
               "  as 'the most ripgrep could possibly do here', and compare\n"
-              "  semgrep's margin against it, not against rg-strong alone.")
+              "  gorp's margin against it, not against rg-strong alone.")
     if args.compare_modes:
         a, b = args.compare_modes.split(",")
         compare_modes(results, a.strip(), b.strip(), args.bootstrap)

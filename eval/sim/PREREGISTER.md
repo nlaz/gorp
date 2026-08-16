@@ -33,7 +33,7 @@ disposal.
 
 A **session** is an ordered sequence of steps against one corpus root under one
 isolated `SEMGREP_CACHE_DIR`. A **step** is `mutate` (the world changes),
-`invoke` (one semgrep process), or `assert` (an expectation below, evaluated
+`invoke` (one gorp process), or `assert` (an expectation below, evaluated
 against everything observed so far).
 
 ## Conditions common to every scenario
@@ -46,7 +46,7 @@ against everything observed so far).
   `FileMeta.mtime` is whole seconds (`lib.rs:57`) and `corpus::diff` compares
   `(size, mtime)`, so a same-second same-size edit is invisible. That is a
   flakiness source for every other scenario and the finding of S3d.
-- Tier 1 = synthetic corpora + the frozen `crates/semgrep-core/tests/corpus`
+- Tier 1 = synthetic corpora + the frozen `crates/gorp-core/tests/corpus`
   fixture. Tier 2 = `tokio`, `etcd`, `commons-lang`, `jekyll` (166–1,500 files).
   The 84k-file kernel is **out of scope** for this run by decision; predictions
   are therefore not made about kernel-scale numbers.
@@ -160,13 +160,13 @@ accumulates dead generations indefinitely.
 file over `max_file_bytes`; an empty file; a `chmod 000` file; invalid UTF-8;
 UTF-16 with BOM; a symlink loop `a → b → a`; a symlink escaping the root;
 filenames containing a **newline**, a `:`, a quote, and emoji; a 200k-line
-single-line file; a FIFO; a `.gitignore`d subtree; a directory named `.semgrep`.
+single-line file; a FIFO; a `.gitignore`d subtree; a directory named `.gorp`.
 
 **Predict.** No panic and no hang anywhere — the `ignore` crate handles symlink
 loops, `corpus::read_text` NUL-sniffs the first 8 KiB, and oversized files are
 dropped at walk (`corpus/mod.rs:39-41`).
 
-**One predicted FAIL:** `out::hits` (`crates/semgrep/src/out.rs:42`) writes a
+**One predicted FAIL:** `out::hits` (`crates/gorp/src/out.rs:42`) writes a
 bare `println!("{}:{}:{}", path, line, text)` with no escaping or quoting. A hit
 in a file whose name contains a newline or a `:` therefore **breaks the
 `path:line:text` stdout contract** — the documented, grep-compatible format that
@@ -198,7 +198,7 @@ used as *unchecked* slice indices in `term_at` (`:113`), `u32_le` (`:104`),
    `search/mod.rs:173-181` — which deletes a bad entry and falls back to
    streaming — **never fires**. The entry is never evicted, so **all three
    consecutive runs panic identically**: a permanently bricked cache, recoverable
-   only by `semgrep cache --clear`.
+   only by `gorp cache --clear`.
 
 This is the one artifact in the format that is not size-checked. `emb.bin` is
 (`store/load.rs:97`), `chunks.bin` is via postcard, `meta.json` via serde.
@@ -212,7 +212,7 @@ byte; zero-length `meta.json`; truncated `chunks.bin`; garbage `hnsw.bin`.
 every case. Note `meta.json` stays *discoverable* (`cache/mod.rs:94` checks only
 `is_file()`), so predict one wasted discovery per query until eviction lands.
 
-**S8h — the same corruptions in a repo-local `.semgrep/`.** *Predict:* the error
+**S8h — the same corruptions in a repo-local `.gorp/`.** *Predict:* the error
 propagates to the user (exit 2) rather than degrading, by design — a repo-local
 index is an explicit artifact, not a disposable cache. Except a/b, which panic
 identically because a panic does not care about that distinction.

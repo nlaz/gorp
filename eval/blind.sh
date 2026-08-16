@@ -15,7 +15,7 @@ cd "$(dirname "$0")/.."
 SG=target/release/gorp
 CORPORA="${*:-tokio etcd commons-lang jekyll vscode linux}"
 
-export GORP_CACHE_DIR="${TMPDIR:-/tmp}/semgrep-blind-cache"
+export GORP_CACHE_DIR="${TMPDIR:-/tmp}/gorp-blind-cache"
 
 # tag|index flags|modes|where|compare
 CONDITIONS=$(cat <<'EOF'

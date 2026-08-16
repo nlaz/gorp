@@ -28,7 +28,7 @@ Two harnesses:
 
 ## The comparison principle
 
-semgrep is benchmarked against ripgrep at two levels, and they must not be
+gorp is benchmarked against ripgrep at two levels, and they must not be
 conflated. **Keyword mode vs rg** is the mechanics-level comparison — same
 engine crates, no index involved, kept honest in `bench/`. **Ranked search
 vs agentic rg** is the contract-level comparison — same grep-shaped
@@ -37,11 +37,11 @@ round-trips. The second is the product claim, and an index is not cheating
 there any more than a database index cheats at a query benchmark — provided
 its costs are never hidden:
 
-> rg is stateless and always-true; semgrep is stateful, ranked, and honest
+> rg is stateless and always-true; gorp is stateful, ranked, and honest
 > about its state. The eval's job is to show whether that state earns its
 > keep — with its costs printed next to its wins.
 
-Concretely: every result table that credits semgrep's warm path must carry
+Concretely: every result table that credits gorp's warm path must carry
 index build time and bytes next to it (`locbench/report.py` shows
 efficiency with index cost both excluded and amortized), exact mode (`-e`)
 never answers from the index (proof-of-absence always reads live bytes),
@@ -77,7 +77,7 @@ variance. Their query sets are symbol-anchored (`--anchor symbol`), so ground
 truth is a function span rather than a 30-line window: chunking-neutral by
 construction, which the older three sets are not (§11.4).
 
-**Bench corpora** — full rebuild (`semgrep index`, fresh timing):
+**Bench corpora** — full rebuild (`gorp index`, fresh timing):
 
 | corpus | files | source | build | index | peak RSS |
 |---|---|---|---|---|---|

@@ -32,7 +32,7 @@ WINDOW = 30
 # The prompt deliberately does NOT contain the file path.
 #
 # It used to open "Below is a chunk of a file from a corpus ({path}, lines
-# {start}-{end})", and semgrep's tokenizer does path augmentation — so the
+# {start}-{end})", and gorp's tokenizer does path augmentation — so the
 # generator was shown the document identifier and the scorer indexes the
 # document identifier. Measured on the sets that prompt produced (RESEARCH.md
 # §13.1): 32.7% of linux `direct` queries contain the gold file's stem and
@@ -101,7 +101,7 @@ def sample_symbols(root: Path, n: int, seed: int, min_lines: int = 4):
     for p in files:
         if len(out) >= n:
             break
-        # Never sample a file semgrep's walker skips: a gold span in one can
+        # Never sample a file gorp's walker skips: a gold span in one can
         # never be returned, so the row would be a permanent miss for every
         # condition and read as an accuracy result.
         text = corpus_text.read_text(p)

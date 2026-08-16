@@ -23,7 +23,7 @@ CORPORA="${CORPORA:-vscode wikipedia linux}"
 # A cache of its own. The harness sweeps chunk parameters, and until the entry
 # key included them (see FIXES.md #10) that contaminated whatever was measured
 # next — including, if this pointed at the default location, ordinary use.
-export GORP_CACHE_DIR="${TMPDIR:-/tmp}/semgrep-lever-cache"
+export GORP_CACHE_DIR="${TMPDIR:-/tmp}/gorp-lever-cache"
 
 # tag|index flags|modes|search flags
 CONDITIONS=$(cat <<'EOF'

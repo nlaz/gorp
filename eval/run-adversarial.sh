@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Adversarial pass on our own eval: how much of the reported semgrep-vs-rg
+# Adversarial pass on our own eval: how much of the reported gorp-vs-rg
 # gap is the engine, and how much is a weak ripgrep baseline?
 #
 # The legacy `rg` condition tokenizes with [a-zA-Z0-9]+ — no underscore — so
@@ -12,7 +12,7 @@
 # measuring our own baseline.
 set -uo pipefail
 cd "$(dirname "$0")/.."
-export GORP_CACHE_DIR="${TMPDIR:-/tmp}/semgrep-adversarial-cache"
+export GORP_CACHE_DIR="${TMPDIR:-/tmp}/gorp-adversarial-cache"
 
 for corpus in vscode linux wikipedia; do
   d=bench/corpora/$corpus; q=eval/queries/$corpus.jsonl

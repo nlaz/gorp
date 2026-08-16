@@ -19,7 +19,7 @@ SG=target/release/gorp
 CORPORA="${*:-tokio etcd vscode cosqa linux}"
 
 # Isolated, like levers.sh: the harness must never poison ordinary use.
-export GORP_CACHE_DIR="${TMPDIR:-/tmp}/semgrep-preproc-cache"
+export GORP_CACHE_DIR="${TMPDIR:-/tmp}/gorp-preproc-cache"
 
 # tag|index flags|modes
 CONDITIONS=$(cat <<'EOF'

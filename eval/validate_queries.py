@@ -68,7 +68,7 @@ def validate(rows, corpus, check_sha=True):
                 cache[rel] = ("missing", None)
             else:
                 lines, ok = corpus_text.read_lines(p)
-                # A file semgrep's walker skips is not a missing file and not
+                # A file gorp's walker skips is not a missing file and not
                 # a passing row: the gold span in it can never be returned by
                 # any condition, so it is a permanent, uniform miss that reads
                 # as an accuracy result. Name it.
@@ -79,7 +79,7 @@ def validate(rows, corpus, check_sha=True):
             continue
         if kind == "unindexable":
             problems.append((i, "unindexable-gold",
-                             f"{rel} (NUL byte in first 8 KiB — semgrep's walker "
+                             f"{rel} (NUL byte in first 8 KiB — gorp's walker "
                              f"skips it, so this row can never be found)"))
             continue
 

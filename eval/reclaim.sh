@@ -65,7 +65,7 @@ printf '  %-42s %6s   %s\n' "path" "size" "how to get it back"
 # because it is usually the largest single thing the eval fetchers leave
 # behind, but named explicitly so nobody deletes it by reflex.
 offer caches  "$HOME/.cache/huggingface"        "eval/fetch-*.sh"          "SHARED, not just ours — re-download"
-offer caches  "$HOME/.cache/semgrep"            "any cold ranked search"   "one pass per scope"
+offer caches  "$HOME/.cache/gorp"            "any cold ranked search"   "one pass per scope"
 for d in bench/corpora/*/.gorp eval/data/*/.gorp; do
   offer caches "$ROOT/$d" "gorp index <corpus>" "3.5-66 s"
 done

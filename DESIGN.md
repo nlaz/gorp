@@ -1,7 +1,7 @@
-# semgrep — a semantic grep for agents
+# gorp — a semantic grep for agents
 
 **Status:** v1 design, 2026-07-27
-**Name:** `semgrep` — semantic grep. Chosen for direct lineage with grep/ripgrep,
+**Name:** `gorp` — semantic grep. Chosen for direct lineage with grep/ripgrep,
 which is the incumbent agent search tool this project benchmarks against.
 (Distinct from r2c Semgrep, the static-analysis tool.)
 
@@ -33,7 +33,7 @@ Both are consumed as path dependencies (`../anny`, `../ese`) for now.
 | ---------- | ---------- | ---------------- | -------------- |
 | `keyword`  | Regex/literal match, grep semantics | Parallel scan via ripgrep's own crates (`grep-regex`, `grep-searcher`, `ignore`) | Same scan (no keyword index in v1 — rg is already near-optimal here; this keeps our keyword numbers honest) |
 | `bm25`     | Ranked lexical search over chunks | One-pass in-memory index build, then query | Serialized postings |
-| `semantic` | Embedding similarity over chunks (default mode — semantic-first, RESEARCH.md §14) | Stream files → chunk → `ese::encode` → brute-force top-k (bounded memory: only a k-heap retained) | Default: exact rayon brute-force over the mmap'd embedding matrix (memory-light; ~2 GB of vectors would otherwise sit resident in HNSW for a kernel-sized corpus). `semgrep index --hnsw` opts into the `anny` graph for ~ms queries; benchmarks compare both. |
+| `semantic` | Embedding similarity over chunks (default mode — semantic-first, RESEARCH.md §14) | Stream files → chunk → `ese::encode` → brute-force top-k (bounded memory: only a k-heap retained) | Default: exact rayon brute-force over the mmap'd embedding matrix (memory-light; ~2 GB of vectors would otherwise sit resident in HNSW for a kernel-sized corpus). `gorp index --hnsw` opts into the `anny` graph for ~ms queries; benchmarks compare both. |
 | `hybrid`   | Reciprocal-rank fusion of `bm25` + `semantic` (off by default until semantic carries its weight, RESEARCH.md §14) | Both cold paths share one corpus pass | Both warm paths |
 
 **Why chunks for both BM25 and semantic:** one document table, one granularity,
@@ -60,7 +60,7 @@ RRF: `score(d) = Σ 1/(60 + rank_i(d))` over the BM25 and semantic lists
 (top-128 each), ties broken by semantic score. Cheap, robust, no tuning of
 score scales. Exact keyword hits can optionally boost (v1.1).
 
-## Index format (`.semgrep/` at corpus root)
+## Index format (`.gorp/` at corpus root)
 
 | File | Contents |
 | ---- | -------- |
@@ -81,17 +81,17 @@ falls back to exact brute-force over `emb.bin`.
 ## CLI
 
 ```
-semgrep <QUERY> [PATH]              # search (default mode: semantic; auto-uses .semgrep/ if present & fresh)
+gorp <QUERY> [PATH]              # search (default mode: semantic; auto-uses .gorp/ if present & fresh)
   --mode semantic|keyword|bm25|hybrid
   -k, --top N                   # ranked modes, default 10
   -C, --context N               # context lines around the hit line
   -i, --ignore-case             # keyword mode
   -e, --regex                   # alias for --mode keyword
   --json                        # JSONL: {path, start_line, end_line, line, score, mode, snippet}
-  --no-index                    # force unindexed path even if .semgrep/ exists
+  --no-index                    # force unindexed path even if .gorp/ exists
   --stats                       # print timing/memory footprint to stderr
-semgrep index [PATH]                # build/refresh .semgrep/
-semgrep index --status              # index freshness report
+gorp index [PATH]                # build/refresh .gorp/
+gorp index --status              # index freshness report
 ```
 
 Exact mode prints grep-compatible `path:line:text`. Ranked modes print a unit
@@ -101,7 +101,7 @@ declaration, `⋮` where rows were elided — in ranked order, hits separated by
 a blank line (`--no-unit` restores the bare `path:line:text` passage; `score`
 only in `--json`). Exit code 0 if hits, 1 if none — same contract as grep.
 
-`semgrep-core` is a library crate; the CLI is a thin wrapper, so the-library and
+`gorp-core` is a library crate; the CLI is a thin wrapper, so the-library and
 other Flower Computer apps can embed the engine directly.
 
 ## Benchmarks (speed, memory, CPU)
@@ -118,17 +118,17 @@ other Flower Computer apps can embed the engine directly.
 
 **Scenarios (per corpus):**
 - Keyword: literal word; common word (many hits); rare regex; case-insensitive
-  literal — semgrep-keyword vs all five competitors, cold FS cache noted, warm
+  literal — gorp-keyword vs all five competitors, cold FS cache noted, warm
   measured (hyperfine handles warmup).
-- BM25/semantic/hybrid: semgrep only (competitors can't), measured in both
+- BM25/semantic/hybrid: gorp only (competitors can't), measured in both
   *unindexed* (cold, includes the corpus pass/embedding) and *indexed* modes;
-  plus `semgrep index` build time and on-disk index size.
+  plus `gorp index` build time and on-disk index size.
 
 **Metrics captured per run:**
 - Wall time: `hyperfine` (median ± σ, ≥10 runs after warmup).
 - Peak RSS + user/sys CPU: `/usr/bin/time -l` (macOS) parsed to JSON; CPU
   utilization = (user+sys)/wall shows parallelism efficiency.
-- Index cost: build wall time, peak RSS during build, `.semgrep/` bytes on disk.
+- Index cost: build wall time, peak RSS during build, `.gorp/` bytes on disk.
 
 Output: `bench/results/*.json` + a generated markdown summary table. All
 scripts live in `bench/` and are re-runnable end to end (`fetch-corpora.sh`
@@ -141,7 +141,7 @@ semantic 80 ms, hybrid 135 ms end-to-end; peak RSS 70 MB (bm25) / ~840 MB
 rank:bm25/embed-query/brute|ann/fuse, finalize).
 
 **Hypotheses verified in v1 benchmarks:**
-- semgrep-keyword ≈ rg (same engine crates), far ahead of grep/ack.
+- gorp-keyword ≈ rg (same engine crates), far ahead of grep/ack.
 - Unindexed BM25/semantic pay a full corpus pass — the question is whether
   ese keeps that in the "seconds, not minutes" range on 1.4 GB.
 - Indexed semantic queries are ~ms but pay RSS for the loaded index; mmap of
