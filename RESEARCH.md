@@ -9063,3 +9063,48 @@ declared on the peek: the effect sits exactly at the +0.014 adoption
 bar, which is where half-sample CIs mislead. The full-sample §35.6
 verdict, the bm25 tripwire for the surviving arm, and the adoption
 decision follow below when the data exists.
+
+### 35.6 (concluded) The checklist ships: +0.012 strict on real queries, every gate green
+
+Full corpus, 465 instances, one binary per phase, the §35.6 interim look
+already on the record above. Semantic mode (shipped default):
+
+    arm          scope      rank_func            rank_func_ovl        file rank
+    blend 0.5    dir/root   +0.012 [+.005,+.020] +0.012 [+.005,+.020] +0.025 [+.015,+.035]
+    blend 0.5    file       +0.010 [+.002,+.020] +0.011 [+.003,+.021] identity
+    blend 1.0    dir/root   +0.019 [+.005,+.033] +0.022 [+.008,+.036] +0.039 [+.022,+.058]
+    blend 1.0    file       +0.013 [+.000,+.026] +0.012 [-.001,+.025] identity
+
+And the bm25 tripwire did not merely hold — it improved: +0.010
+[+0.003, +0.019] strict on directory scopes, +0.016 file rank.
+
+Both function metrics move identically everywhere — §24.1's
+ranking-not-geometry signature — and the dose is monotone, which no
+boost in this program ever showed. **Adopted: `learned_blend: 0.5`
+default**, snapshot re-recorded in the same commit (a pure permutation:
+256 lines moved, none added or dropped, and the reorders read as
+corrections — prose chunks that led on raw score now sit below the code
+that computes the thing asked about). 1.0's larger dose is measured and
+unshipped: its file-scope CIs touch zero, it carries 3× the
+discordance, and the weights are trained on nine mostly-Python repos —
+raising the dose is registered as a follow-up gated on an
+off-distribution floor (cosqa or the blind ladder), not a tuning knob.
+
+The §35 ledger, closing the campaign:
+
+- **35.1 path boost — killed** (§35.5): a perfect null; the
+  post-fusion/pre-fine boost class is dead under fine_blend 1.0.
+- **35.3 graph expansion — killed at gate 1** (§35.4): reach, not
+  drown; suffix resolution converts <1% of the census's generous 48%.
+- **35.2 learned checklist — shipped**: the one lever that acted after
+  the fine rerank, where §35.5 says a reordering signal must act — and
+  the first engine change since bm25_pin whose real-query CI excludes
+  zero, at twice the file-rank effect.
+
+The through-line the three verdicts share: the §32.4 census said only
+~10% of the loss was reorder-addressable, and the checklist just
+collected a measurable slice of exactly that bucket while both attempts
+to reach *outside* the pool (paths as content, imports as wiring) died
+on contact with real queries. The vocabulary gap still owns the
+majority of the loss, and the §9.9 code-teacher table remains the one
+unexecuted lever aimed at it.

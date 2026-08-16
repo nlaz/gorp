@@ -293,8 +293,19 @@ pub struct SearchOptions {
     pub graph_weight: f32,
     /// The learned checklist's share of the final relevance (RESEARCH.md
     /// §35.2): `relevance = (1-b)·base + b·learned`, both sides in [0, 1].
-    /// **Default 0.0 — off**, pending the §35.2 gates. A blend rather than a
-    /// bool so the gate can sweep it.
+    /// **Default 0.5 since §35.6** — the full-corpus gate on replayed real
+    /// agent queries: rank_func +0.012 [+0.005, +0.020] on directory scopes
+    /// and +0.010 [+0.002, +0.020] on file scopes, both function metrics
+    /// moving together, file rank +0.025, and the bm25 tripwire *improved*
+    /// (+0.010) rather than merely not regressing.
+    ///
+    /// 0.5 and not the 1.0 arm, although 1.0 measured larger on directory
+    /// scopes (+0.019): the dose is monotone, but 1.0's file-scope CIs touch
+    /// zero, it carries 3× the discordance, and half the physical
+    /// (fine-cosine) signal is kept as the out-of-distribution hedge — the
+    /// weights were trained on nine mostly-Python repos. Raising the dose is
+    /// a registered follow-up gated on an off-distribution floor, not a
+    /// tuning knob.
     pub learned_blend: f32,
     /// How many lines of each hit to show, centred on the best-matching line
     /// and clamped to the chunk. **Default 18** (RESEARCH.md §26.3).
@@ -520,7 +531,7 @@ impl Default for SearchOptions {
             debug_features: false,
             graph_expand: 0,
             graph_weight: 1.0,
-            learned_blend: 0.0,
+            learned_blend: 0.5,
             passage_lines: 0,
             passage_chars: 800,
             defines: false,
