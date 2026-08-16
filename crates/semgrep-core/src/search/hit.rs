@@ -203,6 +203,21 @@ pub fn finalize(
         }
     }
 
+    // The learned checklist (§35.2): rewrite the relevance MMR consumes and
+    // reorder `kept` in lockstep — the reorder matters because MMR is skipped
+    // outright on short pools, where `kept`'s own order is final. After the
+    // floor on purpose: the floor is judged on fine cosine (a calibrated
+    // physical signal), and a learned score must not move it.
+    if opts.learned_blend > 0.0 && !kept.is_empty() {
+        trace.time(Stage::FinalizeRerank, || {
+            let mut rel = relevance
+                .take()
+                .unwrap_or_else(|| kept.iter().map(|c| c.score).collect());
+            super::checklist::blend(&mut kept, &mut rel, opts.learned_blend);
+            relevance = Some(rel);
+        });
+    }
+
     // MMR: greedily pick relevant-but-dissimilar candidates so the top-k
     // surfaces different parts of the corpus instead of one hot region.
     let order: Vec<usize> = if opts.diversify && kept.len() > opts.k && opts.k > 1 {

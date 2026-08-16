@@ -286,6 +286,11 @@ pub struct Tuning {
     #[arg(long, hide = true, default_value_t = SearchOptions::default().graph_weight)]
     pub graph_weight: f32,
 
+    /// Learned checklist's share of the final relevance
+    /// (0 = off, experimental RESEARCH.md §35.2)
+    #[arg(long, hide = true, default_value_t = SearchOptions::default().learned_blend)]
+    pub learned_blend: f32,
+
     /// Characters shown per result, grown around the match (0 = the matched
     /// line alone; default 800). A budget in characters rather than lines
     /// because a line of prose is not a line of code — RESEARCH.md §26.4.

@@ -140,6 +140,7 @@ fn opts_block(opts: &SearchOptions) -> Value {
         "path_boost": opts.path_boost,
         "graph_expand": opts.graph_expand,
         "graph_weight": opts.graph_weight,
+        "learned_blend": opts.learned_blend,
         "bm25_pin": opts.bm25_pin,
         "dedupe_overlap": opts.dedupe_overlap,
         "keep_coarse_top": opts.keep_coarse_top,

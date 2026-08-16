@@ -164,6 +164,7 @@ stages! {
     // and a file re-read per hit.
     FinalizeDedupe      => "finalize:dedupe",       Finalize;
     FinalizeFine        => "finalize:fine",         Finalize;
+    FinalizeRerank      => "finalize:rerank",       Finalize;
     FinalizeVectors     => "finalize:vectors",      Finalize;
     FinalizeMmr         => "finalize:mmr",          Finalize;
     FinalizeMaterialize => "finalize:materialize",  Finalize;
@@ -212,6 +213,7 @@ pub const SCHEDULE_WARM: &[Stage] = &[
     Stage::Candidates,
     Stage::FinalizeDedupe,
     Stage::FinalizeFine,
+    Stage::FinalizeRerank,
     Stage::FinalizeVectors,
     Stage::FinalizeMmr,
     Stage::FinalizeMaterialize,
@@ -243,6 +245,7 @@ pub const SCHEDULE_COLD: &[Stage] = &[
     Stage::Candidates,
     Stage::FinalizeDedupe,
     Stage::FinalizeFine,
+    Stage::FinalizeRerank,
     Stage::FinalizeVectors,
     Stage::FinalizeMmr,
     Stage::FinalizeMaterialize,

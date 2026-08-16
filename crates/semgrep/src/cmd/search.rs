@@ -344,6 +344,7 @@ fn options(cli: &Cli, mode: Mode) -> Result<SearchOptions> {
             t.graph_expand
         },
         graph_weight: t.graph_weight,
+        learned_blend: t.learned_blend,
         // `--full` wins over both: it is the coarsest request, and it is a
         // line budget so it bypasses the character one.
         passage_lines: if t.full { u32::MAX } else { t.passage_lines },

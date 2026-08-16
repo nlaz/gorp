@@ -5,6 +5,7 @@
 //! ranked paths live in `indexed` and `stream`; `hit` is their common tail,
 //! where candidates become displayable results.
 
+mod checklist;
 mod hit;
 mod indexed;
 mod rows;
@@ -290,6 +291,11 @@ pub struct SearchOptions {
     /// swamp what the query's own words earned. §33's bridge learned this as
     /// `bridge_weight`; same posture here.
     pub graph_weight: f32,
+    /// The learned checklist's share of the final relevance (RESEARCH.md
+    /// §35.2): `relevance = (1-b)·base + b·learned`, both sides in [0, 1].
+    /// **Default 0.0 — off**, pending the §35.2 gates. A blend rather than a
+    /// bool so the gate can sweep it.
+    pub learned_blend: f32,
     /// How many lines of each hit to show, centred on the best-matching line
     /// and clamped to the chunk. **Default 18** (RESEARCH.md §26.3).
     ///
@@ -514,6 +520,7 @@ impl Default for SearchOptions {
             debug_features: false,
             graph_expand: 0,
             graph_weight: 1.0,
+            learned_blend: 0.0,
             passage_lines: 0,
             passage_chars: 800,
             defines: false,
