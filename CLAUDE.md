@@ -1,14 +1,19 @@
 # gorp (repo dir: gorp/)
 
 Semantic grep for agents built on the Bog stack: `../ese` (static embeddings,
-256-dim, compiled-in weights) + `../anny` (HNSW). See DESIGN.md for the full
-design, README.md for usage, AUDIT.md and FIXES.md for the 2026-07 reorganization
-and what it found.
+256-dim, compiled-in weights) + `../anny` (HNSW). README.md is usage; everything
+else is in `docs/`, and a bare `§9.1` in a source comment means
+`docs/RESEARCH.md` unless another document is named right before it.
 
-SIMULATION.md is the session-level behavior audit (what `eval/sim/` found and
-what got fixed). FOLD.md evaluates `../fold` as a durable store for the repair
-overlay — design, verified constraints, and what to measure before committing;
-RCA-FJALL-LOCK.md is the one blocker, drafted for upstream.
+- `docs/DESIGN.md` — the v1 design, the statement of intent.
+- `docs/RESEARCH.md` — the research log, and the doc most cited from code.
+- `docs/FIXES.md` — the defect ledger: every bug the 2026-07 reorganization
+  found, how it was found, and what it cost. Cited as `FIXES.md #10`.
+- `docs/SIMULATION.md` — the session-level behavior audit (what `eval/sim/`
+  found and what got fixed).
+- `docs/FOLD.md` — evaluates `../fold` as a durable store for the repair
+  overlay: design, verified constraints, what to measure before committing, and
+  in §9 the fjall-lock blocker that stops it, drafted for upstream.
 
 ## Layout
 
@@ -150,7 +155,7 @@ behaviors), `e2e_publish.rs` (publication is a swap), over a shared
   `eval/sim/run.py` drives it, `eval/sim/report.py --check` regenerates
   `eval/sim/results/INDEX.md`. Sessions are checked in; scratch corpora go to
   the gitignored `eval/data/sim/`. Findings and their patch sites:
-  `SIMULATION.md`.
+  `docs/SIMULATION.md`.
 - Guards that run beside the numbers: `eval/leakage.py` (how much of the
   answer a query already contains — §12.5 made structural),
   `eval/validate_queries.py` (`run_eval` refuses to score a query set that has

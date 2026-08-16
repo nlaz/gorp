@@ -1,9 +1,10 @@
 //! The stage report is a contract, and this is what makes it one.
 //!
-//! AUDIT.md:330 named the gap: "`SearchReport.stages` is `Vec<(String,f64)>`
-//! built ad hoc at 14 call sites → no test can assert 'the indexed path always
-//! reports these stages'". Every assertion in this file is one that could not be
-//! written before the stage set was closed and the shape fixed.
+//! The 2026-07 audit named the gap: "`SearchReport.stages` is
+//! `Vec<(String,f64)>` built ad hoc at 14 call sites → no test can assert 'the
+//! indexed path always reports these stages'". Every assertion in this file is
+//! one that could not be written before the stage set was closed and the shape
+//! fixed.
 //!
 //! The last test is the important one. `unattributed_ms` is wall time no stage
 //! claims, and every instrumentation gap this work closed — untimed discovery,

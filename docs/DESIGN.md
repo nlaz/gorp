@@ -129,9 +129,9 @@ other Flower Computer apps can embed the engine directly.
   utilization = (user+sys)/wall shows parallelism efficiency.
 - Index cost: build wall time, peak RSS during build, `.gorp/` bytes on disk.
 
-Output: `bench/results/*.json` + a generated markdown summary table. All
-scripts live in `bench/` and are re-runnable end to end (`fetch-corpora.sh`
-then `run.sh`).
+Output: per-run JSON + a generated markdown summary table. The perf harness and
+the corpora live in the sibling `gorp-bench` repo and are re-runnable end to end
+(`fetch-corpora.sh` then `run.sh`).
 
 **Measured after the v2 tuning round** (kernel corpus, warm): bm25 80 ms,
 semantic 80 ms, hybrid 135 ms end-to-end; peak RSS 70 MB (bm25) / ~840 MB

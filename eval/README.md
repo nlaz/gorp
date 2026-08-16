@@ -47,7 +47,7 @@ What is here, and what is not:
 
 - **Retrieval evals** (`generate.py`, `run_eval.py`) — LLM-generated query
   sets over the bench corpora, scored recall@k / MRR. Results in
-  `RESULTS.md` §3. See the caveat above before using these to accept or reject
+  `REPORT.md` §5. See the caveat above before using these to accept or reject
   an engine change.
 - **Simulation testing** (`sim/`) — behavior over a *sequence* of steps
   against evolving cache state, which neither of the above can see.

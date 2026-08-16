@@ -1,7 +1,7 @@
 # Reorganization ledger
 
-Every defect found during the reorganization (`AUDIT.md`, `PLAN.md`), how it was
-found, and what it cost to fix. Kept because the *how it was found* column turned
+Every defect found during the 2026-07 reorganization, how it was found, and
+what it cost to fix. Kept because the *how it was found* column turned
 out to be the useful one: nine of these thirteen were invisible to reading and
 surfaced only when something mechanical was pointed at them.
 

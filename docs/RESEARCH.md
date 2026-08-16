@@ -187,7 +187,7 @@ costs a full extra round-trip (reasoning tokens + context re-read).
   synonym → too many hits → add path filter). Each attempt is an output-token
   spend plus a context re-read. An intent-shaped tool moves this
   derivation into the tokenizer/BM25/embedding stack, where it is free.
-- **RESULTS.md quantifies the miss rate being paid for:** same NL intents,
+- **The 2026-07 benchmark run quantifies the miss rate being paid for:** same NL intents,
   keyword-ized for rg (the agent-style fallback), find the target in top-5
   3–27% of the time vs 86–99% for bm25/hybrid on direct queries — on the
   kernel a 30× gap. Every miss is a full round-trip that a ranked tool never
@@ -249,7 +249,7 @@ The argument set to beat or neutralize:
   lexical primitive; Cursor is the notable dissent, with data, on large repos.
 
 **Synthesis:** nobody has published evidence against *ranked lexical search
-as the loop primitive* — the debate is embeddings-vs-grep. RESULTS.md says
+as the loop primitive* — the debate is embeddings-vs-grep. Our own benchmark run says
 the same thing from the inside: BM25 is the headline win (0.88–0.99 R@5
 direct); static embeddings add little on code (they help on prose). The
 contrarian bet with published support (Cursor) is that semantic matters most
@@ -279,7 +279,7 @@ on exactly the repos where rg hurts most: big ones.
 description must explain four modes ≈ four tools' worth of schema tokens and
 decision burden, paid every session.
 
-Mode choice is also a *hidden failure point*: RESULTS.md shows hybrid ≈ bm25
+Mode choice is also a *hidden failure point*: the benchmark run shows hybrid ≈ bm25
 on direct queries and ≥ any single engine on paraphrase — i.e., **after the
 weighted-RRF tuning, there is no query type where the agent picking a
 specialist mode beats just using hybrid.** The remaining question is only
@@ -390,7 +390,7 @@ upgraded) is the lowest-friction adoption path.
   contract; that's rg's (or `-e`'s) job.
 - **Query understanding beyond retrieval**: LLM-side query expansion
   (synonyms, reformulation) is the one inference-heavy stage that measurably
-  beats static embeddings on paraphrase (RESULTS.md finding 3: kernel
+  beats static embeddings on paraphrase (benchmark finding 3: kernel
   paraphrase ≤ 0.05 for *every* mode — the open problem). Pushing *that*
   down would mean an LLM call inside the tool: latency, cost, and an
   API dependency inside a CLI. Wrong layer for v1; note as a server-mode

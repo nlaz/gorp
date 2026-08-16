@@ -1,6 +1,6 @@
 # eval/queries — the query sets, checked in
 
-Every retrieval number in `RESEARCH.md` and `RESULTS.md` was produced from one
+Every retrieval number in `RESEARCH.md` and `REPORT.md` was produced from one
 of these files. They used to live in `eval/data/`, which is gitignored, and
 they are `claude`-generated — so they could not be regenerated identically and
 nothing in the published results was reproducible from the repo alone. They are

@@ -4,6 +4,7 @@ bench/corpora/
 bench/results/
 eval/data/
 __pycache__/
+.pytest_cache/
 eval/sim/results/*/*/cache/
 
 # Browser-automation scratch (snapshots and console logs written while

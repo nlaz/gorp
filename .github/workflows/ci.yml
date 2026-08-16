@@ -67,7 +67,7 @@ jobs:
         working-directory: gorp
         run: cargo test --workspace
 
-      # The behavior tripwire (PLAN.md Pass 5): ranked output over the frozen
+      # The behavior tripwire: ranked output over the frozen
       # fixture corpus must be byte-identical. A commit that changes ranking
       # has to re-record it deliberately.
       - name: snapshot

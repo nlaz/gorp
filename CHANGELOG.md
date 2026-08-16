@@ -2,7 +2,7 @@
 
 Findings and performance improvements, newest first. Measured numbers are
 medians on an M-series Mac; "kernel" = Linux 6.9 source (1.15 GB, 1.51M
-chunks). Full data: `RESULTS.md`, `bench/results/`, `eval/data/`.
+chunks). Full data: `docs/RESEARCH.md`, `eval/REPORT.md`, `eval/data/`.
 
 ## 2026-08-16 — the flag surface says what it does, and does what it says
 

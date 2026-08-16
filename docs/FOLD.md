@@ -1,9 +1,9 @@
 # fold as the repair overlay's store — evaluation and design
 
-Companion to `SIMULATION.md`, which measured the problem, and
-`RCA-FJALL-LOCK.md`, which documents the one blocker. `DESIGN.md:26` deferred
-fold to v2; this is the record of what ending that deferral would actually
-involve, written while the evidence was in hand.
+Companion to `SIMULATION.md`, which measured the problem. `DESIGN.md:26`
+deferred fold to v2; this is the record of what ending that deferral would
+actually involve, written while the evidence was in hand. §9 is the root-cause
+analysis of the one blocker, drafted for upstream.
 
 Nothing here is implemented. It is a design and a set of verified facts, so that
 the next person to pick this up does not have to re-derive them.
@@ -40,7 +40,7 @@ from the README. Recorded because several of them contradict the obvious design.
 | `NodeInitializer::keyspace_with` panics on duplicate sink names | Naming discipline is enforced at open |
 | `Bag::init` is O(1); fjall's open replays the journal, O(unflushed) | Opening a non-HNSW graph is cheap and roughly constant |
 | `Hnsw` holds `Arc<RwLock<HnswState>>`, graph resident, and `anny`'s `Scalar` is implemented for **f32/f64 only** | fold's HNSW terminal cannot take our i8 vectors, and would be resident anyway — which `DESIGN.md:71` already rejected for a per-query CLI. **Irrelevant to this design**, because the overlay is small enough to brute-force, which is what we already do |
-| `fold::Stream::new` `.unwrap()`s the fjall open | A lock conflict is a **panic**. See `RCA-FJALL-LOCK.md` |
+| `fold::Stream::new` `.unwrap()`s the fjall open | A lock conflict is a **panic**. See §9 |
 | `fold`'s `Cargo.lock` pins **fjall 3.1.5, which is yanked** | Must be moved before a clean lockfile can resolve. The lock code is byte-identical in 3.1.5/3.1.6/3.1.8, so nothing here depends on which |
 
 **The house pattern for heterogeneous sinks is ram's**
@@ -56,13 +56,13 @@ fold::Stream<Event, RamGraph>`. Its per-path sink
 Keep the base index exactly as it is — mmap'd, i8, untouched. Replace only the
 in-memory overlay.
 
-**The decision that makes it safe:** semgrep's scorers stay. fold holds rows;
+**The decision that makes it safe:** gorp's scorers stay. fold holds rows;
 `rank_lexical`, `rank_semantic`, `rows.rs` and fusion are unchanged. Swapping in
 fold's BM25 would move every score and invalidate every published eval number for
 no gain we can currently justify — and per §2 it would reintroduce FIXES #13.
 
 **Sinks** (inside a cache entry so recursive `dir_bytes` charges it and eviction
-takes it along; under `cache_base()` for a repo-local `.semgrep/`, because *a
+takes it along; under `cache_base()` for a repo-local `.gorp/`, because *a
 search must not write into the user's tree* — the rule `repair::check_marker`
 already establishes for `last_check`, FIXES #7):
 
@@ -93,8 +93,8 @@ agree) is proved harmless.
 
 fjall takes an exclusive advisory lock — **even for readers** — and opening the
 database writes (journal recovery ends in `persist(SyncAll)`). At most one
-process may have it open at all. See `RCA-FJALL-LOCK.md` for the full analysis
-and the proposed upstream change.
+process may have it open at all. See §9 for the full analysis and the proposed
+upstream change.
 
 Downstream this makes the overlay a **degradable fast path**: preflight our own
 advisory lock (a single non-blocking `try_lock`, so contention costs microseconds
@@ -103,12 +103,12 @@ repair. Never worse than the status quo; better whenever it is available.
 
 Whether that is good enough is an empirical question, not an argument. Extend
 `eval/sim/scenarios.py::s9` to record the overlay hit rate in realistic sessions.
-If it is low, the answer is the resident server `RESULTS.md` already wants, not a
-workaround.
+If it is low, the answer is a resident server process — where single-writer is
+the natural shape — not a workaround.
 
 ## 5. Two measurements taken while evaluating
 
-**Binary growth is not a risk.** semgrep's 39.06 MB is 88.7% `__const` — the
+**Binary growth is not a risk.** gorp's 39.06 MB is 88.7% `__const` — the
 compiled-in ese weights table. All of its machine code is 2.3 MB of `__text`.
 Attributing text symbols by originating crate in
 `../the-library/target/release/library-ingest` (a real optimized binary linking
@@ -116,8 +116,8 @@ fold + fjall) puts the entire storage stack at **0.68 MB**: fjall 0.17,
 lsm_tree 0.33, support crates 0.07, fold 0.11. The method accounted for 17.1 of
 that binary's 17.9 MB `__text`.
 
-So expect **~+2%**, against `bench/report.py`'s `SIZE_BUDGET = 1.15`. Allow
-0.7–1.2 MB since semgrep uses `lto = "thin"` where the-library hoists fold's
+So expect **~+2%**, against gorp-bench's `report.py` `SIZE_BUDGET = 1.15`. Allow
+0.7–1.2 MB since gorp uses `lto = "thin"` where the-library hoists fold's
 `lto = "fat"`. The real costs of adding fold are cold-build compile time
 (~50–60 crates) and supply-chain surface, not size. A crate count is a bad proxy
 when a binary is 89% static data.
@@ -141,7 +141,7 @@ ordering is isolated from parallelism.
 ## 6. What to measure before committing to this
 
 1. ~~**fjall open cost per process.**~~ **Partly answered — it is cheap.**
-   Measured against `fjall 3.1.8` at semgrep's release profile
+   Measured against `fjall 3.1.8` at gorp's release profile
    (`opt-level = 3`, `lto = "thin"`, `codegen-units = 4`), timing only the
    `open()` call: **0.38–0.96 ms warm**, 9.8 ms on a cold page cache. Against a
    1.77 ms warm query that is roughly +45%, not the multiple-milliseconds
@@ -149,14 +149,14 @@ ordering is isolated from parallelism.
 
    Caveat: that is an **empty** database. Journal replay is O(unflushed), so the
    figure holds only if the writer checkpoints — which we want anyway, since a
-   flushed store is also what makes a shared-lock reader (RCA §6.1) see
+   flushed store is also what makes a shared-lock reader (§9.2) see
    everything committed. Re-measure against a populated overlay before relying
    on it. What still needs measuring is the *snapshot read* of a real overlay,
    which is O(overlay size) — see risk 2 below.
 2. **Overlay hit rate under realistic concurrency** (§4).
 3. **Whether the journal grows without bound** across a long session, given we
    would not checkpoint on the query path. If it does, checkpoint on the *write*
-   branch only — which also makes a shared-lock reader (RCA §6.1) see everything
+   branch only — which also makes a shared-lock reader (§9.2) see everything
    committed.
 
 ## 7. Sequencing
@@ -198,3 +198,74 @@ is amortized:
 Which means RESEARCH.md §8's original 5% threshold is better justified than the
 measurement appeared to say — not worse. A threshold must still sit well above
 the edit-then-search loop (three files of 865 is 0.35%), and 5% does.
+
+## 9. Appendix — the fjall lock, and why it excludes readers
+
+Drafted for upstream against `fjall 3.1.5` (what `fold` pins); the relevant
+source is byte-identical in 3.1.6 and 3.1.8. **Not a bug report** — everything
+below is fjall behaving as designed. The gap is a *missing mode*.
+
+### 9.1 What it does, and the root cause
+
+fjall takes a single **exclusive** advisory lock on `<db>/lock` for the lifetime
+of the `Database`, on every open, including opens that only ever read. There is
+no read-only open mode: grepping 3.1.5 for `read_only`/`ReadOnly` outside doc
+comments returns nothing, and `db_config.rs` exposes no knob for lock behaviour.
+So **at most one process may have a fjall database open at all**, for any
+purpose. `LockedFileGuard::try_acquire` retries three times with a 100 ms sleep,
+so a contended open costs ~200 ms *before it fails* — against a warm query
+budget of 1.8–115 ms.
+
+The root cause is not the lock. **Opening a database writes to it**: `recover()`
+replays the journal and then fsyncs it (`persist(PersistMode::SyncAll)`), so
+every open is a writer's open, and an exclusive lock is the *correct* primitive
+for it. fjall has exactly one open mode and that mode is a writer's; the lock is
+a correct consequence. This matters for choosing a fix — relaxing the lock
+without addressing the write-on-open trades a clean failure for silent
+corruption, two processes replaying one journal with independent sequence
+counters. **We are explicitly not asking for the lock to be weakened as it
+stands.**
+
+### 9.2 The ask
+
+**Primary — a read-only open mode** that takes a *shared* lock
+(`std::fs::File::try_lock_shared`, stable on the toolchain fjall targets), skips
+journal recovery entirely (no replay, no persist, no writes), starts no
+background work, and exposes only snapshot reads. The visible semantics: a
+read-only opener sees the database as of the last successful persist. That
+staleness must be documented, but it is the well-understood embedded-store
+reader mode, and it is sufficient here because we control the writer — it can
+`persist` after each write and readers then see everything committed.
+
+**Secondary, and much smaller — let a caller decline the retry**, e.g.
+`Config::lock_retries(usize)` or a non-retrying `try_open()`. `Error::Locked` is
+already typed and well named; the only problem is how long it takes to arrive. A
+latency-sensitive caller that intends to degrade wants to know immediately. This
+alone would materially improve our situation.
+
+Rejected as our ask: a read-only mode that replays the WAL *into memory*. It
+gives a current rather than a flushed view, which is strictly nicer, but the
+writer may be rotating the segment being read, and a flushed-only reader plus a
+checkpointing writer already covers our need.
+
+### 9.3 Measured
+
+`fjall 3.1.8`, release profile, M-series mac, timing only the `open()` call on
+an **empty** database:
+
+```
+uncontended, cold page cache        opened OK in   9.81 ms
+uncontended, warm  (7 trials)       opened OK in   0.38 – 0.96 ms
+contended (one holder, 3 probes)    Err(Locked) after 210.7 / 202.8 / 212.1 ms
+after the holder exits              opened OK in  13.95 ms
+```
+
+An uncontended open is cheap — so the objection is specifically about
+*exclusion and the cost of discovering it*, not about fjall being slow to open.
+Journal replay is O(unflushed), so the sub-millisecond figure holds only for a
+writer that checkpoints.
+
+**Open question for the maintainers:** is the single-open constraint intrinsic
+to fjall's design, or incidental to there being no reader path yet? If
+intrinsic, a CLI should not embed fjall directly and a server belongs in front
+of it; if incidental, §9.2 makes fjall a good fit for one-shot processes.

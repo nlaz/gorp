@@ -351,7 +351,7 @@ disk to pick the best line**. Materialization being 28% of a warm query is not
 something I would have guessed, and it is invisible in the old instrumentation,
 where all four of those steps were one bucket called `finalize`.
 
-This has a direct consequence for the roadmap. RESULTS.md proposes a persistent
+This has a direct consequence for the roadmap, which proposes a persistent
 server to amortize the index load. At tier-2 scale that would buy ~13%. (CLAUDE.md
 measures `load:bm25` at 84 ms on the 84k-file kernel, where the picture is surely
 different — this finding is scoped to corpora of 500–900 files and says nothing

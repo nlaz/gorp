@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # What the eval harness is holding on disk, what it costs, and what is safe
-# to delete. AUDIT.md: "eval/data/ is 1.3 GB... There is no documented way to
-# reclaim it." This is that way.
+# to delete. The 2026-07 audit found eval/data/ at 1.3 GB with no documented
+# way to reclaim it. This is that way.
 #
 # The rule, and the only one that matters:
 #

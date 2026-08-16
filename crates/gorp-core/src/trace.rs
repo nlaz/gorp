@@ -11,7 +11,7 @@
 //! stage cannot be invented at a call site or spelled two ways at two call
 //! sites. It was `Vec<(String, f64)>` built ad hoc at fourteen sites, which is
 //! how "no test can assert the indexed path always reports these stages"
-//! (AUDIT.md) became true.
+//! became true.
 //!
 //! **The shape is fixed.** A path declares a [`SCHEDULE_WARM`]-style schedule up
 //! front and [`Trace::finish`] emits *every* stage on it, zero-filled if it never

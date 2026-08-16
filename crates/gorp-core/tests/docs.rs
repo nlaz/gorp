@@ -51,9 +51,16 @@ fn defined_sections(markdown: &str) -> BTreeSet<String> {
 ///
 /// A bare `§9.1` means RESEARCH.md — that is the convention the codebase was
 /// written in and most citations still use it. Anything else has to say so.
+///
+/// These are bare filenames doing double duty: they are matched as *text*
+/// inside comment windows by [`cited_sections`], and joined to [`DOCS_DIR`] to
+/// read the file. So a comment cites `RESEARCH.md §9.1` however deep the docs
+/// are filed, and moving the directory is one constant rather than 155 edits.
 const DEFAULT_DOC: &str = "RESEARCH.md";
-const KNOWN_DOCS: [&str; 5] =
-    ["RESEARCH.md", "SIMULATION.md", "FIXES.md", "AUDIT.md", "FOLD.md"];
+const KNOWN_DOCS: [&str; 4] = ["RESEARCH.md", "SIMULATION.md", "FIXES.md", "FOLD.md"];
+
+/// Where those documents live, relative to the repo root.
+const DOCS_DIR: &str = "docs";
 
 /// How far back of a `§` to look for the document it belongs to. Long enough to
 /// cross a comment-line wrap (`SIMULATION.md\n/// §1.5`), short enough that an
@@ -115,8 +122,8 @@ fn research_citations_resolve() {
     let defined: std::collections::BTreeMap<&str, BTreeSet<String>> = KNOWN_DOCS
         .iter()
         .map(|doc| {
-            let text = std::fs::read_to_string(root.join(doc))
-                .unwrap_or_else(|_| panic!("{doc} should exist at the repo root"));
+            let text = std::fs::read_to_string(root.join(DOCS_DIR).join(doc))
+                .unwrap_or_else(|_| panic!("{doc} should exist in {DOCS_DIR}/"));
             let sections = defined_sections(&text);
             assert!(!sections.is_empty(), "parsed no section headings out of {doc}");
             (*doc, sections)
@@ -154,7 +161,7 @@ fn claude_md_paths_exist() {
     let root = repo_root();
     let text = std::fs::read_to_string(root.join("CLAUDE.md")).expect("CLAUDE.md");
 
-    const ROOTED: [&str; 5] = ["crates/", "eval/", "tools/", "tests/", ".github/"];
+    const ROOTED: [&str; 6] = ["crates/", "eval/", "tools/", "tests/", ".github/", "docs/"];
 
     // Gitignored trees cannot be required to exist: `eval/data/` is scratch
     // and multi-gigabyte, present on a developer's disk and absent in CI.

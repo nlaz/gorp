@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
-# Behavior tripwire for the reorganization (PLAN.md Pass 5).
+# Behavior tripwire: ranked output over the frozen fixture corpus.
 #
 #   tools/snapshot.sh          record  tools/snapshot.txt
 #   tools/snapshot.sh --check  diff against the recorded file; exit 1 on drift
 #
-# Ranked output over tests/corpus for a fixed query x mode x path grid. The
-# refactor phases are required to leave this byte-identical; the phases that
-# deliberately change behavior update it in the same commit, with the diff
-# reviewed line by line.
+# Ranked output over tests/corpus for a fixed query x mode x path grid. Any
+# change to ranking must either leave this byte-identical or re-record it
+# deliberately in the same commit, with the diff reviewed line by line.
 #
 # Only hit fields are recorded (path, span, line, text, score) — never timings —
 # so the file is a pure function of the corpus, the query, and the engine.

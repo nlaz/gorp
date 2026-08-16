@@ -238,7 +238,10 @@ scope streams and caches, every later one serves from the cache:
 | kernel `drivers/net/` (145 MB) | 3.9 s | **20 ms** | 150 MB |
 | whole kernel (1.15 GB, 84k files) | 32 s | **115 ms** | 946 MB |
 
-Full tables and methodology in [RESULTS.md](RESULTS.md).
+Medians of 3 runs after warmup, M-series Mac; competitors invoked by absolute
+path with stdout written to real files, since some short-circuit on
+`/dev/null`. The harness that produces these numbers lives in
+[gorp-bench](https://github.com/nlaz/gorp-bench).
 
 ## How it works
 
@@ -282,9 +285,9 @@ engines over one shared chunk table, then fuses:
   down-weighted to 0.2 — tuned, not guessed), then MMR so results spread
   across files instead of stacking in one.
 
-Full design in [DESIGN.md](DESIGN.md); the research log — agent economics,
-CLI-surface collapse, cache design, reranker post-mortems — in
-[RESEARCH.md](RESEARCH.md).
+Full design in [docs/DESIGN.md](docs/DESIGN.md); the research log — agent
+economics, CLI-surface collapse, cache design, reranker post-mortems — in
+[docs/RESEARCH.md](docs/RESEARCH.md).
 
 ## What the evaluation shows
 
