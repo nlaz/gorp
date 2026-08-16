@@ -8854,3 +8854,37 @@ Gate: `guessplay.py` on `guesses-v1-desc-all.jsonl`, arms `--path-boost
 function metrics. Kill: no arm's rank_func CI excludes zero, or any arm
 regresses rank_func_ovl — the flag stays 0.0 and the refactor stays as
 plumbing (the learned checklist consumes the shares regardless).
+
+### 35.2 Pre-registration: the learned checklist
+
+The tiers combine their evidence with hand-picked constants: the fine
+blend at 1.0, the structural weights, the pin count, RRF's 0.2. The
+checklist replaces the *final* combination — the `relevance` vector MMR
+consumes — with a learned one: a logistic regression over per-candidate
+features, trained on the harvested guess corpus, shipped as a const
+weight array. Features are candidate-local only (fine cosine, coarse
+fused score, reciprocal bm25 rank + missing flag, phrase popcount,
+decl_share, path_share, span length, query token count), so cold==warm
+holds by construction; `--learned-blend` defaults 0.0.
+
+Protocol, fixed before training: labels join the guess corpus to
+Loc-Bench gold through `scoring.py`'s own matchers; the split is grouped
+by *instance* (queries within an instance share gold — a query-level
+split leaks); training on the desc-v5 majority slice, entire instances
+held out. Two gates in order, each with its kill:
+
+1. **Offline, on the dump**: held-out lift over a fine-score-only
+   baseline. Nil lift ⇒ stop before any guessplay spend — a model that
+   cannot beat its strongest single feature on its own training
+   distribution has nothing to offer the engine.
+2. **guessplay**, arms `--learned-blend 0.25/0.5/1.0` atop the accepted
+   §35.1 configuration: adopt only if rank_func's CI excludes zero with
+   rank_func_ovl not regressed.
+
+Predictions: the model's coefficients concentrate on fine cosine and
+bm25 rank (the §32.4b census says ordering losses are fusion artifacts
+more often than feature gaps); any win is small and lives in the same
+23% ordering bucket as §35.1. The interesting failure mode to watch is
+scale: MMR renormalizes, but `mmr_lambda` mixes the learned score
+against raw cosine similarity, so the sigmoid squash is part of the
+registered design, not a tuning knob.

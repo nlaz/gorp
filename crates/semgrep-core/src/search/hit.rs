@@ -32,6 +32,14 @@ pub struct Candidate {
     /// consults BM25, and real misses sat in BM25's top five). Dedupe
     /// survivors keep the better (smaller) rank, same rule as `phrases`.
     pub bm25_rank: Option<u16>,
+    /// The structural boost's shares for this chunk (§35.1): fraction of query
+    /// tokens declared in it / present in its path tail. 0.0 when the boost
+    /// did not run or the chunk sat outside the boosted head. Candidate-local
+    /// facts carried as features for the learned checklist (§35.2); a dedupe
+    /// survivor keeps its own — they describe the surviving chunk, not the
+    /// group.
+    pub decl_share: f32,
+    pub path_share: f32,
 }
 
 /// The fine rerank's verdict on one candidate: the sub-window of its chunk

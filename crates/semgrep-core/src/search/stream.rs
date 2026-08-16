@@ -177,7 +177,7 @@ pub fn run(
         // scope answers differently from an uncached one — the same contract
         // `rerank_maxsim` above is bound by.
         let mut ranked = ranked;
-        let _shares = trace.time(Stage::RankDeclBoost, || {
+        let shares = trace.time(Stage::RankDeclBoost, || {
             super::apply_structural_boost(&mut ranked, query, opts, |id| {
                 let chunk = pass.chunks[id as usize];
                 let fm = &files[chunk.file_id as usize];
@@ -196,7 +196,7 @@ pub fn run(
             } else {
                 super::candidate_width(opts.k)
             };
-            candidates(ranked, &pass.chunks, &files, width, &bm25_head, opts.bm25_pin)
+            candidates(ranked, &pass.chunks, &files, width, &bm25_head, opts.bm25_pin, &shares)
         }));
     }
     let cands = if q.is_multi() {
@@ -406,6 +406,7 @@ fn candidates(
     limit: usize,
     bm25_head: &[u32],
     pin: usize,
+    shares: &[(u32, f32, f32)],
 ) -> Vec<hit::Candidate> {
     // Same pinned-ride-along rule as `indexed::candidates`: ids the
     // `bm25_pin` guarantee appended past the width cut must survive it.
@@ -422,6 +423,7 @@ fn candidates(
             }
         }
         let chunk = chunks[id as usize];
+        let (decl_share, path_share) = super::indexed::share_of(shares, id);
         out.push(hit::Candidate {
             id,
             chunk,
@@ -430,6 +432,8 @@ fn candidates(
             phrases: 1,
             fine: None,
             bm25_rank: bm25_head.iter().position(|&h| h == id).map(|i| i as u16 + 1),
+            decl_share,
+            path_share,
         });
     }
     out

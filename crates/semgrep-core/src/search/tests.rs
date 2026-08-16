@@ -15,6 +15,8 @@ fn cand(id: u32, path: &str, start: u32, score: f32) -> Candidate {
         phrases: 1,
         fine: None,
         bm25_rank: None,
+        decl_share: 0.0,
+        path_share: 0.0,
     }
 }
 
@@ -88,6 +90,8 @@ fn dedupe_case(a: (u32, u32), b: (u32, u32), frac: f32) -> Vec<crate::search::Se
         phrases: 1,
         fine: None,
         bm25_rank: None,
+        decl_share: 0.0,
+        path_share: 0.0,
     };
     let cands = vec![span(0, a, 1.0), span(1, b, 0.9)];
     let opts = SearchOptions { k: 2, dedupe_overlap: frac, ..Default::default() };
@@ -117,6 +121,8 @@ fn a_passage_reports_where_it_actually_starts() {
         phrases: 1,
         fine: None,
         bm25_rank: None,
+        decl_share: 0.0,
+        path_share: 0.0,
     }];
     let opts = SearchOptions { k: 1, passage_lines: 18, passage_override: true, ..Default::default() };
     let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
@@ -159,6 +165,8 @@ fn a_character_budget_buys_content_not_lines() {
             phrases: 1,
             fine: None,
         bm25_rank: None,
+        decl_share: 0.0,
+        path_share: 0.0,
         }];
         let opts = SearchOptions { k: 1, passage_lines: 0, passage_chars: 800, passage_override: true, ..Default::default() };
         let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
@@ -188,6 +196,8 @@ fn one_passage_line_is_the_pre_25_behaviour() {
         phrases: 1,
         fine: None,
         bm25_rank: None,
+        decl_share: 0.0,
+        path_share: 0.0,
     }];
     let opts = SearchOptions { k: 1, passage_lines: 1, passage_chars: 0, passage_override: true, ..Default::default() };
     let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
@@ -243,6 +253,8 @@ fn a_short_chunk_is_its_own_fine_window() {
         phrases: 1,
         fine: None,
         bm25_rank: None,
+        decl_share: 0.0,
+        path_share: 0.0,
     }];
     let opts = SearchOptions { k: 1, ..Default::default() };
     let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
@@ -273,6 +285,8 @@ fn neighbours_electing_the_same_window_collapse() {
         phrases: 1,
         fine: None,
         bm25_rank: None,
+        decl_share: 0.0,
+        path_share: 0.0,
     };
     let cands = vec![span(0, (1, 32), 1.0), span(1, (25, 56), 0.9)];
     let opts = SearchOptions { k: 2, dedupe_overlap: 0.5, ..Default::default() };
@@ -299,6 +313,8 @@ fn the_fine_rerank_is_deterministic() {
             phrases: 1,
             fine: None,
         bm25_rank: None,
+        decl_share: 0.0,
+        path_share: 0.0,
         }];
         let opts = SearchOptions { k: 1, ..Default::default() };
         let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);
@@ -361,6 +377,8 @@ fn merge_interleave_unions_retrievers_and_normalizes_per_phrase() {
         phrases: 1,
         fine: None,
         bm25_rank: None,
+        decl_share: 0.0,
+        path_share: 0.0,
     };
     // Phrase 0 ranks [1, 2]; phrase 1 ranks [2, 3] on a wildly different
     // score scale — chunk 2 is retrieved by both.
@@ -434,6 +452,8 @@ fn bm25_pin_guarantees_a_lexical_slot() {
         phrases: 1,
         fine: None,
         bm25_rank: bm25,
+        decl_share: 0.0,
+        path_share: 0.0,
     };
     // c.rs is BM25's #1 but sits at the tail of the semantic order.
     let cands = || vec![
@@ -474,6 +494,8 @@ fn coarse_top_survives_the_fine_rerank() {
         phrases: 1,
         fine: None,
         bm25_rank: None,
+        decl_share: 0.0,
+        path_share: 0.0,
     };
     let cands = || vec![mk(0, "top.rs", 1.0), mk(1, "m1.rs", 0.9), mk(2, "m2.rs", 0.8)];
     let mut trace = crate::trace::Trace::new(crate::trace::SCHEDULE_WARM);

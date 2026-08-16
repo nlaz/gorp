@@ -105,7 +105,7 @@ pub fn run(
         // a scope that happens to be indexed must not answer differently from
         // one that is not.
         let mut ranked = ranked;
-        let _shares = trace.time(Stage::RankDeclBoost, || {
+        let shares = trace.time(Stage::RankDeclBoost, || {
             super::apply_structural_boost(&mut ranked, query, opts, |id| {
                 let (chunk, path) = rows.chunk(id);
                 let text = corpus::lines(&d.root, &path, &chunk);
@@ -115,7 +115,7 @@ pub fn run(
 
         let ranked = super::append_bm25_pins(ranked, &bm25_head, opts);
         per_phrase.push(trace.time(Stage::Candidates, || {
-            candidates(&rows, ranked, &d.prefix, super::candidate_width(opts.k), &bm25_head, opts.bm25_pin)
+            candidates(&rows, ranked, &d.prefix, super::candidate_width(opts.k), &bm25_head, opts.bm25_pin, &shares)
         }));
     }
     let cands = if q.is_multi() {
@@ -477,6 +477,7 @@ fn candidates(
     limit: usize,
     bm25_head: &[u32],
     pin: usize,
+    shares: &[(u32, f32, f32)],
 ) -> Vec<hit::Candidate> {
     let in_scope = |path: &str| {
         prefix.is_empty() || path.strip_prefix(prefix).is_some_and(|r| r.starts_with('/'))
@@ -503,6 +504,7 @@ fn candidates(
             continue;
         }
         {
+            let (decl_share, path_share) = share_of(shares, id);
             out.push(hit::Candidate {
                 id,
                 chunk,
@@ -511,8 +513,20 @@ fn candidates(
                 phrases: 1,
                 fine: None,
                 bm25_rank: rank_of(id),
+                decl_share,
+                path_share,
             });
         }
     }
     out
+}
+
+/// The structural-boost shares for `id`, 0.0 outside the boosted head. A
+/// linear scan: the head is ≤ `candidate_width` entries.
+pub(super) fn share_of(shares: &[(u32, f32, f32)], id: u32) -> (f32, f32) {
+    shares
+        .iter()
+        .find(|&&(sid, _, _)| sid == id)
+        .map(|&(_, d, p)| (d, p))
+        .unwrap_or((0.0, 0.0))
 }
