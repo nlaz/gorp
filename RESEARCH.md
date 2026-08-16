@@ -8971,3 +8971,40 @@ next credible attempt at this bucket is not more neighbors but better
 *resolution* (per-language module resolution instead of path suffixes)
 or a different seed source — and either one re-enters through this same
 probe, which now costs minutes.
+
+### 35.5 The path boost: a perfect null, and why it is perfect
+
+Gate run: 63,336 arm-rows, one binary, arms 0.25/0.5/1.0 against the
+empty control, semantic and bm25, both function metrics and file rank.
+The result is not a small effect with a CI over zero — it is **+0.000
+in every cell with 0/0 discordant instances**, at every weight, on
+every metric, in both modes: across 7,657 real queries × 3 weights, the
+boost never flipped a single @5 outcome in either direction.
+
+A null that clean demands a mechanism check before it is believed
+(§24.2's lesson), and it passed: the same binary, on the parity
+fixture, moves `cooking.md` to rank 1 under `--path-boost 4.0` through
+the CLI. The boost is live. The null decomposes:
+
+- **File scopes (55% of rows): inert by construction.** Every candidate
+  shares the scope's one path, the multiplier is uniform, and a uniform
+  multiplier reorders nothing. Foreseen in §35.1's prediction only
+  half-heartedly; it should have been registered as an identity.
+- **Directory scopes: §29.1's invisibility argument, now measured.** At
+  `fine_blend = 1.0` the fine window owns the final order, so a
+  post-fusion boost acts only through candidate *membership* at the
+  k*6 cut — and membership changes that flip a gold@5 outcome did not
+  occur once in 22,995 paired comparisons. The decl boost's §24.2
+  effect predates the fine rerank owning the order; its §29.1 caveat
+  ("the boost is invisible inside the pool") apparently now describes
+  the whole mechanism class at this weight range.
+
+Verdict: **kill, as registered** — `--path-boost` stays 0.0, the
+structural-boost refactor and the share threading stay (the checklist
+consumes them as features, where the fine order is not in the way).
+The transferable finding is bigger than the flag: **any post-fusion,
+pre-fine multiplicative reordering is a dead lever class under the
+shipped fine blend** — including, retroactively, part of why §24.3's
+decl weight sweep was flat. A future boost of this shape must either
+act on the fine-blended order (the checklist's slot) or argue for a
+`fine_blend < 1` regime first.
