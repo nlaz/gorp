@@ -611,7 +611,8 @@ pub enum Cmd {
         /// Remove dead entries (repo gone) and evict LRU down to the budget
         #[arg(long)]
         prune: bool,
-        /// Remove every cached entry
+        /// Remove every cached entry, and every in-tree .gorp/ index under the
+        /// current directory
         #[arg(long)]
         clear: bool,
     },

@@ -18,8 +18,8 @@ mod compat;
 pub mod repair;
 
 pub use budget::{
-    CacheEntryInfo, cache_clear, cache_max_bytes, cache_status, enforce_budget,
-    enforce_budget_protecting, enforce_budget_with_cap,
+    CacheEntryInfo, cache_clear, cache_max_bytes, cache_status, clear_local, enforce_budget,
+    enforce_budget_protecting, enforce_budget_with_cap, local_indexes,
 };
 pub use compat::{cache_base, cache_entries, cache_generation, compat_key, gc_old_generations};
 

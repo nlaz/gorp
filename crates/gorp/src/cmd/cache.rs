@@ -7,8 +7,28 @@ use gorp_core::cache;
 
 pub fn run(prune: bool, clear: bool) -> Result<i32> {
     if clear {
-        let (n, freed) = cache::cache_clear();
-        println!("cleared {n} entries, reclaimed {}", human(freed));
+        let central = cache::cache_clear();
+        // In-tree indexes are swept from the working directory down. There is
+        // no directory to enumerate them — each lives wherever its corpus does
+        // — so where the caller stands is the only statement of scope on offer,
+        // and `--clear` from `~` means every index under `~`.
+        let here = std::env::current_dir()?;
+        let local = cache::clear_local(&here);
+        println!("cleared {} entries, reclaimed {}", central.removed, human(central.freed));
+        // Silent at zero: the line above already says nothing was there, and a
+        // second line saying it again is noise on the common case.
+        if local.removed > 0 {
+            println!(
+                "cleared {} in-tree {} under {}, reclaimed {}",
+                local.removed,
+                if local.removed == 1 { "index" } else { "indexes" },
+                here.display(),
+                human(local.freed)
+            );
+        }
+        for dir in central.stuck.iter().chain(&local.stuck) {
+            eprintln!("{PROG}: warning: cannot remove {}", dir.display());
+        }
         return Ok(crate::EXIT_FOUND);
     }
     if prune {

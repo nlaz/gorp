@@ -97,8 +97,13 @@ pub fn cache_status() -> Vec<CacheEntryInfo> {
 pub struct Reclaimed {
     pub removed: usize,
     pub freed: u64,
-    /// Entries the enforcer chose but could not delete. Non-empty means the
-    /// cache is still over budget and no further eviction was attempted.
+    /// Entries the pass chose but could not delete. What a non-empty list means
+    /// depends on which pass produced it: from the budget enforcer, the cache
+    /// is still over budget and no further eviction was attempted, because an
+    /// entry that will not delete is a permissions anomaly rather than ordinary
+    /// pressure. From `cache_clear`/`clear_local` it is only the list of what
+    /// did not go — neither has a threshold to satisfy, so both finish the
+    /// sweep regardless.
     pub stuck: Vec<PathBuf>,
 }
 
@@ -191,16 +196,95 @@ fn enforce_budget_inner(cap: u64, abandoned_after_secs: u64, keep: Option<&Path>
     out
 }
 
-/// Delete every entry in every generation. `gorp cache --clear`.
-pub fn cache_clear() -> (usize, u64) {
-    let mut n = 0;
-    let mut freed = 0;
+/// Delete every entry in every generation. Half of `gorp cache --clear`; the
+/// other half is [`clear_local`].
+///
+/// A delete that fails is reported rather than counted, and does not stop the
+/// sweep: unlike the budget enforcer there is no threshold to satisfy here, so
+/// one undeletable entry is no reason to leave the rest standing.
+pub fn cache_clear() -> Reclaimed {
+    let mut out = Reclaimed::default();
     for e in cache_status() {
         if std::fs::remove_dir_all(&e.dir).is_ok() {
-            n += 1;
-            freed += e.bytes;
+            out.removed += 1;
+            out.freed += e.bytes;
+        } else {
+            out.stuck.push(e.dir);
         }
     }
     gc_old_generations();
-    (n, freed)
+    out
+}
+
+/// Files a `.gorp/` holds (`store`'s module doc), any one of which identifies
+/// the directory as ours.
+///
+/// The name alone does not: `clear_local` removes trees, and a directory that
+/// carries the name and none of these contents belongs to somebody else. An
+/// interrupted build is why the test is "any", not "all" — a staging directory
+/// has real bytes and no `meta.json`, and is exactly what wants reclaiming.
+const INDEX_FILES: [&str; 6] =
+    ["meta.json", "chunks.bin", "emb.bin", "bm25.flat", "hnsw.bin", "sif.bin"];
+
+/// Every in-tree index under `root`: the `.gorp/` directories a user built
+/// deliberately, plus the `.building-`/`.trash-` siblings an interrupted build
+/// leaves beside them.
+///
+/// The central cache has one directory to list. These do not — each lives
+/// wherever its corpus does — so finding them is a walk, and three rules are
+/// what make it a safe one rather than merely a recursive one:
+///
+/// - **gitignore is not consulted.** `.gorp/` is ignored in most trees that
+///   have one, so a walk honoring it would find nothing, which is the whole
+///   failure this exists to fix. `corpus`'s walk is therefore the wrong tool
+///   here, and it excludes index directories besides.
+/// - **`.git` is not entered**, and neither is an index once matched. Nothing
+///   inside either is another corpus's index, and the second rule is what stops
+///   a `.gorp/` inside a `.gorp.trash-*` being offered up twice.
+/// - **symlinks are not followed.** `read_dir`'s file type does not resolve
+///   them, so a linked tree is skipped here and swept under its own path — once,
+///   and only if it is genuinely under `root`.
+pub fn local_indexes(root: &Path) -> Vec<PathBuf> {
+    let mut out = Vec::new();
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let Ok(rd) = std::fs::read_dir(&dir) else { continue };
+        for e in rd.flatten() {
+            if !e.file_type().is_ok_and(|t| t.is_dir()) {
+                continue;
+            }
+            let path = e.path();
+            let Some(name) = path.file_name() else { continue };
+            if name == std::ffi::OsStr::new(".git") {
+                continue;
+            }
+            if name == std::ffi::OsStr::new(crate::store::DIR) || crate::store::is_transient(&path)
+            {
+                if INDEX_FILES.iter().any(|f| path.join(f).is_file()) {
+                    out.push(path);
+                }
+                continue;
+            }
+            stack.push(path);
+        }
+    }
+    out
+}
+
+/// Delete every in-tree index under `root`. The half of `gorp cache --clear`
+/// the central directory cannot see, and before 2026-08-16's opt-in flip the
+/// half that did not exist: an index only landed in a user's tree if they asked
+/// for one, and `--clear` could honestly claim to have cleared everything.
+pub fn clear_local(root: &Path) -> Reclaimed {
+    let mut out = Reclaimed::default();
+    for dir in local_indexes(root) {
+        let bytes = dir_bytes(&dir);
+        if std::fs::remove_dir_all(&dir).is_ok() {
+            out.removed += 1;
+            out.freed += bytes;
+        } else {
+            out.stuck.push(dir);
+        }
+    }
+    out
 }

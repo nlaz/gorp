@@ -1037,3 +1037,32 @@ fn cold_and_warm_agree_under_post_fusion_reranking() {
         assert_eq!(c, w, "cold != warm under post-fusion for {query:?}");
     }
 }
+
+/// The in-tree half of `gorp cache --clear`: what it removes, and — the half
+/// that matters, because it removes whole trees — what it leaves standing.
+#[test]
+fn clear_local_sweeps_in_tree_indexes_and_nothing_else() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    let index_at = |p: &Path| {
+        fs::create_dir_all(p).unwrap();
+        fs::write(p.join("meta.json"), "{}").unwrap();
+    };
+    index_at(&root.join(".gorp")); // the root's own index counts as "under" it
+    index_at(&root.join("sub/nested/.gorp"));
+    index_at(&root.join("staged/.gorp.building-1234")); // an interrupted build
+    // Standing afterwards: the name without the contents, and anything a `.git`
+    // happens to hold — a submodule checkout is a real way to get one.
+    fs::create_dir_all(root.join("decoy/.gorp")).unwrap();
+    fs::write(root.join("decoy/.gorp/notes.txt"), "not an index").unwrap();
+    index_at(&root.join(".git/modules/x/.gorp"));
+
+    let r = cache::clear_local(root);
+    assert_eq!(r.removed, 3, "root, nested, and the staging directory");
+    assert!(r.stuck.is_empty(), "nothing should resist deletion here: {:?}", r.stuck);
+    assert!(!root.join(".gorp").exists());
+    assert!(!root.join("sub/nested/.gorp").exists());
+    assert!(!root.join("staged/.gorp.building-1234").exists());
+    assert!(root.join("decoy/.gorp/notes.txt").is_file(), "the name alone is not evidence");
+    assert!(root.join(".git/modules/x/.gorp/meta.json").is_file(), ".git is not entered");
+}

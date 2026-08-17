@@ -55,7 +55,7 @@ question; paths default to the current directory. Exit 0 on hits, 1 on none.
 | `--json` | JSONL: one object per hit — `{path, start_line, end_line, line, text, score, …}` |
 | `--stats` | per-stage timing and provenance, on stderr |
 | `gorp index [DIR]` | opt in: prewarm a scope so ranked searches answer warm (`GORP_AUTO_INDEX=1` does it on first search) |
-| `gorp cache` | show what the cache holds; `--prune` reclaims, `--clear` empties |
+| `gorp cache` | show what the cache holds; `--prune` reclaims, `--clear` empties it and sweeps in-tree `.gorp/` indexes under the current directory |
 
 Grep flags like `-n`/`-r`/`-H` are accepted by construction, because agents
 type grep flags at anything shaped like grep. stdout carries only results
@@ -105,7 +105,9 @@ searches to mmap. Before serving from cache, gorp diffs the scope against
 the live tree, so results are always true of the code as it is right now;
 warm and cold return the same answer, enforced by tests. Nothing lands in
 your repo unless you ask for a local index, the cache is bounded at 2 GB,
-and `gorp cache` shows, prunes, or clears it.
+and `gorp cache` shows, prunes, or clears it. `--clear` also sweeps the
+in-tree `.gorp/` indexes under the directory you run it from, since those
+are the ones no central listing can find.
 
 Full design in [docs/DESIGN.md](docs/DESIGN.md); the research log behind
 every default in [docs/RESEARCH.md](docs/RESEARCH.md).

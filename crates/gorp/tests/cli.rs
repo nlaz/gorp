@@ -1175,6 +1175,30 @@ fn cache_status_reports_the_generation_and_budget() {
 }
 
 #[test]
+fn cache_clear_sweeps_in_tree_indexes_under_the_working_directory() {
+    let sg = Sg::new();
+    let tree = tempfile::tempdir().unwrap();
+    std::fs::write(tree.path().join("a.py"), "def only_symbol():\n    return 1\n").unwrap();
+    // An index where the central directory cannot see it: in the user's tree.
+    assert_eq!(sg.run_in(&["index"], tree.path()).code, 0);
+    assert!(tree.path().join(".gorp/meta.json").is_file(), "index built");
+
+    // `current_dir` is the point of the test, and the reason it cannot use
+    // `run_bare`: that would inherit the test runner's own cwd and sweep the
+    // repository this is running from.
+    let out = Command::new(bin())
+        .args(["cache", "--clear"])
+        .current_dir(tree.path())
+        .env("GORP_CACHE_DIR", &sg.cache)
+        .output()
+        .expect("run gorp");
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert_eq!(out.status.code(), Some(0), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(stdout.contains("in-tree"), "the sweep reports what it did: {stdout}");
+    assert!(!tree.path().join(".gorp").exists(), "the in-tree index must be gone");
+}
+
+#[test]
 fn index_status_distinguishes_present_from_absent() {
     let sg = Sg::new();
     let dir = tempfile::tempdir().unwrap();
