@@ -110,7 +110,8 @@ in-tree `.gorp/` indexes under the directory you run it from, since those
 are the ones no central listing can find.
 
 Full design in [docs/DESIGN.md](docs/DESIGN.md); the research log behind
-every default in [docs/RESEARCH.md](docs/RESEARCH.md).
+every default in [docs/RESEARCH.md](docs/RESEARCH.md); release history in
+[docs/CHANGELOG.md](docs/CHANGELOG.md).
 
 ## Performance
 

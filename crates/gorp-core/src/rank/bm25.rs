@@ -70,8 +70,8 @@ pub fn top_k_within<P: Postings>(
 /// The filter is applied while scores accumulate, not to the finished list: a
 /// list truncated to `k` corpus-wide and *then* filtered to a subtree is empty
 /// whenever the subtree is not already winning, which is how two directories of
-/// tokio returned nothing at all from a fully indexed corpus (SIMULATION.md
-/// §1.7). Corpus statistics stay global — idf is a property of the corpus, and
+/// tokio returned nothing at all from a fully indexed corpus. Corpus
+/// statistics stay global — idf is a property of the corpus, and
 /// rescoping it would make a hit in a small directory mean something different
 /// from the same hit at the root.
 pub fn top_k_scoped<P: Postings>(

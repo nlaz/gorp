@@ -1213,7 +1213,7 @@ fn index_status_distinguishes_present_from_absent() {
 }
 
 // ---------------------------------------------------------------------------
-// the stdout contract under hostile input (SIMULATION.md §1.5, §1.6)
+// the stdout contract under hostile input
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -1249,7 +1249,7 @@ fn one_hit_per_file_however_the_file_is_named() {
     // path "od", line "d.py". The scope is a directory holding *only* the
     // hostile names, because the first version of this check ran against a tree
     // whose 200k-line file overflowed the capture cap long before the odd names
-    // appeared — it passed, vacuously (SIMULATION.md §5).
+    // appeared — it passed, vacuously.
     let dir = tempfile::tempdir().unwrap();
     let body = "def compute_backoff(): pass\n";
     let names =

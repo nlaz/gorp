@@ -201,7 +201,7 @@ pub fn write_cache_entry(
     // the entry it had just been given and evicted it — the query then missed on
     // re-discovery and streamed anyway, paying for a complete build *and* a
     // complete cold search and keeping neither (5 of 8 queries under budget
-    // pressure, SIMULATION.md §1.4).
+    // pressure).
     gc_old_generations();
     enforce_budget_protecting(&dir);
 
@@ -229,7 +229,8 @@ pub fn write_cache_entry(
 /// A character budget gets a `c` tag rather than a `w` one. It has to: a
 /// budgeted entry and a line-windowed entry cut the same tree into different
 /// chunks, so sharing a directory name would let one answer a query posed
-/// against the other — which is exactly FIXES.md #10, one parameter later.
+/// against the other — which is exactly the `--window` sweep's cache
+/// poisoning, one parameter later.
 /// The budget tag carries `window` as well, because in budget mode the overlap
 /// is `budget * overlap / window` — all three decide where the cuts land, and a
 /// tag that omits one makes an entry undiscoverable by the options that built

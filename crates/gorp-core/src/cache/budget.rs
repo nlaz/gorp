@@ -117,7 +117,7 @@ pub fn enforce_budget() -> Reclaimed {
 /// [`enforce_budget`], sparing one entry from LRU eviction.
 ///
 /// For the entry a write just produced. Reclamation runs after registration so
-/// the enforcer can see what triggered it (FIXES.md #5) — but seeing it, it
+/// the enforcer can see what triggered it — but seeing it, it
 /// evicted it, and the query that had just paid for a full index build missed on
 /// re-discovery and streamed the corpus as well. Protecting the new entry makes
 /// that "pay once, keep it"; if it alone exceeds the cap it survives this call
@@ -168,7 +168,7 @@ fn enforce_budget_inner(cap: u64, abandoned_after_secs: u64, keep: Option<&Path>
     //    popped whether or not it went, and `total` fell only on success, so one
     //    undeletable directory made the loop chew through every healthy entry
     //    behind it — four entries in, one out, and the survivor was the
-    //    undeletable one, at exit 0 with no warning (SIMULATION.md §1.7). It
+    //    undeletable one, at exit 0 with no warning. It
     //    stops now. An entry that will not delete is a permissions anomaly, not
     //    ordinary pressure, and pressing on converts it into the loss of the
     //    whole cache while freeing nothing.

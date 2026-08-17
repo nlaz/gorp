@@ -6,6 +6,25 @@ chunks). Full data: `docs/RESEARCH.md` and `eval/REPORT.md`; the query sets
 are checked in under `eval/queries/`, while `eval/data/` is gitignored scratch
 and will not be in a fresh clone.
 
+## 2026-08-16 — `cache --clear` sweeps in-tree indexes too
+
+- `gorp cache --clear` now removes the `.gorp/` indexes under the working
+  directory as well as the entries in `~/.cache/gorp`. Since caching went
+  opt-in, an index in a user's tree is one they deliberately asked for — and
+  those were precisely the ones `--clear` left standing, with no listing
+  anywhere that could have found them.
+- Scope is the working directory, downward: from a repo it clears that repo,
+  from `~` it clears every index under `~`. The walk does not consult
+  gitignore (`.gorp/` is ignored in most trees that have one, so honoring it
+  would find nothing), does not enter `.git`, does not follow symlinks, and
+  removes a directory only when it holds real index files — the name alone is
+  not evidence enough to delete a tree. `.gorp.building-*` / `.gorp.trash-*`
+  leftovers from an interrupted build are reclaimed with the rest.
+- The in-tree total prints on its own line, and only when the sweep found
+  something. A delete that fails now warns on stderr rather than being
+  silently left out of the count: `cache_clear` returns the same `Reclaimed`
+  the pruner does.
+
 ## 2026-08-16 — the display indents with two spaces
 
 Display only; `--json` still carries the file's own bytes, and the snapshot
@@ -374,8 +393,8 @@ are gone: no engine file is over 265 lines and no function over 60. Tests went
 
 The reorganization was a means, not the point. Thirteen defects surfaced, nine of
 them invisible to reading — they appeared only once a snapshot tripwire, a
-property test, or a measurement was pointed at the code. Full ledger in
-`FIXES.md`; the ones that changed behavior:
+property test, or a measurement was pointed at the code. The ones that changed
+behavior:
 
 - **Cache entries ignored chunk parameters.** One search with a non-default
   `--window` wrote an entry that every later search of that scope was served

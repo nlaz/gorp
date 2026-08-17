@@ -38,7 +38,7 @@ fn corpus(dir: &Path) {
 
 /// One cache directory for the binary, and repair never throttled. Same shape as
 /// `repair.rs` and `e2e.rs`, for the same reason: `cache_base()` latches the
-/// environment into a `OnceLock` on first use (FIXES.md open #3), so cache state
+/// environment into a `OnceLock` on first use, so cache state
 /// is process-global and these tests take it in turn rather than isolating.
 /// Setting `GORP_CACHE_DIR` per test would silently do nothing after the
 /// first one ran.
@@ -302,7 +302,7 @@ fn a_scope_with_no_index_reports_not_applicable() {
 #[test]
 fn chunk_params_do_not_change_the_reported_shape() {
     // A `--window` sweep must not produce reports that cannot be compared with
-    // ordinary ones; that class of mismatch is FIXES.md #10's shape.
+    // ordinary ones; that is the cache-poisoning defect's shape.
     let _guard = isolate_cache();
     let dir = tempfile::tempdir().unwrap();
     corpus(dir.path());

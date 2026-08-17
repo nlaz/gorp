@@ -144,7 +144,7 @@ fn stores_agree_on_generated_corpora() {
 // deletes an unreadable cache entry and answers from the streaming path, but
 // only on `Err`; a panic bypasses that, leaves the entry in place, and takes
 // out the next invocation too. Simulation testing measured it as three
-// consecutive runs at exit 101 with zero hits (SIMULATION.md §1.1).
+// consecutive runs at exit 101 with zero hits.
 // ---------------------------------------------------------------------------
 
 fn sample_bytes() -> Vec<u8> {

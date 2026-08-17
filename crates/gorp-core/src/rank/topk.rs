@@ -16,7 +16,7 @@ pub fn brute_force_top_k_i8(query: &[i8], matrix: &[i8], k: usize) -> Vec<(u32, 
 /// `allow` decides membership *before* the top-k heap sees a row, which is the
 /// whole point: filtering the result afterwards can only return what a
 /// corpus-wide top-k happened to include, and for a narrow scope that is
-/// routinely nothing (SIMULATION.md §1.7). Skipping also makes a scoped query
+/// routinely nothing. Skipping also makes a scoped query
 /// faster — the dot product is never computed for a row that cannot be returned.
 pub fn brute_force_top_k_i8_where(
     query: &[i8],

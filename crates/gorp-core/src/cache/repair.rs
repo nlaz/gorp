@@ -97,8 +97,7 @@ pub struct Repair {
 /// was never implemented, so `repair` re-read, re-chunked and **re-embedded**
 /// every drifted file on every query past the TTL, forever. Measured on tokio:
 /// 131 ms at 50% drift against a 127 ms full cold pass, 197 ms at 100%, and it
-/// never amortizes, because the overlay is discarded and rebuilt each time
-/// (SIMULATION.md §1.3).
+/// never amortizes, because the overlay is discarded and rebuilt each time.
 ///
 /// 5% is well clear of the loop this must not disturb — editing three files of
 /// 865 is 0.35% — and the curve past it is steep enough that the exact number
@@ -106,7 +105,7 @@ pub struct Repair {
 ///
 /// A plain constant, reached through `SearchOptions`, rather than something read
 /// from the environment behind a `OnceLock`. Latching a tunable per process is
-/// what makes `cache_base` untestable (FIXES.md, open item 3), and a threshold
+/// what makes `cache_base` untestable, and a threshold
 /// with no test that crosses it is not a threshold.
 pub const DEFAULT_MAX_DRIFT: f32 = 0.05;
 

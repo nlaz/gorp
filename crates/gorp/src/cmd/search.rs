@@ -231,8 +231,9 @@ fn common_ancestor(paths: &[PathBuf]) -> PathBuf {
 ///
 /// Applied to *hits*, never to the corpus walk. Filtering the walk would change
 /// what gets indexed, and the index is a shared cache keyed by root and chunk
-/// params — one `-g '*.py'` search would poison every later search of that scope
-/// (the shape of FIXES.md #10). Filtering results costs an over-fetch instead.
+/// params — one `-g '*.py'` search would poison every later search of that
+/// scope, the shape of the `--window` sweep's cache poisoning. Filtering
+/// results costs an over-fetch instead.
 struct Filter {
     keep: Vec<String>,
     globs: Option<ignore::overrides::Override>,
@@ -517,7 +518,7 @@ fn options(cli: &Cli, mode: Mode) -> Result<SearchOptions> {
 /// canonicalization and generation-directory scan, on *every* ranked query, to
 /// decide whether to print one line — and then the engine resolved the same
 /// scope again. The engine already knows; it just had no way to say so before
-/// the fact (SIMULATION.md §4).
+/// the fact.
 fn announce_first_search() {
     eprintln!(
         "{PROG}: first ranked search of this scope — caching it (later searches are fast)"

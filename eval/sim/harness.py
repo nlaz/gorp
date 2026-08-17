@@ -207,8 +207,8 @@ class Session:
     # is a clap usage error, so a scenario that meant to inspect the cache got
     # exit 2 and an empty stdout — and then *passed*, because its check was
     # looking for something to be absent from that stdout. Silently testing
-    # nothing is the failure mode this harness is most prone to (SIMULATION.md
-    # §5), so the two meanings of "no path" are now different values.
+    # nothing is the failure mode this harness is most prone to, so the two
+    # meanings of "no path" are now different values.
     NO_PATH = object()
 
     def run(self, args, path=None, timeout=300, env=None, label=""):

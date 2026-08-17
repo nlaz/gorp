@@ -527,7 +527,7 @@ fn two_space(text: &str, unit: usize) -> Cow<'_, str> {
 /// `tools/snapshot.sh`, and the common case should not get noisier to read to
 /// pay for a case almost nobody has. `--json` never arrives here: serde escapes
 /// what `println!` does not, which is why it was the one output mode that came
-/// through the simulation intact (SIMULATION.md §1.5).
+/// through the simulation intact.
 pub fn quote_path(path: &str) -> Cow<'_, str> {
     if !path.chars().any(|c| c.is_control() || c == '"' || c == ':') {
         return Cow::Borrowed(path);

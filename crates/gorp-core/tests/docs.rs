@@ -47,35 +47,30 @@ fn defined_sections(markdown: &str) -> BTreeSet<String> {
     out
 }
 
-/// Documents a `§` citation may point at, and the default when none is named.
+/// The document a `§` citation points at.
 ///
-/// A bare `§9.1` means RESEARCH.md — that is the convention the codebase was
-/// written in and most citations still use it. Anything else has to say so.
-///
-/// These are bare filenames doing double duty: they are matched as *text*
-/// inside comment windows by [`cited_sections`], and joined to [`DOCS_DIR`] to
-/// read the file. So a comment cites `RESEARCH.md §9.1` however deep the docs
-/// are filed, and moving the directory is one constant rather than 155 edits.
-const DEFAULT_DOC: &str = "RESEARCH.md";
-const KNOWN_DOCS: [&str; 4] = ["RESEARCH.md", "SIMULATION.md", "FIXES.md", "FOLD.md"];
+/// A bare `§9.1` in a comment means RESEARCH.md: it is the only numbered
+/// document in `docs/`, and the convention the codebase was written in. A bare
+/// filename doing double duty — it is joined to [`DOCS_DIR`] to read the file,
+/// so a comment cites `RESEARCH.md §9.1` however deep the docs are filed, and
+/// moving the directory is one constant rather than 155 edits.
+const DOC: &str = "RESEARCH.md";
 
-/// Where those documents live, relative to the repo root.
+/// Where that document lives, relative to the repo root.
 const DOCS_DIR: &str = "docs";
 
-/// How far back of a `§` to look for the document it belongs to. Long enough to
-/// cross a comment-line wrap (`SIMULATION.md\n/// §1.5`), short enough that an
-/// unrelated filename in the previous sentence cannot claim the citation.
-const DOC_LOOKBEHIND: usize = 64;
-
-/// Every `<doc> §N` cited from Rust source, as (document, section, file).
+/// Every `§N` cited from Rust source, as (section, file).
 ///
-/// The document matters, and used to be assumed. Every citation was checked
-/// against RESEARCH.md whatever it named, so `SIMULATION.md §1.1` passed only
-/// because RESEARCH.md happens to have a §1.1 of its own, and a correct
-/// citation of a section RESEARCH.md lacks would have failed. Both directions
-/// were wrong — the guard was passing for the wrong reason, which is the
-/// failure mode SIMULATION.md §5 is about.
-fn cited_sections(root: &Path) -> BTreeSet<(String, String, String)> {
+/// This used to attribute each citation to one of four documents by reading
+/// backwards from the `§` for a filename, and before that it checked all four
+/// against RESEARCH.md — so a citation naming another document passed only
+/// because RESEARCH.md happened to have a section of the same number, and a
+/// correct citation of a section RESEARCH.md lacked would have failed. Both
+/// directions were wrong: the guard was passing for the wrong reason. The other
+/// three documents were folded away in 2026-08 and the pointers to them removed
+/// from the comments that carried them, so one namespace is left and there is
+/// nothing to attribute.
+fn cited_sections(root: &Path) -> BTreeSet<(String, String)> {
     let mut sources = Vec::new();
     rust_sources(&root.join("crates"), &mut sources);
 
@@ -91,24 +86,7 @@ fn cited_sections(root: &Path) -> BTreeSet<(String, String, String)> {
             if number.is_empty() {
                 continue;
             }
-            // The nearest document named just before the §, if any: the last
-            // one to start within the lookbehind window wins, so
-            // "RESEARCH.md §8 ... SIMULATION.md §1.3" attributes each correctly.
-            // The window start snaps down to a char boundary — a fixed byte
-            // offset can land inside a multi-byte character (an em-dash 64
-            // bytes before a § did exactly that) and slicing there panics.
-            let mut lo = i.saturating_sub(DOC_LOOKBEHIND);
-            while !text.is_char_boundary(lo) {
-                lo -= 1;
-            }
-            let window = &text[lo..i];
-            let doc = KNOWN_DOCS
-                .iter()
-                .filter_map(|d| window.rfind(d).map(|at| (at, *d)))
-                .max_by_key(|&(at, _)| at)
-                .map(|(_, d)| d)
-                .unwrap_or(DEFAULT_DOC);
-            cites.insert((doc.to_string(), number.to_string(), rel.clone()));
+            cites.insert((number.to_string(), rel.clone()));
         }
     }
     cites
@@ -119,21 +97,15 @@ fn cited_sections(root: &Path) -> BTreeSet<(String, String, String)> {
 #[test]
 fn research_citations_resolve() {
     let root = repo_root();
-    let defined: std::collections::BTreeMap<&str, BTreeSet<String>> = KNOWN_DOCS
-        .iter()
-        .map(|doc| {
-            let text = std::fs::read_to_string(root.join(DOCS_DIR).join(doc))
-                .unwrap_or_else(|_| panic!("{doc} should exist in {DOCS_DIR}/"));
-            let sections = defined_sections(&text);
-            assert!(!sections.is_empty(), "parsed no section headings out of {doc}");
-            (*doc, sections)
-        })
-        .collect();
+    let text = std::fs::read_to_string(root.join(DOCS_DIR).join(DOC))
+        .unwrap_or_else(|_| panic!("{DOC} should exist in {DOCS_DIR}/"));
+    let defined = defined_sections(&text);
+    assert!(!defined.is_empty(), "parsed no section headings out of {DOC}");
 
     let mut dangling: Vec<String> = cited_sections(&root)
         .into_iter()
-        .filter(|(doc, number, _)| !defined[doc.as_str()].contains(number))
-        .map(|(doc, number, file)| format!("{doc} §{number} (cited in {file})"))
+        .filter(|(number, _)| !defined.contains(number))
+        .map(|(number, file)| format!("{DOC} §{number} (cited in {file})"))
         .collect();
     dangling.sort();
     dangling.dedup();
@@ -142,8 +114,7 @@ fn research_citations_resolve() {
         dangling.is_empty(),
         "source comments cite sections that do not exist:\n  {}\n\
          Either the section was renumbered or the citation was a guess.\n\
-         (A § with no document named within {DOC_LOOKBEHIND} bytes before it is \
-         read as {DEFAULT_DOC}.)",
+         (Every § in a comment is read as {DOC}.)",
         dangling.join("\n  ")
     );
 }

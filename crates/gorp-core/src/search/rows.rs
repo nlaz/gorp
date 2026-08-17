@@ -41,7 +41,7 @@ impl<'a> Rows<'a> {
     /// It used to be applied after: the fused list was cut to 256 rows and only
     /// then filtered to the subtree, so a scope holding none of the corpus-wide
     /// top 256 got nothing at all. On tokio, `.github` and `docs` each returned
-    /// **zero** hits out of 8,042 indexed chunks (SIMULATION.md §1.7). Filtering
+    /// **zero** hits out of 8,042 indexed chunks. Filtering
     /// first also makes a narrow scope cheaper, since the vector scan skips
     /// every row it can never return.
     pub fn new(idx: &'a LoadedIndex, repair: Option<Repair>, prefix: &str) -> Self {

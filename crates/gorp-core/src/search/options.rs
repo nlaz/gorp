@@ -311,7 +311,7 @@ pub struct SearchOptions {
     /// Rerank AFTER RRF instead of before it, so MaxSim reorders the fused
     /// list rather than only the semantic branch (§13.11). Experimental:
     /// §9.4 rejected post-fusion reranking, but did so at blend 1.0 (pure
-    /// override) and with the NaN bug of FIXES.md #9 still live.
+    /// override) and with the NaN bug in the reranked head still live.
     pub maxsim_post: bool,
     pub params: ChunkParams,
     /// Share of a scope that may drift before a cache entry is rebuilt rather
@@ -324,8 +324,8 @@ pub struct SearchOptions {
     /// index. The engine owns this because the engine is what resolves the
     /// index: a caller that wants to print "caching this scope" otherwise has
     /// to re-derive the answer with its own `cache::discover`, which is a
-    /// second canonicalization and generation scan per query (SIMULATION.md
-    /// §4). A plain `fn` rather than a boxed closure so `SearchOptions` stays
+    /// second canonicalization and generation scan per query. A plain `fn`
+    /// rather than a boxed closure so `SearchOptions` stays
     /// `Clone` and `Debug`.
     pub on_first_search: Option<fn()>,
     pub keyword: KeywordOptions,

@@ -518,8 +518,7 @@ pub fn search(root: &Path, query: &str, opts: &SearchOptions) -> Result<SearchRe
             // it: streaming answers this one query and keeps nothing, while a
             // rebuild makes every query after it warm again. That is the whole
             // case for the threshold — at 5% drift a rebuild pays for itself in
-            // about five queries, and repairing charges full price forever
-            // (SIMULATION.md §1.3).
+            // about five queries, and repairing charges full price forever.
             //
             // `write_through` is deliberately not consulted here: it gates
             // *creating* an entry, and this entry exists — someone opted this

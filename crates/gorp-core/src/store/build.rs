@@ -133,8 +133,8 @@ pub fn build_at(
 /// A build used to write `emb.bin` straight into the live entry, truncating a
 /// file another process had already `mmap`ed — and a mapping whose backing file
 /// is truncated faults on access, which is a signal, not an error anyone can
-/// catch. Measured at 5–8 bad trials in 20 on a small corpus (SIMULATION.md
-/// §1.2). Removing `meta.json` first stopped a *new* reader from starting but
+/// catch. Measured at 5–8 bad trials in 20 on a small corpus. Removing
+/// `meta.json` first stopped a *new* reader from starting but
 /// could not recall a mapping that already existed.
 ///
 /// Nothing here ever mutates a published file. The swap replaces a directory

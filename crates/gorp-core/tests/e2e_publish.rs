@@ -1,5 +1,5 @@
-//! End-to-end: publication is a swap, not a rewrite (SIMULATION.md §1.2,
-//! FIXES.md #6) — a rebuild must never truncate a file a reader has mapped.
+//! End-to-end: publication is a swap, not a rewrite — a rebuild must never
+//! truncate a file a reader has mapped.
 
 mod common;
 use gorp_core::ChunkParams;
@@ -100,10 +100,9 @@ fn a_staging_directory_is_never_discoverable_but_is_always_reclaimable() {
 }
 
 /// Reclamation runs after registration so the enforcer can see what triggered
-/// it (FIXES.md #5). Seeing it, it evicted it: the query had just paid for a
-/// complete index build, missed on re-discovery, and streamed the corpus as
-/// well — paying twice and keeping nothing, on 5 of 8 queries under budget
-/// pressure (SIMULATION.md §1.4).
+/// it. Seeing it, it evicted it: the query had just paid for a complete index
+/// build, missed on re-discovery, and streamed the corpus as well — paying
+/// twice and keeping nothing, on 5 of 8 queries under budget pressure.
 #[test]
 fn a_write_does_not_evict_the_entry_it_just_wrote() {
     let _cache = isolate_cache();
@@ -206,12 +205,12 @@ fn an_undeletable_entry_does_not_take_the_healthy_ones_with_it() {
     assert!(stuck.exists(), "the undeletable entry is still there — that is the point");
 }
 
-/// The drift bound (FIXES.md #7, RESEARCH.md §8 mechanism 2).
+/// The drift bound (RESEARCH.md §8 mechanism 2).
 ///
 /// A small drift is patched in memory — cheap, and it keeps the entry. A large
 /// one replaces the entry instead, because repairing charges the same price on
 /// every query past the TTL and never amortizes: on tokio a 50%-drifted scope
-/// cost 131 ms a query against a 127 ms cold pass, forever (SIMULATION.md §1.3).
+/// cost 131 ms a query against a 127 ms cold pass, forever.
 /// Both branches must answer with the *current* tree; only the cost differs.
 #[test]
 fn repair_serves_a_small_drift_and_rebuilds_a_large_one() {
@@ -325,7 +324,7 @@ fn a_repo_local_index_is_repaired_however_far_it_has_drifted() {
     assert!(r.report.stale_files > 0, "the staleness is reported rather than hidden");
 }
 
-/// A narrow scope must not starve (FIXES.md #13, SIMULATION.md §1.7).
+/// A narrow scope must not starve.
 ///
 /// The fused list is `FUSION_POOL * 2` = 256 rows wide. The scope filter used to
 /// run *after* that truncation, so a subtree holding none of the corpus-wide top
@@ -396,7 +395,7 @@ fn a_narrow_scope_returns_hits_even_when_the_corpus_head_excludes_it() {
 /// A hidden subtree is absent from its parent's index, and that is a different
 /// finding from the starvation above with a different cause and a different fix.
 ///
-/// SIMULATION.md §1.7 reported `.github` and `docs` on tokio together, as one
+/// The simulation audit reported `.github` and `docs` on tokio together, as one
 /// finding: two scopes returning zero hits from a fully indexed corpus. Only
 /// `docs` was that finding. `corpus::walk` runs `ignore::WalkBuilder` at its
 /// default `hidden(true)`, so tokio's index holds **no** dot-prefixed path at
@@ -555,7 +554,8 @@ fn cold_and_warm_agree_under_path_render() {
 }
 
 /// A character budget and a line window cut the same tree differently, so they
-/// must not share a cache entry — that is FIXES.md #10 one parameter later.
+/// must not share a cache entry — that is the `--window` sweep's cache
+/// poisoning, one parameter later.
 #[test]
 fn a_budgeted_entry_never_answers_a_line_windowed_query() {
     let _cache = isolate_cache();

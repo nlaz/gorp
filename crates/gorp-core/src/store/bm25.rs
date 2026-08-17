@@ -118,7 +118,7 @@ impl FlatBm25 {
     /// process, leave the entry in place, and abort the next invocation too —
     /// a permanently unusable cache that only `gorp cache --clear` could
     /// recover. Observed on three separate corruptions, three runs each, all
-    /// exit 101 (SIMULATION.md §1.1).
+    /// exit 101.
     ///
     /// Deliberately O(1): the three fixed-size tables are bounds-checked here,
     /// and the two variable-length sections are checked against the last entry

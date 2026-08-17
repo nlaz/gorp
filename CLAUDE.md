@@ -2,18 +2,24 @@
 
 Semantic grep for agents built on the Bog stack: `../ese` (static embeddings,
 256-dim, compiled-in weights) + `../anny` (HNSW). README.md is usage; everything
-else is in `docs/`, and a bare `§9.1` in a source comment means
-`docs/RESEARCH.md` unless another document is named right before it.
+else is in `docs/`, and a `§9.1` in a source comment means `docs/RESEARCH.md` —
+the only numbered document, so there is nothing else to name.
 
 - `docs/DESIGN.md` — the v1 design, the statement of intent.
 - `docs/RESEARCH.md` — the research log, and the doc most cited from code.
-- `docs/FIXES.md` — the defect ledger: every bug the 2026-07 reorganization
-  found, how it was found, and what it cost. Cited as `FIXES.md #10`.
-- `docs/SIMULATION.md` — the session-level behavior audit (what `eval/sim/`
-  found and what got fixed).
-- `docs/FOLD.md` — evaluates `../fold` as a durable store for the repair
-  overlay: design, verified constraints, what to measure before committing, and
-  in §9 the fjall-lock blocker that stops it, drafted for upstream.
+  Distilled 2026-08-16: every measured result kept with its numbers and its
+  verdict, the procedure and restatement around them cut. **Its section numbers
+  are an anchor namespace rather than an outline** — 428 comments cite them and
+  `crates/gorp-core/tests/docs.rs` fails the build when a cited section stops
+  existing, so sections may be shortened but never renumbered.
+- `docs/CHANGELOG.md` — what changed, release by release.
+
+The same pass folded away three documents: the defect ledger, the session-level
+behavior audit of `eval/sim/`, and the evaluation of `../fold` as a store for
+the repair overlay (which found a fjall-lock blocker and stopped there). What
+each one was load-bearing for now lives where it is checked — in the comments
+and tests that were written from it — so a comment states the measurement
+instead of pointing at it.
 
 ## Layout
 
@@ -157,7 +163,7 @@ plus its overlay answers as a fresh build would), over a shared
   `eval/sim/run.py` drives it, `eval/sim/report.py --check` regenerates
   `eval/sim/results/INDEX.md`. Sessions are checked in; scratch corpora go to
   the gitignored `eval/data/sim/`. Findings and their patch sites:
-  `docs/SIMULATION.md`.
+  `eval/sim/results/INDEX.md`.
 - Guards that run beside the numbers: `eval/leakage.py` (how much of the
   answer a query already contains — §12.5 made structural),
   `eval/validate_queries.py` (`run_eval` refuses to score a query set that has
@@ -179,7 +185,7 @@ plus its overlay answers as a fresh build would), over a shared
   one must return identical results, asserted by
   `cold_and_warm_return_identical_results`. Both paths therefore quantize
   identically; scoring one in f32 and the other in i8 silently broke this for a
-  long time (FIXES.md #11).
+  long time.
 - Chunk ids are assigned in walk order and must stay in lockstep between the
   chunk table, BM25 add order, and `emb.bin` row order. The pass is parallel
   (`corpus::pass`, the single implementation of that guarantee) with a serial
@@ -194,7 +200,7 @@ plus its overlay answers as a fresh build would), over a shared
   local/.gorp, ancestor dirs (git-style walk-up), then cache entries by
   longest prefix, and an existing entry's repair/rebuild upkeep still runs.
   **Entries are keyed by chunk parameters as well as root**, so a `--window`
-  sweep cannot poison ordinary searches — it could, and did (FIXES.md #10).
+  sweep cannot poison ordinary searches — it could, and did.
   `meta.json` is written last: writing it is what publishes an index.
   Read-repair validation is throttled by `GORP_CACHE_TTL_SECS`
   (default 60; 0 = always validate). `--no-index` never reads or writes.
@@ -248,7 +254,7 @@ that involve embeddings all moved, BM25 and keyword did not.
   `search/checklist.rs`, retrained by gorp-bench's `checklist_train.py`
   from a `guessplay.py --dump-hits` harvest (the two feature lists must not
   drift — both say so)
-- corpus walk (parallel since FIXES.md #24): 272 ms on the 84k-file kernel,
+- corpus walk (parallel since 2026-07): 272 ms on the 84k-file kernel,
   19 ms on vscode, ~5 ms on tokio/jekyll. Paid by a build, by `--check-stale`,
   and — the reason it was worth parallelizing — by read-repair on every warm
   query past the TTL

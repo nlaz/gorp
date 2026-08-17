@@ -141,7 +141,7 @@ def main():
     ap.add_argument("--binary", type=Path, default=GORP)
     ap.add_argument("--cache-dir", type=Path,
                     help="index cache (default: a temp dir, so a replay never "
-                         "poisons ordinary use — FIXES.md #10)")
+                         "poisons ordinary use)")
     ap.add_argument("--out", type=Path, help="write per-row results as JSON")
     ap.add_argument("--baseline", type=Path, help="compare against an --out file")
     ap.add_argument("--resamples", type=int, default=2000)

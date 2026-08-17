@@ -2,7 +2,7 @@
 
 use super::{Emphasis, color_enabled, keyword_rows, paint, quote_path};
 
-/// The six names the simulation put on disk (SIMULATION.md §1.5). Six files
+/// The six names the simulation put on disk. Six files
 /// produced seven stdout lines, and one of the six mis-parsed silently.
 #[test]
 fn only_ambiguous_names_are_quoted() {

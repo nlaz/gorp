@@ -201,5 +201,5 @@ defines the ground truth for the symbol-anchored query sets (§11.4).
 `levers.sh` groups conditions by index flags and rebuilds a corpus once per
 distinct build rather than once per condition, and restores a default index
 afterwards so a later run does not silently measure against whatever the last
-condition built. It uses its own `GORP_CACHE_DIR`; see FIXES.md #10 for why
-that matters.
+condition built. It uses its own `GORP_CACHE_DIR`, so a parameter sweep cannot
+contaminate the entries ordinary searches read.

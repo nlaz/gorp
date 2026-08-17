@@ -195,5 +195,5 @@ Harness in `eval/`: `generate.py` (query gen via claude CLI), `run_eval.py`
 
 M1–M4 (engine, bench harness, retrieval evals, agent-task evals) have all
 shipped; the bench harness now lives in the sibling `gorp-bench` repo. What
-remains is v2: fold-based incremental/watch indexing (see `FOLD.md`, and its
-§9 blocker) and an MCP server mode.
+remains is v2: fold-based incremental/watch indexing — evaluated against
+`../fold` and blocked on fjall's lock discipline — and an MCP server mode.
