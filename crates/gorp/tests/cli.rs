@@ -1645,6 +1645,29 @@ fn exact_mode_with_a_glob_returns_every_match() {
     assert!(!r.stdout.contains("b.txt"), "glob leaked: {}", r.stdout);
 }
 
+/// A glob that matches a directory includes its subtree (gitignore
+/// semantics, a deliberate divergence from ripgrep): `-g 'sub/*'` and a
+/// bare `-g sub` must reach `sub/inner/a.txt` rather than silently
+/// matching nothing below the first level.
+#[test]
+fn a_glob_matching_a_directory_includes_its_subtree() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(dir.path().join("sub/inner")).unwrap();
+    std::fs::write(dir.path().join("sub/inner/a.txt"), "needle\n").unwrap();
+    std::fs::write(dir.path().join("b.txt"), "needle\n").unwrap();
+    let sg = Sg::new();
+    for glob in ["sub/*", "sub"] {
+        let r = sg.run_in(&["-e", "needle", "-g", glob], dir.path());
+        assert_eq!(r.code, 0, "-g {glob} stderr: {}", r.stderr);
+        assert!(
+            r.stdout.contains("sub/inner/a.txt"),
+            "-g {glob} reaches the subtree: {}",
+            r.stdout
+        );
+        assert!(!r.stdout.contains("b.txt"), "-g {glob} leaked: {}", r.stdout);
+    }
+}
+
 /// `-w`: whole words only, and `-wF` word-matches the literal (grep
 /// semantics, straight from the engine's own word() builder).
 #[test]

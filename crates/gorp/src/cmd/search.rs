@@ -274,7 +274,20 @@ impl Filter {
                 .keep
                 .iter()
                 .any(|p| path == p || path.strip_prefix(p).is_some_and(|r| r.starts_with('/')));
-        let globbed = self.globs.as_ref().is_none_or(|o| !o.matched(path, false).is_ignore());
+        let globbed = self.globs.as_ref().is_none_or(|o| {
+            if !o.matched(path, false).is_ignore() {
+                return true;
+            }
+            // gitignore semantics rather than ripgrep's: a glob that matches an
+            // ancestor directory includes everything under it, so `-g 'src/*'`
+            // (or a bare `-g src`) scopes to the subtree instead of silently
+            // matching nothing below the first level.
+            std::path::Path::new(path)
+                .ancestors()
+                .skip(1)
+                .take_while(|a| !a.as_os_str().is_empty())
+                .any(|a| o.matched(a, true).is_whitelist())
+        });
         under && globbed
     }
 
