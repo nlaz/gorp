@@ -49,15 +49,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: gorp
+      # The Bog stack consolidated into one workspace (2026-08): ese, anny,
+      # and the daemon feature's fold/bog-serve all come from bog-kit.
       - uses: actions/checkout@v4
         with:
-          repository: nlaz/ese
-          path: ese
-          token: ${{ secrets.BOG_TOKEN }}
-      - uses: actions/checkout@v4
-        with:
-          repository: nlaz/anny
-          path: anny
+          repository: nlaz/bog-kit
+          path: bog-kit
           token: ${{ secrets.BOG_TOKEN }}
 
       - uses: dtolnay/rust-toolchain@stable

@@ -50,7 +50,20 @@ pub fn run(cli: &Cli, query: &str) -> Result<i32> {
         Some(k) => SearchOptions { k, ..opts.clone() },
         None => opts.clone(),
     };
-    let mut result = search(&root, query, &search_opts)?;
+    // The daemon warm path (feature-gated; workplan C3): a running per-repo
+    // daemon answers a stock ranked query in milliseconds, after the client
+    // syncs the tree's drift into it. Never on the critical path — every
+    // daemon-side failure is a `None` and the ordinary engine answers.
+    #[cfg(feature = "daemon")]
+    let daemon_result = (mode != Mode::Keyword)
+        .then(|| crate::daemon::try_warm(&root, query, &search_opts))
+        .flatten();
+    #[cfg(not(feature = "daemon"))]
+    let daemon_result: Option<gorp_core::search::SearchResult> = None;
+    let mut result = match daemon_result {
+        Some(r) => r,
+        None => search(&root, query, &search_opts)?,
+    };
     let dropped = filter.apply(&mut result.hits, (mode != Mode::Keyword).then_some(opts.k));
     // The filter selects from the complete hit list (retention was off), so
     // the post-filter list IS the answer — restate the totals the footer

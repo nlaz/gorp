@@ -121,10 +121,15 @@ pub fn discover(query_root: &Path, params: &ChunkParams) -> Option<Discovered> {
 /// The entry directory for a canonical root, allocating a collision-free
 /// name on first use (hash bucket + root.txt verification).
 fn cache_entry_dir(root: &Path, params: &ChunkParams) -> PathBuf {
+    claimed_dir(&cache_generation(), &entry_stem(root, params), root)
+}
+
+/// `<label>-<hash>-<params tag>`: the name both the cache entries and the
+/// daemon stores use, extracted so the two cannot drift.
+fn entry_stem(root: &Path, params: &ChunkParams) -> String {
     use std::hash::{Hash, Hasher};
     let mut h = std::collections::hash_map::DefaultHasher::new();
     root.hash(&mut h);
-    let base = cache_generation();
     // Name entries after the directory they cache, not just a hash, so that
     // `ls ~/.cache/gorp/*` and `du -sh *` are readable — you can see which
     // repos are costing you space without opening root.txt.
@@ -151,15 +156,38 @@ fn cache_entry_dir(root: &Path, params: &ChunkParams) -> PathBuf {
         .collect();
     // The params tag is in the name as well as in params.txt, so `ls` shows why
     // one repo has two entries.
-    let stem = format!("{label}-{:08x}-{}", h.finish() as u32, params_tag(params));
+    format!("{label}-{:08x}-{}", h.finish() as u32, params_tag(params))
+}
+
+/// Resolve `stem` under `base` to a directory owned by `root`, stepping past
+/// hash-bucket collisions via root.txt. The caller that creates the directory
+/// is responsible for writing root.txt into it, which is what makes the claim
+/// stick for the next resolver.
+fn claimed_dir(base: &Path, stem: &str, root: &Path) -> PathBuf {
     for i in 0..64 {
-        let dir = if i == 0 { base.join(&stem) } else { base.join(format!("{stem}-{i}")) };
+        let dir = if i == 0 { base.join(stem) } else { base.join(format!("{stem}-{i}")) };
         match std::fs::read_to_string(dir.join("root.txt")) {
             Ok(r) if Path::new(r.trim()) != root => continue, // collision
             _ => return dir,
         }
     }
     base.join(stem) // unreachable in practice
+}
+
+/// Where a per-repo daemon (the CLI's `daemon` feature) keeps its fold store:
+/// `<cache root>/srv/<compat key>/<label>-<hash>-<params tag>`.
+///
+/// A sibling of the generation directories rather than inside one, because the
+/// store is not a cache *entry* — it has no meta.json and is owned by a live
+/// process — so the budget enforcer and `gc_old_generations` (which only
+/// touch `v*` generations) must never sweep it out from under a running
+/// daemon. It still carries the same `compat_key` and params-tag discipline:
+/// an incompatible binary or a different chunking resolves to a different
+/// directory, which is what makes a binary upgrade a clean wipe-and-rebuild
+/// instead of an error. `root` must be canonical, same contract as discovery.
+pub fn daemon_dir(root: &Path, params: &ChunkParams) -> PathBuf {
+    let base = cache_base().join("srv").join(compat_key());
+    claimed_dir(&base, &entry_stem(root, params), root)
 }
 
 /// Write-through: build a cache entry covering `root` (must be canonical),

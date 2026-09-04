@@ -94,22 +94,39 @@ def rank_of_gold(hits, gold_files):
     return 0
 
 
-def run_one(binary, tree, query, mode, k, cache_dir):
-    """One ranked search. Returns hits, or None if the engine failed.
+def run_one(binary, tree, query, mode, k, cache_dir, daemon=False):
+    """One ranked search. Returns (hits, served_by_daemon), or None if the
+    engine failed.
 
     A crash is not a miss: exit codes outside {0, 1} mean the tool broke, and
     counting that as "gold not found" is how a broken binary scores 0.00
     across a whole set and looks like a measurement (`run_eval.py` makes the
     same distinction for the same reason).
+
+    GORP_DAEMON is always pinned. A daemon-featured binary spawns a per-repo
+    daemon on the second search of a scope, and an *unset* variable here would
+    let the baseline arm quietly turn into the daemon arm mid-replay.
     """
     cmd = [str(binary), query, str(tree), "--json", "-k", str(k), "--mode", mode]
+    env = {"GORP_CACHE_DIR": str(cache_dir), "HOME": str(Path.home()),
+           "PATH": "/usr/bin:/bin", "GORP_NO_HINTS": "1"}
+    if daemon:
+        # --stats is the provenance channel: `daemon=true` on the stats line
+        # is how each row proves which arm actually served it. Auto-index
+        # stays on for the rows the daemon declines (~18% of harvested
+        # queries carry a `|` and split into phrases the daemon won't take):
+        # cold == warm is enforced, so a warm fallback returns the same ranks
+        # a cold one would and only the wall clock changes.
+        cmd.append("--stats")
+        env["GORP_DAEMON"] = "1"
+        env["GORP_AUTO_INDEX"] = "1"
+    else:
+        # Caching is opt-in (2026-08-16); the replay wants query 2..n of a
+        # tree served warm.
+        env["GORP_AUTO_INDEX"] = "1"
+        env["GORP_DAEMON"] = "0"
     try:
-        p = subprocess.run(cmd, capture_output=True, text=True, timeout=120,
-                           env={"GORP_CACHE_DIR": str(cache_dir), "HOME": str(Path.home()),
-                                "PATH": "/usr/bin:/bin", "GORP_NO_HINTS": "1",
-                                # Caching is opt-in (2026-08-16); the replay
-                                # wants query 2..n of a tree served warm.
-                                "GORP_AUTO_INDEX": "1"})
+        p = subprocess.run(cmd, capture_output=True, text=True, timeout=120, env=env)
     except subprocess.TimeoutExpired:
         return None
     if p.returncode not in (0, 1):
@@ -122,7 +139,67 @@ def run_one(binary, tree, query, mode, k, cache_dir):
                 hits.append(json.loads(line))
             except json.JSONDecodeError:
                 pass
-    return hits
+    return hits, ("daemon=true" in p.stderr)
+
+
+class DaemonPool:
+    """One pre-warmed `gorp daemon` at a time, following the replay from tree
+    to tree (rows arrive grouped by tree in daemon mode).
+
+    Pre-warmed, because a filling daemon declines every query — its manifest
+    diff reads as "not ready" — and a replay that races the fill measures the
+    fallback path while calling it the daemon arm. Warmth is read from the
+    daemon's own stderr ("daemon warm"), which costs nothing, instead of
+    probe queries, which each pay a cold stream while the fill runs.
+    """
+
+    def __init__(self, binary, cache_dir, warm_secs):
+        self.binary, self.cache, self.warm_secs = binary, cache_dir, warm_secs
+        self.tree, self.proc, self.log = None, None, None
+        self.warm_failures = 0
+
+    def ensure(self, tree):
+        import tempfile
+        import time
+        if self.tree == tree:
+            return
+        self.stop()
+        self.tree = tree
+        self.log = tempfile.NamedTemporaryFile(prefix="gorp-daemon-", suffix=".log",
+                                               delete=False, mode="w")
+        self.proc = subprocess.Popen(
+            [str(self.binary), "daemon", str(tree)],
+            stdout=subprocess.DEVNULL, stderr=self.log,
+            env={"GORP_CACHE_DIR": str(self.cache), "HOME": str(Path.home()),
+                 "PATH": "/usr/bin:/bin"})
+        deadline = time.monotonic() + self.warm_secs
+        logpath = Path(self.log.name)
+        while time.monotonic() < deadline:
+            text = logpath.read_text(errors="replace")
+            if "daemon warm" in text or "already serves" in text:
+                return
+            if self.proc.poll() is not None:
+                print(f"\n  daemon for {tree.name} exited early:\n{text[-500:]}",
+                      file=sys.stderr)
+                self.warm_failures += 1
+                return
+            time.sleep(0.25)
+        print(f"\n  daemon for {tree.name} not warm after {self.warm_secs}s — "
+              f"its rows will fall back to the local path", file=sys.stderr)
+        self.warm_failures += 1
+
+    def stop(self):
+        if self.proc is not None:
+            self.proc.terminate()
+            try:
+                self.proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.proc.kill()
+                self.proc.wait()
+        if self.log is not None:
+            self.log.close()
+            Path(self.log.name).unlink(missing_ok=True)
+        self.tree, self.proc, self.log = None, None, None
 
 
 def main():
@@ -139,6 +216,14 @@ def main():
     ap.add_argument("-k", type=int, default=5)
     ap.add_argument("--limit", type=int, help="first N rows (after tier filter)")
     ap.add_argument("--binary", type=Path, default=GORP)
+    ap.add_argument("--daemon", action="store_true",
+                    help="the daemon arm: pre-warm a `gorp daemon` per tree "
+                         "and serve queries through it (needs a binary built "
+                         "with --features daemon). Rows are grouped by tree, "
+                         "and each row records whether the daemon actually "
+                         "answered it — the arm verifies itself.")
+    ap.add_argument("--daemon-warm-secs", type=int, default=900,
+                    help="how long to wait for a tree's daemon fill")
     ap.add_argument("--cache-dir", type=Path,
                     help="index cache (default: a temp dir, so a replay never "
                          "poisons ordinary use)")
@@ -166,22 +251,40 @@ def main():
         tmp = tempfile.TemporaryDirectory(prefix="gorp-replay-cache-")
         cache = Path(tmp.name)
 
+    pairs = []
     scored, skipped = [], defaultdict(int)
-    for n, row in enumerate(rows, 1):
+    for row in rows:
         tree = tree_for(row, args.trees)
         if tree is None:
             skipped["no-tree"] += 1
             continue
-        hits = run_one(args.binary, tree, row["query"], args.mode, args.k, cache)
-        if hits is None:
+        pairs.append((row, tree))
+    if args.daemon:
+        # Grouped by tree so one daemon serves each tree's whole run of rows;
+        # stable within a tree, so --limit stays reproducible.
+        pairs.sort(key=lambda p: str(p[1]))
+
+    pool = DaemonPool(args.binary, cache, args.daemon_warm_secs) if args.daemon else None
+    served = 0
+    for n, (row, tree) in enumerate(pairs, 1):
+        if pool is not None:
+            pool.ensure(tree)
+        out = run_one(args.binary, tree, row["query"], args.mode, args.k, cache,
+                      daemon=args.daemon)
+        if out is None:
             skipped["engine-error"] += 1
             continue
+        hits, via_daemon = out
+        served += via_daemon
         scored.append({
             "id": row["id"], "tier": row["tier"],
             "rank": rank_of_gold(hits, row["gold"]["files"]),
+            **({"daemon": via_daemon} if args.daemon else {}),
         })
         if n % 100 == 0:
-            print(f"\r  {n}/{len(rows)}", end="", file=sys.stderr, flush=True)
+            print(f"\r  {n}/{len(pairs)}", end="", file=sys.stderr, flush=True)
+    if pool is not None:
+        pool.stop()
     print("\r", end="", file=sys.stderr)
 
     by_tier = defaultdict(list)
@@ -194,6 +297,12 @@ def main():
         # Named, not netted out: "no tree" is a coverage gap and
         # "engine error" is a bug, and a single skipped count hides which.
         print("  skipped: " + "  ".join(f"{k}={v}" for k, v in sorted(skipped.items())))
+    if args.daemon:
+        # The arm verifying itself: a row the daemon declined answered locally
+        # (identical engine, so its rank is still valid), but a low fraction
+        # means this run measured mostly the fallback and should say so.
+        note = f" ({pool.warm_failures} tree(s) never warmed)" if pool.warm_failures else ""
+        print(f"  daemon served {served}/{len(scored)} rows{note}")
     print(f"\n  {'tier':8} {'n':>6} {'recall@1':>9} {'recall@5':>9} {'mrr@10':>8}")
     for tier in traces.TIERS:
         rs = by_tier.get(tier) or []
@@ -205,27 +314,36 @@ def main():
         mrr = sum(_score(r["rank"], "mrr@10") for r in rs) / n
         print(f"  {tier:8} {n:6d} {r1:9.3f} {r5:9.3f} {mrr:8.3f}")
 
-    if args.baseline:
-        base = {r["id"]: r for r in json.loads(args.baseline.read_text())["rows"]}
-        print(f"\n  vs {args.baseline.name} (paired, {args.resamples} resamples)")
-        for tier in traces.TIERS:
-            rs = [r for r in by_tier.get(tier) or [] if r["id"] in base]
-            if not rs:
-                continue
-            a = [r["rank"] for r in rs]
-            b = [base[r["id"]]["rank"] for r in rs]
-            pt, lo, hi = _bootstrap_ci(a, b, "recall@5", args.resamples)
-            p = _sign_test(a, b, "recall@5")
-            flag = "" if lo <= 0 <= hi else "  *"
-            print(f"  {tier:8} {len(rs):6d}  Δrecall@5 {pt:+.3f} "
-                  f"[{lo:+.3f}, {hi:+.3f}]  sign p={p:.3f}{flag}")
-
+    # The per-row file writes before any comparison prints: an hour of replay
+    # must never be lost to a formatting bug in the analysis below (it was,
+    # once).
     if args.out:
         args.out.write_text(json.dumps({
             "queries": str(args.queries), "mode": args.mode, "k": args.k,
             "skipped": dict(skipped), "rows": scored,
         }, indent=1))
         print(f"\nwrote {args.out}")
+
+    if args.baseline:
+        base = {r["id"]: r for r in json.loads(args.baseline.read_text())["rows"]}
+        print(f"\n  vs {args.baseline.name} (paired, {args.resamples} resamples)")
+        for tier in traces.TIERS:
+            rs = [r for r in by_tier.get(tier) or [] if r["id"] in base]
+            # In daemon mode, compare only the rows the daemon actually
+            # served: the rest ran the identical local engine in both arms,
+            # and diluting the contrast 4:1 with guaranteed ties is how a
+            # real difference reads as noise.
+            if args.daemon:
+                rs = [r for r in rs if r.get("daemon")]
+            if not rs:
+                continue
+            a = [r["rank"] for r in rs]
+            b = [base[r["id"]]["rank"] for r in rs]
+            pt, lo, hi = _bootstrap_ci(a, b, "recall@5", args.resamples)
+            wins, losses, p = _sign_test(a, b, "recall@5")
+            flag = "" if lo <= 0 <= hi else "  *"
+            print(f"  {tier:8} {len(rs):6d}  Δrecall@5 {pt:+.3f} "
+                  f"[{lo:+.3f}, {hi:+.3f}]  sign {wins}W/{losses}L p={p:.3f}{flag}")
     if tmp:
         tmp.cleanup()
 

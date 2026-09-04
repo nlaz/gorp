@@ -16,6 +16,8 @@
 
 mod cli;
 mod cmd;
+#[cfg(feature = "daemon")]
+mod daemon;
 mod out;
 mod telemetry;
 

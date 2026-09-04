@@ -19,6 +19,18 @@ path = "src/main.rs"
 [features]
 default = ["func-chunk"]
 func-chunk = ["gorp-core/func-chunk"]
+# The opt-in per-repo daemon (docs in bog-kit: gorp-daemon-workplan.md):
+# fold-backed, bog-serve-fronted, spawn-or-connect from the warm path. Off by
+# default so the standalone build is byte-for-byte what it always was.
+daemon = [
+    "dep:fold",
+    "dep:bog-serve",
+    "dep:anny",
+    "dep:ese",
+    "dep:serde",
+    "dep:schemars",
+    "gorp-core/daemon",
+]
 
 [dependencies]
 gorp-core = { path = "../gorp-core", default-features = false }
@@ -29,6 +41,12 @@ libc = { workspace = true }
 # For `-g`/`--include`: the same glob semantics ripgrep uses, so a caller's
 # muscle memory transfers. Already in the tree via gorp-core's walk.
 ignore = { workspace = true }
+fold = { workspace = true, optional = true }
+bog-serve = { workspace = true, optional = true }
+anny = { workspace = true, optional = true }
+ese = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+schemars = { version = "1", optional = true }
 
 [dev-dependencies]
 serde_json.workspace = true

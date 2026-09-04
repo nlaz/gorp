@@ -1161,7 +1161,11 @@ fn caching_is_opt_in() {
     );
     assert_eq!(opted.code, 0, "stderr: {}", opted.stderr);
     assert!(opted.stderr.contains("caching it"), "the opt-in announces the build it pays for");
-    assert_eq!(entries(&sg.cache), 1, "GORP_AUTO_INDEX=1 writes the entry the default withheld");
+    assert_eq!(
+        entries(&sg.cache),
+        1,
+        "GORP_AUTO_INDEX=1 writes the entry the default withheld"
+    );
 }
 
 #[test]

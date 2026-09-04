@@ -61,6 +61,11 @@ record() {
   # Caching is opt-in (2026-08-16); the warm cases rely on the first ranked
   # search of the fixture writing the entry the later ones read.
   export GORP_AUTO_INDEX=1
+  # A daemon-featured binary spawns a per-repo daemon on repeated searches of
+  # one scope, and its warm answers deliberately skip the fine rerank — this
+  # file records the *engine*, so the daemon path is pinned off regardless of
+  # which features the binary carries.
+  export GORP_DAEMON=0
 
   for mode in bm25 semantic hybrid; do
     for path in cold warm; do

@@ -1010,10 +1010,7 @@ pub fn footer(mode: Mode, result: &SearchResult, shown: usize, suggested: bool) 
         }
         walk_errors_note(result);
     } else {
-        eprintln!(
-            "{PROG}: top {n} of {}",
-            result.report.n_chunks_considered.max(n)
-        );
+        eprintln!("{PROG}: top {n} of {}", result.report.n_chunks_considered.max(n));
     }
 }
 
@@ -1034,10 +1031,12 @@ fn walk_errors_note(result: &SearchResult) {
 pub fn stats(mode: Mode, result: &SearchResult) {
     let r = &result.report;
     eprintln!(
-        "{PROG}: mode={:?} hits={} index={} hnsw={} chunks={} walk/load={:.1}ms rank={:.1}ms total={:.1}ms{}",
+        "{PROG}: mode={:?} hits={} index={}{} hnsw={} chunks={} walk/load={:.1}ms rank={:.1}ms total={:.1}ms{}",
         mode,
         result.hits.len(),
         r.used_index,
+        // Only when a daemon answered, so every daemon-less line is unchanged.
+        if r.daemon { " daemon=true" } else { "" },
         r.used_hnsw,
         r.n_chunks_considered,
         r.walk_ms() + r.load_ms(),

@@ -1,6 +1,8 @@
 //! The verbs. One module each, and a dispatch that only routes.
 
 mod cache;
+#[cfg(feature = "daemon")]
+mod daemon;
 mod index;
 mod search;
 
@@ -10,6 +12,14 @@ use anyhow::Result;
 pub fn dispatch(cli: Cli) -> Result<i32> {
     match &cli.cmd {
         Some(Cmd::Cache { prune, clear }) => cache::run(*prune, *clear),
+        #[cfg(feature = "daemon")]
+        Some(Cmd::Daemon { path, idle_secs }) => daemon::run(path.clone(), *idle_secs),
+        #[cfg(not(feature = "daemon"))]
+        Some(Cmd::Daemon { .. }) => {
+            anyhow::bail!(
+                "daemon mode is not in this build (compiled without the daemon feature)"
+            )
+        }
         Some(Cmd::Index {
             path,
             hnsw,

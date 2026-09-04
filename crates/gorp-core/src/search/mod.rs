@@ -195,13 +195,15 @@ pub(crate) fn file_scope_candidate_width() -> usize {
 /// width is the renderer's concern ([`out`]'s, in the CLI). Plain data with
 /// no map keys, so [`SearchHit`]'s "cannot fail to serialize" contract
 /// stands.
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "daemon", derive(schemars::JsonSchema))]
 pub struct UnitRow {
     pub line: u32,
     pub text: String,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "daemon", derive(schemars::JsonSchema))]
 pub struct SearchHit {
     pub path: String,
     /// Span of the hit as displayed: the fine sub-window when the fine rerank
@@ -269,7 +271,8 @@ pub struct SearchHit {
 /// as they stood when the hit was materialized. Candidate-local on purpose:
 /// anything query-global (query length, mode) is already recorded by whoever
 /// asked for the dump, and anything index-global would break cold==warm.
-#[derive(Debug, Clone, Copy, serde::Serialize)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "daemon", derive(schemars::JsonSchema))]
 pub struct HitFeatures {
     /// The fused (coarse) score, pre-fine.
     pub coarse: f32,
@@ -291,6 +294,15 @@ pub struct HitFeatures {
 pub struct SearchReport {
     pub used_index: bool,
     pub used_hnsw: bool,
+    /// A per-repo daemon (the CLI's `daemon` feature) served this query. The
+    /// engine never sets it — the CLI's spawn-or-connect client does — but it
+    /// lives here because provenance must ride the same report every consumer
+    /// already reads: a daemon answer and a flat warm answer both say
+    /// `used_index=true`, and a benchmark that cannot tell them apart cannot
+    /// verify its own conditions. Skipped in JSON when false so every
+    /// daemon-less envelope is byte-identical to before.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub daemon: bool,
     /// This query's cold pass was persisted as a cache entry (write-through).
     pub wrote_cache: bool,
     /// How many times cache discovery ran inside the engine for this query. The
@@ -670,6 +682,86 @@ fn keyword_search(
             ..Default::default()
         },
     })
+}
+
+/// The shared pipeline's surface for the CLI's per-repo daemon (the `daemon`
+/// feature). The daemon owns its own retrieval — a fold-backed BM25 and HNSW
+/// answer instead of the flat index — but everything after fusion must be
+/// THIS code, driven with the same options, or the daemon becomes a third
+/// answer space that drifts (Tier-0 replay measured exactly that: the v1
+/// daemon skipped these stages and lost recall@5 on every query tier,
+/// −0.233 at the worst).
+///
+/// Everything here is re-exported rather than reimplemented; the one new
+/// function is [`warm::maxsim_rerank`], a thin orchestration of the public
+/// `rank::maxsim*` helpers over a caller-supplied document reader, because
+/// the indexed path's version is welded to `LoadedIndex`.
+#[cfg(feature = "daemon")]
+pub mod warm {
+    pub use super::hit::{Candidate, Finalized, finalize};
+    pub use super::query::Query;
+    use crate::{rank, text};
+
+    /// [`super::apply_structural_boost`], re-exposed (a `pub(crate)` fn
+    /// cannot be re-exported, so these three are wrappers, not copies).
+    pub fn structural_boost(
+        ranked: &mut [(u32, f32)],
+        query: &str,
+        opts: &super::SearchOptions,
+        source_of: impl Fn(u32) -> (String, Option<String>) + Sync,
+    ) -> Vec<(u32, f32, f32)> {
+        super::apply_structural_boost(ranked, query, opts, source_of)
+    }
+
+    /// [`super::append_bm25_pins`], re-exposed.
+    pub fn bm25_pins(
+        ranked: Vec<(u32, f32)>,
+        bm25_head: &[u32],
+        opts: &super::SearchOptions,
+    ) -> Vec<(u32, f32)> {
+        super::append_bm25_pins(ranked, bm25_head, opts)
+    }
+
+    /// [`super::candidate_width`], re-exposed.
+    pub fn width(k: usize) -> usize {
+        super::candidate_width(k)
+    }
+
+    /// The pre-fusion MaxSim rerank the shipped semantic mode applies
+    /// (RESEARCH.md §13.10), over `(id, distance)` pairs ascending. `doc_of`
+    /// returns the candidate's raw document text (`corpus::doc_text` shape);
+    /// rendering is the identity because the daemon only serves stock
+    /// configurations (`EmbedPreproc::None`), and there are no SIF stats in a
+    /// fold store. An unreadable candidate scores as far away as possible
+    /// rather than dropping out — same rule as the indexed path.
+    pub fn maxsim_rerank(
+        query: &str,
+        ranked: Vec<(u32, f32)>,
+        opts: &super::SearchOptions,
+        doc_of: impl Fn(u32) -> Option<String> + Sync,
+    ) -> Vec<(u32, f32)> {
+        if !opts.rerank_maxsim || opts.maxsim_post || ranked.is_empty() {
+            return ranked;
+        }
+        let query_tokens = text::token_vectors(query, None);
+        if query_tokens.is_empty() {
+            return ranked;
+        }
+        use rayon::prelude::*;
+        let head = rank::maxsim_head_size(ranked.len(), opts.k, opts.maxsim_pool);
+        let scored: Vec<(u32, f32, f32)> = ranked[..head]
+            .par_iter()
+            .map(|&(id, dist)| {
+                let sim = doc_of(id)
+                    .map(|raw| rank::maxsim(&query_tokens, &text::token_vectors(&raw, None)))
+                    .unwrap_or(f32::NEG_INFINITY);
+                (id, sim, dist)
+            })
+            .collect();
+        let mut out = rank::maxsim_blend_head(&scored, opts.maxsim_blend);
+        out.extend_from_slice(&ranked[head..]);
+        out
+    }
 }
 
 #[cfg(test)]

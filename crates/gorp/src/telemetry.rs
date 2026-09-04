@@ -171,6 +171,11 @@ fn opts_block(opts: &SearchOptions) -> Value {
 fn path_taken(r: &gorp_core::search::SearchReport, mode: Mode) -> &'static str {
     if mode == Mode::Keyword {
         "keyword"
+    } else if r.daemon {
+        // Before the used_index arm: a daemon answer also reports
+        // used_index=true, and the whole point of this field is that the two
+        // warm paths must not be confusable in a trace.
+        "daemon"
     } else if r.wrote_cache && r.used_index {
         "cold_write_through"
     } else if r.used_index {
@@ -240,6 +245,7 @@ pub fn search_envelope(
                 "path_taken": path_taken(r, mode),
                 "used_index": r.used_index,
                 "used_hnsw": r.used_hnsw,
+                "daemon": r.daemon,
                 "wrote_cache": r.wrote_cache,
                 // Engine-internal, and process-wide. The second is the honest
                 // one: the CLI resolves an index twice more than the engine

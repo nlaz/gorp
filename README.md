@@ -32,8 +32,10 @@ no daemon, no GPU, and no runtime download. Prebuilt for macOS
 (arm64/x86_64) and Linux (x86_64/arm64); tarballs are on the
 [releases page](https://github.com/nlaz/gorp/releases).
 
-Building from source requires two sibling repos (`ese`, `anny`) that are
-currently private; the prebuilt binaries are built from the same sources by
+Building from source requires a sibling checkout of the `bog-kit` workspace
+(currently private), which holds `ese`, `anny`, and — for the optional
+`daemon` feature — `fold` and `bog-serve`; the prebuilt binaries are built
+from the same sources by
 [the release workflow](.github/workflows/release.yml).
 
 ## Usage

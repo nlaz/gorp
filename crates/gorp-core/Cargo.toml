@@ -9,6 +9,12 @@ description = "Core engine for gorp: keyword, BM25, and semantic search over fil
 
 [features]
 default = ["func-chunk"]
+# Surface for the CLI's per-repo daemon (`search::warm`): the shared
+# post-fusion pipeline, exported so the daemon drives the same finalize tail
+# the flat paths do instead of growing a second copy that drifts. No engine
+# behavior changes — only visibility, plus JsonSchema derives on the hit
+# types so they can document a bog-serve route.
+daemon = ["dep:schemars"]
 # Function-boundary chunking (RESEARCH.md §11, §29): tree-sitter plus nine
 # grammars, ~7 MiB of release binary. A build without it still parses every
 # index and every meta.json — it just treats function-mode cache entries as
@@ -40,6 +46,7 @@ ignore = { workspace = true }
 grep-regex = { workspace = true }
 grep-searcher = { workspace = true }
 memmap2 = { workspace = true }
+schemars = { version = "1", optional = true }
 tree-sitter = { workspace = true, optional = true }
 tree-sitter-python = { workspace = true, optional = true }
 tree-sitter-javascript = { workspace = true, optional = true }

@@ -11,13 +11,19 @@ repository = "https://github.com/nlaz/gorp"
 rust-version = "1.88"
 
 [workspace.dependencies]
-anny = { path = "../anny" }
+# The Bog stack now lives in the bog-kit workspace (2026-08). fold and
+# bog-serve — the daemon feature's dependencies — resolve `../anny` relative
+# to bog-kit, so gorp must use the same copy or the two anny packages in the
+# graph would not type-unify.
+anny = { path = "../bog-kit/anny" }
+fold = { path = "../bog-kit/fold" }
+bog-serve = { path = "../bog-kit/serve" }
 # dim-256, not ese's default dim-512: the model is MRL-trained, so a prefix of
 # the vector is itself a valid embedding. Halves the binary (72.8 -> 39.0 MB)
 # and emb.bin (kernel index 1.3 GB -> 918 MB). Measured cost is below what the
 # agent eval can resolve — files tied with rg, function-level edge intact
 # (RESEARCH.md §10.7).
-ese = { path = "../ese", default-features = false, features = ["rayon", "dim-256"] }
+ese = { path = "../bog-kit/ese", default-features = false, features = ["rayon", "dim-256"] }
 anyhow = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -57,4 +63,8 @@ opt-level = 2
 [profile.dev.package.anny]
 opt-level = 2
 [profile.dev.package.gorp-core]
+opt-level = 2
+[profile.dev.package.fold]
+opt-level = 2
+[profile.dev.package.fjall]
 opt-level = 2

@@ -616,4 +616,23 @@ pub enum Cmd {
         #[arg(long)]
         clear: bool,
     },
+    /// Serve this repo over a unix socket: a fold-backed index that updates
+    /// incrementally and answers ranked queries in milliseconds.
+    ///
+    /// Hidden for the same reason `index` is: searching never requires it. The
+    /// warm path spawns one of these itself (GORP_DAEMON=1, or repeated
+    /// searches of a scope) and connects when the sidecar says one is running;
+    /// it is never on a query's critical path — no socket, and the ordinary
+    /// streaming answer happens instead. Runs in the foreground; the spawner
+    /// detaches it. Exits 0 when another daemon already holds the store's
+    /// lock, and on its own after `--idle-secs` without a request.
+    #[command(hide = true)]
+    Daemon {
+        /// Directory to serve (default: current directory)
+        path: Option<PathBuf>,
+        /// Exit after this long without a request. Generous by default: a cold
+        /// restart pays an HNSW rebuild, so err long (workplan C5).
+        #[arg(long, default_value_t = 1800)]
+        idle_secs: u64,
+    },
 }

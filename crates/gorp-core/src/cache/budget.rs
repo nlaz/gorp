@@ -258,7 +258,8 @@ pub fn local_indexes(root: &Path) -> Vec<PathBuf> {
             if name == std::ffi::OsStr::new(".git") {
                 continue;
             }
-            if name == std::ffi::OsStr::new(crate::store::DIR) || crate::store::is_transient(&path)
+            if name == std::ffi::OsStr::new(crate::store::DIR)
+                || crate::store::is_transient(&path)
             {
                 if INDEX_FILES.iter().any(|f| path.join(f).is_file()) {
                     out.push(path);

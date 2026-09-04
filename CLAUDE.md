@@ -1,9 +1,13 @@
 # gorp (repo dir: gorp/)
 
-Semantic grep for agents built on the Bog stack: `../ese` (static embeddings,
-256-dim, compiled-in weights) + `../anny` (HNSW). README.md is usage; everything
-else is in `docs/`, and a `§9.1` in a source comment means `docs/RESEARCH.md` —
-the only numbered document, so there is nothing else to name.
+Semantic grep for agents built on the Bog stack, checked out as the sibling
+workspace `../bog-kit` since 2026-08-25: `ese` (static embeddings, 256-dim,
+compiled-in weights), `anny` (HNSW), and — behind the CLI's `daemon` feature —
+`fold` (incremental dataflow store) + `bog-serve` (its HTTP front). The old
+standalone `../ese`/`../anny` checkouts are stale forks; do not point Cargo at
+them. README.md is usage; everything else is in `docs/`, and a `§9.1` in a
+source comment means `docs/RESEARCH.md` — the only numbered document, so there
+is nothing else to name.
 
 - `docs/DESIGN.md` — the v1 design, the statement of intent.
 - `docs/RESEARCH.md` — the research log, and the doc most cited from code.
@@ -13,6 +17,8 @@ the only numbered document, so there is nothing else to name.
   `crates/gorp-core/tests/docs.rs` fails the build when a cited section stops
   existing, so sections may be shortened but never renumbered.
 - `docs/CHANGELOG.md` — what changed, release by release.
+- `docs/DAEMON.md` — the per-repo daemon (`daemon` feature): design as built,
+  the Tier-0 parity measurements, and the benchmark plan.
 
 The same pass folded away three documents: the defect ledger, the session-level
 behavior audit of `eval/sim/`, and the evaluation of `../fold` as a store for
@@ -70,6 +76,29 @@ Its modules: `cli` (flags), `cmd/` (one file per verb), `out`
 envelope — schema `gorp.trace/1`, and the contract the eval harnesses
 read). **stdout is data, stderr is commentary** —
 `crates/gorp/tests/cli.rs` enforces it.
+
+The `daemon` cargo feature (off by default; **docs/DAEMON.md is the design
+as built and the measurements**) adds a per-repo warm path: a hidden
+`gorp daemon` verb serving a fold-backed incremental index over a unix socket
+(`cmd/daemon.rs`), and a spawn-or-connect client in the search path
+(`daemon.rs`). Contract: the daemon is **never on a query's critical path** —
+every client-side failure is a silent fall-through to the ordinary engine,
+the fjall lock resolves spawn races (the loser exits 0), and the per-query
+manifest diff is both the freshness sync and the readiness check, so a
+filling or drifted daemon is bypassed rather than trusted. The store lives
+under `<cache root>/srv/<compat key>/<label>-<hash>-<params tag>/` — outside
+the generation dirs so budget sweeps never touch it, keyed like an entry so a
+binary upgrade or a `--window` sweep resolves elsewhere. `GORP_DAEMON=1`
+spawns on first search, unset spawns on the second search of a scope within
+10 minutes, `0` disables connect and spawn both (tools/snapshot.sh pins it to
+0). The daemon owns retrieval only; everything after fusion is gorp-core's
+own pipeline (`search::warm`, the shared finalize tail), which is what holds
+the measured parity in DAEMON.md §6.2 — the daemon's answers differ from
+local only through HNSW's approximate top-128, bounded by the Tier-0 replay
+gate rather than by `cold_and_warm_return_identical_results`. A
+daemon-served query says so: `daemon=true` on --stats, `path_taken:
+"daemon"` in the trace envelope. `crates/gorp/tests/daemon.rs` covers the
+lifecycle end to end.
 
 Engine integration tests split by concern under `crates/gorp-core/tests/`:
 `e2e_general.rs` (the four modes, and indexed==unindexed parity),

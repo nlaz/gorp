@@ -52,7 +52,10 @@ pub fn split_phrases(query: &str) -> Vec<String> {
 /// A parsed ranked query: the raw string (BM25 tokenization of the whole, the
 /// snapshot identity) and its phrases. `phrases.len() == 1` is the promise
 /// that everything downstream takes the pre-§31 code path exactly.
-pub(crate) struct Query {
+///
+/// `pub` (not `pub(crate)`) only so `search::warm` can re-export it for the
+/// daemon; the module is private, so this is the sole door.
+pub struct Query {
     /// Kept for provenance and debugging: nothing reads it today, because
     /// every downstream stage works per phrase. Dropping it would lose the
     /// only record of what the user actually typed once phrases are split.

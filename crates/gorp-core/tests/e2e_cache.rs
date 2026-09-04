@@ -176,10 +176,7 @@ fn unreadable_cache_entry_degrades_to_a_miss() {
     std::fs::write(dir.path().join("a.py"), "def hello_world():\n    return 1\n").unwrap();
 
     // Warm the cache, then corrupt the entry's dims the way an upgrade would.
-    let opts = gorp_core::search::SearchOptions {
-        write_through: true,
-        ..Default::default()
-    };
+    let opts = gorp_core::search::SearchOptions { write_through: true, ..Default::default() };
     gorp_core::search::search(dir.path(), "greeting", &opts).unwrap();
     // Only this test's own entry — the cache dir is shared with other tests
     // running in parallel, so corrupting all of them clobbers their state.
@@ -215,10 +212,7 @@ fn cache_entries_are_namespaced_by_compat_generation() {
     let _cache = isolate_cache();
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("a.py"), "def parse_config():\n    return {}\n").unwrap();
-    let opts = gorp_core::search::SearchOptions {
-        write_through: true,
-        ..Default::default()
-    };
+    let opts = gorp_core::search::SearchOptions { write_through: true, ..Default::default() };
     gorp_core::search::search(dir.path(), "configuration parsing", &opts).unwrap();
 
     let gen_dir = gorp_core::cache::cache_generation();
@@ -262,10 +256,7 @@ fn corrupt_cache_entry_degrades_to_a_miss() {
     let _cache = isolate_cache();
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("a.py"), "def retry_backoff():\n    return 2\n").unwrap();
-    let opts = gorp_core::search::SearchOptions {
-        write_through: true,
-        ..Default::default()
-    };
+    let opts = gorp_core::search::SearchOptions { write_through: true, ..Default::default() };
     gorp_core::search::search(dir.path(), "backoff", &opts).unwrap();
 
     let mine = std::fs::canonicalize(dir.path()).unwrap();
@@ -286,10 +277,7 @@ fn corrupt_cache_entry_degrades_to_a_miss() {
 #[test]
 fn cache_prunes_dead_entries_and_enforces_a_budget() {
     let _cache = isolate_cache();
-    let opts = gorp_core::search::SearchOptions {
-        write_through: true,
-        ..Default::default()
-    };
+    let opts = gorp_core::search::SearchOptions { write_through: true, ..Default::default() };
 
     // Two scopes; one of them we then delete off disk.
     let keep = tempfile::tempdir().unwrap();
