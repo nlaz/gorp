@@ -973,6 +973,7 @@ pub fn footer(mode: Mode, result: &SearchResult, shown: usize, suggested: bool) 
                 );
             }
             walk_errors_note(result);
+            index_not_mine_note(result);
         } else if shown < n {
             eprintln!(
                 "{PROG}: showing {shown} of {n} matches in {n_files} {files} \
@@ -1009,7 +1010,9 @@ pub fn footer(mode: Mode, result: &SearchResult, shown: usize, suggested: bool) 
             eprintln!("{PROG}: no results · try broader phrasing or a nearby concept");
         }
         walk_errors_note(result);
+        index_not_mine_note(result);
     } else {
+        index_not_mine_note(result);
         eprintln!(
             "{PROG}: top {n} of {}",
             result.report.n_chunks_considered.max(n)
@@ -1021,6 +1024,20 @@ pub fn footer(mode: Mode, result: &SearchResult, shown: usize, suggested: bool) 
 /// without this a permission-denied subtree is simply invisible, and "no
 /// results" reads as a claim about the code rather than about the readable
 /// part of it — the §16.11 shape, silence that looks like a real answer.
+/// An index for this scope was written by a different binary, so the query
+/// streamed past it. Said once, on every ranked search rather than only a
+/// zero-hit one: the answer is correct but it was paid for cold, and a scope
+/// that silently streams forever is a performance bug nobody sees.
+///
+/// This is the visible half of the fallback. The engine deliberately does not
+/// delete or rebuild a repo-local `.gorp` — it is an explicit artifact — so
+/// without a note the only evidence would be the latency.
+fn index_not_mine_note(result: &SearchResult) {
+    if let Some(why) = &result.report.index_not_mine {
+        eprintln!("{PROG}: note: {why} — answered without it (streamed)");
+    }
+}
+
 fn walk_errors_note(result: &SearchResult) {
     let n = result.report.walk_errors;
     if n > 0 {

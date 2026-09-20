@@ -20,7 +20,7 @@ mod build;
 mod load;
 
 pub use build::{build, build_at, build_staged, is_transient, staging_path, sweep_transients};
-pub use load::{LoadNeeds, LoadTimings, LoadedIndex};
+pub use load::{IndexNotMine, LoadNeeds, LoadTimings, LoadedIndex};
 
 use crate::{ChunkParams, FileMeta};
 use serde::{Deserialize, Serialize};
