@@ -220,6 +220,9 @@ pub fn finalize(
 
     // MMR: greedily pick relevant-but-dissimilar candidates so the top-k
     // surfaces different parts of the corpus instead of one hot region.
+    // File identity for the saturation decay (§40). `chunk.file_id` rather
+    // than the path string: it is the exact grouping key, and cheaper.
+    let files: Vec<u32> = kept.iter().map(|c| c.chunk.file_id).collect();
     let order: Vec<usize> = if opts.diversify && kept.len() > opts.k && opts.k > 1 {
         let vecs: Vec<Option<Vec<f32>>> =
             trace.time(Stage::FinalizeVectors, || kept.iter().map(&vec_of).collect());
@@ -228,9 +231,21 @@ pub fn finalize(
             None => kept.iter().map(|c| c.score).collect(),
         };
         trace.time(Stage::FinalizeMmr, || {
-            mmr::mmr_order(&scores, &vecs, opts.k, opts.mmr_lambda)
+            mmr::mmr_order(&scores, &vecs, &files, opts.k, opts.mmr_lambda, opts.file_saturation)
         })
+    } else if opts.file_saturation < 1.0 && kept.len() > opts.k && opts.k > 1 {
+        // Diversification off, but the pool is still longer than k, so the
+        // saturation decay still has a choice to make. Same selector with the
+        // MMR term switched off (lambda = 1.0, no vectors) rather than a
+        // second greedy loop that could drift from this one.
+        let scores: Vec<f32> = match &relevance {
+            Some(r) => r.clone(),
+            None => kept.iter().map(|c| c.score).collect(),
+        };
+        mmr::mmr_order(&scores, &[], &files, opts.k, 1.0, opts.file_saturation)
     } else {
+        // Everything survives anyway, so ordering here cannot change which
+        // files appear.
         (0..kept.len().min(opts.k)).collect()
     };
 

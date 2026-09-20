@@ -74,7 +74,7 @@ fn mmr_prefers_diverse_over_redundant() {
     vc[3] = 1.0; // orthogonal
     let vecs = vec![Some(va), Some(vb), Some(vc)];
     let scores: Vec<f32> = cands.iter().map(|c| c.score).collect();
-    let order = crate::rank::mmr_order(&scores, &vecs, 2, 0.5);
+    let order = crate::rank::mmr_order(&scores, &vecs, &[], 2, 0.5, 1.0);
     assert_eq!(order, vec![0, 2]);
 }
 
@@ -612,4 +612,70 @@ fn coarse_top_survives_the_fine_rerank() {
     let hits = finalize(dir.path(), &q, cands(), &on, "", &mut trace, |_| None).hits;
     assert_eq!(hits.len(), 2);
     assert!(hits.iter().any(|h| h.path == "top.rs"), "the coarse winner keeps a slot");
+}
+
+/// §40: identity diversity, which MMR does not provide.
+///
+/// Two chunks of one file competing with another file. Pure relevance takes
+/// both from file 7; the saturation decay takes one of each. MMR cannot do
+/// this on its own — it never sees `file_id`.
+#[test]
+fn saturation_prefers_a_second_file_over_a_second_chunk() {
+    let scores = vec![1.0, 0.9, 0.85, 0.2];
+    let files = vec![7u32, 7, 9, 9];
+    let plain = crate::rank::mmr_order(&scores, &[], &files, 2, 1.0, 1.0);
+    assert_eq!(plain, vec![0, 1], "without saturation, both picks come from file 7");
+    let sat = crate::rank::mmr_order(&scores, &[], &files, 2, 1.0, 0.5);
+    assert_eq!(sat, vec![0, 2], "with saturation, the second slot goes to file 9");
+}
+
+/// The decay multiplies a min-max-normalized relevance, so the single
+/// lowest-scoring candidate in the pool sits at exactly 0.0 and no decay
+/// applied to its rivals can promote it. Pinned rather than hidden: it is a
+/// real limit of the multiplicative form (semble's shape), and it only ever
+/// affects the very bottom of the pool — the candidate width is k×6, so the
+/// floor is the 30th row at k=5, not a row anyone sees.
+#[test]
+fn saturation_cannot_promote_the_bottom_of_the_normalized_range() {
+    let scores = vec![1.0, 0.9, 0.8];
+    let files = vec![7u32, 7, 9];
+    assert_eq!(
+        crate::rank::mmr_order(&scores, &[], &files, 2, 1.0, 0.5),
+        vec![0, 1],
+        "index 2 normalizes to rel 0.0 and cannot be lifted by decaying index 1"
+    );
+}
+
+/// A decay, not a cap: a file holding the two genuinely best answers still
+/// supplies both when the runner-up elsewhere is far weaker.
+#[test]
+fn saturation_still_yields_two_chunks_when_the_file_earns_it() {
+    let scores = vec![1.0, 0.95, 0.1];
+    let files = vec![7u32, 7, 9];
+    let sat = crate::rank::mmr_order(&scores, &[], &files, 2, 1.0, 0.5);
+    assert_eq!(sat, vec![0, 1]);
+}
+
+/// `file_saturation = 1.0` must be an exact no-op, or the A/B that measures
+/// the rule is not an A/B.
+#[test]
+fn saturation_of_one_changes_nothing() {
+    let scores = vec![1.0, 0.9, 0.8, 0.7];
+    let files = vec![7u32, 7, 9, 7];
+    for lambda in [1.0, 0.75] {
+        assert_eq!(
+            crate::rank::mmr_order(&scores, &[], &files, 3, lambda, 1.0),
+            crate::rank::mmr_order(&scores, &[], &[], 3, lambda, 0.5),
+            "no files and saturation-off must agree"
+        );
+    }
+}
+
+/// A mismatched `files` slice disables the rule rather than indexing out of
+/// bounds — the defensive path a future caller will eventually take.
+#[test]
+fn a_short_files_slice_disables_saturation() {
+    let scores = vec![1.0, 0.9, 0.8];
+    let order = crate::rank::mmr_order(&scores, &[], &[7u32], 2, 1.0, 0.5);
+    assert_eq!(order, vec![0, 1]);
 }

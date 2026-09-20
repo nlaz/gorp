@@ -6024,3 +6024,42 @@ measurable slice of exactly that bucket while both attempts to reach *outside*
 the pool (paths as content, imports as wiring) died on contact with real
 queries. The vocabulary gap still owns the majority of the loss, and the §9.9
 code-teacher table remains the one unexecuted lever aimed at it.
+## 40 Identity diversity: the top-k spends a fifth of its slots re-showing one file (R3, 2026-09-20)
+
+**2026-09-20.** MMR (`rank/mmr.rs`) diversifies on embedding cosine and takes
+`scores` and `vecs` — it never sees which file a chunk came from. Two chunks of
+one file can sit far apart in embedding space, so nothing in the pipeline stops
+the top-k being several views of the same file.
+
+Measured on 191 replayed real agent queries: **3.80 distinct files among the
+top-5 chunks**, i.e. **1.2 slots in every 5 spent on a file already shown**, and
+67 of 191 queries wasting two or more. On the offline Loc-Bench rows the same
+figure is 7.50 distinct files per 10 chunks.
+
+This is what semble's `_FILE_SATURATION_DECAY` addresses and what the
+`--no-diversify` result already hinted at: turning MMR off is worth −0.004,
+which is another way of saying MMR was never doing this job.
+
+**§40.1 Why it lives inside the greedy loop.** "This is the second pick from
+that file" is only true once the first pick has happened, so the decay cannot be
+folded into `scores` beforehand. It is applied inside `mmr_order`'s selection
+loop, weighting a candidate's relevance by `saturation^n` where `n` is how many
+chunks of its file have already been taken. `file_saturation = 1.0` is an exact
+no-op; a `files` slice of the wrong length disables it.
+
+A decay rather than a cap, so a file that genuinely holds the two best answers
+still supplies both — measured in `saturation_still_yields_two_chunks_when_the_file_earns_it`.
+
+**§40.2 A known limit of the multiplicative form.** The decay multiplies a
+min-max-normalized relevance, so the single lowest-scoring candidate in the pool
+sits at exactly 0.0 and no decay applied to its rivals can promote it. That is
+the bottom of a pool `candidate_width(k) = k*6` deep — the 30th row at k=5 — so
+it is a limit, not a defect, and `saturation_cannot_promote_the_bottom_of_the_normalized_range`
+pins it so a later change to the normalization has to confront it deliberately.
+
+**§40.3 Simulated before it was built.** Replaying the 147
+agent queries whose gold sits within the recorded top-10 and re-ranking by
+first-chunk-per-file: blind hit@5 0.812 → 0.871 on that subset, 7 queries
+promoted into the top 5, 24 improving rank at all. Scaled by the 54.7% of blind
+queries whose gold is within 10, that predicts about **+0.032** on full blind
+hit@5 — preregistered as +0.03.
