@@ -1066,3 +1066,70 @@ fn clear_local_sweeps_in_tree_indexes_and_nothing_else() {
     assert!(root.join("decoy/.gorp/notes.txt").is_file(), "the name alone is not evidence");
     assert!(root.join(".git/modules/x/.gorp/meta.json").is_file(), ".git is not entered");
 }
+
+/// A repo-local `.gorp` written by a *different binary* must not cost the
+/// answer.
+///
+/// The cache path evicts anything unreadable, but a repo-local index is an
+/// explicit artifact and its failures deliberately propagate — which meant a
+/// format mismatch failed the query outright: exit 2, empty stdout, the reason
+/// on stderr alone. Agents pipe `2>/dev/null`, so that arrived as silence
+/// indistinguishable from "no matches" (the §16.11 shape). Found by a v2
+/// `.gorp` committed as a test fixture, which made every query scoped at that
+/// directory return nothing.
+///
+/// A format or dims mismatch is not damage: it means the index predates this
+/// build. The corpus is fine and the streaming path reads it. Damage to an
+/// explicit artifact still propagates — only this one case falls through.
+#[test]
+fn a_foreign_format_local_index_streams_instead_of_failing() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("a.py"), "def parse_config():\n    return {}\n").unwrap();
+
+    // A `.gorp` this binary cannot read: valid JSON, impossible version.
+    let idx = dir.path().join(".gorp");
+    std::fs::create_dir_all(&idx).unwrap();
+    std::fs::write(
+        idx.join("meta.json"),
+        r#"{"version":1,"dims":256,"params":{"window":32,"overlap":8,
+            "max_file_bytes":4194304,"budget":null,"function":null},
+            "files":[],"n_chunks":0,"has_hnsw":false,"sif":false,
+            "embed_preproc":"none","path_render":"full"}"#,
+    )
+    .unwrap();
+
+    let opts = gorp_core::search::SearchOptions::default();
+    let res = gorp_core::search::search(dir.path(), "configuration parsing", &opts)
+        .expect("an index from another binary must not fail the query");
+    assert!(
+        res.hits.iter().any(|h| h.path.ends_with("a.py")),
+        "expected the corpus to be answered by streaming past the foreign index"
+    );
+    assert!(
+        res.report.index_not_mine.is_some(),
+        "the fallback must be recorded, or it is invisible to a campaign"
+    );
+    assert!(!res.report.used_index, "it cannot have been answered warm");
+    // The artifact is explicit: not deleted, not rebuilt behind the caller.
+    assert!(idx.join("meta.json").exists(), "a local .gorp must be left alone");
+}
+
+/// Damage to a repo-local index still propagates. The fallback above is
+/// narrow on purpose — widening it to every error would silently hide a
+/// truncated write or a mixed-generation restore, which are worth raising.
+#[test]
+fn a_damaged_local_index_still_errors() {
+    let _cache = isolate_cache();
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("a.py"), "def parse_config():\n    return {}\n").unwrap();
+    let idx = dir.path().join(".gorp");
+    std::fs::create_dir_all(&idx).unwrap();
+    std::fs::write(idx.join("meta.json"), "{ not json at all").unwrap();
+
+    let opts = gorp_core::search::SearchOptions::default();
+    assert!(
+        gorp_core::search::search(dir.path(), "configuration parsing", &opts).is_err(),
+        "a corrupt local index is damage, not a foreign format, and must surface"
+    );
+}

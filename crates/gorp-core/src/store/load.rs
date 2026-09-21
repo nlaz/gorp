@@ -22,6 +22,47 @@ impl LoadNeeds {
     }
 }
 
+/// An index this binary cannot read because a *different* binary wrote it —
+/// not because it is damaged.
+///
+/// A distinct type rather than a message, for the reason [`DriftTooLarge`]
+/// gives: the arm in [`crate::search::search`] that catches this has to be
+/// told apart from the "this entry is unreadable" arm beside it, and matching
+/// on a string would make that distinction a typo away from wrong.
+///
+/// The difference matters because the remedy differs. A truncated write or a
+/// mixed-generation restore is damage, and damage in an artifact the user
+/// created on purpose is worth raising. A format or dims mismatch is neither:
+/// it means the index predates this build. The corpus is fine, the streaming
+/// path answers it correctly, and failing the query instead buys the caller
+/// nothing. Measured before this existed: a v2 `.gorp` committed as a test
+/// fixture made every query scoped at that directory exit 2 with empty stdout
+/// and the reason on stderr alone — which, to an agent piping `2>/dev/null`,
+/// is silence indistinguishable from "no matches".
+#[derive(Debug, Clone, Copy)]
+pub enum IndexNotMine {
+    Format { found: u32, supported: u32 },
+    Dims { found: usize, supported: usize },
+}
+
+impl std::fmt::Display for IndexNotMine {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Format { found, supported } => write!(
+                f,
+                "index format v{found} != supported v{supported}; re-run `gorp index`"
+            ),
+            Self::Dims { found, supported } => write!(
+                f,
+                "index built with {found} dims but this binary embeds {supported}; \
+                 re-run `gorp index`"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for IndexNotMine {}
+
 /// Per-component load timings (ms) — performance provenance for the warm
 /// path, where "loading the index" hides very different costs per component.
 #[derive(Debug, Default, Clone, serde::Serialize)]
@@ -68,17 +109,16 @@ impl LoadedIndex {
         )?;
         t.meta_ms = ms(t0);
         if meta.version != FORMAT_VERSION {
-            bail!(
-                "index format v{} != supported v{FORMAT_VERSION}; re-run `gorp index`",
-                meta.version
-            );
+            return Err(anyhow::Error::new(IndexNotMine::Format {
+                found: meta.version,
+                supported: FORMAT_VERSION,
+            }));
         }
         if meta.dims != EMBED_DIM {
-            bail!(
-                "index built with {} dims but this binary embeds {}; re-run `gorp index`",
-                meta.dims,
-                EMBED_DIM
-            );
+            return Err(anyhow::Error::new(IndexNotMine::Dims {
+                found: meta.dims,
+                supported: EMBED_DIM,
+            }));
         }
         let t0 = std::time::Instant::now();
         let chunks: Vec<Chunk> = postcard::from_bytes(&std::fs::read(dir.join("chunks.bin"))?)?;

@@ -316,6 +316,17 @@ pub struct SearchReport {
     /// silence that looks like a real answer is the §16.11 spiral trigger.
     #[serde(default)]
     pub walk_errors: usize,
+    /// An index was found for this scope and written by a different binary
+    /// (format or dims), so the query was answered by streaming past it. The
+    /// entry is left alone — it is an explicit artifact, not a cache entry —
+    /// and this carries the reason so the CLI can say so. `None` on every
+    /// ordinary query.
+    ///
+    /// Recorded rather than only printed because a run that silently streamed
+    /// where it should have been warm is a performance result, and the trace
+    /// envelope is where a campaign would find it after the fact.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub index_not_mine: Option<String>,
     /// Exact mode's true totals: every match found and every file with one,
     /// even when retention ([`crate::keyword::KeywordOptions::retain`])
     /// dropped hit text past the print cap. The footer reads these, never
@@ -563,6 +574,29 @@ pub fn search(root: &Path, query: &str, opts: &SearchOptions) -> Result<SearchRe
             Err(_) if d.from_cache => {
                 let _ = std::fs::remove_dir_all(&d.index_dir);
                 stream::run(root, query, opts, &prelude)?
+            }
+            // An index written by a *different binary* — not a damaged one.
+            // The entry is explicit, so it is neither deleted nor rebuilt
+            // behind the caller's back, and the reason still reaches stderr.
+            // But it must not cost the answer: the corpus is fine and the
+            // streaming path reads it correctly.
+            //
+            // Narrower than the `from_cache` arm above on purpose. That one
+            // discards anything unreadable, because a cache entry is
+            // disposable. A repo-local `.gorp` is an artifact someone made, so
+            // *damage* to it still propagates — a truncated write or a
+            // mixed-generation restore is worth raising. Only the one failure
+            // that is definitionally not damage falls through here.
+            //
+            // Before this arm existed, a v2 `.gorp` committed as a test fixture
+            // made every query scoped at that directory exit 2 with empty
+            // stdout. Agents pipe `2>/dev/null` (shim.py's own docstring
+            // records it doing so), so the failure arrived as silence that
+            // looks like a real answer — the §16.11 shape, in the engine.
+            Err(e) if e.is::<store::IndexNotMine>() => {
+                let mut r = stream::run(root, query, opts, &prelude)?;
+                r.report.index_not_mine = Some(e.to_string());
+                r
             }
             Err(e) => return Err(e),
         },

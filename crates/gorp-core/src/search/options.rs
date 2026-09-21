@@ -113,6 +113,19 @@ pub struct SearchOptions {
     /// reads, and the same multiplicative form as `decl_boost` — the two terms
     /// compose, and either at 0 is exactly a no-op for its term.
     pub path_boost: f32,
+    ///
+    ///
+    /// Decay applied to the 2nd and later selected chunk of a file already
+    /// represented in the top-k (RESEARCH.md §40). **1.0 disables it exactly**;
+    /// 0.5 is the shipped default.
+    ///
+    /// MMR diversifies on embeddings and never sees which file a chunk came
+    /// from, so it does not stop the top-k being several chunks of one file:
+    /// measured on real agent queries, 3.80 distinct files among the top-5
+    /// chunks, i.e. 1.2 slots in 5 spent on a file already shown. A decay
+    /// rather than a cap, so a file that genuinely holds the two best answers
+    /// can still supply both.
+    pub file_saturation: f32,
     /// Emit [`HitFeatures`] on every hit (RESEARCH.md §35.2). Not a CLI flag —
     /// the CLI sets it from `GORP_DUMP_FEATURES=1`, keeping the flag
     /// surface clean; the only consumer is the checklist training dump.
@@ -356,6 +369,7 @@ impl Default for SearchOptions {
             file_scope_window: 0,
             decl_boost: 0.5,
             path_boost: 0.0,
+            file_saturation: 0.5,
             debug_features: false,
             learned_blend: 0.5,
             passage_lines: 0,

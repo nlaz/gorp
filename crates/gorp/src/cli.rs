@@ -346,6 +346,13 @@ pub struct Tuning {
     #[arg(long, hide = true, default_value_t = SearchOptions::default().path_boost)]
     pub path_boost: f32,
 
+
+
+    /// Decay the 2nd+ selected chunk of a file already in the top-k
+    /// (1 = off, RESEARCH.md §40)
+    #[arg(long, hide = true, default_value_t = SearchOptions::default().file_saturation)]
+    pub file_saturation: f32,
+
     /// Learned checklist's share of the final relevance
     /// (0 = off, experimental RESEARCH.md §35.2)
     #[arg(long, hide = true, default_value_t = SearchOptions::default().learned_blend)]

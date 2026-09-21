@@ -458,6 +458,7 @@ fn options(cli: &Cli, mode: Mode) -> Result<SearchOptions> {
         file_scope_window: t.file_scope_window,
         decl_boost: t.decl_boost,
         path_boost: t.path_boost,
+        file_saturation: t.file_saturation,
         // Env rather than a flag: the only consumer is the §35.2 training
         // dump, which must not widen the CLI surface agents see.
         debug_features: std::env::var("GORP_DUMP_FEATURES").is_ok_and(|v| v == "1"),
